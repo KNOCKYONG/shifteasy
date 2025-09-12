@@ -45,7 +45,24 @@ export default function TeamPage() {
     return roles.map(role => ({ role, count: m.get(role) || 0 }))
   }, [rows])
 
-  const addRow = () => setRows(prev => Array.isArray(prev) ? [...prev, { id: crypto.randomUUID().slice(0,8), name: "", role: "RN" }] : [{ id: crypto.randomUUID().slice(0,8), name: "", role: "RN" }])
+  const addRow = () => setRows(prev => {
+    const newStaff: Staff = {
+      id: crypto.randomUUID().slice(0,8),
+      name: "",
+      role: "RN",
+      maxWeeklyHours: 40,
+      skills: [],
+      technicalSkill: 3,
+      leadership: 3,
+      communication: 3,
+      adaptability: 3,
+      reliability: 3,
+      experienceLevel: "JUNIOR",
+      active: true,
+      wardId: wardId
+    }
+    return Array.isArray(prev) ? [...prev, newStaff] : [newStaff]
+  })
   const removeRow = (id: string) => setRows(prev => Array.isArray(prev) ? prev.filter(r => r.id !== id) : [])
   const updateRow = (id: string, patch: Partial<Row>) => setRows(prev => Array.isArray(prev) ? prev.map(r => r.id === id ? { ...r, ...patch } : r) : [])
 

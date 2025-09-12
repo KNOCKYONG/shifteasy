@@ -18,6 +18,7 @@ const defaultRoles: Role[] = ["RN", "CN", "SN", "NA"]
 function makeDefault(): HospitalConfig {
   return {
     hospital: {
+      id: "hospital-default",
       name: "우리 병원",
       timeZone: "Asia/Seoul",
       shifts: defaultShifts,
@@ -26,10 +27,22 @@ function makeDefault(): HospitalConfig {
     ward: {
       id: "ward-1A",
       name: "1A 병동",
-      minStaffPerShift: { D: 6, E: 5, N: 4, O: 0 },
-      roleMix: {},
-      hardRules: { maxConsecutiveNights: 2, minRestHours: 10, noPatterns: ["D->N", "N->D"], maxWeeklyHours: 40 },
-      softRules: { respectPreferencesWeight: 3, fairWeekendRotationWeight: 2, avoidSplitShiftsWeight: 1 },
+      code: "1A",
+      hardRules: { 
+        maxConsecutiveNights: 2, 
+        minRestHours: 10, 
+        noPatterns: ["D->N", "N->D"], 
+        maxWeeklyHours: 40,
+        minStaffPerShift: { D: 6, E: 5, N: 4, O: 0 },
+        roleMixRequirements: {}
+      },
+      softRules: { 
+        respectPreferencesWeight: 3, 
+        fairWeekendRotationWeight: 2, 
+        avoidSplitShiftsWeight: 1,
+        teamCompatibilityWeight: 2,
+        experienceBalanceWeight: 2
+      },
     },
   }
 }
@@ -232,9 +245,9 @@ export default function ConfigPage() {
               {shiftIds.filter(id => id !== "O").map(id => (
                 <label key={id} className="flex items-center gap-2 border rounded p-2">
                   <span className="w-16 text-sm">{id}</span>
-                  <input type="number" min={0} className="border rounded px-2 py-1 w-24" value={config?.ward?.minStaffPerShift?.[id] ?? 0} onChange={e => {
+                  <input type="number" min={0} className="border rounded px-2 py-1 w-24" value={config?.ward?.hardRules?.minStaffPerShift?.[id] ?? 0} onChange={e => {
                     const v = Math.max(0, Number(e.target.value || 0))
-                    update({ ward: { minStaffPerShift: { ...config?.ward?.minStaffPerShift, [id]: v } } })
+                    update({ ward: { hardRules: { ...config?.ward?.hardRules, minStaffPerShift: { ...config?.ward?.hardRules?.minStaffPerShift, [id]: v } } } })
                   }} />
                 </label>
               ))}

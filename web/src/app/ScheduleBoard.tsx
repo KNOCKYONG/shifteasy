@@ -42,9 +42,9 @@ export default function ScheduleBoard() {
         } else {
           console.warn("Staff API not available, using fallback data")
           setStaff([
-            { id: "staff-3A-001", name: "김수간호사", role: "RN", wardId: "ward-3A", active: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-            { id: "staff-3A-002", name: "이주간호사", role: "RN", wardId: "ward-3A", active: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-            { id: "staff-3A-003", name: "박보간호사", role: "CN", wardId: "ward-3A", active: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+            { id: "staff-3A-001", name: "김수간호사", role: "RN", wardId: "ward-3A", active: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), maxWeeklyHours: 40, skills: [], technicalSkill: 3, leadership: 3, communication: 3, adaptability: 3, reliability: 3, experienceLevel: "SENIOR" as const },
+            { id: "staff-3A-002", name: "이주간호사", role: "RN", wardId: "ward-3A", active: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), maxWeeklyHours: 40, skills: [], technicalSkill: 3, leadership: 3, communication: 3, adaptability: 3, reliability: 3, experienceLevel: "SENIOR" as const },
+            { id: "staff-3A-003", name: "박보간호사", role: "CN", wardId: "ward-3A", active: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), maxWeeklyHours: 40, skills: [], technicalSkill: 4, leadership: 4, communication: 4, adaptability: 4, reliability: 4, experienceLevel: "EXPERT" as const },
           ])
         }
       } catch (error) {

@@ -22,10 +22,10 @@ const ModifyRequestSchema = z.object({
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const requestId = params.id
+    const { id: requestId } = await params
 
     const requestData = requestService.findUnique({ id: requestId })
     
@@ -105,10 +105,10 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const requestId = params.id
+    const { id: requestId } = await params
     const body = await request.json()
 
     // 상태 업데이트인지 내용 수정인지 구분
@@ -270,10 +270,10 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const requestId = params.id
+    const { id: requestId } = await params
 
     // 요청 존재 및 삭제 가능 상태 확인
     const existingRequest = requestService.findUnique({ id: requestId })

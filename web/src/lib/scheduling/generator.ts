@@ -12,21 +12,10 @@ import type {
   SoftConstraints,
   Preference,
   Role,
-  DateRange
+  DateRange,
+  ScheduleGenerationConfig  // types.ts에서 import
 } from '../types'
 import { ConstraintEngine, HardConstraintValidator } from './constraints'
-
-// 스케줄 생성 설정
-export type ScheduleGenerationConfig = {
-  dateRange: DateRange
-  hardConstraints: HardConstraints
-  softConstraints: SoftConstraints
-  staff: Staff[]
-  shifts: { id: string; type: ShiftType; label: string; duration: number }[]
-  preferences: Preference[]
-  maxIterations?: number
-  enableOptimization?: boolean
-}
 
 // 생성 결과
 export type ScheduleGenerationResult = {

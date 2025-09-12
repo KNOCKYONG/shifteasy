@@ -18,6 +18,7 @@ export type Staff = {
   hireDate?: string
   
   // 기본 정보
+  wardId?: string  // 병동 ID 추가
   maxWeeklyHours: number
   skills: string[]
   
@@ -33,6 +34,10 @@ export type Staff = {
   
   active: boolean
   
+  // 타임스탬프
+  createdAt?: string
+  updatedAt?: string
+  
   // 관계형 데이터
   preferences?: Preference[]
   assignments?: Assignment[]
@@ -47,6 +52,9 @@ export type Preference = {
   shiftType?: ShiftType
   score: number // -5 ~ +5 (음수는 기피)
   reason?: string
+  wardId?: string  // 병동 ID 추가
+  createdAt?: string
+  updatedAt?: string
 }
 
 // 요청 관리
@@ -202,5 +210,50 @@ export type WeekViewData = {
   shifts: ShiftType[]
   assignments: Record<CellId, Assignment[]>
   warnings: Record<CellId, string[]>
+}
+
+// Ward 타입 정의 (누락된 타입 추가)
+export type Ward = {
+  id: string
+  name: string
+  code: string
+  active: boolean
+  hardRules: HardConstraints | any
+  softRules: SoftConstraints | any
+  createdAt: string
+  updatedAt: string
+}
+
+// Shift 타입 정의 (누락된 타입 추가)
+export type Shift = {
+  id: string
+  type: ShiftType
+  label: string
+  startTime?: string
+  endTime?: string
+  duration: number
+  active: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+// 스케줄 생성 설정 타입 (generator.ts에서 이동)
+export type ScheduleGenerationConfig = {
+  dateRange: {
+    startDate: string
+    endDate: string
+  }
+  hardConstraints: HardConstraints
+  softConstraints: SoftConstraints
+  staff: Staff[]
+  shifts: {
+    id: string
+    type: ShiftType
+    label: string
+    duration: number
+  }[]
+  preferences: Preference[]
+  maxIterations?: number
+  enableOptimization?: boolean
 }
 

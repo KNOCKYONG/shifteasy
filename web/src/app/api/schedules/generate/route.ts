@@ -149,8 +149,8 @@ export async function POST(request: NextRequest) {
     const scheduleData = {
       wardId,
       name: name || `${ward.name} 스케줄 ${new Date().toLocaleDateString('ko-KR')}`,
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
+      startDate: startDate,  // string으로 유지
+      endDate: endDate,      // string으로 유지
       status: 'DRAFT' as const,
       version: 'draft',
       rulesSnapshot: {
@@ -162,6 +162,7 @@ export async function POST(request: NextRequest) {
           enableOptimization: config.enableOptimization
         }
       },
+      assignments: [],  // 초기 빈 배열, 나중에 추가됨
       createdBy: 'system' // TODO: 실제 사용자 ID로 교체
     }
 
@@ -172,7 +173,7 @@ export async function POST(request: NextRequest) {
       scheduleId: schedule.id,
       staffId: a.staffId,
       shiftId: a.shiftId,
-      date: new Date(a.date),
+      date: a.date,  // string으로 유지 (타입 정의와 일치)
       isOvertime: a.isOvertime || false,
       isReplacement: a.isReplacement || false,
       confidence: a.confidence

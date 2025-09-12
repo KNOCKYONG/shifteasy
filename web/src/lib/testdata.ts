@@ -1,4 +1,18 @@
-import type { HospitalConfig, ShiftType, Staff, Request, Preference, HardConstraints, SoftConstraints } from "./types"
+import type { 
+  HospitalConfig, 
+  ShiftType, 
+  Staff, 
+  Request, 
+  Preference, 
+  HardConstraints, 
+  SoftConstraints,
+  Ward,
+  Shift,
+  Schedule,
+  RequestType,
+  RequestStatus,
+  RequestPriority
+} from "./types"
 
 export const shifts: ShiftType[] = ["D", "E", "N", "O"]
 
