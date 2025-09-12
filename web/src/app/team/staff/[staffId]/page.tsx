@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useState, useEffect, useCallback } from 'react'
 import type { ShiftType } from '@/lib/types'
+import { ChartIcon, RefreshIcon, ClockIcon, CalendarIcon, TargetIcon, LightIcon, NoteIcon, SunIcon, MoonIcon, SunsetIcon } from '@/components/Icons'
 
 const shiftTypes: { id: ShiftType; label: string; description: string; color: string }[] = [
   { id: "D", label: "Day", description: "07:00-15:00", color: "bg-yellow-100 text-yellow-800" },
@@ -22,7 +23,7 @@ const scoreOptions = [
 // 근무 패턴 선호도 타입
 type WorkPatternPreference = {
   consecutiveWorkDays: '2-3' | '4-5' | 'no-preference'
-  offDayPattern: 'consecutive' | 'distributed' | 'no-preference'
+  shiftTimePreference: 'day' | 'evening' | 'night' | 'no-preference'
 }
 
 export default function StaffPreferencePage() {
@@ -39,7 +40,7 @@ export default function StaffPreferencePage() {
   // 근무 패턴 선호도 상태
   const [workPattern, setWorkPattern] = useState<WorkPatternPreference>({
     consecutiveWorkDays: 'no-preference',
-    offDayPattern: 'no-preference'
+    shiftTimePreference: 'no-preference'
   })
   
   // 개별 날짜 편집 모드
@@ -113,7 +114,7 @@ export default function StaffPreferencePage() {
         localStorage.setItem(`staff-preferences-${staffId}`, JSON.stringify(preferencesArray))
         localStorage.setItem(`staff-work-pattern-${staffId}`, JSON.stringify(workPattern))
         
-        alert(`✅ ${staffName}님의 선호도 설정이 저장되었습니다!\n저장된 설정: ${result.count}개`)
+        alert(`${staffName}님의 선호도 설정이 저장되었습니다!\n저장된 설정: ${result.count}개`)
       } else {
         const error = await response.json()
         console.error('API Error:', error)
@@ -126,7 +127,7 @@ export default function StaffPreferencePage() {
           userMessage = '입력된 정보에 오류가 있습니다. 모든 필드를 올바르게 입력했는지 확인해주세요.'
         }
         
-        alert(`❌ ${userMessage}\n\n임시로 로컬에 저장하시겠습니까?`)
+        alert(`${userMessage}\n\n임시로 로컬에 저장하시겠습니까?`)
         
         // 로컬 저장 제안
         if (confirm('로컬에 임시 저장하시겠습니까? (나중에 다시 저장을 시도할 수 있습니다)')) {
@@ -147,7 +148,7 @@ export default function StaffPreferencePage() {
         userMessage = `오류가 발생했습니다: ${error.message}`
       }
       
-      alert(`❌ ${userMessage}\n\n로컬에 임시 저장하시겠습니까?`)
+      alert(`${userMessage}\n\n로컬에 임시 저장하시겠습니까?`)
       
       // 로컬 저장 백업 제안
       if (confirm('데이터 손실을 방지하기 위해 로컬에 임시 저장하시겠습니까?')) {
@@ -161,10 +162,10 @@ export default function StaffPreferencePage() {
           }))
           localStorage.setItem(`staff-preferences-${staffId}`, JSON.stringify(preferencesArray))
           localStorage.setItem(`staff-work-pattern-${staffId}`, JSON.stringify(workPattern))
-          alert('✅ 로컬에 임시 저장되었습니다. 나중에 다시 저장을 시도해주세요.')
+          alert('로컬에 임시 저장되었습니다. 나중에 다시 저장을 시도해주세요.')
         } catch (localError) {
           console.error('Local save failed:', localError)
-          alert('❌ 로컬 저장도 실패했습니다. 브라우저 저장 공간을 확인해주세요.')
+          alert('로컬 저장도 실패했습니다. 브라우저 저장 공간을 확인해주세요.')
         }
       }
     } finally {
@@ -270,7 +271,10 @@ export default function StaffPreferencePage() {
 
         {/* 향상된 선호도 점수 가이드 */}
         <section className="bg-blue-50 rounded-lg p-4">
-          <h3 className="font-medium text-blue-900 mb-3">📊 선호도 점수 가이드 & 스케줄링 반영 방식</h3>
+          <h3 className="font-medium text-blue-900 mb-3 flex items-center gap-2">
+            <ChartIcon />
+            <span>선호도 점수 가이드 & 스케줄링 반영 방식</span>
+          </h3>
           <div className="space-y-3">
             <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
               {scoreOptions.map(option => (
@@ -282,7 +286,10 @@ export default function StaffPreferencePage() {
             </div>
             
             <div className="bg-white/70 rounded p-3 text-sm text-blue-900">
-              <h4 className="font-semibold mb-2">🎯 스케줄링 시스템 반영 방식:</h4>
+              <h4 className="font-semibold mb-2 flex items-center gap-2">
+                <TargetIcon />
+                <span>스케줄링 시스템 반영 방식:</span>
+              </h4>
               <ul className="space-y-1">
                 <li>• <strong>5점 (매우 선호)</strong>: 최우선 배치, 다른 제약이 없는 한 반드시 배정</li>
                 <li>• <strong>4점 (선호)</strong>: 우선 고려, 가능한 한 배정 (약 80% 반영률)</li>
@@ -291,7 +298,11 @@ export default function StaffPreferencePage() {
                 <li>• <strong>1점 (매우 비선호)</strong>: 극히 예외적인 경우만 배정</li>
               </ul>
               <div className="mt-2 p-2 bg-yellow-50 rounded text-yellow-900">
-                <strong>💡 팁:</strong> 사유를 입력하면 자동으로 5점(매우 선호)으로 설정되며, 
+                <strong className="flex items-center gap-2">
+                  <LightIcon />
+                  <span>팁:</span>
+                </strong>
+                사유를 입력하면 자동으로 5점(매우 선호)으로 설정되며, 
                 수간호사가 스케줄 조정 시 참고할 수 있습니다.
               </div>
             </div>
@@ -300,7 +311,10 @@ export default function StaffPreferencePage() {
 
         {/* 근무 패턴 선호도 설정 섹션 */}
         <section className="bg-white border rounded-lg p-4">
-          <h3 className="font-medium mb-4">🔄 근무 패턴 선호도 설정</h3>
+          <h3 className="font-medium mb-4 flex items-center gap-2">
+            <RefreshIcon />
+            <span>근무 패턴 선호도 설정</span>
+          </h3>
           <div className="grid md:grid-cols-2 gap-4">
             {/* 연속 근무 선호도 */}
             <div className="space-y-2">
@@ -312,7 +326,7 @@ export default function StaffPreferencePage() {
                     name="consecutiveWork"
                     value="2-3"
                     checked={workPattern.consecutiveWorkDays === '2-3'}
-                    onChange={(e) => setWorkPattern(prev => ({ ...prev, consecutiveWorkDays: '2-3' }))}
+                    onChange={() => setWorkPattern(prev => ({ ...prev, consecutiveWorkDays: '2-3' }))}
                     className="text-blue-600"
                   />
                   <span className="text-sm">2-3일 연속 근무 선호</span>
@@ -324,7 +338,7 @@ export default function StaffPreferencePage() {
                     name="consecutiveWork"
                     value="4-5"
                     checked={workPattern.consecutiveWorkDays === '4-5'}
-                    onChange={(e) => setWorkPattern(prev => ({ ...prev, consecutiveWorkDays: '4-5' }))}
+                    onChange={() => setWorkPattern(prev => ({ ...prev, consecutiveWorkDays: '4-5' }))}
                     className="text-blue-600"
                   />
                   <span className="text-sm">4-5일 연속 근무 선호</span>
@@ -336,7 +350,7 @@ export default function StaffPreferencePage() {
                     name="consecutiveWork"
                     value="no-preference"
                     checked={workPattern.consecutiveWorkDays === 'no-preference'}
-                    onChange={(e) => setWorkPattern(prev => ({ ...prev, consecutiveWorkDays: 'no-preference' }))}
+                    onChange={() => setWorkPattern(prev => ({ ...prev, consecutiveWorkDays: 'no-preference' }))}
                     className="text-blue-600"
                   />
                   <span className="text-sm">상관없음</span>
@@ -344,41 +358,56 @@ export default function StaffPreferencePage() {
               </div>
             </div>
 
-            {/* 휴무 패턴 선호도 */}
+            {/* 근무 시간대 선호도 */}
             <div className="space-y-2">
-              <h4 className="text-sm font-medium text-gray-700">휴무 패턴 선호</h4>
+              <h4 className="text-sm font-medium text-gray-700">근무 시간대 선호</h4>
               <div className="space-y-2">
                 <label className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
                   <input
                     type="radio"
-                    name="offPattern"
-                    value="consecutive"
-                    checked={workPattern.offDayPattern === 'consecutive'}
-                    onChange={(e) => setWorkPattern(prev => ({ ...prev, offDayPattern: 'consecutive' }))}
+                    name="shiftTime"
+                    value="day"
+                    checked={workPattern.shiftTimePreference === 'day'}
+                    onChange={() => setWorkPattern(prev => ({ ...prev, shiftTimePreference: 'day' }))}
                     className="text-blue-600"
                   />
-                  <span className="text-sm">연속 휴무 선호</span>
-                  <span className="text-xs text-gray-500">(2-3일 연속 휴식)</span>
+                  <SunIcon />
+                  <span className="text-sm">Day 근무 선호</span>
+                  <span className="text-xs text-gray-500">(07:00-15:00)</span>
                 </label>
                 <label className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
                   <input
                     type="radio"
-                    name="offPattern"
-                    value="distributed"
-                    checked={workPattern.offDayPattern === 'distributed'}
-                    onChange={(e) => setWorkPattern(prev => ({ ...prev, offDayPattern: 'distributed' }))}
+                    name="shiftTime"
+                    value="evening"
+                    checked={workPattern.shiftTimePreference === 'evening'}
+                    onChange={() => setWorkPattern(prev => ({ ...prev, shiftTimePreference: 'evening' }))}
                     className="text-blue-600"
                   />
-                  <span className="text-sm">분산 휴무 선호</span>
-                  <span className="text-xs text-gray-500">(주기적으로 휴식)</span>
+                  <SunsetIcon />
+                  <span className="text-sm">Evening 근무 선호</span>
+                  <span className="text-xs text-gray-500">(15:00-23:00)</span>
                 </label>
                 <label className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
                   <input
                     type="radio"
-                    name="offPattern"
+                    name="shiftTime"
+                    value="night"
+                    checked={workPattern.shiftTimePreference === 'night'}
+                    onChange={() => setWorkPattern(prev => ({ ...prev, shiftTimePreference: 'night' }))}
+                    className="text-blue-600"
+                  />
+                  <MoonIcon />
+                  <span className="text-sm">Night 근무 선호</span>
+                  <span className="text-xs text-gray-500">(23:00-07:00)</span>
+                </label>
+                <label className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="shiftTime"
                     value="no-preference"
-                    checked={workPattern.offDayPattern === 'no-preference'}
-                    onChange={(e) => setWorkPattern(prev => ({ ...prev, offDayPattern: 'no-preference' }))}
+                    checked={workPattern.shiftTimePreference === 'no-preference'}
+                    onChange={() => setWorkPattern(prev => ({ ...prev, shiftTimePreference: 'no-preference' }))}
                     className="text-blue-600"
                   />
                   <span className="text-sm">상관없음</span>
@@ -390,7 +419,10 @@ export default function StaffPreferencePage() {
 
         {/* 근무 시간대 정보 */}
         <section className="bg-white border rounded-lg p-4">
-          <h3 className="font-medium mb-3">⏰ 근무 시간대</h3>
+          <h3 className="font-medium mb-3 flex items-center gap-2">
+            <ClockIcon />
+            <span>근무 시간대</span>
+          </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {shiftTypes.map(shift => (
               <div key={shift.id} className={`p-3 rounded-lg ${shift.color}`}>
@@ -403,7 +435,10 @@ export default function StaffPreferencePage() {
 
         {/* 날짜별 선호도 설정 */}
         <section className="bg-white border rounded-lg p-4">
-          <h3 className="font-medium mb-4">📅 날짜별 선호도 설정</h3>
+          <h3 className="font-medium mb-4 flex items-center gap-2">
+            <CalendarIcon />
+            <span>날짜별 선호도 설정</span>
+          </h3>
           
           {/* 빠른 설정 */}
           <div className="mb-4 p-3 bg-gray-50 rounded-lg">
@@ -520,8 +555,9 @@ export default function StaffPreferencePage() {
                         )}
                         
                         {pref.reason && !isEditing && (
-                          <div className="text-xs text-gray-600 bg-white p-1 rounded">
-                            📝 {pref.reason}
+                          <div className="text-xs text-gray-600 bg-white p-1 rounded flex items-center gap-1">
+                            <NoteIcon />
+                            <span>{pref.reason}</span>
                           </div>
                         )}
                       </div>
@@ -564,7 +600,7 @@ export default function StaffPreferencePage() {
                           <div className={`w-2 h-2 rounded-full ${getScoreOption(pref.score).color}`}></div>
                           <span>{pref.score}점</span>
                         </div>
-                        {pref.reason && <span className="text-xs text-gray-500">📝 {pref.reason}</span>}
+                        {pref.reason && <span className="text-xs text-gray-500 flex items-center gap-1"><NoteIcon /> {pref.reason}</span>}
                       </div>
                       <button
                         onClick={() => removePreference(date)}
