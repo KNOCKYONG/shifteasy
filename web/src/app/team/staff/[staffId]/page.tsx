@@ -19,6 +19,12 @@ const scoreOptions = [
   { value: 1, label: "매우 비선호", color: "bg-red-500", description: "이 시간대를 가능한 피하고 싶습니다" },
 ]
 
+// 근무 패턴 선호도 타입
+type WorkPatternPreference = {
+  consecutiveWorkDays: '2-3' | '4-5' | 'no-preference'
+  offDayPattern: 'consecutive' | 'distributed' | 'no-preference'
+}
+
 export default function StaffPreferencePage() {
   const params = useParams()
   const searchParams = useSearchParams()
@@ -29,6 +35,17 @@ export default function StaffPreferencePage() {
   const [preferences, setPreferences] = useState<Record<string, { shiftType: ShiftType; score: number; reason?: string }>>({})
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
   const [loading, setLoading] = useState(false)
+  
+  // 근무 패턴 선호도 상태
+  const [workPattern, setWorkPattern] = useState<WorkPatternPreference>({
+    consecutiveWorkDays: 'no-preference',
+    offDayPattern: 'no-preference'
+  })
+  
+  // 개별 날짜 편집 모드
+  const [editingDate, setEditingDate] = useState<string | null>(null)
+  const [editingScore, setEditingScore] = useState(3)
+  const [editingReason, setEditingReason] = useState('')
 
   // Generate next 30 days
   const next30Days = Array.from({ length: 30 }, (_, i) => {
@@ -38,9 +55,12 @@ export default function StaffPreferencePage() {
   })
 
   const updatePreference = (date: string, shiftType: ShiftType, score: number, reason?: string) => {
+    // 사유가 입력되면 자동으로 5점 설정
+    const finalScore = reason && reason.trim() ? 5 : score
+    
     setPreferences(prev => ({
       ...prev,
-      [date]: { shiftType, score, reason }
+      [date]: { shiftType, score: finalScore, reason }
     }))
   }
 
@@ -50,6 +70,11 @@ export default function StaffPreferencePage() {
       delete newPrefs[date]
       return newPrefs
     })
+    if (editingDate === date) {
+      setEditingDate(null)
+      setEditingScore(3)
+      setEditingReason('')
+    }
   }
 
   const getScoreOption = (score: number) => {
@@ -75,7 +100,8 @@ export default function StaffPreferencePage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          preferences: preferencesArray
+          preferences: preferencesArray,
+          workPattern // 근무 패턴 선호도도 함께 저장
         })
       })
 
@@ -85,6 +111,7 @@ export default function StaffPreferencePage() {
         
         // Also save to localStorage as backup
         localStorage.setItem(`staff-preferences-${staffId}`, JSON.stringify(preferencesArray))
+        localStorage.setItem(`staff-work-pattern-${staffId}`, JSON.stringify(workPattern))
         
         alert(`✅ ${staffName}님의 선호도 설정이 저장되었습니다!\n저장된 설정: ${result.count}개`)
       } else {
@@ -104,6 +131,7 @@ export default function StaffPreferencePage() {
         // 로컬 저장 제안
         if (confirm('로컬에 임시 저장하시겠습니까? (나중에 다시 저장을 시도할 수 있습니다)')) {
           localStorage.setItem(`staff-preferences-${staffId}`, JSON.stringify(preferencesArray))
+          localStorage.setItem(`staff-work-pattern-${staffId}`, JSON.stringify(workPattern))
           alert('로컬에 임시 저장되었습니다.')
         }
       }
@@ -132,6 +160,7 @@ export default function StaffPreferencePage() {
             reason: pref.reason || null
           }))
           localStorage.setItem(`staff-preferences-${staffId}`, JSON.stringify(preferencesArray))
+          localStorage.setItem(`staff-work-pattern-${staffId}`, JSON.stringify(workPattern))
           alert('✅ 로컬에 임시 저장되었습니다. 나중에 다시 저장을 시도해주세요.')
         } catch (localError) {
           console.error('Local save failed:', localError)
@@ -178,16 +207,14 @@ export default function StaffPreferencePage() {
         })
         setPreferences(prefsObj)
       }
+      
+      // Load work pattern preferences
+      const savedPattern = localStorage.getItem(`staff-work-pattern-${staffId}`)
+      if (savedPattern) {
+        setWorkPattern(JSON.parse(savedPattern))
+      }
     } catch (error) {
       console.error('Failed to load preferences:', error)
-      
-      // 사용자에게 친절한 알림
-      const isNetworkError = error instanceof TypeError && error.message.includes('fetch')
-      if (isNetworkError) {
-        console.log('네트워크 오류 - 로컬 저장소에서 불러오는 중...')
-      } else {
-        console.log('서버 오류 - 로컬 저장소에서 불러오는 중...')
-      }
       
       // Try localStorage fallback on error
       try {
@@ -203,17 +230,14 @@ export default function StaffPreferencePage() {
             }
           })
           setPreferences(prefsObj)
-          
-          // 로컬 데이터를 불러왔다는 알림
-          if (Object.keys(prefsObj).length > 0) {
-            alert(`ℹ️ 서버 연결 문제로 로컬에 저장된 선호도 설정을 불러왔습니다.\n(${Object.keys(prefsObj).length}개 설정)\n\n인터넷 연결을 확인한 후 저장 버튼을 눌러 서버에 동기화해주세요.`)
-          }
-        } else if (isNetworkError) {
-          alert('⚠️ 서버에 연결할 수 없습니다.\n인터넷 연결을 확인해주세요.')
+        }
+        
+        const savedPattern = localStorage.getItem(`staff-work-pattern-${staffId}`)
+        if (savedPattern) {
+          setWorkPattern(JSON.parse(savedPattern))
         }
       } catch (localError) {
         console.error('Failed to load from localStorage:', localError)
-        alert('❌ 선호도 설정을 불러올 수 없습니다.\n로컬 저장 데이터에도 문제가 있습니다.')
       }
     }
   }, [staffId])
@@ -244,22 +268,129 @@ export default function StaffPreferencePage() {
           </div>
         </div>
 
-        {/* 선호도 설정 가이드 */}
+        {/* 향상된 선호도 점수 가이드 */}
         <section className="bg-blue-50 rounded-lg p-4">
-          <h3 className="font-medium text-blue-900 mb-3">선호도 점수 가이드</h3>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-            {scoreOptions.map(option => (
-              <div key={option.value} className="flex items-center gap-2">
-                <div className={`w-3 h-3 rounded-full ${option.color}`}></div>
-                <span className="text-sm text-blue-800">{option.value}점: {option.label}</span>
+          <h3 className="font-medium text-blue-900 mb-3">📊 선호도 점수 가이드 & 스케줄링 반영 방식</h3>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+              {scoreOptions.map(option => (
+                <div key={option.value} className="flex items-center gap-2">
+                  <div className={`w-3 h-3 rounded-full ${option.color}`}></div>
+                  <span className="text-sm text-blue-800">{option.value}점: {option.label}</span>
+                </div>
+              ))}
+            </div>
+            
+            <div className="bg-white/70 rounded p-3 text-sm text-blue-900">
+              <h4 className="font-semibold mb-2">🎯 스케줄링 시스템 반영 방식:</h4>
+              <ul className="space-y-1">
+                <li>• <strong>5점 (매우 선호)</strong>: 최우선 배치, 다른 제약이 없는 한 반드시 배정</li>
+                <li>• <strong>4점 (선호)</strong>: 우선 고려, 가능한 한 배정 (약 80% 반영률)</li>
+                <li>• <strong>3점 (보통)</strong>: 중립적 처리, 다른 직원과 균형 조정</li>
+                <li>• <strong>2점 (비선호)</strong>: 가능한 한 회피 (약 20% 이하 배정)</li>
+                <li>• <strong>1점 (매우 비선호)</strong>: 극히 예외적인 경우만 배정</li>
+              </ul>
+              <div className="mt-2 p-2 bg-yellow-50 rounded text-yellow-900">
+                <strong>💡 팁:</strong> 사유를 입력하면 자동으로 5점(매우 선호)으로 설정되며, 
+                수간호사가 스케줄 조정 시 참고할 수 있습니다.
               </div>
-            ))}
+            </div>
+          </div>
+        </section>
+
+        {/* 근무 패턴 선호도 설정 섹션 */}
+        <section className="bg-white border rounded-lg p-4">
+          <h3 className="font-medium mb-4">🔄 근무 패턴 선호도 설정</h3>
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* 연속 근무 선호도 */}
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium text-gray-700">연속 근무 일수 선호</h4>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="consecutiveWork"
+                    value="2-3"
+                    checked={workPattern.consecutiveWorkDays === '2-3'}
+                    onChange={(e) => setWorkPattern(prev => ({ ...prev, consecutiveWorkDays: '2-3' }))}
+                    className="text-blue-600"
+                  />
+                  <span className="text-sm">2-3일 연속 근무 선호</span>
+                  <span className="text-xs text-gray-500">(짧은 주기로 휴식)</span>
+                </label>
+                <label className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="consecutiveWork"
+                    value="4-5"
+                    checked={workPattern.consecutiveWorkDays === '4-5'}
+                    onChange={(e) => setWorkPattern(prev => ({ ...prev, consecutiveWorkDays: '4-5' }))}
+                    className="text-blue-600"
+                  />
+                  <span className="text-sm">4-5일 연속 근무 선호</span>
+                  <span className="text-xs text-gray-500">(긴 연속 휴무 가능)</span>
+                </label>
+                <label className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="consecutiveWork"
+                    value="no-preference"
+                    checked={workPattern.consecutiveWorkDays === 'no-preference'}
+                    onChange={(e) => setWorkPattern(prev => ({ ...prev, consecutiveWorkDays: 'no-preference' }))}
+                    className="text-blue-600"
+                  />
+                  <span className="text-sm">상관없음</span>
+                </label>
+              </div>
+            </div>
+
+            {/* 휴무 패턴 선호도 */}
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium text-gray-700">휴무 패턴 선호</h4>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="offPattern"
+                    value="consecutive"
+                    checked={workPattern.offDayPattern === 'consecutive'}
+                    onChange={(e) => setWorkPattern(prev => ({ ...prev, offDayPattern: 'consecutive' }))}
+                    className="text-blue-600"
+                  />
+                  <span className="text-sm">연속 휴무 선호</span>
+                  <span className="text-xs text-gray-500">(2-3일 연속 휴식)</span>
+                </label>
+                <label className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="offPattern"
+                    value="distributed"
+                    checked={workPattern.offDayPattern === 'distributed'}
+                    onChange={(e) => setWorkPattern(prev => ({ ...prev, offDayPattern: 'distributed' }))}
+                    className="text-blue-600"
+                  />
+                  <span className="text-sm">분산 휴무 선호</span>
+                  <span className="text-xs text-gray-500">(주기적으로 휴식)</span>
+                </label>
+                <label className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="offPattern"
+                    value="no-preference"
+                    checked={workPattern.offDayPattern === 'no-preference'}
+                    onChange={(e) => setWorkPattern(prev => ({ ...prev, offDayPattern: 'no-preference' }))}
+                    className="text-blue-600"
+                  />
+                  <span className="text-sm">상관없음</span>
+                </label>
+              </div>
+            </div>
           </div>
         </section>
 
         {/* 근무 시간대 정보 */}
         <section className="bg-white border rounded-lg p-4">
-          <h3 className="font-medium mb-3">근무 시간대</h3>
+          <h3 className="font-medium mb-3">⏰ 근무 시간대</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {shiftTypes.map(shift => (
               <div key={shift.id} className={`p-3 rounded-lg ${shift.color}`}>
@@ -272,7 +403,7 @@ export default function StaffPreferencePage() {
 
         {/* 날짜별 선호도 설정 */}
         <section className="bg-white border rounded-lg p-4">
-          <h3 className="font-medium mb-4">날짜별 선호도 설정</h3>
+          <h3 className="font-medium mb-4">📅 날짜별 선호도 설정</h3>
           
           {/* 빠른 설정 */}
           <div className="mb-4 p-3 bg-gray-50 rounded-lg">
@@ -293,7 +424,10 @@ export default function StaffPreferencePage() {
               {shiftTypes.map(shift => (
                 <button
                   key={shift.id}
-                  onClick={() => updatePreference(selectedDate, shift.id, 3)}
+                  onClick={() => {
+                    setEditingDate(selectedDate)
+                    updatePreference(selectedDate, shift.id, 3)
+                  }}
                   className={`px-2 py-1 rounded text-xs ${shift.color}`}
                 >
                   {shift.label}
@@ -309,6 +443,7 @@ export default function StaffPreferencePage() {
                 const pref = preferences[date]
                 const dateObj = new Date(date)
                 const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6
+                const isEditing = editingDate === date
                 
                 return (
                   <div key={date} className={`border rounded-lg p-3 ${isWeekend ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'}`}>
@@ -337,9 +472,57 @@ export default function StaffPreferencePage() {
                           </span>
                           <div className={`w-3 h-3 rounded-full ${getScoreOption(pref.score).color}`}></div>
                           <span className="text-xs">{pref.score}점</span>
+                          <button
+                            onClick={() => {
+                              setEditingDate(date)
+                              setEditingScore(pref.score)
+                              setEditingReason(pref.reason || '')
+                            }}
+                            className="text-xs text-blue-600 hover:text-blue-800"
+                          >
+                            편집
+                          </button>
                         </div>
-                        {pref.reason && (
-                          <div className="text-xs text-gray-600 bg-white p-1 rounded">{pref.reason}</div>
+                        
+                        {/* 편집 모드 */}
+                        {isEditing && (
+                          <div className="space-y-2 p-2 bg-white rounded border">
+                            <div className="flex gap-1">
+                              {scoreOptions.map(opt => (
+                                <button
+                                  key={opt.value}
+                                  onClick={() => {
+                                    setEditingScore(opt.value)
+                                    updatePreference(date, pref.shiftType, opt.value, editingReason)
+                                  }}
+                                  className={`w-6 h-6 rounded-full ${opt.color} ${editingScore === opt.value ? 'ring-2 ring-offset-1 ring-blue-500' : ''}`}
+                                  title={`${opt.value}점: ${opt.label}`}
+                                />
+                              ))}
+                            </div>
+                            <input
+                              type="text"
+                              placeholder="사유 입력 (입력 시 자동 5점)"
+                              value={editingReason}
+                              onChange={(e) => {
+                                setEditingReason(e.target.value)
+                                updatePreference(date, pref.shiftType, editingScore, e.target.value)
+                              }}
+                              className="w-full text-xs border rounded px-2 py-1"
+                            />
+                            <button
+                              onClick={() => setEditingDate(null)}
+                              className="text-xs text-gray-500 hover:text-gray-700"
+                            >
+                              완료
+                            </button>
+                          </div>
+                        )}
+                        
+                        {pref.reason && !isEditing && (
+                          <div className="text-xs text-gray-600 bg-white p-1 rounded">
+                            📝 {pref.reason}
+                          </div>
                         )}
                       </div>
                     ) : (
@@ -349,6 +532,7 @@ export default function StaffPreferencePage() {
                           onChange={(e) => {
                             if (e.target.value) {
                               updatePreference(date, e.target.value as ShiftType, 3)
+                              setEditingDate(date)
                             }
                           }}
                           value=""
@@ -380,6 +564,7 @@ export default function StaffPreferencePage() {
                           <div className={`w-2 h-2 rounded-full ${getScoreOption(pref.score).color}`}></div>
                           <span>{pref.score}점</span>
                         </div>
+                        {pref.reason && <span className="text-xs text-gray-500">📝 {pref.reason}</span>}
                       </div>
                       <button
                         onClick={() => removePreference(date)}
