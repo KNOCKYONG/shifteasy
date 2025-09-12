@@ -112,7 +112,7 @@ export async function PATCH(
     const body = await request.json()
 
     // 상태 업데이트인지 내용 수정인지 구분
-    let updateData: any = {}
+    let updateData: Record<string, unknown> = {}
     let isStatusUpdate = false
 
     if ('status' in body) {
@@ -137,7 +137,7 @@ export async function PATCH(
       
       updateData = {
         ...Object.fromEntries(
-          Object.entries(data).filter(([_, value]) => value !== undefined)
+          Object.entries(data).filter(([, value]) => value !== undefined)
         ),
         updatedAt: new Date()
       }

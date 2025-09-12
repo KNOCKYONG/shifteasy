@@ -536,14 +536,14 @@ export const testRequests: Request[] = [
     priority: "MEDIUM" as RequestPriority,
     startDate: "2025-01-15",
     endDate: "2025-01-17",
-    shiftType: null,
+    shiftType: undefined,
     reason: "가족 여행",
     description: "3일간 연차 신청합니다.",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    approvedBy: null,
-    approvedAt: null,
-    rejectedReason: null
+    approvedBy: undefined,
+    approvedAt: undefined,
+    rejectedReason: undefined
   },
   {
     id: "req-2",
@@ -553,15 +553,15 @@ export const testRequests: Request[] = [
     status: "PENDING" as RequestStatus,
     priority: "LOW" as RequestPriority,
     startDate: "2025-01-20",
-    endDate: null,
+    endDate: undefined,
     shiftType: "D" as ShiftType,
     reason: "개인 사정",
     description: "20일 데이 근무 선호합니다.",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    approvedBy: null,
-    approvedAt: null,
-    rejectedReason: null
+    approvedBy: undefined,
+    approvedAt: undefined,
+    rejectedReason: undefined
   }
 ]
 
@@ -605,9 +605,9 @@ export const testShifts: Shift[] = [
     id: "shift-O",
     type: "O" as ShiftType,
     label: "Off",
-    startTime: null,
-    endTime: null,
-    duration: null,
+    startTime: undefined,
+    endTime: undefined,
+    duration: 0,
     active: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()

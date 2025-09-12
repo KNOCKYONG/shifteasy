@@ -3,7 +3,7 @@
  * 하드 제약조건과 소프트 제약조건을 검증하는 시스템
  */
 
-import { format, parseISO, addDays, differenceInHours, isSameDay, getDay, isWeekend } from 'date-fns'
+import { format, parseISO, addDays, isSameDay, getDay } from 'date-fns'
 import type { 
   Staff, 
   ShiftType, 
@@ -120,7 +120,7 @@ export class HardConstraintValidator {
 
       Object.entries(requirements).forEach(([role, required]) => {
         const current = roleCount[role as Role] || 0
-        const requiredNum = typeof required === 'number' ? required : parseInt(required?.toString() || '0')
+        const requiredNum = typeof required === 'number' ? required : 0
         
         if (current < requiredNum) {
           violations.push({
@@ -413,31 +413,31 @@ export class SoftConstraintEvaluator {
     }
   }
 
-  private evaluatePreferences(assignments: Assignment[], violations: ConstraintViolation[]): number {
+  private evaluatePreferences(_assignments: Assignment[], _violations: ConstraintViolation[]): number {
     // 개인 선호도 반영 로직 구현
     // 임시로 80점 반환
     return 80
   }
 
-  private evaluateWeekendFairness(assignments: Assignment[], violations: ConstraintViolation[]): number {
+  private evaluateWeekendFairness(_assignments: Assignment[], _violations: ConstraintViolation[]): number {
     // 주말 근무 공정성 로직 구현  
     // 임시로 75점 반환
     return 75
   }
 
-  private evaluateAvoidSplitShifts(assignments: Assignment[], violations: ConstraintViolation[]): number {
+  private evaluateAvoidSplitShifts(_assignments: Assignment[], _violations: ConstraintViolation[]): number {
     // 분할 근무 기피 로직 구현
     // 임시로 85점 반환
     return 85
   }
 
-  private evaluateTeamCompatibility(assignments: Assignment[], violations: ConstraintViolation[]): number {
+  private evaluateTeamCompatibility(_assignments: Assignment[], _violations: ConstraintViolation[]): number {
     // 팀 궁합 평가 로직 구현
     // 임시로 70점 반환
     return 70
   }
 
-  private evaluateExperienceBalance(assignments: Assignment[], violations: ConstraintViolation[]): number {
+  private evaluateExperienceBalance(_assignments: Assignment[], _violations: ConstraintViolation[]): number {
     // 경력 밸런스 평가 로직 구현
     // 임시로 78점 반환
     return 78
@@ -498,7 +498,7 @@ export class ConstraintEngine {
 
   private generateImprovements(
     hardViolations: ConstraintViolation[], 
-    softViolations: ConstraintViolation[]
+    _softViolations: ConstraintViolation[]
   ) {
     const improvements: ScheduleAnalysis['improvements'] = []
 

@@ -6,7 +6,7 @@
 import { testWards, testStaff, testPreferences, testRequests, testSchedules, testShifts } from './testdata'
 import type { 
   Ward, Staff, Preference, Request, Schedule, Shift, Assignment,
-  RequestType, RequestStatus, RequestPriority, ShiftType
+  RequestType, RequestStatus
 } from './types'
 
 // Process staff to add wardId based on naming patterns
@@ -28,7 +28,7 @@ const processedStaff = testStaff.map(staff => {
 })
 
 // In-memory storage
-let memoryData = {
+const memoryData = {
   wards: [...testWards],
   staff: [...processedStaff],
   preferences: [...testPreferences],
@@ -273,7 +273,7 @@ export const requestService = {
     by: string[],
     where?: { wardId?: string, staffId?: string, createdAt?: { gte: Date } },
     _count: { [key: string]: boolean }
-  }): Array<{ [key: string]: any, _count: { [key: string]: number } }> => {
+  }): Array<{ [key: string]: unknown, _count: { [key: string]: number } }> => {
     let requests = [...memoryData.requests]
     
     // Apply where filter
@@ -290,10 +290,10 @@ export const requestService = {
     }
     
     // Group by specified fields
-    const groups: { [key: string]: any[] } = {}
+    const groups: { [key: string]: Request[] } = {}
     
     requests.forEach(request => {
-      const key = config.by.map(field => (request as any)[field]).join('|')
+      const key = config.by.map(field => (request as Record<string, unknown>)[field]).join('|')
       if (!groups[key]) {
         groups[key] = []
       }
@@ -303,7 +303,7 @@ export const requestService = {
     // Convert to expected format
     return Object.entries(groups).map(([key, items]) => {
       const keyParts = key.split('|')
-      const result: any = {}
+      const result: { [key: string]: unknown; _count: { [key: string]: number } } = { _count: {} }
       
       config.by.forEach((field, index) => {
         result[field] = keyParts[index]
@@ -321,12 +321,10 @@ export const requestService = {
 
 // Schedule operations
 export const scheduleService = {
-  create: (data: Omit<Schedule, 'id' | 'createdAt' | 'updatedAt'>): Schedule => {
+  create: (data: Omit<Schedule, 'id'>): Schedule => {
     const newSchedule: Schedule = {
       ...data,
-      id: generateId(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      id: generateId()
     }
     memoryData.schedules.push(newSchedule)
     return newSchedule
@@ -335,12 +333,10 @@ export const scheduleService = {
 
 // Assignment operations
 export const assignmentService = {
-  createMany: (data: { data: Omit<Assignment, 'id' | 'createdAt' | 'updatedAt'>[] }): { count: number } => {
+  createMany: (data: { data: Omit<Assignment, 'id'>[] }): { count: number } => {
     const newAssignments = data.data.map(item => ({
       ...item,
-      id: generateId(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      id: generateId()
     }))
     
     memoryData.assignments.push(...newAssignments)
@@ -364,7 +360,7 @@ export const shiftService = {
 
 // Audit log (mock for memory storage)
 export const auditLogService = {
-  create: (data: any): Promise<any> => {
+  create: (data: Record<string, unknown>): Promise<Record<string, unknown>> => {
     // For MVP, we'll just log to console instead of storing audit logs
     console.log('Audit Log:', data)
     return Promise.resolve(data)

@@ -106,7 +106,7 @@ export type Schedule = {
   status: ScheduleStatus
   version: string
   
-  rulesSnapshot: any // 생성 시 규칙 스냅샷
+  rulesSnapshot: Record<string, unknown> // 생성 시 규칙 스냅샷
   assignments: Assignment[]
 }
 
@@ -218,8 +218,8 @@ export type Ward = {
   name: string
   code: string
   active: boolean
-  hardRules: HardConstraints | any
-  softRules: SoftConstraints | any
+  hardRules: HardConstraints | Record<string, unknown>
+  softRules: SoftConstraints | Record<string, unknown>
   createdAt: string
   updatedAt: string
 }

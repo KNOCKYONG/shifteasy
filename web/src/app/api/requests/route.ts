@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { wardService, staffService, requestService, preferenceService, auditLogService } from '@/lib/memoryStorage'
+import { wardService, staffService, requestService, auditLogService } from '@/lib/memoryStorage'
 import { format, parseISO, isValid } from 'date-fns'
 
 // 요청 생성 스키마
@@ -125,12 +125,16 @@ export async function POST(request: NextRequest) {
       wardId: data.wardId,
       staffId: data.staffId,
       type: data.type,
+      status: 'PENDING',
       priority: data.priority,
       startDate: data.startDate,
-      endDate: data.endDate || null,
-      shiftType: data.shiftType || null,
+      endDate: data.endDate || undefined,
+      shiftType: data.shiftType || undefined,
       reason: data.reason,
-      description: data.description
+      description: data.description,
+      approvedBy: undefined,
+      approvedAt: undefined,
+      rejectedReason: undefined
     })
 
     // Include related data for response
@@ -219,7 +223,7 @@ export async function GET(request: NextRequest) {
     })
 
     // 검색 조건 구성
-    const where: any = {}
+    const where: Record<string, unknown> = {}
 
     if (query.wardId) where.wardId = query.wardId
     if (query.staffId) where.staffId = query.staffId
@@ -227,17 +231,18 @@ export async function GET(request: NextRequest) {
     if (query.type) where.type = query.type
 
     if (query.startDate || query.endDate) {
-      where.startDate = {}
-      if (query.startDate) where.startDate.gte = new Date(query.startDate)
-      if (query.endDate) where.startDate.lte = new Date(query.endDate)
+      const dateFilter: { gte?: Date; lte?: Date } = {}
+      if (query.startDate) dateFilter.gte = new Date(query.startDate)
+      if (query.endDate) dateFilter.lte = new Date(query.endDate)
+      where.startDate = dateFilter
     }
 
     // 요청 목록 조회
     const { requests, totalCount } = requestService.findMany({
-      wardId: query.wardId,
-      staffId: query.staffId,
-      status: query.status,
-      type: query.type,
+      wardId: query.wardId || undefined,
+      staffId: query.staffId || undefined,
+      status: query.status || undefined,
+      type: query.type || undefined,
       startDate: query.startDate || query.endDate ? {
         gte: query.startDate ? new Date(query.startDate) : undefined,
         lte: query.endDate ? new Date(query.endDate) : undefined

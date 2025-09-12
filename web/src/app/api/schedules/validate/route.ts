@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { HardConstraintValidator } from '@/lib/scheduling/constraints'
-import type { HardConstraints, Staff } from '@/lib/types'
+import type { HardConstraints, Staff, ShiftType, Role } from '@/lib/types'
 
 const ValidateRequestSchema = z.object({
   scheduleId: z.string(),
@@ -40,21 +40,21 @@ export async function POST(request: NextRequest) {
     }
 
     // 제약조건 설정
-    const hardRules = schedule.ward.hardRules as any
+    const hardRules = schedule.ward.hardRules as Record<string, unknown>
     const hardConstraints: HardConstraints = {
-      maxConsecutiveNights: hardRules.maxConsecutiveNights || 2,
-      minRestHours: hardRules.minRestHours || 10,
-      noPatterns: hardRules.noPatterns || [],
-      maxWeeklyHours: hardRules.maxWeeklyHours || 40,
-      minStaffPerShift: hardRules.minStaffPerShift || { D: 0, E: 0, N: 0, O: 0 },
-      roleMixRequirements: hardRules.roleMixRequirements || {}
+      maxConsecutiveNights: (hardRules.maxConsecutiveNights as number) || 2,
+      minRestHours: (hardRules.minRestHours as number) || 10,
+      noPatterns: (hardRules.noPatterns as string[]) || [],
+      maxWeeklyHours: (hardRules.maxWeeklyHours as number) || 40,
+      minStaffPerShift: (hardRules.minStaffPerShift as Record<ShiftType, number>) || { D: 0, E: 0, N: 0, O: 0 },
+      roleMixRequirements: (hardRules.roleMixRequirements as Partial<Record<ShiftType, Partial<Record<Role, number>>>>) || {}
     }
 
     // 직원 및 시프트 정보
     const staff: Staff[] = schedule.ward.staff.map(s => ({
       id: s.id,
       name: s.name,
-      role: s.role as any,
+      role: s.role as Role,
       maxWeeklyHours: s.maxWeeklyHours || 40,
       skills: s.skills,
       technicalSkill: s.technicalSkill,
@@ -62,18 +62,18 @@ export async function POST(request: NextRequest) {
       communication: s.communication,
       adaptability: s.adaptability,
       reliability: s.reliability,
-      experienceLevel: s.experienceLevel as any,
+      experienceLevel: s.experienceLevel as 'NEWBIE' | 'JUNIOR' | 'SENIOR' | 'EXPERT',
       active: s.active
     }))
 
     const shifts = schedule.ward.shifts.map(shift => ({
       id: shift.id,
-      type: shift.type as any
+      type: shift.type as 'D' | 'E' | 'N' | 'O'
     }))
 
     // 하드 제약조건 검증
     const validator = new HardConstraintValidator(hardConstraints, staff, shifts)
-    const violations = validator.validateAll(assignments as any)
+    const violations = validator.validateAll(assignments as Parameters<typeof validator.validateAll>[0])
 
     // 경고와 오류로 분류
     const warnings = violations.filter(v => v.severity === 'LOW' || v.severity === 'MEDIUM')

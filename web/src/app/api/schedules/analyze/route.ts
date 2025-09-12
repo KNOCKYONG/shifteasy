@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { ConstraintEngine } from '@/lib/scheduling/constraints'
-import type { HardConstraints, SoftConstraints, Staff, Assignment } from '@/lib/types'
+import type { HardConstraints, SoftConstraints, Staff, Assignment, ShiftType, Role } from '@/lib/types'
 
 const AnalyzeRequestSchema = z.object({
   scheduleId: z.string(),
@@ -50,31 +50,31 @@ export async function POST(request: NextRequest) {
     }
 
     // 제약조건 정보 추출
-    const hardRules = schedule.ward.hardRules as any
-    const softRules = schedule.ward.softRules as any
+    const hardRules = schedule.ward.hardRules as Record<string, unknown>
+    const softRules = schedule.ward.softRules as Record<string, unknown>
 
     const hardConstraints: HardConstraints = {
-      maxConsecutiveNights: hardRules.maxConsecutiveNights || 2,
-      minRestHours: hardRules.minRestHours || 10,
-      noPatterns: hardRules.noPatterns || [],
-      maxWeeklyHours: hardRules.maxWeeklyHours || 40,
-      minStaffPerShift: hardRules.minStaffPerShift || { D: 0, E: 0, N: 0, O: 0 },
-      roleMixRequirements: hardRules.roleMixRequirements || {}
+      maxConsecutiveNights: (hardRules.maxConsecutiveNights as number) || 2,
+      minRestHours: (hardRules.minRestHours as number) || 10,
+      noPatterns: (hardRules.noPatterns as string[]) || [],
+      maxWeeklyHours: (hardRules.maxWeeklyHours as number) || 40,
+      minStaffPerShift: (hardRules.minStaffPerShift as Record<ShiftType, number>) || { D: 0, E: 0, N: 0, O: 0 },
+      roleMixRequirements: (hardRules.roleMixRequirements as Partial<Record<ShiftType, Partial<Record<Role, number>>>>) || {}
     }
 
     const softConstraints: SoftConstraints = {
-      respectPreferencesWeight: softRules.respectPreferencesWeight || 3,
-      fairWeekendRotationWeight: softRules.fairWeekendRotationWeight || 2,
-      avoidSplitShiftsWeight: softRules.avoidSplitShiftsWeight || 1,
-      teamCompatibilityWeight: softRules.teamCompatibilityWeight || 2,
-      experienceBalanceWeight: softRules.experienceBalanceWeight || 2
+      respectPreferencesWeight: (softRules.respectPreferencesWeight as number) || 3,
+      fairWeekendRotationWeight: (softRules.fairWeekendRotationWeight as number) || 2,
+      avoidSplitShiftsWeight: (softRules.avoidSplitShiftsWeight as number) || 1,
+      teamCompatibilityWeight: (softRules.teamCompatibilityWeight as number) || 2,
+      experienceBalanceWeight: (softRules.experienceBalanceWeight as number) || 2
     }
 
     // 직원 정보 변환
     const staff: Staff[] = schedule.ward.staff.map(s => ({
       id: s.id,
       name: s.name,
-      role: s.role as any,
+      role: s.role as Role,
       employeeId: s.employeeId || undefined,
       hireDate: s.hireDate?.toISOString(),
       maxWeeklyHours: s.maxWeeklyHours || 40,
@@ -84,14 +84,14 @@ export async function POST(request: NextRequest) {
       communication: s.communication,
       adaptability: s.adaptability,
       reliability: s.reliability,
-      experienceLevel: s.experienceLevel as any,
+      experienceLevel: s.experienceLevel as 'NEWBIE' | 'JUNIOR' | 'SENIOR' | 'EXPERT',
       active: s.active
     }))
 
     // 시프트 정보 변환
     const shifts = schedule.ward.shifts.map(shift => ({
       id: shift.id,
-      type: shift.type as any
+      type: shift.type as 'D' | 'E' | 'N' | 'O'
     }))
 
     // 배치 정보 (제공된 것이 있으면 사용, 아니면 DB에서)

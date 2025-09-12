@@ -3,19 +3,16 @@
  * 제약조건을 만족하면서 직원 선호도와 공정성을 고려한 스케줄 생성
  */
 
-import { format, parseISO, addDays, eachDayOfInterval, getDay, isWeekend } from 'date-fns'
+import { format, parseISO, eachDayOfInterval, isWeekend } from 'date-fns'
 import type { 
   Staff, 
   ShiftType, 
-  Assignment, 
-  HardConstraints, 
-  SoftConstraints,
+  Assignment,
   Preference,
   Role,
-  DateRange,
   ScheduleGenerationConfig  // types.ts에서 import
 } from '../types'
-import { ConstraintEngine, HardConstraintValidator } from './constraints'
+import { ConstraintEngine } from './constraints'
 
 // 생성 결과
 export type ScheduleGenerationResult = {
@@ -163,7 +160,7 @@ export class ScheduleGenerator {
 
     // 1단계: 직급별 필수 인원 먼저 배치
     for (const [role, requiredCount] of Object.entries(roleMixReq)) {
-      const required = typeof requiredCount === 'number' ? requiredCount : parseInt(requiredCount?.toString() || '0')
+      const required = typeof requiredCount === 'number' ? requiredCount : 0
       
       for (let i = 0; i < required; i++) {
         const candidate = this.findBestCandidate(date, shift, role as Role)
@@ -388,7 +385,7 @@ export class ScheduleGenerator {
     this.staffLastShift.clear()
   }
 
-  private getShiftsByPriority(date: string): { id: string; type: ShiftType }[] {
+  private getShiftsByPriority(_date: string): { id: string; type: ShiftType }[] {
     return this.config.shifts
       .filter(s => s.type !== 'O')
       .map(s => ({ id: s.id, type: s.type }))
@@ -477,7 +474,7 @@ export class ScheduleGenerator {
     return baseBonus
   }
 
-  private getWeekendBalance(staffId: string): number {
+  private getWeekendBalance(_staffId: string): number {
     // 주말 근무 균형 점수 계산 (임시 구현)
     // 실제로는 과거 주말 근무 이력을 봐야 함
     return Math.floor(Math.random() * 11) - 5 // -5 ~ +5

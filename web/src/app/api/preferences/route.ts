@@ -139,16 +139,32 @@ export async function GET(request: NextRequest) {
       offset: searchParams.get('offset')
     })
 
-    const preferences = preferenceService.findMany({
+    const dateRange = (() => {
+      if (!query.startDate && !query.endDate) return undefined
+      const range: { gte?: Date; lte?: Date } = {}
+      if (query.startDate) range.gte = new Date(query.startDate)
+      if (query.endDate) range.lte = new Date(query.endDate)
+      return Object.keys(range).length > 0 ? range as { gte: Date; lte: Date } : undefined
+    })()
+
+    let preferences = preferenceService.findMany({
       staffId: query.staffId || undefined,
-      dateRange: query.startDate || query.endDate ? {
-        gte: query.startDate ? new Date(query.startDate) : undefined,
-        lte: query.endDate ? new Date(query.endDate) : undefined
-      } : undefined,
-      shiftType: query.shiftType || undefined,
-      limit: query.limit,
-      offset: query.offset
+      dateRange
     })
+    
+    // Filter by shiftType if provided
+    if (query.shiftType) {
+      preferences = preferences.filter(p => p.shiftType === query.shiftType)
+    }
+    
+    // Apply pagination
+    const totalCount = preferences.length
+    if (query.offset) {
+      preferences = preferences.slice(query.offset)
+    }
+    if (query.limit) {
+      preferences = preferences.slice(0, query.limit)
+    }
 
     const formattedPreferences = preferences.map(p => ({
       id: p.id,
@@ -169,7 +185,7 @@ export async function GET(request: NextRequest) {
       success: true,
       preferences: formattedPreferences,
       pagination: {
-        total: preferences.length,
+        total: totalCount,
         limit: query.limit,
         offset: query.offset,
         hasMore: false // TODO: implement proper pagination in preferenceService

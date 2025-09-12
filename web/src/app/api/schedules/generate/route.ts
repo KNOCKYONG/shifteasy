@@ -7,7 +7,9 @@ import type {
   SoftConstraints, 
   Staff, 
   Preference,
-  ScheduleGenerationConfig 
+  ScheduleGenerationConfig,
+  ShiftType,
+  Role
 } from '@/lib/types'
 
 const GenerateRequestSchema = z.object({
@@ -53,7 +55,7 @@ export async function POST(request: NextRequest) {
       return {
         id: s.id,
         name: s.name,
-        role: s.role as any,
+        role: s.role as Role,
         employeeId: s.employeeId || undefined,
         hireDate: s.hireDate ? new Date(s.hireDate).toISOString() : undefined,
         maxWeeklyHours: s.maxWeeklyHours || 40,
@@ -63,13 +65,13 @@ export async function POST(request: NextRequest) {
         communication: s.communication,
         adaptability: s.adaptability,
         reliability: s.reliability,
-        experienceLevel: s.experienceLevel as any,
+        experienceLevel: s.experienceLevel as 'NEWBIE' | 'JUNIOR' | 'SENIOR' | 'EXPERT',
         active: s.active,
         preferences: staffPreferences.map(p => ({
           id: p.id,
           staffId: p.staffId,
           date: typeof p.date === 'string' ? p.date.split('T')[0] : new Date(p.date).toISOString().split('T')[0],
-          shiftType: p.shiftType as any,
+          shiftType: p.shiftType as 'D' | 'E' | 'N' | 'O',
           score: p.score,
           reason: p.reason || undefined
         }))
@@ -87,30 +89,30 @@ export async function POST(request: NextRequest) {
     // 시프트 데이터 변환
     const shiftsFormatted = shifts.map(shift => ({
       id: shift.id,
-      type: shift.type as any,
+      type: shift.type as 'D' | 'E' | 'N' | 'O',
       label: shift.label,
       duration: shift.duration || 8
     }))
 
     // 제약조건 추출
-    const hardRules = ward.hardRules as any
-    const softRules = ward.softRules as any
+    const hardRules = ward.hardRules as Record<string, unknown>
+    const softRules = ward.softRules as Record<string, unknown>
 
     const hardConstraints: HardConstraints = {
-      maxConsecutiveNights: hardRules.maxConsecutiveNights || 2,
-      minRestHours: hardRules.minRestHours || 10,
-      noPatterns: hardRules.noPatterns || ['D->N', 'N->D'],
-      maxWeeklyHours: hardRules.maxWeeklyHours || 40,
-      minStaffPerShift: hardRules.minStaffPerShift || { D: 0, E: 0, N: 0, O: 0 },
-      roleMixRequirements: hardRules.roleMixRequirements || {}
+      maxConsecutiveNights: (hardRules.maxConsecutiveNights as number) || 2,
+      minRestHours: (hardRules.minRestHours as number) || 10,
+      noPatterns: (hardRules.noPatterns as string[]) || ['D->N', 'N->D'],
+      maxWeeklyHours: (hardRules.maxWeeklyHours as number) || 40,
+      minStaffPerShift: (hardRules.minStaffPerShift as Record<ShiftType, number>) || { D: 0, E: 0, N: 0, O: 0 },
+      roleMixRequirements: (hardRules.roleMixRequirements as Partial<Record<ShiftType, Partial<Record<Role, number>>>>) || {}
     }
 
     const softConstraints: SoftConstraints = {
-      respectPreferencesWeight: softRules.respectPreferencesWeight || 3,
-      fairWeekendRotationWeight: softRules.fairWeekendRotationWeight || 2,
-      avoidSplitShiftsWeight: softRules.avoidSplitShiftsWeight || 1,
-      teamCompatibilityWeight: softRules.teamCompatibilityWeight || 2,
-      experienceBalanceWeight: softRules.experienceBalanceWeight || 2
+      respectPreferencesWeight: (softRules.respectPreferencesWeight as number) || 3,
+      fairWeekendRotationWeight: (softRules.fairWeekendRotationWeight as number) || 2,
+      avoidSplitShiftsWeight: (softRules.avoidSplitShiftsWeight as number) || 1,
+      teamCompatibilityWeight: (softRules.teamCompatibilityWeight as number) || 2,
+      experienceBalanceWeight: (softRules.experienceBalanceWeight as number) || 2
     }
 
     // 스케줄 생성 설정
