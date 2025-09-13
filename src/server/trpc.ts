@@ -1,34 +1,43 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import superjson from 'superjson';
 import { type CreateNextContextOptions } from '@trpc/server/adapters/next';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { db } from '@/db';
-import { eq } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { users } from '@/db/schema';
+import { syncClerkUser } from '@/lib/auth';
+import { hasPermission, type Permission } from '@/lib/permissions';
+import { rateLimitMiddleware } from '@/lib/rate-limit';
+import { auditApiOperation } from '@/lib/audit-log';
 
 export const createTRPCContext = async (opts: CreateNextContextOptions) => {
   const { req } = opts;
 
-  const sessionToken = req.headers.authorization?.replace('Bearer ', '');
-  const tenantId = req.headers['x-tenant-id'] as string | undefined;
+  // Get auth from Clerk
+  const { userId: clerkUserId, orgId } = await auth();
 
   let user = null;
 
-  if (sessionToken) {
-    // TODO: Integrate with Clerk auth
-    // For now, mock user
-    user = {
-      id: 'mock-user-id',
-      tenantId: tenantId || 'mock-tenant-id',
-      role: 'admin',
-      email: 'admin@example.com',
-    };
+  if (clerkUserId && orgId) {
+    // Sync Clerk user with database
+    try {
+      user = await syncClerkUser(clerkUserId, orgId);
+    } catch (error) {
+      console.error('Failed to sync Clerk user:', error);
+    }
   }
 
   return {
     db,
     user,
-    tenantId: user?.tenantId,
-    req,
+    tenantId: orgId,
+    clerkUserId,
+    req: {
+      url: req.url,
+      method: req.method,
+      headers: req.headers,
+      ip: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
+    },
   };
 };
 
@@ -87,6 +96,69 @@ const hasRole = (allowedRoles: string[]) =>
     });
   });
 
+// Permission-based middleware
+const requirePermission = (permission: Permission) =>
+  t.middleware(async ({ ctx, next }) => {
+    if (!ctx.user) {
+      throw new TRPCError({ code: 'UNAUTHORIZED' });
+    }
+
+    if (!hasPermission(ctx.user.role as any, permission)) {
+      // Log unauthorized access attempt
+      await auditApiOperation(
+        ctx,
+        'security.unauthorized_access',
+        'api_permission',
+        undefined,
+        {
+          metadata: {
+            requiredPermission: permission,
+            userRole: ctx.user.role,
+          },
+        }
+      );
+
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: `Missing required permission: ${permission}`,
+      });
+    }
+
+    return next({
+      ctx: {
+        ...ctx,
+        user: ctx.user,
+        tenantId: ctx.user.tenantId,
+      },
+    });
+  });
+
+// Rate limiting middleware
+const withRateLimit = (type: 'api' | 'auth' | 'schedule' | 'swap' | 'report' | 'notification' | 'upload' = 'api') =>
+  t.middleware(async ({ ctx, next }) => {
+    if (ctx.user && ctx.tenantId) {
+      await rateLimitMiddleware(type, ctx);
+    }
+
+    return next();
+  });
+
 export const protectedProcedure = t.procedure.use(isAuthed);
 export const adminProcedure = t.procedure.use(hasRole(['admin', 'owner']));
 export const ownerProcedure = t.procedure.use(hasRole(['owner']));
+
+// Permission-based procedures
+export const createScheduleProcedure = t.procedure
+  .use(isAuthed)
+  .use(requirePermission('schedule.create'))
+  .use(withRateLimit('schedule'));
+
+export const manageStaffProcedure = t.procedure
+  .use(isAuthed)
+  .use(requirePermission('staff.edit'))
+  .use(withRateLimit('api'));
+
+export const approveSwapProcedure = t.procedure
+  .use(isAuthed)
+  .use(requirePermission('swap.approve'))
+  .use(withRateLimit('swap'));

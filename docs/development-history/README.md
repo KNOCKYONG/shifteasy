@@ -11,6 +11,11 @@
    - 작업자: Developer A
    - 내용: 백엔드 인프라 구축 및 데이터베이스 설계
 
+2. **[Authentication System Setup](./authentication-system-setup.md)**
+   - 작업일: 2025-09-13
+   - 작업자: Developer B
+   - 내용: 인증 및 권한 시스템 구축 (Clerk + RBAC + Rate Limiting)
+
 ---
 
 ## 프로젝트 개요
