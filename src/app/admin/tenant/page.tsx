@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { Key, RefreshCw, Copy, Users, Settings, Shield, Check, AlertCircle } from 'lucide-react';
-import { useAuth } from '@clerk/nextjs';
+// import { useAuth } from '@clerk/nextjs';
 
 export default function TenantManagementPage() {
-  const { userId } = useAuth();
+  // const { userId } = useAuth();
+  const userId = 'mock-admin-user'; // Temporary mock until Clerk is enabled
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [tenantData, setTenantData] = useState<{

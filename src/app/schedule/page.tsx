@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { format, startOfWeek, addWeeks, subWeeks } from "date-fns";
 import { ko, enUS, ja } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Calendar, Users, Settings, Download, Lock, Unlock, Wand2, RefreshCw, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Users, Settings, Download, Lock, Unlock, Wand2, RefreshCw, X, HelpCircle, ArrowLeftRight, AlertCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ScheduleBoard } from "@/components/schedule/ScheduleBoard";
 import { MonthView } from "@/components/schedule/MonthView";
@@ -10,6 +10,11 @@ import { NotificationCenter } from "@/components/notifications/NotificationCente
 import { type Staff, type WeekSchedule } from "@/lib/types";
 import { loadCurrentTeam } from "@/lib/teamStorage";
 import { ProfileDropdown } from "@/components/ProfileDropdown";
+import { StaffBalanceIndicator } from "@/components/schedule/StaffBalanceIndicator";
+import { ShiftSwapModal } from "@/components/schedule/ShiftSwapModal";
+import { Tooltip } from "@/components/ui/Tooltip";
+import { SCHEDULE_CONFIG, PERFORMANCE_THRESHOLDS } from "@/lib/constants";
+import { API_ENDPOINTS, REQUEST_HEADERS } from "@/lib/constants";
 
 export default function SchedulePage() {
   const { t, i18n } = useTranslation(['schedule', 'common']);
@@ -20,6 +25,12 @@ export default function SchedulePage() {
   const [viewMode, setViewMode] = useState<"week" | "month">("week");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationMetrics, setGenerationMetrics] = useState<any>(null);
+  const [showSwapModal, setShowSwapModal] = useState(false);
+  const [swapModalData, setSwapModalData] = useState<{
+    staffId: string;
+    date: Date;
+    shift?: string;
+  } | null>(null);
 
   const getLocale = () => {
     if (i18n.language === 'en') return enUS;
@@ -87,19 +98,19 @@ export default function SchedulePage() {
     }
 
     try {
-      const response = await fetch("/api/schedule/generate", {
+      const response = await fetch(API_ENDPOINTS.SCHEDULE_GENERATE, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: REQUEST_HEADERS.CONTENT_TYPE_JSON,
         body: JSON.stringify({
           startDate: currentWeek.toISOString(),
           teamData: teamData,
           config: {
-            maxConsecutiveDays: 5,
-            minRestHours: 11,
-            maxWeeklyHours: 52,
-            minStaffPerShift: { D: 3, E: 2, N: 2, O: 0 },
-            fairnessWeight: 0.7,
-            preferenceWeight: 0.3,
+            maxConsecutiveDays: SCHEDULE_CONFIG.MAX_CONSECUTIVE_DAYS,
+            minRestHours: SCHEDULE_CONFIG.MIN_REST_HOURS,
+            maxWeeklyHours: SCHEDULE_CONFIG.MAX_WEEKLY_HOURS,
+            minStaffPerShift: SCHEDULE_CONFIG.MIN_STAFF_PER_SHIFT,
+            fairnessWeight: SCHEDULE_CONFIG.FAIRNESS_WEIGHT,
+            preferenceWeight: SCHEDULE_CONFIG.PREFERENCE_WEIGHT,
           },
         }),
       });
@@ -114,7 +125,7 @@ export default function SchedulePage() {
       setGenerationMetrics(result.metrics);
 
       // 성공 메시지
-      if (result.metrics.processingTime < 5000) {
+      if (result.metrics.processingTime < PERFORMANCE_THRESHOLDS.PROCESSING_TIME_GOOD) {
         console.log(`스케줄 생성 완료 (${result.metrics.processingTime}ms)`);
       }
 
@@ -145,6 +156,18 @@ export default function SchedulePage() {
     URL.revokeObjectURL(url);
   };
 
+  const handleSwapRequest = async (targetStaffId: string, targetDate: Date, reason?: string) => {
+    // TODO: Implement API call for shift swap request
+    console.log("Shift swap request:", {
+      fromStaff: swapModalData?.staffId,
+      toStaff: targetStaffId,
+      date: targetDate,
+      reason
+    });
+    setShowSwapModal(false);
+    setSwapModalData(null);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
       {/* Header */}
@@ -153,17 +176,17 @@ export default function SchedulePage() {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-8">
               <a href="/dashboard" className="text-xl font-semibold text-gray-900 dark:text-white hover:text-blue-600 transition-colors">
-                {t('app.name', { ns: 'common' })}
+                {t('app.name', { ns: 'common', defaultValue: 'ShiftEasy' })}
               </a>
               <nav className="flex items-center gap-6">
                 <a href="/schedule" className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                  {t('nav.schedule', { ns: 'common' })}
+                  {t('nav.schedule', { ns: 'common', defaultValue: '스케줄' })}
                 </a>
                 <a href="/team" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
-                  {t('nav.team', { ns: 'common' })}
+                  {t('nav.team', { ns: 'common', defaultValue: '팀 관리' })}
                 </a>
                 <a href="/config" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
-                  {t('nav.config', { ns: 'common' })}
+                  {t('nav.config', { ns: 'common', defaultValue: '설정' })}
                 </a>
               </nav>
             </div>
@@ -171,27 +194,39 @@ export default function SchedulePage() {
               <NotificationCenter userId="dev-user-id" />
               <ProfileDropdown />
 
-              <button
-                onClick={handleGenerateSchedule}
-                disabled={isGenerating}
-                className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg ${
-                  isGenerating
-                    ? "text-gray-400 bg-gray-100 cursor-not-allowed"
-                    : "text-purple-700 bg-purple-50 border border-purple-200 hover:bg-purple-100"
-                }`}
-              >
-                {isGenerating ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    {t('actions.generating')}
-                  </>
-                ) : (
-                  <>
-                    <Wand2 className="w-4 h-4" />
-                    {t('actions.autoGenerate')}
-                  </>
-                )}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleGenerateSchedule}
+                  disabled={isGenerating}
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg ${
+                    isGenerating
+                      ? "text-gray-400 bg-gray-100 cursor-not-allowed"
+                      : "text-purple-700 bg-purple-50 border border-purple-200 hover:bg-purple-100"
+                  }`}
+                >
+                  {isGenerating ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      {t('actions.generating')}
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="w-4 h-4" />
+                      {t('actions.autoGenerate')}
+                    </>
+                  )}
+                </button>
+                <Tooltip
+                  content={
+                    <div>
+                      <p className="font-semibold mb-1">AI 자동 스케줄 생성</p>
+                      <p>팀원의 선호도, 경력, 근무 패턴을 분석하여</p>
+                      <p>최적의 스케줄을 자동으로 생성합니다.</p>
+                    </div>
+                  }
+                  position="bottom"
+                />
+              </div>
 
               <button
                 onClick={handleExport}
@@ -227,6 +262,34 @@ export default function SchedulePage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Help Tips Section */}
+        <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+          <div className="flex items-start gap-3">
+            <HelpCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-2">
+                스케줄 관리 도움말
+              </h3>
+              <ul className="text-xs text-blue-700 dark:text-blue-400 space-y-1">
+                <li>• <strong>드래그 & 드롭</strong>: 셀을 클릭하고 드래그하여 여러 날짜에 동일한 근무 배정</li>
+                <li>• <strong>자동 생성</strong>: AI가 팀 밸런스와 개인 선호도를 고려하여 최적 스케줄 생성</li>
+                <li>• <strong>근무 교환</strong>: 직원 간 근무 교환 요청 및 승인 관리</li>
+                <li>• <strong>팀 밸런스</strong>: 경력별, 역할별 균형 있는 팀 구성 확인</li>
+              </ul>
+            </div>
+            <button
+              onClick={(e) => {
+                const target = e.currentTarget.parentElement?.parentElement;
+                if (target) {
+                  target.style.display = 'none';
+                }
+              }}
+              className="text-blue-400 hover:text-blue-600 dark:text-blue-500 dark:hover:text-blue-300"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
         {/* Week Navigation */}
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -282,23 +345,98 @@ export default function SchedulePage() {
           </div>
         </div>
 
-        {/* Schedule Board or Month View */}
-        {viewMode === "week" ? (
-          <ScheduleBoard
-            staff={staff}
-            schedule={schedule}
-            currentWeek={currentWeek}
-            onScheduleChange={setSchedule}
-            isConfirmed={isConfirmed}
-          />
-        ) : (
-          <MonthView
-            staff={staff}
-            schedule={schedule}
-            currentMonth={currentWeek}
-            onMonthChange={setCurrentWeek}
-          />
-        )}
+        {/* Main Grid Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Schedule Board or Month View - Main Content */}
+          <div className="lg:col-span-3">
+            {viewMode === "week" ? (
+              <ScheduleBoard
+                staff={staff}
+                schedule={schedule}
+                currentWeek={currentWeek}
+                onScheduleChange={setSchedule}
+                isConfirmed={isConfirmed}
+              />
+            ) : (
+              <MonthView
+                staff={staff}
+                schedule={schedule}
+                currentMonth={currentWeek}
+                onMonthChange={setCurrentWeek}
+              />
+            )}
+          </div>
+
+          {/* Side Panel */}
+          <div className="lg:col-span-1 space-y-4">
+            {/* Team Balance Indicator */}
+            <StaffBalanceIndicator
+              staff={staff}
+              currentShift={viewMode === "week" ? "D" : undefined}
+            />
+
+            {/* Quick Actions */}
+            <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+              <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                <Settings className="w-4 h-4" />
+                빠른 작업
+              </h3>
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    // Example: Open swap modal for demonstration
+                    if (staff.length > 0) {
+                      setSwapModalData({
+                        staffId: staff[0].id,
+                        date: new Date(),
+                        shift: "D"
+                      });
+                      setShowSwapModal(true);
+                    }
+                  }}
+                  className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <ArrowLeftRight className="w-4 h-4" />
+                  근무 교환 요청
+                </button>
+                <button
+                  className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <Calendar className="w-4 h-4" />
+                  개인 선호 설정
+                </button>
+                <button
+                  className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <AlertCircle className="w-4 h-4" />
+                  변경 사항 알림
+                </button>
+              </div>
+            </div>
+
+            {/* Help Section */}
+            <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+              <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                <HelpCircle className="w-4 h-4" />
+                도움이 필요하신가요?
+              </h3>
+              <div className="space-y-2 text-xs text-gray-600 dark:text-gray-400">
+                <a href="#" className="block hover:text-blue-600 dark:hover:text-blue-400">
+                  → 스케줄 관리 가이드
+                </a>
+                <a href="#" className="block hover:text-blue-600 dark:hover:text-blue-400">
+                  → 자동 생성 알고리즘 설명
+                </a>
+                <a href="#" className="block hover:text-blue-600 dark:hover:text-blue-400">
+                  → 팀 밸런스 최적화 팁
+                </a>
+                <a href="#" className="block hover:text-blue-600 dark:hover:text-blue-400">
+                  → 자주 묻는 질문
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Generation Metrics */}
         {generationMetrics && (
@@ -388,6 +526,22 @@ export default function SchedulePage() {
           </div>
         </div>
       </main>
+
+      {/* Shift Swap Modal */}
+      {showSwapModal && swapModalData && (
+        <ShiftSwapModal
+          isOpen={showSwapModal}
+          onClose={() => {
+            setShowSwapModal(false);
+            setSwapModalData(null);
+          }}
+          staff={staff}
+          currentStaffId={swapModalData.staffId}
+          currentDate={swapModalData.date}
+          currentShift={swapModalData.shift as any}
+          onSwapRequest={handleSwapRequest}
+        />
+      )}
     </div>
   );
 }

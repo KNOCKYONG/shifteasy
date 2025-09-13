@@ -7,14 +7,17 @@ import { StaffCard } from "@/components/schedule/StaffCard";
 import { type Staff, type Role } from "@/lib/types";
 import { listTeamPresets, loadTeamPreset, saveTeamPreset, saveCurrentTeam, loadCurrentTeam } from "@/lib/teamStorage";
 import { ProfileDropdown } from "@/components/ProfileDropdown";
+import { DEFAULT_STAFF_VALUES, STAFF_ROLES } from "@/lib/constants";
+import { validateName, validateTeamSize } from "@/lib/utils/validation";
+import { formatRole, formatExperienceLevel } from "@/lib/utils/format";
 
-const roles: Role[] = ["RN", "CN", "SN", "NA"];
+const roles = Object.keys(STAFF_ROLES) as Role[];
 
 // Role labels are now translated via i18n
 
 export default function TeamManagementPage() {
   const router = useRouter();
-  const { t } = useTranslation(['team', 'common']);
+  const { t, i18n } = useTranslation(['team', 'common']);
   const [wardId, setWardId] = useState("ward-1A");
   const [staff, setStaff] = useState<Staff[]>([]);
   const [presetName, setPresetName] = useState("");
@@ -25,14 +28,14 @@ export default function TeamManagementPage() {
     name: "",
     role: "RN",
     experienceLevel: "JUNIOR",
-    maxWeeklyHours: 40,
+    maxWeeklyHours: DEFAULT_STAFF_VALUES.MAX_WEEKLY_HOURS,
     skills: [],
-    technicalSkill: 3,
-    leadership: 3,
-    communication: 3,
-    adaptability: 3,
-    reliability: 3,
-    active: true,
+    technicalSkill: DEFAULT_STAFF_VALUES.TECHNICAL_SKILL,
+    leadership: DEFAULT_STAFF_VALUES.LEADERSHIP,
+    communication: DEFAULT_STAFF_VALUES.COMMUNICATION,
+    adaptability: DEFAULT_STAFF_VALUES.ADAPTABILITY,
+    reliability: DEFAULT_STAFF_VALUES.RELIABILITY,
+    active: DEFAULT_STAFF_VALUES.ACTIVE,
   });
 
   useEffect(() => {
@@ -54,8 +57,9 @@ export default function TeamManagementPage() {
   }, []);
 
   const handleAddStaff = () => {
-    if (!newStaff.name) {
-      alert(t('alerts.enterName'));
+    const nameValidation = validateName(newStaff.name || '');
+    if (!nameValidation.valid) {
+      alert(nameValidation.message || t('alerts.enterName'));
       return;
     }
 
@@ -139,12 +143,12 @@ export default function TeamManagementPage() {
 
   // Get translated role label
   const getRoleLabel = (role: Role) => {
-    return t(`roles.${role}`);
+    return formatRole(role);
   };
 
   // Get translated experience label
   const getExperienceLabel = (exp: string) => {
-    return t(`experienceLevels.${exp}`);
+    return formatExperienceLevel(exp as any, i18n.language);
   };
 
   return (
@@ -155,17 +159,17 @@ export default function TeamManagementPage() {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-8">
               <a href="/dashboard" className="text-xl font-semibold text-gray-900 dark:text-white hover:text-blue-600 transition-colors">
-                ShiftEasy
+                {t('app.name', { ns: 'common', defaultValue: 'ShiftEasy' })}
               </a>
               <nav className="flex items-center gap-6">
                 <a href="/schedule" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
-                  스케줄
+                  {t('nav.schedule', { ns: 'common', defaultValue: '스케줄' })}
                 </a>
                 <a href="/team" className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                  팀 관리
+                  {t('nav.team', { ns: 'common', defaultValue: '팀 관리' })}
                 </a>
                 <a href="/config" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
-                  설정
+                  {t('nav.config', { ns: 'common', defaultValue: '설정' })}
                 </a>
               </nav>
             </div>

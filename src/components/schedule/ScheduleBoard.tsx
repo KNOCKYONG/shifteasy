@@ -20,14 +20,10 @@ import {
 import { StaffCard } from "./StaffCard";
 import { ShiftCell } from "./ShiftCell";
 import { type Staff, type ShiftType, type WeekSchedule } from "@/lib/types";
+import { SHIFT_COLORS } from "@/lib/constants";
+import { DAYS_OF_WEEK } from "@/lib/constants";
 
-const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
-const SHIFT_COLORS = {
-  D: { bg: "bg-blue-50 dark:bg-blue-900/10", border: "border-blue-200 dark:border-blue-900/30", text: "text-blue-700 dark:text-blue-300" },
-  E: { bg: "bg-amber-50 dark:bg-amber-900/10", border: "border-amber-200 dark:border-amber-900/30", text: "text-amber-700 dark:text-amber-300" },
-  N: { bg: "bg-indigo-50 dark:bg-indigo-900/10", border: "border-indigo-200 dark:border-indigo-900/30", text: "text-indigo-700 dark:text-indigo-300" },
-  O: { bg: "bg-gray-50 dark:bg-gray-900/10", border: "border-gray-200 dark:border-gray-700", text: "text-gray-500 dark:text-gray-400" },
-};
+const DAYS = DAYS_OF_WEEK.KO; // Use Korean days by default
 
 interface ScheduleBoardProps {
   staff: Staff[];
