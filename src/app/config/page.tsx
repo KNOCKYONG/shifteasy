@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Settings, Save, AlertCircle, Clock, Users, Calendar, Shield, ChevronRight, Info } from "lucide-react";
 import { type ShiftRule, type ShiftPattern } from "@/lib/types";
+import { ProfileDropdown } from "@/components/ProfileDropdown";
 
 interface ConfigData {
   patterns: ShiftPattern[];
@@ -76,7 +77,9 @@ export default function ConfigPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-8">
-              <h1 className="text-xl font-semibold text-gray-900">ShiftEasy</h1>
+              <a href="/dashboard" className="text-xl font-semibold text-gray-900 hover:text-blue-600 transition-colors">
+                ShiftEasy
+              </a>
               <nav className="flex items-center gap-6">
                 <a href="/schedule" className="text-sm font-medium text-gray-600 hover:text-gray-900">
                   스케줄
@@ -89,14 +92,17 @@ export default function ConfigPage() {
                 </a>
               </nav>
             </div>
-            <button
-              onClick={handleSave}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
-            >
-              <Save className="w-4 h-4" />
-              저장하고 스케줄 생성
-              <ChevronRight className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleSave}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+              >
+                <Save className="w-4 h-4" />
+                저장하고 스케줄 생성
+                <ChevronRight className="w-4 h-4" />
+              </button>
+              <ProfileDropdown />
+            </div>
           </div>
         </div>
       </header>

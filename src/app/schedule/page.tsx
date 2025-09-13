@@ -8,6 +8,7 @@ import { MonthView } from "@/components/schedule/MonthView";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { type Staff, type WeekSchedule } from "@/lib/types";
 import { loadCurrentTeam } from "@/lib/teamStorage";
+import { ProfileDropdown } from "@/components/ProfileDropdown";
 
 export default function SchedulePage() {
   const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 0 }));
@@ -143,7 +144,9 @@ export default function SchedulePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-8">
-              <h1 className="text-xl font-semibold text-gray-900">ShiftEasy</h1>
+              <a href="/dashboard" className="text-xl font-semibold text-gray-900 hover:text-blue-600 transition-colors">
+                ShiftEasy
+              </a>
               <nav className="flex items-center gap-6">
                 <a href="/schedule" className="text-sm font-medium text-blue-600">
                   스케줄
@@ -158,6 +161,7 @@ export default function SchedulePage() {
             </div>
             <div className="flex items-center gap-3">
               <NotificationCenter userId="dev-user-id" />
+              <ProfileDropdown />
 
               <button
                 onClick={handleGenerateSchedule}
