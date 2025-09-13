@@ -14,22 +14,22 @@ const SHIFT_OPTIONS: { value: ShiftType; label: string; colors: { bg: string; bo
   {
     value: "D",
     label: "주간",
-    colors: { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700" }
+    colors: { bg: "bg-blue-50 dark:bg-blue-900/10", border: "border-blue-200 dark:border-blue-900/30", text: "text-blue-700 dark:text-blue-300" }
   },
   {
     value: "E",
     label: "저녁",
-    colors: { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700" }
+    colors: { bg: "bg-amber-50 dark:bg-amber-900/10", border: "border-amber-200 dark:border-amber-900/30", text: "text-amber-700 dark:text-amber-300" }
   },
   {
     value: "N",
     label: "야간",
-    colors: { bg: "bg-indigo-50", border: "border-indigo-200", text: "text-indigo-700" }
+    colors: { bg: "bg-indigo-50 dark:bg-indigo-900/10", border: "border-indigo-200 dark:border-indigo-900/30", text: "text-indigo-700 dark:text-indigo-300" }
   },
   {
     value: "O",
     label: "휴무",
-    colors: { bg: "bg-gray-50", border: "border-gray-200", text: "text-gray-500" }
+    colors: { bg: "bg-gray-50 dark:bg-gray-900/10", border: "border-gray-200 dark:border-gray-700", text: "text-gray-500 dark:text-gray-400" }
   },
 ];
 
@@ -68,11 +68,11 @@ export function ShiftCell({ id, shift, isDisabled, onShiftChange }: ShiftCellPro
         <button
           onClick={handleClick}
           disabled={isDisabled}
-          className={`w-16 h-10 rounded-xl border-2 border-dashed border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all ${
+          className={`w-16 h-10 rounded-xl border-2 border-dashed border-gray-200 dark:border-slate-600 hover:border-gray-300 dark:hover:border-slate-500 hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-all ${
             isDisabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
           }`}
         >
-          <span className="text-gray-400 text-sm">-</span>
+          <span className="text-gray-400 dark:text-gray-500 text-sm">-</span>
         </button>
       </div>
     );

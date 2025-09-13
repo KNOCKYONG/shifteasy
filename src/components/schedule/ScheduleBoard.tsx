@@ -23,10 +23,10 @@ import { type Staff, type ShiftType, type WeekSchedule } from "@/lib/types";
 
 const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
 const SHIFT_COLORS = {
-  D: { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700" },
-  E: { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700" },
-  N: { bg: "bg-indigo-50", border: "border-indigo-200", text: "text-indigo-700" },
-  O: { bg: "bg-gray-50", border: "border-gray-200", text: "text-gray-500" },
+  D: { bg: "bg-blue-50 dark:bg-blue-900/10", border: "border-blue-200 dark:border-blue-900/30", text: "text-blue-700 dark:text-blue-300" },
+  E: { bg: "bg-amber-50 dark:bg-amber-900/10", border: "border-amber-200 dark:border-amber-900/30", text: "text-amber-700 dark:text-amber-300" },
+  N: { bg: "bg-indigo-50 dark:bg-indigo-900/10", border: "border-indigo-200 dark:border-indigo-900/30", text: "text-indigo-700 dark:text-indigo-300" },
+  O: { bg: "bg-gray-50 dark:bg-gray-900/10", border: "border-gray-200 dark:border-gray-700", text: "text-gray-500 dark:text-gray-400" },
 };
 
 interface ScheduleBoardProps {
@@ -120,15 +120,15 @@ export function ScheduleBoard({
   const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm dark:shadow-slate-900/50 border border-gray-100 dark:border-slate-700 overflow-hidden">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-100">
+      <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-700">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
             주간 스케줄
           </h2>
           {isConfirmed && (
-            <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-sm font-medium">
+            <span className="px-3 py-1 bg-green-50 dark:bg-green-900/10 text-green-700 dark:text-green-300 rounded-full text-sm font-medium">
               확정됨
             </span>
           )}
@@ -145,20 +145,20 @@ export function ScheduleBoard({
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-100">
-                <th className="sticky left-0 bg-white z-10 px-6 py-3 text-left">
-                  <span className="text-sm font-medium text-gray-500">직원</span>
+              <tr className="border-b border-gray-100 dark:border-slate-700">
+                <th className="sticky left-0 bg-white dark:bg-slate-800 z-10 px-6 py-3 text-left">
+                  <span className="text-sm font-medium text-gray-500 dark:text-gray-400">직원</span>
                 </th>
                 {weekDates.map((date, i) => (
                   <th key={i} className="px-2 py-3 text-center min-w-[100px]">
                     <div className="flex flex-col items-center gap-1">
                       <span className={`text-xs font-medium ${
-                        isToday(date) ? "text-blue-600" : "text-gray-500"
+                        isToday(date) ? "text-blue-600 dark:text-blue-400" : "text-gray-500 dark:text-gray-400"
                       }`}>
                         {DAYS[i]}
                       </span>
                       <span className={`text-sm font-semibold ${
-                        isToday(date) ? "text-blue-600" : "text-gray-900"
+                        isToday(date) ? "text-blue-600 dark:text-blue-400" : "text-gray-900 dark:text-white"
                       }`}>
                         {format(date, "M/d")}
                       </span>
@@ -169,8 +169,8 @@ export function ScheduleBoard({
             </thead>
             <tbody>
               {staff.map((member) => (
-                <tr key={member.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-                  <td className="sticky left-0 bg-white z-10 px-6 py-4">
+                <tr key={member.id} className="border-b border-gray-50 dark:border-slate-700/50 hover:bg-gray-50/50 dark:hover:bg-slate-700/30 transition-colors">
+                  <td className="sticky left-0 bg-white dark:bg-slate-800 z-10 px-6 py-4">
                     <StaffCard staff={member} compact />
                   </td>
                   {weekDates.map((_, dayIndex) => {
@@ -219,19 +219,19 @@ export function ScheduleBoard({
       </DndContext>
 
       {/* Footer Stats */}
-      <div className="px-6 py-4 bg-gray-50/50 border-t border-gray-100">
+      <div className="px-6 py-4 bg-gray-50/50 dark:bg-slate-900/50 border-t border-gray-100 dark:border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-6">
             {Object.entries(SHIFT_COLORS).map(([shift, colors]) => (
               <div key={shift} className="flex items-center gap-2">
                 <div className={`w-3 h-3 rounded-full ${colors.bg} ${colors.border} border`} />
-                <span className="text-sm text-gray-600">
+                <span className="text-sm text-gray-600 dark:text-gray-400">
                   {shift === "D" ? "주간" : shift === "E" ? "저녁" : shift === "N" ? "야간" : "휴무"}
                 </span>
               </div>
             ))}
           </div>
-          <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+          <button className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium">
             통계 보기
           </button>
         </div>

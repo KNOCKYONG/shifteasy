@@ -183,16 +183,16 @@ export default function TeamManagementPage() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Ward Info & Stats */}
-        <div className="mb-8 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div className="mb-8 bg-white dark:bg-slate-800 rounded-2xl shadow-sm dark:shadow-slate-900/50 border border-gray-100 dark:border-slate-700 p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('wardId')}</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('wardId')}</label>
                 <input
                   type="text"
                   value={wardId}
                   onChange={(e) => setWardId(e.target.value)}
-                  className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="px-3 py-2 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
                 />
               </div>
             </div>
@@ -200,29 +200,29 @@ export default function TeamManagementPage() {
               {roleStats.map(stat => (
                 <div key={stat.role} className="text-center">
                   <p className="text-sm text-gray-500 mb-1">{getRoleLabel(stat.role)}</p>
-                  <p className="text-2xl font-semibold text-gray-900">{stat.count}</p>
+                  <p className="text-2xl font-semibold text-gray-900 dark:text-white">{stat.count}</p>
                 </div>
               ))}
-              <div className="h-12 w-px bg-gray-200" />
+              <div className="h-12 w-px bg-gray-200 dark:bg-slate-700" />
               <div className="text-center">
-                <p className="text-sm text-gray-500 mb-1">{t('totalMembers')}</p>
-                <p className="text-2xl font-semibold text-blue-600">{staff.length}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{t('totalMembers')}</p>
+                <p className="text-2xl font-semibold text-blue-600 dark:text-blue-400">{staff.length}</p>
               </div>
             </div>
           </div>
 
           {/* Preset Management */}
-          <div className="flex items-center gap-3 pt-6 border-t border-gray-100">
+          <div className="flex items-center gap-3 pt-6 border-t border-gray-100 dark:border-slate-700">
             <input
               type="text"
               placeholder={t('form.presetName')}
               value={presetName}
               onChange={(e) => setPresetName(e.target.value)}
-              className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
             />
             <button
               onClick={handleSavePreset}
-              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-600"
             >
               <Download className="w-4 h-4" />
               {t('actions.savePreset')}
@@ -231,7 +231,7 @@ export default function TeamManagementPage() {
               <select
                 value={selectedPreset}
                 onChange={(e) => setSelectedPreset(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
               >
                 <option value="">{t('actions.selectPreset')}</option>
                 {presets.map(preset => (
@@ -240,7 +240,7 @@ export default function TeamManagementPage() {
               </select>
               <button
                 onClick={handleLoadPreset}
-                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-600"
               >
                 <Upload className="w-4 h-4" />
                 {t('actions.loadPreset')}
@@ -250,15 +250,15 @@ export default function TeamManagementPage() {
         </div>
 
         {/* Staff List */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Users className="w-5 h-5 text-gray-400" />
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm dark:shadow-slate-900/50 border border-gray-100 dark:border-slate-700 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <Users className="w-5 h-5 text-gray-400 dark:text-gray-500" />
               {t('teamMembers')}
             </h2>
             <button
               onClick={() => setShowAddForm(true)}
-              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100"
+              className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30"
             >
               <Plus className="w-4 h-4" />
               {t('actions.addStaff')}
@@ -270,7 +270,7 @@ export default function TeamManagementPage() {
             <div className="px-6 py-4 bg-blue-50/50 border-b border-blue-100">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('form.name')}</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('form.name')}</label>
                   <input
                     type="text"
                     value={newStaff.name}
@@ -280,7 +280,7 @@ export default function TeamManagementPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('form.role')}</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('form.role')}</label>
                   <select
                     value={newStaff.role}
                     onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value as Role })}
@@ -292,7 +292,7 @@ export default function TeamManagementPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('form.experience')}</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('form.experience')}</label>
                   <select
                     value={newStaff.experienceLevel}
                     onChange={(e) => setNewStaff({ ...newStaff, experienceLevel: e.target.value as Staff["experienceLevel"] })}
@@ -330,15 +330,15 @@ export default function TeamManagementPage() {
                 <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                   <button
                     onClick={() => router.push(`/team/staff/${member.id}?name=${encodeURIComponent(member.name)}`)}
-                    className="p-1.5 bg-white rounded-lg shadow-md hover:bg-gray-50"
+                    className="p-1.5 bg-white dark:bg-slate-700 rounded-lg shadow-md dark:shadow-slate-900/50 hover:bg-gray-50 dark:hover:bg-slate-600"
                   >
-                    <Edit2 className="w-4 h-4 text-gray-600" />
+                    <Edit2 className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                   </button>
                   <button
                     onClick={() => handleRemoveStaff(member.id)}
-                    className="p-1.5 bg-white rounded-lg shadow-md hover:bg-red-50"
+                    className="p-1.5 bg-white dark:bg-slate-700 rounded-lg shadow-md dark:shadow-slate-900/50 hover:bg-red-50 dark:hover:bg-red-900/20"
                   >
-                    <Trash2 className="w-4 h-4 text-red-600" />
+                    <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
                   </button>
                 </div>
               </div>

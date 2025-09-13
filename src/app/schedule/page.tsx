@@ -191,7 +191,7 @@ export default function SchedulePage() {
 
               <button
                 onClick={handleExport}
-                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700"
               >
                 <Download className="w-4 h-4" />
                 {t('actions.export')}
@@ -229,19 +229,19 @@ export default function SchedulePage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={handlePreviousWeek}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
               >
                 <ChevronLeft className="w-5 h-5 text-gray-600" />
               </button>
               <button
                 onClick={handleToday}
-                className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
               >
                 {t('buttons.today', { ns: 'common' })}
               </button>
               <button
                 onClick={handleNextWeek}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
               >
                 <ChevronRight className="w-5 h-5 text-gray-600" />
               </button>
@@ -260,7 +260,7 @@ export default function SchedulePage() {
               className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
                 viewMode === "week"
                   ? "bg-gray-900 text-white"
-                  : "text-gray-600 hover:bg-gray-100"
+                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700"
               }`}
             >
               {t('viewMode.week')}
@@ -270,7 +270,7 @@ export default function SchedulePage() {
               className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
                 viewMode === "month"
                   ? "bg-gray-900 text-white"
-                  : "text-gray-600 hover:bg-gray-100"
+                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700"
               }`}
             >
               {t('viewMode.month')}
@@ -298,10 +298,10 @@ export default function SchedulePage() {
 
         {/* Generation Metrics */}
         {generationMetrics && (
-          <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl border border-purple-100">
+          <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/10 dark:to-blue-900/10 rounded-xl border border-purple-100 dark:border-purple-900/30">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-white rounded-lg shadow-sm">
+                <div className="p-2 bg-white dark:bg-slate-700 rounded-lg shadow-sm dark:shadow-slate-900/50">
                   <Wand2 className="w-5 h-5 text-purple-600" />
                 </div>
                 <div>
@@ -325,7 +325,7 @@ export default function SchedulePage() {
 
         {/* Quick Stats */}
         <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-xl border border-gray-100 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">{t('stats.totalStaff')}</p>
@@ -335,7 +335,7 @@ export default function SchedulePage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-100 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">{t('stats.dayShift')}</p>
@@ -351,7 +351,7 @@ export default function SchedulePage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-100 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">{t('stats.nightShift')}</p>
@@ -367,7 +367,7 @@ export default function SchedulePage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-100 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">{t('stats.offDuty')}</p>
