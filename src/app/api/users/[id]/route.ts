@@ -6,7 +6,7 @@ import { eq, and } from 'drizzle-orm';
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth();
@@ -39,7 +39,7 @@ export async function DELETE(
       );
     }
 
-    const targetUserId = params.id;
+    const { id: targetUserId } = await params;
 
     // Cannot delete own account
     if (currentUser[0].id === targetUserId) {

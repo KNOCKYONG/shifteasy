@@ -6,7 +6,7 @@ import { eq, and } from 'drizzle-orm';
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth();
@@ -49,7 +49,7 @@ export async function PATCH(
       );
     }
 
-    const targetUserId = params.id;
+    const { id: targetUserId } = await params;
 
     // Cannot change own role
     if (currentUser[0].id === targetUserId) {
