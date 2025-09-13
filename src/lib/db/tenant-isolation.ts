@@ -289,9 +289,7 @@ export class ScopedDb {
         entityId,
         before,
         after,
-        metadata: {
-          timestamp: new Date().toISOString(),
-        },
+        metadata: {},
       });
     } catch (error) {
       console.error('Failed to create audit log:', error);

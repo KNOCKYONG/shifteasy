@@ -5,7 +5,7 @@
 
 import { db } from './index';
 import { users, tenants, departments } from './schema/tenants';
-import { like, eq } from 'drizzle-orm';
+import { like, eq, sql } from 'drizzle-orm';
 import { createClerkClient } from '@clerk/nextjs/server';
 
 /**
@@ -90,13 +90,10 @@ export async function checkTenants() {
  */
 export async function checkDepartments(tenantId?: string) {
   try {
-    let query = db.select().from(departments);
-
-    if (tenantId) {
-      query = query.where(eq(departments.tenantId, tenantId));
-    }
-
-    const allDepartments = await query;
+    const allDepartments = await db
+      .select()
+      .from(departments)
+      .where(tenantId ? eq(departments.tenantId, tenantId) : undefined);
 
     console.log('\n🏥 Departments:');
     console.table(allDepartments.map(d => ({
@@ -120,15 +117,15 @@ export async function checkDepartments(tenantId?: string) {
 export async function getDatabaseSummary() {
   try {
     const [tenantCount] = await db
-      .select({ count: db.raw('count(*)') })
+      .select({ count: sql`count(*)` })
       .from(tenants);
 
     const [userCount] = await db
-      .select({ count: db.raw('count(*)') })
+      .select({ count: sql`count(*)` })
       .from(users);
 
     const [departmentCount] = await db
-      .select({ count: db.raw('count(*)') })
+      .select({ count: sql`count(*)` })
       .from(departments);
 
     console.log('\n📈 Database Summary:');

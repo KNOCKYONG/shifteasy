@@ -100,27 +100,18 @@ export default function JoinPage() {
       return;
     }
 
-    // 비밀번호 길이 검증
-    if (!password || password.length < 12) {
-      setError('비밀번호는 최소 12자 이상이어야 합니다.');
+    // Clerk 기본 비밀번호 정책: 최소 8자, 문자와 숫자 포함
+    if (!password || password.length < 8) {
+      setError('비밀번호는 최소 8자 이상이어야 합니다.');
       return;
     }
 
-    // 비밀번호 복잡도 검증
-    const hasLowerCase = /[a-z]/.test(password);
-    const hasUpperCase = /[A-Z]/.test(password);
+    // Clerk 기본 비밀번호 복잡도 검증: 문자와 숫자만 필수
+    const hasLetter = /[a-zA-Z]/.test(password);
     const hasNumber = /[0-9]/.test(password);
-    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
 
-    if (!hasLowerCase || !hasUpperCase || !hasNumber || !hasSpecialChar) {
-      setError('비밀번호는 영문 대문자, 소문자, 숫자, 특수문자를 모두 포함해야 합니다.');
-      return;
-    }
-
-    // 일반적인 패턴 체크
-    if (/^[a-zA-Z]+[0-9]+[!@#$%^&*]+$/.test(password) ||
-        /^[A-Z][a-z]+[0-9]+[!@#]+$/.test(password)) {
-      setError('비밀번호가 너무 단순합니다. 문자, 숫자, 특수문자를 섞어서 사용해주세요.');
+    if (!hasLetter || !hasNumber) {
+      setError('비밀번호는 영문자와 숫자를 포함해야 합니다.');
       return;
     }
 
@@ -302,7 +293,7 @@ export default function JoinPage() {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="12자 이상, 대소문자/숫자/특수문자 모두 포함"
+                    placeholder="8자 이상, 영문자와 숫자 포함"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 placeholder-gray-400 bg-white pr-10"
                     autoComplete="new-password"
                   />
@@ -317,20 +308,14 @@ export default function JoinPage() {
                 <div className="mt-2 space-y-1">
                   <p className="text-xs text-gray-500">비밀번호 요구사항:</p>
                   <ul className="text-xs text-gray-500 ml-4 space-y-0.5">
-                    <li className={password.length >= 12 ? 'text-green-600' : ''}>
-                      • 최소 12자 이상
+                    <li className={password.length >= 8 ? 'text-green-600' : ''}>
+                      • 최소 8자 이상
                     </li>
-                    <li className={/[A-Z]/.test(password) ? 'text-green-600' : ''}>
-                      • 영문 대문자 포함
-                    </li>
-                    <li className={/[a-z]/.test(password) ? 'text-green-600' : ''}>
-                      • 영문 소문자 포함
+                    <li className={/[a-zA-Z]/.test(password) ? 'text-green-600' : ''}>
+                      • 영문자 포함 (a-z, A-Z)
                     </li>
                     <li className={/[0-9]/.test(password) ? 'text-green-600' : ''}>
-                      • 숫자 포함
-                    </li>
-                    <li className={/[!@#$%^&*(),.?":{}|<>]/.test(password) ? 'text-green-600' : ''}>
-                      • 특수문자 포함 (!@#$%^&*등)
+                      • 숫자 포함 (0-9)
                     </li>
                   </ul>
                 </div>

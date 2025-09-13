@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { users, tenants } from '@/db/schema/tenants';
 import { eq, and } from 'drizzle-orm';
 import { createScopedDb, type TenantContext } from '@/lib/db/tenant-isolation';
+import { generateSecretCode } from '@/lib/auth/secret-code';
 
 /**
  * Clerk 사용자와 데이터베이스 사용자 동기화
@@ -30,7 +31,8 @@ export async function syncClerkUser() {
 
   if (tenant.length === 0) {
     // 새 테넌트 생성
-    const orgDetails = await clerkClient().organizations.getOrganization({
+    const client = await clerkClient();
+    const orgDetails = await client.organizations.getOrganization({
       organizationId: orgId,
     });
 
@@ -39,6 +41,7 @@ export async function syncClerkUser() {
       .values({
         name: orgDetails.name,
         slug: orgSlug || orgId,
+        secretCode: generateSecretCode(),
         plan: 'free',
         settings: {
           timezone: 'Asia/Seoul',

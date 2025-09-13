@@ -278,11 +278,11 @@ export default function SettingsPage() {
   };
 
   const getAvailableTabs = () => {
-    const tabs = ['profile', 'security'] as const;
+    const baseTabs = ['profile', 'security'];
     if (currentUser?.role === 'admin') {
-      tabs.push('team', 'tenant');
+      return [...baseTabs, 'team', 'tenant'];
     }
-    return tabs;
+    return baseTabs;
   };
 
   return (

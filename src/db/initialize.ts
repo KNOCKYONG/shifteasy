@@ -253,15 +253,15 @@ async function initializeDatabase() {
       testUsersData.push({
         tenantId: testTenant[0].id,
         departmentId: dept.id,
-        clerkUserId: `test_manager_${dept.code}_${Date.now()}`,
-        email: `manager_${dept.code.toLowerCase()}@seoul-hospital.com`,
+        clerkUserId: `test_manager_${dept.code || dept.id}_${Date.now()}`,
+        email: `manager_${dept.code?.toLowerCase() || dept.id}@seoul-hospital.com`,
         name: `${dept.name} 수간호사`,
         role: 'manager',
         employeeId: `N${String(employeeCounter++).padStart(3, '0')}`,
         position: '수간호사',
         profile: {
           phone: `010-2000-${String(employeeCounter).padStart(4, '0')}`,
-          skills: ['Management', 'Training', dept.code],
+          skills: ['Management', 'Training', dept.code || dept.name],
         },
         status: 'active',
       });
@@ -270,15 +270,15 @@ async function initializeDatabase() {
       testUsersData.push({
         tenantId: testTenant[0].id,
         departmentId: dept.id,
-        clerkUserId: `test_nurse_${dept.code}_${Date.now()}`,
-        email: `nurse_${dept.code.toLowerCase()}@seoul-hospital.com`,
+        clerkUserId: `test_nurse_${dept.code || dept.id}_${Date.now()}`,
+        email: `nurse_${dept.code?.toLowerCase() || dept.id}@seoul-hospital.com`,
         name: `${dept.name} 간호사`,
         role: 'member',
         employeeId: `N${String(employeeCounter++).padStart(3, '0')}`,
         position: '간호사',
         profile: {
           phone: `010-3000-${String(employeeCounter).padStart(4, '0')}`,
-          skills: [dept.code, 'Patient Care'],
+          skills: [dept.code || dept.name, 'Patient Care'],
         },
         status: 'active',
       });

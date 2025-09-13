@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       if (!clerkUserId || clerkUserId.startsWith('local_')) {
         try {
           const clerkUser = await clerk.users.createUser({
-            emailAddresses: [email], // emailAddress가 아니라 emailAddresses (복수형)
+            emailAddress: email,
             firstName: name.split(' ')[0] || name,
             lastName: name.split(' ').slice(1).join(' ') || '',
             password: password || generateTempPassword(),
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
       let clerkUserId = '';
       try {
         const clerkUser = await clerk.users.createUser({
-          emailAddresses: [email], // emailAddress가 아니라 emailAddresses (복수형)
+          emailAddress: email,
           firstName: name.split(' ')[0] || name,
           lastName: name.split(' ').slice(1).join(' ') || '',
           password: password || generateTempPassword(),

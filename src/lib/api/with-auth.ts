@@ -40,7 +40,7 @@ export function withAuth(
         // 동기화된 정보 사용
         const context = syncResult.context;
         const scopedDb = createScopedDb(context);
-        const permissions = new PermissionChecker(context.role);
+        const permissions = new PermissionChecker(context.role || 'member');
 
         // 권한 체크
         if (requiredPermission) {
