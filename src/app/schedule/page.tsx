@@ -1,137 +1,187 @@
 "use client";
 import { useState, useEffect } from "react";
-import { format, startOfWeek, addWeeks, subWeeks } from "date-fns";
-import { ko, enUS, ja } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Calendar, Users, Settings, Download, Lock, Unlock, Wand2, RefreshCw, X } from "lucide-react";
-import { useTranslation } from "react-i18next";
-import { ScheduleBoard } from "@/components/schedule/ScheduleBoard";
-import { MonthView } from "@/components/schedule/MonthView";
-import { NotificationCenter } from "@/components/notifications/NotificationCenter";
-import { type Staff, type WeekSchedule } from "@/lib/types";
-import { loadCurrentTeam } from "@/lib/teamStorage";
+import { format, startOfWeek, addWeeks, subWeeks, addDays } from "date-fns";
+import { ko } from "date-fns/locale";
+import { ChevronLeft, ChevronRight, Calendar, Users, Download, Lock, Unlock, Wand2, RefreshCw, X, BarChart3 } from "lucide-react";
 import { ProfileDropdown } from "@/components/ProfileDropdown";
+import { mockTeamMembers, convertToSchedulerEmployee } from "@/lib/mock/team-members";
+import { Scheduler, type SchedulingRequest, type SchedulingResult } from "@/lib/scheduler/core";
+import { type Employee, type Shift, type Constraint, type ScheduleAssignment } from "@/lib/scheduler/types";
+
+// 기본 시프트 정의
+const DEFAULT_SHIFTS: Shift[] = [
+  {
+    id: 'shift-day',
+    type: 'day',
+    name: '주간',
+    time: { start: '07:00', end: '15:00', hours: 8 },
+    color: '#3B82F6',
+    requiredStaff: 5,
+    minStaff: 4,
+    maxStaff: 6,
+  },
+  {
+    id: 'shift-evening',
+    type: 'evening',
+    name: '저녁',
+    time: { start: '15:00', end: '23:00', hours: 8 },
+    color: '#8B5CF6',
+    requiredStaff: 4,
+    minStaff: 3,
+    maxStaff: 5,
+  },
+  {
+    id: 'shift-night',
+    type: 'night',
+    name: '야간',
+    time: { start: '23:00', end: '07:00', hours: 8 },
+    color: '#6366F1',
+    requiredStaff: 3,
+    minStaff: 2,
+    maxStaff: 4,
+  },
+];
+
+// 기본 제약조건
+const DEFAULT_CONSTRAINTS: Constraint[] = [
+  {
+    id: 'legal-max-hours-week',
+    name: '주 최대 근로시간',
+    type: 'hard',
+    category: 'legal',
+    weight: 1.0,
+    active: true,
+  },
+  {
+    id: 'legal-max-consecutive-days',
+    name: '최대 연속 근무일',
+    type: 'hard',
+    category: 'legal',
+    weight: 1.0,
+    active: true,
+  },
+  {
+    id: 'legal-min-rest-hours',
+    name: '최소 휴식시간',
+    type: 'hard',
+    category: 'legal',
+    weight: 1.0,
+    active: true,
+  },
+  {
+    id: 'preferred-shift',
+    name: '선호 시프트',
+    type: 'soft',
+    category: 'preference',
+    weight: 0.5,
+    active: true,
+  },
+  {
+    id: 'weekend-fairness',
+    name: '주말 근무 공정성',
+    type: 'soft',
+    category: 'fairness',
+    weight: 0.7,
+    active: true,
+  },
+];
 
 export default function SchedulePage() {
-  const { t, i18n } = useTranslation(['schedule', 'common']);
   const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 0 }));
-  const [staff, setStaff] = useState<Staff[]>([]);
-  const [schedule, setSchedule] = useState<WeekSchedule>({});
+  const [schedule, setSchedule] = useState<ScheduleAssignment[]>([]);
   const [isConfirmed, setIsConfirmed] = useState(false);
-  const [viewMode, setViewMode] = useState<"week" | "month">("week");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generationMetrics, setGenerationMetrics] = useState<any>(null);
+  const [generationResult, setGenerationResult] = useState<SchedulingResult | null>(null);
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
 
-  const getLocale = () => {
-    if (i18n.language === 'en') return enUS;
-    if (i18n.language === 'ja') return ja;
-    return ko;
-  };
+  // 부서별 필터링
+  const departments = [
+    { id: 'all', name: '전체' },
+    { id: 'dept-er', name: '응급실' },
+    { id: 'dept-icu', name: '중환자실' },
+    { id: 'dept-or', name: '수술실' },
+    { id: 'dept-ward', name: '일반병동' },
+  ];
 
-  useEffect(() => {
-    // Load team data
-    const teamData = loadCurrentTeam();
-    if (teamData && teamData.staff) {
-      setStaff(teamData.staff);
-
-      // Initialize empty schedule for all staff
-      const initialSchedule: WeekSchedule = {};
-      teamData.staff.forEach(member => {
-        initialSchedule[member.id] = {};
-      });
-      setSchedule(initialSchedule);
-    }
-  }, []);
+  // 선택된 부서의 직원들만 필터링
+  const filteredMembers = selectedDepartment === 'all'
+    ? mockTeamMembers.filter(m => m.status === 'active')
+    : mockTeamMembers.filter(m => m.status === 'active' && m.departmentId === selectedDepartment);
 
   const handlePreviousWeek = () => {
     setCurrentWeek(prev => subWeeks(prev, 1));
+    setSchedule([]);
+    setGenerationResult(null);
   };
 
   const handleNextWeek = () => {
     setCurrentWeek(prev => addWeeks(prev, 1));
+    setSchedule([]);
+    setGenerationResult(null);
   };
 
   const handleToday = () => {
     setCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 0 }));
-  };
-
-  const handleConfirmToggle = () => {
-    if (!isConfirmed) {
-      // Validate schedule before confirming
-      const hasSchedule = Object.values(schedule).some(staffSchedule =>
-        Object.keys(staffSchedule).length > 0
-      );
-
-      if (!hasSchedule) {
-        alert(t('alerts.noSchedule'));
-        return;
-      }
-    }
-    setIsConfirmed(!isConfirmed);
+    setSchedule([]);
+    setGenerationResult(null);
   };
 
   const handleGenerateSchedule = async () => {
-    if (staff.length === 0) {
-      alert(t('alerts.noTeam'));
+    if (filteredMembers.length === 0) {
+      alert('선택된 부서에 활성 직원이 없습니다.');
       return;
     }
 
     setIsGenerating(true);
-    setGenerationMetrics(null);
-
-    // Get team data
-    const teamData = loadCurrentTeam();
-    if (!teamData || !teamData.staff || teamData.staff.length === 0) {
-      alert(t('alerts.noTeamData'));
-      setIsGenerating(false);
-      return;
-    }
+    setGenerationResult(null);
 
     try {
-      const response = await fetch("/api/schedule/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          startDate: currentWeek.toISOString(),
-          teamData: teamData,
-          config: {
-            maxConsecutiveDays: 5,
-            minRestHours: 11,
-            maxWeeklyHours: 52,
-            minStaffPerShift: { D: 3, E: 2, N: 2, O: 0 },
-            fairnessWeight: 0.7,
-            preferenceWeight: 0.3,
-          },
-        }),
-      });
+      // 스케줄러용 직원 데이터 변환
+      const employees: Employee[] = filteredMembers.map(convertToSchedulerEmployee);
 
-      if (!response.ok) {
-        throw new Error(t('alerts.generationFailed'));
+      // 스케줄링 요청 생성
+      const request: SchedulingRequest = {
+        departmentId: selectedDepartment === 'all' ? 'all-departments' : selectedDepartment,
+        startDate: currentWeek,
+        endDate: addDays(currentWeek, 6),
+        employees,
+        shifts: DEFAULT_SHIFTS,
+        constraints: DEFAULT_CONSTRAINTS,
+        optimizationGoal: 'balanced',
+      };
+
+      // 스케줄 생성
+      const scheduler = new Scheduler();
+      const result = await scheduler.createSchedule(request);
+
+      if (result.success && result.schedule) {
+        setSchedule(result.schedule.assignments);
+        setGenerationResult(result);
+      } else {
+        alert('스케줄 생성에 실패했습니다. 제약조건을 확인해주세요.');
       }
-
-      const result = await response.json();
-
-      setSchedule(result.schedule);
-      setGenerationMetrics(result.metrics);
-
-      // 성공 메시지
-      if (result.metrics.processingTime < 5000) {
-        console.log(`스케줄 생성 완료 (${result.metrics.processingTime}ms)`);
-      }
-
     } catch (error) {
-      console.error("Schedule generation error:", error);
-      alert(t('alerts.generationError'));
+      console.error('Schedule generation error:', error);
+      alert('스케줄 생성 중 오류가 발생했습니다.');
     } finally {
       setIsGenerating(false);
     }
   };
 
+  const handleConfirmToggle = () => {
+    if (!isConfirmed && schedule.length === 0) {
+      alert('확정할 스케줄이 없습니다.');
+      return;
+    }
+    setIsConfirmed(!isConfirmed);
+  };
+
   const handleExport = () => {
-    // Export schedule as JSON
     const exportData = {
       week: format(currentWeek, "yyyy-MM-dd"),
-      staff,
-      schedule,
+      department: selectedDepartment,
+      assignments: schedule,
+      result: generationResult,
       confirmed: isConfirmed,
       exportedAt: new Date().toISOString(),
     };
@@ -145,64 +195,81 @@ export default function SchedulePage() {
     URL.revokeObjectURL(url);
   };
 
+  // 날짜별 스케줄 그룹화
+  const getScheduleForDay = (date: Date) => {
+    return schedule.filter(assignment =>
+      format(assignment.date, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+    );
+  };
+
+  // 시프트별 색상 가져오기
+  const getShiftColor = (shiftId: string) => {
+    const shift = DEFAULT_SHIFTS.find(s => s.id === shiftId);
+    return shift?.color || '#9CA3AF';
+  };
+
+  // 시프트 이름 가져오기
+  const getShiftName = (shiftId: string) => {
+    const shift = DEFAULT_SHIFTS.find(s => s.id === shiftId);
+    return shift?.name || '?';
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
+      <header className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-8">
-              <a href="/dashboard" className="text-xl font-semibold text-gray-900 dark:text-white hover:text-blue-600 transition-colors">
-                {t('app.name', { ns: 'common' })}
+              <a href="/dashboard" className="text-xl font-semibold text-gray-900 hover:text-blue-600 transition-colors">
+                ShiftEasy
               </a>
               <nav className="flex items-center gap-6">
-                <a href="/schedule" className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                  {t('nav.schedule', { ns: 'common' })}
+                <a href="/schedule" className="text-sm font-medium text-blue-600">
+                  스케줄
                 </a>
-                <a href="/team" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
-                  {t('nav.team', { ns: 'common' })}
+                <a href="/team" className="text-sm font-medium text-gray-600 hover:text-gray-900">
+                  팀 관리
                 </a>
-                <a href="/config" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
-                  {t('nav.config', { ns: 'common' })}
+                <a href="/config" className="text-sm font-medium text-gray-600 hover:text-gray-900">
+                  설정
                 </a>
               </nav>
             </div>
             <div className="flex items-center gap-3">
-              <NotificationCenter userId="dev-user-id" />
-              <ProfileDropdown />
-
               <button
                 onClick={handleGenerateSchedule}
                 disabled={isGenerating}
-                className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg ${
+                className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg ${
                   isGenerating
                     ? "text-gray-400 bg-gray-100 cursor-not-allowed"
-                    : "text-purple-700 bg-purple-50 border border-purple-200 hover:bg-purple-100"
+                    : "text-white bg-purple-600 hover:bg-purple-700"
                 }`}
               >
                 {isGenerating ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    {t('actions.generating')}
+                    생성 중...
                   </>
                 ) : (
                   <>
                     <Wand2 className="w-4 h-4" />
-                    {t('actions.autoGenerate')}
+                    AI 스케줄 생성
                   </>
                 )}
               </button>
 
               <button
                 onClick={handleExport}
-                className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700"
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
               >
                 <Download className="w-4 h-4" />
-                {t('actions.export')}
+                내보내기
               </button>
+
               <button
                 onClick={handleConfirmToggle}
-                className={`inline-flex items-center gap-2 px-4 py-1.5 text-sm font-medium rounded-lg ${
+                className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg ${
                   isConfirmed
                     ? "text-green-700 bg-green-50 border border-green-200 hover:bg-green-100"
                     : "text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100"
@@ -211,15 +278,17 @@ export default function SchedulePage() {
                 {isConfirmed ? (
                   <>
                     <Lock className="w-4 h-4" />
-                    {t('actions.confirmed')}
+                    확정됨
                   </>
                 ) : (
                   <>
                     <Unlock className="w-4 h-4" />
-                    {t('actions.confirmSchedule')}
+                    스케줄 확정
                   </>
                 )}
               </button>
+
+              <ProfileDropdown />
             </div>
           </div>
         </div>
@@ -227,25 +296,25 @@ export default function SchedulePage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Week Navigation */}
+        {/* Week Navigation & Department Filter */}
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <button
                 onClick={handlePreviousWeek}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <ChevronLeft className="w-5 h-5 text-gray-600" />
               </button>
               <button
                 onClick={handleToday}
-                className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg"
               >
-                {t('buttons.today', { ns: 'common' })}
+                오늘
               </button>
               <button
                 onClick={handleNextWeek}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <ChevronRight className="w-5 h-5 text-gray-600" />
               </button>
@@ -253,140 +322,175 @@ export default function SchedulePage() {
             <div className="flex items-center gap-2">
               <Calendar className="w-5 h-5 text-gray-400" />
               <h2 className="text-lg font-medium text-gray-900">
-                {format(currentWeek, "yyyy년 M월 d일", { locale: getLocale() })}
+                {format(currentWeek, "yyyy년 M월 d일", { locale: ko })} 주
               </h2>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setViewMode("week")}
-              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                viewMode === "week"
-                  ? "bg-gray-900 text-white"
-                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700"
-              }`}
+          <div className="flex items-center gap-4">
+            <select
+              value={selectedDepartment}
+              onChange={(e) => {
+                setSelectedDepartment(e.target.value);
+                setSchedule([]);
+                setGenerationResult(null);
+              }}
+              className="px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              {t('viewMode.week')}
-            </button>
-            <button
-              onClick={() => setViewMode("month")}
-              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                viewMode === "month"
-                  ? "bg-gray-900 text-white"
-                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700"
-              }`}
-            >
-              {t('viewMode.month')}
-            </button>
+              {departments.map(dept => (
+                <option key={dept.id} value={dept.id}>{dept.name}</option>
+              ))}
+            </select>
+            <span className="text-sm text-gray-500">
+              {filteredMembers.length}명
+            </span>
           </div>
         </div>
 
-        {/* Schedule Board or Month View */}
-        {viewMode === "week" ? (
-          <ScheduleBoard
-            staff={staff}
-            schedule={schedule}
-            currentWeek={currentWeek}
-            onScheduleChange={setSchedule}
-            isConfirmed={isConfirmed}
-          />
-        ) : (
-          <MonthView
-            staff={staff}
-            schedule={schedule}
-            currentMonth={currentWeek}
-            onMonthChange={setCurrentWeek}
-          />
-        )}
-
-        {/* Generation Metrics */}
-        {generationMetrics && (
-          <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/10 dark:to-blue-900/10 rounded-xl border border-purple-100 dark:border-purple-900/30">
+        {/* AI Generation Result */}
+        {generationResult && (
+          <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl border border-purple-100">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-white dark:bg-slate-700 rounded-lg shadow-sm dark:shadow-slate-900/50">
-                  <Wand2 className="w-5 h-5 text-purple-600" />
+                <div className="p-2 bg-white rounded-lg shadow-sm">
+                  <BarChart3 className="w-5 h-5 text-purple-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{t('generation.success')}</p>
+                  <p className="text-sm font-medium text-gray-900">AI 스케줄 생성 완료</p>
                   <p className="text-xs text-gray-600">
-                    {t('generation.processingTime')}: {generationMetrics.processingTime}ms |
-                    {t('generation.coverage')}: {Math.round(generationMetrics.coverageRate * 100)}% |
-                    {t('generation.fairness')}: {Math.round(generationMetrics.distributionBalance * 100)}%
+                    처리 시간: {generationResult.computationTime}ms |
+                    공정성 점수: {generationResult.score.fairness}점 |
+                    선호도 만족: {generationResult.score.preference}점 |
+                    제약 위반: {generationResult.violations.filter(v => v.type === 'hard').length}건
                   </p>
                 </div>
               </div>
               <button
-                onClick={() => setGenerationMetrics(null)}
+                onClick={() => setGenerationResult(null)}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
+
+            {generationResult.violations.filter(v => v.type === 'hard').length > 0 && (
+              <div className="mt-3 p-2 bg-red-50 rounded-lg">
+                <p className="text-xs font-medium text-red-700">경고: 하드 제약조건 위반이 있습니다</p>
+                {generationResult.violations
+                  .filter(v => v.type === 'hard')
+                  .slice(0, 3)
+                  .map((v, i) => (
+                    <p key={i} className="text-xs text-red-600 mt-1">• {v.message}</p>
+                  ))
+                }
+              </div>
+            )}
           </div>
         )}
 
-        {/* Quick Stats */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">{t('stats.totalStaff')}</p>
-                <p className="text-2xl font-semibold text-gray-900">{staff.length}</p>
-              </div>
-              <Users className="w-8 h-8 text-gray-300" />
-            </div>
+        {/* Schedule Grid */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="grid grid-cols-8 border-b border-gray-200">
+            <div className="p-4 bg-gray-50 font-medium text-sm text-gray-700">직원</div>
+            {[...Array(7)].map((_, i) => {
+              const date = addDays(currentWeek, i);
+              return (
+                <div key={i} className="p-4 bg-gray-50 text-center border-l border-gray-200">
+                  <div className="font-medium text-sm text-gray-700">
+                    {format(date, 'EEE', { locale: ko })}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {format(date, 'M/d')}
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
-          <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">{t('stats.dayShift')}</p>
-                <p className="text-2xl font-semibold text-blue-600">
-                  {Object.values(schedule).reduce((acc, staffSchedule) => {
-                    return acc + Object.values(staffSchedule).filter(s => s === "D").length;
-                  }, 0)}
-                </p>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
-                <span className="text-sm font-bold text-blue-600">D</span>
-              </div>
-            </div>
-          </div>
+          <div className="max-h-[600px] overflow-y-auto">
+            {filteredMembers.map(member => (
+              <div key={member.id} className="grid grid-cols-8 border-b border-gray-100 hover:bg-gray-50">
+                <div className="p-4 flex items-center gap-2">
+                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-xs font-semibold">
+                    {member.name.slice(0, 2)}
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">{member.name}</div>
+                    <div className="text-xs text-gray-500">{member.position}</div>
+                  </div>
+                </div>
 
-          <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">{t('stats.nightShift')}</p>
-                <p className="text-2xl font-semibold text-indigo-600">
-                  {Object.values(schedule).reduce((acc, staffSchedule) => {
-                    return acc + Object.values(staffSchedule).filter(s => s === "N").length;
-                  }, 0)}
-                </p>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
-                <span className="text-sm font-bold text-indigo-600">N</span>
-              </div>
-            </div>
-          </div>
+                {[...Array(7)].map((_, dayIndex) => {
+                  const date = addDays(currentWeek, dayIndex);
+                  const dayAssignments = getScheduleForDay(date).filter(a => a.employeeId === member.id);
 
-          <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">{t('stats.offDuty')}</p>
-                <p className="text-2xl font-semibold text-gray-600">
-                  {Object.values(schedule).reduce((acc, staffSchedule) => {
-                    return acc + Object.values(staffSchedule).filter(s => s === "O").length;
-                  }, 0)}
-                </p>
+                  return (
+                    <div key={dayIndex} className="p-2 border-l border-gray-100">
+                      {dayAssignments.map((assignment, i) => (
+                        <div
+                          key={i}
+                          className="mb-1 px-2 py-1 rounded text-xs font-medium text-white text-center"
+                          style={{ backgroundColor: getShiftColor(assignment.shiftId) }}
+                        >
+                          {getShiftName(assignment.shiftId)}
+                        </div>
+                      ))}
+                      {dayAssignments.length === 0 && (
+                        <div className="px-2 py-1 rounded text-xs text-gray-400 text-center bg-gray-50">
+                          휴무
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-              <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
-                <span className="text-sm font-bold text-gray-500">O</span>
+            ))}
+
+            {filteredMembers.length === 0 && (
+              <div className="p-12 text-center">
+                <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500">선택된 부서에 활성 직원이 없습니다</p>
               </div>
-            </div>
+            )}
           </div>
         </div>
+
+        {/* Stats */}
+        {schedule.length > 0 && (
+          <div className="mt-6 grid grid-cols-4 gap-4">
+            <div className="bg-white rounded-xl p-4 border border-gray-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">총 배정</p>
+                  <p className="text-2xl font-semibold text-gray-900">{schedule.length}</p>
+                </div>
+                <Calendar className="w-8 h-8 text-gray-300" />
+              </div>
+            </div>
+
+            {DEFAULT_SHIFTS.map(shift => {
+              const count = schedule.filter(a => a.shiftId === shift.id).length;
+              return (
+                <div key={shift.id} className="bg-white rounded-xl p-4 border border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-500">{shift.name}</p>
+                      <p className="text-2xl font-semibold" style={{ color: shift.color }}>
+                        {count}
+                      </p>
+                    </div>
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold"
+                      style={{ backgroundColor: shift.color }}
+                    >
+                      {shift.type[0].toUpperCase()}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </main>
     </div>
   );
