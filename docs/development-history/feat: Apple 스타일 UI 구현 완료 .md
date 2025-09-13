@@ -3,97 +3,6 @@
 ## 프로젝트 개요
 병원 간호사 근무 스케줄 관리를 위한 SaaS 플랫폼 개발
 
-## 개발 진행 상황
-
-### 📅 Phase 1: 백엔드 인프라 구축 (Developer A)
-**완료 항목:**
-
-#### 1. 데이터베이스 스키마 설계 및 구현
-- **Supabase + Drizzle ORM** 설정
-- **14개 테이블 생성**:
-  - `tenants`: 병원/조직 관리
-  - `users`: 사용자 정보
-  - `departments`: 부서 관리
-  - `roles`: 역할 관리
-  - `schedules`: 스케줄 마스터
-  - `shifts`: 근무 시프트 정의
-  - `shift_assignments`: 근무 배정
-  - `shift_swaps`: 근무 교대 요청
-  - `shift_preferences`: 선호 근무
-  - `attendance_records`: 출근 기록
-  - `notifications`: 알림
-  - `audit_logs`: 감사 로그
-  - `settings`: 시스템 설정
-  - `permissions`: 권한 관리
-
-#### 2. tRPC API 라우터 구현
-- **28개 엔드포인트** 구현
-- **주요 라우터**:
-  - `tenant`: 조직 관리 (6개 엔드포인트)
-  - `user`: 사용자 관리 (8개 엔드포인트)
-  - `schedule`: 스케줄 관리 (10개 엔드포인트)
-  - `shift`: 근무 관리 (8개 엔드포인트)
-  - `assignment`: 배정 관리 (6개 엔드포인트)
-  - `swap`: 교대 관리 (5개 엔드포인트)
-  - `notification`: 알림 관리 (4개 엔드포인트)
-  - `report`: 리포트 생성 (3개 엔드포인트)
-
-#### 3. 멀티테넌시 지원
-- **테넌트 격리**: `scopedDb` 헬퍼 함수로 데이터 격리
-- **조직별 데이터 분리**: 모든 쿼리에 `tenantId` 필터 적용
-- **크로스 테넌트 접근 방지**
-
----
-
-### 🔐 Phase 2: 인증 및 권한 시스템 (Developer B)
-**완료 항목:**
-
-#### 1. Clerk 인증 통합
-- **조직 기반 인증**: Organization 기능 활용
-- **SSO 지원**: Google, GitHub 로그인
-- **세션 관리**: JWT 토큰 기반
-- **미들웨어 설정**: Next.js 미들웨어로 라우트 보호
-
-#### 2. RBAC (역할 기반 접근 제어) 시스템
-- **4개 역할 정의**:
-  - `Owner`: 모든 권한 (37개)
-  - `Admin`: 관리 권한 (28개)
-  - `Manager`: 중간 관리 권한 (15개)
-  - `Member`: 기본 권한 (8개)
-
-- **37개 세부 권한**:
-  ```
-  - 스케줄 관리: create, edit, delete, approve, publish
-  - 직원 관리: view, edit, delete, manage_roles
-  - 근무 교대: request, approve, reject
-  - 리포트: view, export, create_custom
-  - 설정: view, edit, manage_billing
-  - 등등...
-  ```
-
-#### 3. Rate Limiting (속도 제한)
-- **Upstash Redis** 통합
-- **작업별 제한**:
-  - API 호출: 100/분
-  - 인증: 10/분
-  - 스케줄 생성: 20/시간
-  - 교대 요청: 30/시간
-  - 리포트: 10/시간
-  - 알림: 50/시간
-  - 파일 업로드: 10/시간
-
-#### 4. 감사 로그 시스템
-- **모든 중요 작업 추적**
-- **자동 민감 정보 마스킹**
-- **작업 유형**:
-  - 인증 이벤트
-  - 데이터 변경
-  - 권한 변경
-  - 시스템 설정 변경
-  - 보안 이벤트
-
----
-
 ### 🎨 Phase 3: UI/UX 구현 (Apple 디자인 시스템)
 **완료 항목:**
 
@@ -262,4 +171,4 @@ shifteasy/
 
 ---
 
-**마지막 업데이트**: 2025년 1월 13일
+**마지막 업데이트**: 2025년 9월 13일
