@@ -1,0 +1,354 @@
+// Shifteasy 통합 스케줄링 시스템 데이터베이스 스키마
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 열거형 정의
+enum UserRole {
+  ADMIN
+  MANAGER  // 수간호사
+  STAFF    // 간호사
+}
+
+enum StaffRole {
+  RN  // Registered Nurse
+  CN  // Charge Nurse (책임간호사)
+  SN  // Senior Nurse (선임간호사) 
+  NA  // Nurse Assistant (간호조무사)
+}
+
+enum ShiftType {
+  D  // Day
+  E  // Evening
+  N  // Night
+  O  // Off
+}
+
+enum ScheduleStatus {
+  DRAFT
+  PENDING_APPROVAL
+  CONFIRMED
+  ARCHIVED
+}
+
+enum RequestType {
+  ANNUAL_LEAVE    // 연차
+  SICK_LEAVE      // 병가
+  SHIFT_PREFERENCE // 근무 선호
+  SHIFT_AVOIDANCE  // 근무 기피
+  OVERTIME        // 초과근무
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum RequestPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+// 사용자 및 인증 관련
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      UserRole @default(STAFF)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 관계
+  staff     Staff?
+  createdSchedules Schedule[] @relation("ScheduleCreator")
+  
+  @@map("users")
+}
+
+// 병원 및 병동 관리
+model Hospital {
+  id       String @id @default(cuid())
+  name     String
+  timeZone String @default("Asia/Seoul")
+  settings Json   // 병원 전체 설정
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 관계
+  wards Ward[]
+  
+  @@map("hospitals")
+}
+
+model Ward {
+  id         String @id @default(cuid())
+  hospitalId String
+  name       String
+  code       String // 병동 코드 (예: 3A, 5B)
+  
+  // 병동별 규칙 (JSON으로 저장)
+  hardRules  Json   // 하드 제약조건
+  softRules  Json   // 소프트 제약조건
+  
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 관계
+  hospital   Hospital    @relation(fields: [hospitalId], references: [id])
+  staff      Staff[]
+  shifts     Shift[]
+  schedules  Schedule[]
+  requests   Request[]
+
+  @@map("wards")
+}
+
+// 근무 교대 정의
+model Shift {
+  id      String    @id @default(cuid())
+  wardId  String
+  type    ShiftType
+  label   String    // 표시명 (예: "Day Shift")
+  
+  startTime String?  // "07:00" (Off는 null)
+  endTime   String?  // "15:00"
+  duration  Int?     // 근무 시간 (분 단위)
+  
+  // 근무조별 최소 인원
+  minStaff Int @default(0)
+  
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 관계
+  ward        Ward         @relation(fields: [wardId], references: [id])
+  assignments Assignment[]
+
+  @@unique([wardId, type])
+  @@map("shifts")
+}
+
+// 직원 관리
+model Staff {
+  id     String    @id @default(cuid())
+  wardId String
+  userId String?   @unique
+  
+  name           String
+  role           StaffRole
+  employeeId     String?   // 사번
+  hireDate       DateTime?
+  
+  // 기본 정보
+  maxWeeklyHours Int       @default(40)
+  skills         String[]  // 보유 기술/자격
+  
+  // 역량 평가 (1-5 척도)
+  technicalSkill    Int @default(3)  // 기술적 역량
+  leadership        Int @default(3)  // 리더십
+  communication     Int @default(3)  // 의사소통
+  adaptability      Int @default(3)  // 적응력
+  reliability       Int @default(3)  // 신뢰도
+  
+  // 경력 레벨
+  experienceLevel   String @default("JUNIOR") // NEWBIE, JUNIOR, SENIOR, EXPERT
+  
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 관계
+  ward         Ward         @relation(fields: [wardId], references: [id])
+  user         User?        @relation(fields: [userId], references: [id])
+  preferences  Preference[]
+  assignments  Assignment[]
+  requests     Request[]
+  
+  @@map("staff")
+}
+
+// 개인 선호도/가용성 관리
+model Preference {
+  id      String @id @default(cuid())
+  staffId String
+  
+  date      DateTime    // 선호/기피 날짜
+  shiftType ShiftType?  // 선호 근무조 (null이면 오프 선호)
+  score     Int         // 선호도 점수 (-5 ~ +5, 음수는 기피)
+  reason    String?     // 사유
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 관계
+  staff Staff @relation(fields: [staffId], references: [id])
+  
+  @@index([staffId, date])
+  @@map("preferences")
+}
+
+// 요청 관리 시스템 (연차, 근무 변경 등)
+model Request {
+  id      String        @id @default(cuid())
+  wardId  String
+  staffId String
+  
+  type        RequestType
+  status      RequestStatus   @default(PENDING)
+  priority    RequestPriority @default(MEDIUM)
+  
+  // 요청 내용
+  startDate   DateTime
+  endDate     DateTime?
+  shiftType   ShiftType?  // 근무 관련 요청의 경우
+  
+  reason      String?     // 요청 사유
+  description String?     // 상세 설명
+  
+  // 승인 관련
+  approvedBy  String?     // 승인자 ID
+  approvedAt  DateTime?
+  rejectedReason String?  // 거부 사유
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 관계
+  ward  Ward  @relation(fields: [wardId], references: [id])
+  staff Staff @relation(fields: [staffId], references: [id])
+  
+  @@index([wardId, status])
+  @@index([staffId, startDate])
+  @@map("requests")
+}
+
+// 스케줄 관리
+model Schedule {
+  id        String         @id @default(cuid())
+  wardId    String
+  createdBy String
+  
+  name        String         // 스케줄명 (예: "2025년 3월 3A병동")
+  startDate   DateTime       // 스케줄 시작일
+  endDate     DateTime       // 스케줄 종료일
+  status      ScheduleStatus @default(DRAFT)
+  version     String         @default("draft")
+  
+  // 생성 시 사용된 규칙/설정 스냅샷
+  rulesSnapshot Json
+  
+  // 메타 정보
+  generatedAt DateTime?      // 자동 생성 시간
+  confirmedAt DateTime?      // 확정 시간
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 관계
+  ward        Ward         @relation(fields: [wardId], references: [id])
+  creator     User         @relation("ScheduleCreator", fields: [createdBy], references: [id])
+  assignments Assignment[]
+  
+  @@map("schedules")
+}
+
+// 실제 근무 배치
+model Assignment {
+  id         String @id @default(cuid())
+  scheduleId String
+  staffId    String
+  shiftId    String
+  
+  date       DateTime  // 근무 날짜
+  
+  // 배치 메타 정보
+  isOvertime    Boolean @default(false)  // 초과근무 여부
+  isReplacement Boolean @default(false)  // 대체근무 여부
+  confidence    Float?                   // AI 추천 신뢰도 (0-1)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 관계
+  schedule Schedule @relation(fields: [scheduleId], references: [id])
+  staff    Staff    @relation(fields: [staffId], references: [id])
+  shift    Shift    @relation(fields: [shiftId], references: [id])
+  
+  @@unique([scheduleId, staffId, date])
+  @@index([scheduleId, date])
+  @@map("assignments")
+}
+
+// 팀 궁합 매트릭스 (직원 간 협업 지수)
+model StaffCompatibility {
+  id       String @id @default(cuid())
+  staff1Id String
+  staff2Id String
+  
+  // 궁합 지수 (1-5, 5가 최고)
+  compatibilityScore Float
+  
+  // 협업 이력
+  totalShiftsTogether Int @default(0)
+  successfulShifts    Int @default(0)
+  
+  // 평가 기준별 점수
+  communicationScore Float?
+  workStyleScore     Float?
+  reliabilityScore   Float?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([staff1Id, staff2Id])
+  @@map("staff_compatibility")
+}
+
+// 감사 로그 (모든 중요 작업 기록)
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?  // 작업 수행자
+  action     String   // 수행 작업 (CREATE_SCHEDULE, MODIFY_ASSIGNMENT 등)
+  entityType String   // 대상 엔티티 타입
+  entityId   String   // 대상 엔티티 ID
+  
+  oldData    Json?    // 변경 전 데이터
+  newData    Json?    // 변경 후 데이터
+  metadata   Json?    // 추가 메타데이터
+  
+  ipAddress  String?
+  userAgent  String?
+  
+  createdAt DateTime @default(now())
+  
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+// 시스템 설정
+model SystemConfig {
+  id    String @id @default(cuid())
+  key   String @unique
+  value Json
+  
+  description String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("system_config")
+}
