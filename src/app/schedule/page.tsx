@@ -9,6 +9,7 @@ import { MonthView } from "@/components/schedule/MonthView";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { type Staff, type WeekSchedule } from "@/lib/types";
 import { loadCurrentTeam } from "@/lib/teamStorage";
+import { ProfileDropdown } from "@/components/ProfileDropdown";
 
 export default function SchedulePage() {
   const { t, i18n } = useTranslation(['schedule', 'common']);
@@ -151,7 +152,9 @@ export default function SchedulePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-8">
-              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('app.name', { ns: 'common' })}</h1>
+              <a href="/dashboard" className="text-xl font-semibold text-gray-900 dark:text-white hover:text-blue-600 transition-colors">
+                {t('app.name', { ns: 'common' })}
+              </a>
               <nav className="flex items-center gap-6">
                 <a href="/schedule" className="text-sm font-medium text-blue-600 dark:text-blue-400">
                   {t('nav.schedule', { ns: 'common' })}
@@ -166,6 +169,7 @@ export default function SchedulePage() {
             </div>
             <div className="flex items-center gap-3">
               <NotificationCenter userId="dev-user-id" />
+              <ProfileDropdown />
 
               <button
                 onClick={handleGenerateSchedule}

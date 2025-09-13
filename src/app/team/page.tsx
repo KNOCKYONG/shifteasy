@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { StaffCard } from "@/components/schedule/StaffCard";
 import { type Staff, type Role } from "@/lib/types";
 import { listTeamPresets, loadTeamPreset, saveTeamPreset, saveCurrentTeam, loadCurrentTeam } from "@/lib/teamStorage";
+import { ProfileDropdown } from "@/components/ProfileDropdown";
 
 const roles: Role[] = ["RN", "CN", "SN", "NA"];
 
@@ -153,7 +154,9 @@ export default function TeamManagementPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-8">
-              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">ShiftEasy</h1>
+              <a href="/dashboard" className="text-xl font-semibold text-gray-900 dark:text-white hover:text-blue-600 transition-colors">
+                ShiftEasy
+              </a>
               <nav className="flex items-center gap-6">
                 <a href="/schedule" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
                   스케줄
@@ -175,6 +178,7 @@ export default function TeamManagementPage() {
                 {t('actions.saveAndNext')}
                 <ChevronRight className="w-4 h-4" />
               </button>
+              <ProfileDropdown />
             </div>
           </div>
         </div>

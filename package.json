@@ -11,7 +11,13 @@
 		"db:migrate": "drizzle-kit migrate",
 		"db:push": "drizzle-kit push",
 		"db:studio": "drizzle-kit studio",
-		"db:seed": "tsx src/db/seed.ts"
+		"db:init": "tsx src/db/initialize.ts",
+		"db:setup": "npm run db:push && npm run db:init",
+		"db:reset": "dropdb shifteasy --if-exists && createdb shifteasy && npm run db:push && npm run db:init",
+		"db:check": "tsx src/db/utils.ts all",
+		"db:check:users": "tsx src/db/utils.ts users",
+		"db:check:clerk": "tsx src/db/utils.ts clerk",
+		"db:check:summary": "tsx src/db/utils.ts summary"
 	},
 	"dependencies": {
 		"@clerk/backend": "^2.14.0",
@@ -33,6 +39,7 @@
 		"drizzle-kit": "^0.31.4",
 		"drizzle-orm": "^0.44.5",
 		"i18next": "^25.5.2",
+		"i18next-browser-languagedetector": "^8.2.0",
 		"i18next-resources-to-backend": "^1.2.1",
 		"lucide-react": "^0.544.0",
 		"next": "15.5.3",

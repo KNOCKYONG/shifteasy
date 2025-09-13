@@ -1,0 +1,194 @@
+/**
+ * 데이터베이스 유틸리티 함수들
+ * 데이터 확인, 디버깅, 검증 등의 도구 모음
+ */
+
+import { db } from './index';
+import { users, tenants, departments } from './schema/tenants';
+import { like, eq } from 'drizzle-orm';
+import { createClerkClient } from '@clerk/nextjs/server';
+
+/**
+ * 데이터베이스의 모든 사용자 확인
+ */
+export async function checkDatabaseUsers() {
+  try {
+    const testUsers = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        clerkUserId: users.clerkUserId,
+        role: users.role,
+        tenantId: users.tenantId,
+        departmentId: users.departmentId,
+      })
+      .from(users)
+      .where(like(users.email, '%@%'));
+
+    console.log('\n📊 Database Users:');
+    console.table(testUsers);
+
+    return testUsers;
+  } catch (error) {
+    console.error('❌ Error checking database users:', error);
+    throw error;
+  }
+}
+
+/**
+ * Clerk의 모든 사용자 확인
+ */
+export async function checkClerkUsers() {
+  try {
+    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
+    const userList = await clerk.users.getUserList();
+
+    console.log('\n👥 Clerk Users:');
+    const clerkUsers = userList.data.map(user => ({
+      id: user.id,
+      email: user.emailAddresses[0]?.emailAddress,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      createdAt: user.createdAt,
+    }));
+
+    console.table(clerkUsers);
+    return clerkUsers;
+  } catch (error) {
+    console.error('❌ Error checking Clerk users:', error);
+    throw error;
+  }
+}
+
+/**
+ * 모든 테넌트 정보 확인
+ */
+export async function checkTenants() {
+  try {
+    const allTenants = await db.select().from(tenants);
+
+    console.log('\n🏢 Tenants:');
+    console.table(allTenants.map(t => ({
+      id: t.id,
+      name: t.name,
+      slug: t.slug,
+      secretCode: t.secretCode,
+      plan: t.plan,
+      createdAt: t.createdAt,
+    })));
+
+    return allTenants;
+  } catch (error) {
+    console.error('❌ Error checking tenants:', error);
+    throw error;
+  }
+}
+
+/**
+ * 특정 테넌트의 부서 확인
+ */
+export async function checkDepartments(tenantId?: string) {
+  try {
+    let query = db.select().from(departments);
+
+    if (tenantId) {
+      query = query.where(eq(departments.tenantId, tenantId));
+    }
+
+    const allDepartments = await query;
+
+    console.log('\n🏥 Departments:');
+    console.table(allDepartments.map(d => ({
+      id: d.id,
+      tenantId: d.tenantId,
+      name: d.name,
+      code: d.code,
+      description: d.description,
+    })));
+
+    return allDepartments;
+  } catch (error) {
+    console.error('❌ Error checking departments:', error);
+    throw error;
+  }
+}
+
+/**
+ * 데이터베이스 상태 요약
+ */
+export async function getDatabaseSummary() {
+  try {
+    const [tenantCount] = await db
+      .select({ count: db.raw('count(*)') })
+      .from(tenants);
+
+    const [userCount] = await db
+      .select({ count: db.raw('count(*)') })
+      .from(users);
+
+    const [departmentCount] = await db
+      .select({ count: db.raw('count(*)') })
+      .from(departments);
+
+    console.log('\n📈 Database Summary:');
+    console.log('=' . repeat(40));
+    console.log(`Tenants: ${tenantCount.count}`);
+    console.log(`Users: ${userCount.count}`);
+    console.log(`Departments: ${departmentCount.count}`);
+    console.log('=' . repeat(40));
+
+    return {
+      tenants: tenantCount.count,
+      users: userCount.count,
+      departments: departmentCount.count,
+    };
+  } catch (error) {
+    console.error('❌ Error getting database summary:', error);
+    throw error;
+  }
+}
+
+/**
+ * 모든 데이터 확인 (종합)
+ */
+export async function checkAll() {
+  console.log('\n🔍 Checking all database data...\n');
+
+  await getDatabaseSummary();
+  await checkTenants();
+  await checkDepartments();
+  await checkDatabaseUsers();
+
+  // Clerk는 선택적 (환경변수가 있을 때만)
+  if (process.env.CLERK_SECRET_KEY) {
+    await checkClerkUsers();
+  }
+}
+
+// 직접 실행 시
+if (require.main === module) {
+  const command = process.argv[2];
+
+  switch (command) {
+    case 'users':
+      checkDatabaseUsers().then(() => process.exit(0));
+      break;
+    case 'clerk':
+      checkClerkUsers().then(() => process.exit(0));
+      break;
+    case 'tenants':
+      checkTenants().then(() => process.exit(0));
+      break;
+    case 'departments':
+      checkDepartments().then(() => process.exit(0));
+      break;
+    case 'summary':
+      getDatabaseSummary().then(() => process.exit(0));
+      break;
+    case 'all':
+    default:
+      checkAll().then(() => process.exit(0));
+      break;
+  }
+}

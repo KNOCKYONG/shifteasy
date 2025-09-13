@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { I18nProvider } from "@/components/providers/I18nProvider";
-// import { ClerkProvider } from "@clerk/nextjs"; // Clerk 임시 비활성화
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -19,22 +19,31 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ko" suppressHydrationWarning>
-      <body className={inter.className}>
-        <I18nProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange={false}
-          >
-            <div className="fixed top-4 right-4 z-50">
-              <SettingsMenu />
-            </div>
-            {children}
-          </ThemeProvider>
-        </I18nProvider>
-      </body>
-    </html>
+    <ClerkProvider
+      appearance={{
+        baseTheme: undefined,
+        variables: {
+          colorPrimary: '#2563eb',
+        },
+      }}
+    >
+      <html lang="ko" suppressHydrationWarning>
+        <body className={inter.className}>
+          <I18nProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange={false}
+            >
+              <div className="fixed top-4 right-4 z-50">
+                <SettingsMenu />
+              </div>
+              {children}
+            </ThemeProvider>
+          </I18nProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

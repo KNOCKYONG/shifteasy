@@ -5,6 +5,7 @@ export const tenants = pgTable('tenants', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   slug: text('slug').unique().notNull(),
+  secretCode: text('secret_code').unique().notNull(), // 테넌트별 고유 시크릿 코드
   plan: text('plan').notNull().default('free'), // free, pro, enterprise
   billingInfo: jsonb('billing_info').$type<{
     stripeCustomerId?: string;
@@ -18,12 +19,14 @@ export const tenants = pgTable('tenants', {
     maxUsers?: number;
     maxDepartments?: number;
     features?: string[];
+    signupEnabled?: boolean; // 가입 허용 여부
   }>().default({
     timezone: 'Asia/Seoul',
     locale: 'ko',
     maxUsers: 10,
     maxDepartments: 3,
-    features: []
+    features: [],
+    signupEnabled: true
   }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
