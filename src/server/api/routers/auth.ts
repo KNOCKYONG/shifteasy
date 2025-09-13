@@ -6,8 +6,8 @@ import { eq } from 'drizzle-orm';
 
 export const authRouter = createTRPCRouter({
   me: protectedProcedure.query(async ({ ctx }) => {
-    const db = scopedDb(ctx.tenantId!);
-    const [user] = await db.query(users, eq(users.id, ctx.user!.id));
+    const db = scopedDb((ctx.tenantId || 'dev-org-id'));
+    const [user] = await db.query(users, eq(users.id, (ctx.user?.id || 'dev-user-id')));
     return user;
   }),
 
@@ -37,7 +37,7 @@ export const authRouter = createTRPCRouter({
       }).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb(ctx.tenantId!);
+      const db = scopedDb((ctx.tenantId || 'dev-org-id'));
 
       const [updated] = await db.update(
         users,
@@ -49,7 +49,7 @@ export const authRouter = createTRPCRouter({
           },
           position: input.position,
         },
-        eq(users.id, ctx.user!.id)
+        eq(users.id, (ctx.user?.id || 'dev-user-id'))
       );
 
       return updated;

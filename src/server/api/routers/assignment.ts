@@ -13,7 +13,7 @@ export const assignmentRouter = createTRPCRouter({
       scheduleId: z.string().optional(),
     }))
     .query(async ({ ctx, input }) => {
-      const db = scopedDb(ctx.tenantId!);
+      const db = scopedDb(ctx.tenantId || 'dev-org-id');
       const userId = input.userId || ctx.user?.id || 'dev-user-id';
 
       let conditions = [eq(assignments.userId, userId)];
@@ -42,7 +42,7 @@ export const assignmentRouter = createTRPCRouter({
       notes: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb(ctx.tenantId!);
+      const db = scopedDb((ctx.tenantId || 'dev-org-id'));
 
       const { id, ...updateData } = input;
 
@@ -59,8 +59,8 @@ export const assignmentRouter = createTRPCRouter({
       );
 
       await createAuditLog({
-        tenantId: ctx.tenantId!,
-        actorId: ctx.user!.id,
+        tenantId: (ctx.tenantId || 'dev-org-id'),
+        actorId: (ctx.user?.id || 'dev-user-id'),
         action: 'assignment.updated',
         entityType: 'assignment',
         entityId: id,
@@ -77,13 +77,13 @@ export const assignmentRouter = createTRPCRouter({
       reason: z.string(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb(ctx.tenantId!);
+      const db = scopedDb((ctx.tenantId || 'dev-org-id'));
 
       const [updated] = await db.update(
         assignments,
         {
           isLocked: true,
-          lockedBy: ctx.user!.id,
+          lockedBy: (ctx.user?.id || 'dev-user-id'),
           lockedAt: new Date(),
           lockedReason: input.reason,
         },
@@ -91,8 +91,8 @@ export const assignmentRouter = createTRPCRouter({
       );
 
       await createAuditLog({
-        tenantId: ctx.tenantId!,
-        actorId: ctx.user!.id,
+        tenantId: (ctx.tenantId || 'dev-org-id'),
+        actorId: (ctx.user?.id || 'dev-user-id'),
         action: 'assignment.locked',
         entityType: 'assignment',
         entityId: input.id,
@@ -108,7 +108,7 @@ export const assignmentRouter = createTRPCRouter({
       id: z.string(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb(ctx.tenantId!);
+      const db = scopedDb((ctx.tenantId || 'dev-org-id'));
 
       const [updated] = await db.update(
         assignments,
@@ -122,8 +122,8 @@ export const assignmentRouter = createTRPCRouter({
       );
 
       await createAuditLog({
-        tenantId: ctx.tenantId!,
-        actorId: ctx.user!.id,
+        tenantId: (ctx.tenantId || 'dev-org-id'),
+        actorId: (ctx.user?.id || 'dev-user-id'),
         action: 'assignment.unlocked',
         entityType: 'assignment',
         entityId: input.id,
@@ -144,7 +144,7 @@ export const assignmentRouter = createTRPCRouter({
       })),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb(ctx.tenantId!);
+      const db = scopedDb((ctx.tenantId || 'dev-org-id'));
 
       const created = await db.insert(
         assignments,
@@ -155,8 +155,8 @@ export const assignmentRouter = createTRPCRouter({
       );
 
       await createAuditLog({
-        tenantId: ctx.tenantId!,
-        actorId: ctx.user!.id,
+        tenantId: (ctx.tenantId || 'dev-org-id'),
+        actorId: (ctx.user?.id || 'dev-user-id'),
         action: 'assignments.bulk_created',
         entityType: 'schedule',
         entityId: input.scheduleId,

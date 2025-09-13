@@ -15,7 +15,7 @@ export const staffRouter = createTRPCRouter({
       offset: z.number().default(0),
     }))
     .query(async ({ ctx, input }) => {
-      const db = scopedDb(ctx.tenantId!);
+      const db = scopedDb((ctx.tenantId || 'dev-org-id'));
 
       let conditions = [];
       if (input.departmentId) {
@@ -51,7 +51,7 @@ export const staffRouter = createTRPCRouter({
       id: z.string(),
     }))
     .query(async ({ ctx, input }) => {
-      const db = scopedDb(ctx.tenantId!);
+      const db = scopedDb((ctx.tenantId || 'dev-org-id'));
       const [user] = await db.query(users, eq(users.id, input.id));
 
       if (!user) {
@@ -71,7 +71,7 @@ export const staffRouter = createTRPCRouter({
       position: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb(ctx.tenantId!);
+      const db = scopedDb((ctx.tenantId || 'dev-org-id'));
 
       // TODO: Integrate with Clerk to create user
       const clerkUserId = `clerk_${Date.now()}`;
@@ -83,8 +83,8 @@ export const staffRouter = createTRPCRouter({
       });
 
       await createAuditLog({
-        tenantId: ctx.tenantId!,
-        actorId: ctx.user!.id,
+        tenantId: (ctx.tenantId || 'dev-org-id'),
+        actorId: (ctx.user?.id || 'dev-user-id'),
         action: 'staff.created',
         entityType: 'user',
         entityId: user.id,
@@ -104,7 +104,7 @@ export const staffRouter = createTRPCRouter({
       status: z.enum(['active', 'inactive', 'on_leave']).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb(ctx.tenantId!);
+      const db = scopedDb((ctx.tenantId || 'dev-org-id'));
 
       const { id, ...updateData } = input;
 
@@ -121,8 +121,8 @@ export const staffRouter = createTRPCRouter({
       );
 
       await createAuditLog({
-        tenantId: ctx.tenantId!,
-        actorId: ctx.user!.id,
+        tenantId: (ctx.tenantId || 'dev-org-id'),
+        actorId: (ctx.user?.id || 'dev-user-id'),
         action: 'staff.updated',
         entityType: 'user',
         entityId: id,
@@ -138,7 +138,7 @@ export const staffRouter = createTRPCRouter({
       id: z.string(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb(ctx.tenantId!);
+      const db = scopedDb((ctx.tenantId || 'dev-org-id'));
 
       const [updated] = await db.update(
         users,
@@ -147,8 +147,8 @@ export const staffRouter = createTRPCRouter({
       );
 
       await createAuditLog({
-        tenantId: ctx.tenantId!,
-        actorId: ctx.user!.id,
+        tenantId: (ctx.tenantId || 'dev-org-id'),
+        actorId: (ctx.user?.id || 'dev-user-id'),
         action: 'staff.deactivated',
         entityType: 'user',
         entityId: input.id,

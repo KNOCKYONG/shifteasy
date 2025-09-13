@@ -15,7 +15,17 @@ export const createTRPCContext = async (opts: { req: Request; headers?: Headers 
   // Clerk 인증 임시 비활성화 - 개발용 기본값 사용
   const clerkUserId = 'dev-user-id';
   const orgId = 'dev-org-id';
-  let user = null;
+
+  // 개발용 임시 사용자 객체
+  const user = {
+    id: 'dev-user-id',
+    email: 'dev@example.com',
+    name: 'Dev User',
+    role: 'admin',
+    tenantId: 'dev-org-id',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
 
   /*
   // 원본 인증 코드
