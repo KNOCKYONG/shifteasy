@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { ClerkProvider } from "@clerk/nextjs";
+// import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { I18nProvider } from "@/components/providers/I18nProvider";
@@ -19,14 +19,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ClerkProvider
-      appearance={{
-        baseTheme: undefined,
-        variables: {
-          colorPrimary: '#2563eb',
-        },
-      }}
-    >
+    // ClerkProvider 임시 비활성화
+    // <ClerkProvider
+    //   appearance={{
+    //     baseTheme: undefined,
+    //     variables: {
+    //       colorPrimary: '#2563eb',
+    //     },
+    //   }}
+    // >
       <html lang="ko" suppressHydrationWarning>
         <body className={inter.className}>
           <I18nProvider>
@@ -44,6 +45,6 @@ export default function RootLayout({
           </I18nProvider>
         </body>
       </html>
-    </ClerkProvider>
+    // </ClerkProvider>
   );
 }

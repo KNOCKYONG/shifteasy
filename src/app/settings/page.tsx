@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useAuth, useClerk } from '@clerk/nextjs';
+// import { useAuth, useClerk } from '@clerk/nextjs';
+import { mockUser, mockTenant } from '@/lib/auth/mock-auth';
 import { useRouter } from 'next/navigation';
 import {
   User, Shield, Key, Users, Building2, LogOut,
@@ -32,8 +33,10 @@ interface TenantInfo {
 }
 
 export default function SettingsPage() {
-  const { userId } = useAuth();
-  const { signOut, user } = useClerk();
+  // const { userId } = useAuth();
+  // const { signOut, user } = useClerk();
+  const userId = mockUser.clerkUserId;
+  const user = { primaryEmailAddress: { emailAddress: mockUser.email } };
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -254,8 +257,8 @@ export default function SettingsPage() {
   };
 
   const handleSignOut = async () => {
-    await signOut();
-    router.push('/sign-in');
+    // await signOut();
+    router.push('/');
   };
 
   const roleLabels: Record<UserRole, string> = {

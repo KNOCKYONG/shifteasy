@@ -1,13 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+// import { auth } from '@clerk/nextjs/server';
+import { mockUser } from '@/lib/auth/mock-auth';
 import { db } from '@/db';
 import { users, departments } from '@/db/schema/tenants';
 import { eq } from 'drizzle-orm';
 
 export async function GET(req: NextRequest) {
   try {
-    const { userId } = await auth();
+    // Clerk 대신 mock 사용자 반환
+    const userId = mockUser.clerkUserId;
 
+    // Mock 데이터 직접 반환
+    return NextResponse.json({
+      id: mockUser.id,
+      name: mockUser.name,
+      email: mockUser.email,
+      role: mockUser.role,
+      departmentId: mockUser.departmentId,
+      department: 'Emergency Department',
+      status: 'active',
+      createdAt: new Date().toISOString(),
+    });
+
+    /* 원래 코드 (Clerk 재활성화 시 사용)
     if (!userId) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -40,6 +55,7 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json(user[0]);
+    */
   } catch (error) {
     console.error('Error fetching user:', error);
     return NextResponse.json(
@@ -51,7 +67,8 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const { userId } = await auth();
+    // const { userId } = await auth();
+    const userId = mockUser.clerkUserId;
 
     if (!userId) {
       return NextResponse.json(

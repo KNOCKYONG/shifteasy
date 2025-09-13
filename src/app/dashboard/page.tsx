@@ -1,15 +1,19 @@
 'use client';
 
-import { useAuth, useOrganization } from '@clerk/nextjs';
+// import { useAuth, useOrganization } from '@clerk/nextjs';
 import { Calendar, Users, Clock, TrendingUp, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { ProfileDropdown } from '@/components/ProfileDropdown';
+import { mockTenant } from '@/lib/auth/mock-auth';
 
 export default function DashboardPage() {
-  const { isLoaded } = useAuth();
-  const { organization } = useOrganization();
+  // const { isLoaded } = useAuth();
+  // const { organization } = useOrganization();
+  const isLoaded = true; // Mock으로 항상 로드됨
+  const organization = { name: mockTenant.name }; // Mock 조직 데이터
 
-  // Clerk가 아직 로드되지 않았을 때만 로딩 표시
+  // Clerk 비활성화 상태에서는 로딩 스킵
+  /* 원래 코드 (Clerk 재활성화 시 사용)
   if (!isLoaded) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -20,6 +24,7 @@ export default function DashboardPage() {
       </div>
     );
   }
+  */
 
   // middleware에서 이미 인증을 체크하므로 userId 체크는 불필요
 
