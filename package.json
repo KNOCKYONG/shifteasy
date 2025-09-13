@@ -1,0 +1,31 @@
+{
+	"name": "shifteasy",
+	"version": "0.1.0",
+	"private": true,
+	"scripts": {
+		"dev": "next dev",
+		"build": "next build",
+		"start": "next start",
+		"lint": "next lint",
+		"db:generate": "drizzle-kit generate",
+		"db:migrate": "drizzle-kit migrate",
+		"db:push": "drizzle-kit push",
+		"db:studio": "drizzle-kit studio",
+		"db:seed": "tsx src/db/seed.ts"
+	},
+	"dependencies": {
+		"@supabase/supabase-js": "^2.57.4",
+		"@tanstack/react-query": "^5.87.4",
+		"@trpc/client": "^11.5.1",
+		"@trpc/next": "^11.5.1",
+		"@trpc/react-query": "^11.5.1",
+		"@trpc/server": "^11.5.1",
+		"dotenv": "^17.2.2",
+		"drizzle-kit": "^0.31.4",
+		"drizzle-orm": "^0.44.5",
+		"postgres": "^3.4.7",
+		"superjson": "^2.2.2",
+		"tsx": "^4.20.5",
+		"zod": "^4.1.8"
+	}
+}
