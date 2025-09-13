@@ -1,0 +1,71 @@
+{
+  "app": {
+    "name": "ShiftEasy",
+    "title": "ShiftEasy - 스마트한 근무 스케줄 관리"
+  },
+  "nav": {
+    "schedule": "스케줄",
+    "team": "팀 관리",
+    "config": "설정"
+  },
+  "buttons": {
+    "save": "저장",
+    "cancel": "취소",
+    "edit": "편집",
+    "delete": "삭제",
+    "add": "추가",
+    "confirm": "확정",
+    "export": "내보내기",
+    "import": "가져오기",
+    "generate": "생성",
+    "next": "다음",
+    "previous": "이전",
+    "today": "오늘",
+    "viewStats": "통계 보기"
+  },
+  "shift": {
+    "day": "주간",
+    "evening": "저녁",
+    "night": "야간",
+    "off": "휴무",
+    "D": "D",
+    "E": "E",
+    "N": "N",
+    "O": "O"
+  },
+  "role": {
+    "RN": "간호사",
+    "CN": "수간호사",
+    "SN": "전문간호사",
+    "NA": "간호조무사"
+  },
+  "experience": {
+    "JUNIOR": "신입",
+    "INTERMEDIATE": "경력",
+    "SENIOR": "시니어",
+    "EXPERT": "전문가"
+  },
+  "days": {
+    "sun": "일",
+    "mon": "월",
+    "tue": "화",
+    "wed": "수",
+    "thu": "목",
+    "fri": "금",
+    "sat": "토"
+  },
+  "months": {
+    "jan": "1월",
+    "feb": "2월",
+    "mar": "3월",
+    "apr": "4월",
+    "may": "5월",
+    "jun": "6월",
+    "jul": "7월",
+    "aug": "8월",
+    "sep": "9월",
+    "oct": "10월",
+    "nov": "11월",
+    "dec": "12월"
+  }
+}

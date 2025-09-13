@@ -2,6 +2,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Settings, Save, AlertCircle, Clock, Users, Calendar, Shield, ChevronRight, Info } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { type ShiftRule, type ShiftPattern } from "@/lib/types";
 
 interface ConfigData {
@@ -31,6 +33,7 @@ const DEFAULT_RULES: ShiftRule[] = [
 
 export default function ConfigPage() {
   const router = useRouter();
+  const { t } = useTranslation(['config', 'common']);
   const [activeTab, setActiveTab] = useState<"patterns" | "rules" | "preferences">("patterns");
   const [config, setConfig] = useState<ConfigData>({
     patterns: DEFAULT_PATTERNS,

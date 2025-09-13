@@ -1,0 +1,71 @@
+{
+  "app": {
+    "name": "ShiftEasy",
+    "title": "ShiftEasy - スマートな勤務スケジュール管理"
+  },
+  "nav": {
+    "schedule": "スケジュール",
+    "team": "チーム管理",
+    "config": "設定"
+  },
+  "buttons": {
+    "save": "保存",
+    "cancel": "キャンセル",
+    "edit": "編集",
+    "delete": "削除",
+    "add": "追加",
+    "confirm": "確定",
+    "export": "エクスポート",
+    "import": "インポート",
+    "generate": "生成",
+    "next": "次へ",
+    "previous": "前へ",
+    "today": "今日",
+    "viewStats": "統計を見る"
+  },
+  "shift": {
+    "day": "日勤",
+    "evening": "準夜",
+    "night": "夜勤",
+    "off": "休み",
+    "D": "日",
+    "E": "準",
+    "N": "夜",
+    "O": "休"
+  },
+  "role": {
+    "RN": "看護師",
+    "CN": "主任看護師",
+    "SN": "専門看護師",
+    "NA": "看護助手"
+  },
+  "experience": {
+    "JUNIOR": "新人",
+    "INTERMEDIATE": "中堅",
+    "SENIOR": "シニア",
+    "EXPERT": "エキスパート"
+  },
+  "days": {
+    "sun": "日",
+    "mon": "月",
+    "tue": "火",
+    "wed": "水",
+    "thu": "木",
+    "fri": "金",
+    "sat": "土"
+  },
+  "months": {
+    "jan": "1月",
+    "feb": "2月",
+    "mar": "3月",
+    "apr": "4月",
+    "may": "5月",
+    "jun": "6月",
+    "jul": "7月",
+    "aug": "8月",
+    "sep": "9月",
+    "oct": "10月",
+    "nov": "11月",
+    "dec": "12月"
+  }
+}

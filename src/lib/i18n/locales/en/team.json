@@ -1,0 +1,39 @@
+{
+  "title": "Team Management",
+  "wardId": "Ward ID",
+  "teamMembers": "Team Members",
+  "totalMembers": "Total Members",
+  "stats": {
+    "nurse": "Nurse",
+    "headNurse": "Head Nurse",
+    "specialistNurse": "Specialist Nurse",
+    "assistantNurse": "Assistant Nurse",
+    "total": "Total"
+  },
+  "actions": {
+    "addStaff": "Add Staff",
+    "saveAndNext": "Save and Next",
+    "savePreset": "Save Preset",
+    "loadPreset": "Load",
+    "selectPreset": "Select Preset"
+  },
+  "form": {
+    "name": "Name",
+    "namePlaceholder": "e.g., John Doe",
+    "role": "Role",
+    "experience": "Experience",
+    "presetName": "Preset Name"
+  },
+  "alerts": {
+    "enterName": "Please enter staff name.",
+    "saveFailed": "Error occurred while saving team information.",
+    "enterPresetName": "Please enter preset name.",
+    "presetSaved": "\"{{name}}\" preset has been saved.",
+    "selectPresetFirst": "Please select a preset to load.",
+    "presetLoaded": "\"{{name}}\" preset has been loaded."
+  },
+  "empty": {
+    "noMembers": "No team members yet.",
+    "getStarted": "Click \"Add Staff\" button above to get started."
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "title": "週間スケジュール",
+  "weekSchedule": "週間スケジュール",
+  "monthSchedule": "月間スケジュール",
+  "viewMode": {
+    "week": "週間",
+    "month": "月間"
+  },
+  "stats": {
+    "totalStaff": "総スタッフ",
+    "dayShift": "日勤",
+    "nightShift": "夜勤",
+    "offDuty": "休み"
+  },
+  "actions": {
+    "autoGenerate": "自動生成",
+    "generating": "生成中...",
+    "export": "エクスポート",
+    "confirmSchedule": "確定する",
+    "confirmed": "確定済み"
+  },
+  "generation": {
+    "success": "スケジュール自動生成完了",
+    "processingTime": "処理時間",
+    "coverage": "カバー率",
+    "fairness": "公平性"
+  },
+  "alerts": {
+    "noSchedule": "まずスケジュールを作成してください。",
+    "noTeam": "まずチームを構成してください。",
+    "noTeamData": "チームデータが見つかりません。まずチームを構成してください。",
+    "generationFailed": "スケジュール生成失敗",
+    "generationError": "スケジュール生成中にエラーが発生しました。"
+  },
+  "weekOf": "{{date}}週",
+  "employee": "従業員"
+}

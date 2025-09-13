@@ -1,0 +1,66 @@
+{
+  "title": "スケジュール設定",
+  "subtitle": "勤務パターンとルールを設定して最適なスケジュールを作成します。",
+  "tabs": {
+    "patterns": "勤務パターン",
+    "rules": "勤務ルール",
+    "preferences": "詳細設定"
+  },
+  "patterns": {
+    "title": "勤務パターン選択",
+    "description": "チームの勤務形態に合ったパターンを選択してください。選択したパターンに基づいて自動的にスケジュールが生成されます。",
+    "5day": {
+      "name": "週5日勤務",
+      "description": "週5日勤務、2日休み"
+    },
+    "4day": {
+      "name": "週4日勤務",
+      "description": "週4日勤務、3日休み"
+    },
+    "3shift": {
+      "name": "3交代制",
+      "description": "日勤/準夜/夜勤のローテーション"
+    },
+    "workDays": "勤務",
+    "offDays": "休み",
+    "days": "日"
+  },
+  "rules": {
+    "title": "勤務ルール設定",
+    "description": "法的要件とチームポリシーに従って勤務ルールを設定してください。これらのルールはスケジュール生成時に自動的に適用されます。",
+    "maxConsecutive": "最大連続勤務",
+    "minRest": "最小休憩時間",
+    "weekendFairness": "週末公平配分",
+    "nightLimit": "月間夜勤制限",
+    "type": {
+      "limit": "制限",
+      "minimum": "最小",
+      "balance": "バランス"
+    },
+    "units": {
+      "days": "日",
+      "hours": "時間",
+      "times": "回"
+    }
+  },
+  "preferences": {
+    "autoOptimization": "自動最適化",
+    "autoBalance": "自動バランス調整",
+    "autoBalanceDesc": "全スタッフの勤務時間を公平に配分します",
+    "weekendRotation": "週末ローテーション",
+    "weekendRotationDesc": "週末勤務を全スタッフでローテーションします",
+    "fairnessWeight": "公平性の重み",
+    "efficiencyFirst": "効率優先",
+    "fairnessFirst": "公平性優先",
+    "scheduleOptions": "スケジュール生成オプション",
+    "maxConsecutiveShifts": "最大連続勤務日",
+    "minRestHours": "最小休憩時間"
+  },
+  "actions": {
+    "previousStep": "前のステップ",
+    "saveAndGenerate": "保存してスケジュール生成"
+  },
+  "alerts": {
+    "saved": "設定が保存されました。"
+  }
+}

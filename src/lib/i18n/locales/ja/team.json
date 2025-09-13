@@ -1,0 +1,39 @@
+{
+  "title": "チーム管理",
+  "wardId": "病棟ID",
+  "teamMembers": "チームメンバー",
+  "totalMembers": "総人数",
+  "stats": {
+    "nurse": "看護師",
+    "headNurse": "主任看護師",
+    "specialistNurse": "専門看護師",
+    "assistantNurse": "看護助手",
+    "total": "合計"
+  },
+  "actions": {
+    "addStaff": "スタッフ追加",
+    "saveAndNext": "保存して次へ",
+    "savePreset": "プリセット保存",
+    "loadPreset": "読み込み",
+    "selectPreset": "プリセット選択"
+  },
+  "form": {
+    "name": "名前",
+    "namePlaceholder": "例：田中花子",
+    "role": "役割",
+    "experience": "経験",
+    "presetName": "プリセット名"
+  },
+  "alerts": {
+    "enterName": "スタッフ名を入力してください。",
+    "saveFailed": "チーム情報の保存中にエラーが発生しました。",
+    "enterPresetName": "プリセット名を入力してください。",
+    "presetSaved": "「{{name}}」プリセットが保存されました。",
+    "selectPresetFirst": "読み込むプリセットを選択してください。",
+    "presetLoaded": "「{{name}}」プリセットを読み込みました。"
+  },
+  "empty": {
+    "noMembers": "まだチームメンバーがいません。",
+    "getStarted": "上の「スタッフ追加」ボタンをクリックして始めてください。"
+  }
+}

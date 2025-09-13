@@ -5,13 +5,45 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Animation Variables */
+  --animation-quick: 150ms;
+  --animation-base: 250ms;
+  --animation-slow: 350ms;
+  --animation-slower: 500ms;
+
+  /* Easing Functions */
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* Colors for animations */
+  --glow-blue: 59, 130, 246;
+  --glow-purple: 147, 51, 234;
+  --glow-green: 34, 197, 94;
+
+  /* Light mode colors */
+  --primary: 59, 130, 246;
+  --secondary: 147, 51, 234;
+  --accent: 34, 197, 94;
+  --neutral: 107, 114, 128;
+  --base-100: 255, 255, 255;
+  --base-200: 243, 244, 246;
+  --base-300: 229, 231, 235;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+
+  /* Dark mode colors */
+  --primary: 96, 165, 250;
+  --secondary: 167, 139, 250;
+  --accent: 74, 222, 128;
+  --neutral: 156, 163, 175;
+  --base-100: 30, 30, 30;
+  --base-200: 20, 20, 20;
+  --base-300: 10, 10, 10;
 }
 
 body {
@@ -29,9 +61,446 @@ body {
 
 html {
   overflow-x: hidden;
+  scroll-behavior: smooth;
 }
 
 a {
   color: inherit;
   text-decoration: none;
+}
+
+/* ===== DELIGHTFUL MICRO-INTERACTIONS ===== */
+
+/* Smooth transitions for all interactive elements */
+button, a, input, textarea, select, .card, .clickable {
+  transition: all var(--animation-base) var(--ease-smooth);
+}
+
+/* Button hover effects with scale and glow */
+button:not(:disabled):hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1),
+              0 0 30px -5px rgba(var(--glow-blue), 0.2);
+}
+
+/* Button click feedback */
+button:not(:disabled):active {
+  transform: translateY(0) scale(0.98);
+  transition: all var(--animation-quick) var(--ease-smooth);
+}
+
+/* Card hover effects */
+.card, [class*="card"] {
+  transition: all var(--animation-base) var(--ease-smooth);
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before, [class*="card"]::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg,
+    transparent,
+    rgba(var(--glow-blue), 0.05),
+    transparent);
+  opacity: 0;
+  transition: opacity var(--animation-slow) var(--ease-smooth);
+  pointer-events: none;
+}
+
+.card:hover, [class*="card"]:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.15),
+              0 0 50px -20px rgba(var(--glow-blue), 0.3);
+}
+
+.card:hover::before, [class*="card"]:hover::before {
+  opacity: 1;
+}
+
+/* Input focus effects */
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: rgb(var(--glow-blue));
+  box-shadow: 0 0 0 3px rgba(var(--glow-blue), 0.1),
+              0 0 20px -5px rgba(var(--glow-blue), 0.3);
+  transform: scale(1.01);
+}
+
+/* Animated underlines for links */
+a.link-animated {
+  position: relative;
+}
+
+a.link-animated::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg,
+    rgb(var(--glow-blue)),
+    rgb(var(--glow-purple)));
+  transition: width var(--animation-base) var(--ease-smooth);
+}
+
+a.link-animated:hover::after {
+  width: 100%;
+}
+
+/* Loading pulse animation */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.loading-pulse {
+  animation: pulse-glow 2s var(--ease-in-out) infinite;
+}
+
+/* Skeleton loading effect */
+@keyframes skeleton-loading {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(130, 130, 130, 0.1) 0px,
+    rgba(130, 130, 130, 0.2) 20px,
+    rgba(130, 130, 130, 0.1) 40px
+  );
+  background-size: 200px 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+/* Wave animation for skeleton */
+@keyframes wave {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-wave {
+  animation: wave 2s linear infinite;
+  background-size: 200% 100%;
+}
+
+/* Fade in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn var(--animation-slow) var(--ease-smooth) forwards;
+}
+
+/* Slide animations */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.slide-in-right {
+  animation: slideInRight var(--animation-base) var(--ease-smooth);
+}
+
+.slide-in-left {
+  animation: slideInLeft var(--animation-base) var(--ease-smooth);
+}
+
+.animate-slideInDown {
+  animation: slideInDown var(--animation-base) var(--ease-smooth);
+}
+
+/* Bounce animation for success states */
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-20px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  75% {
+    transform: translateY(-15px);
+  }
+}
+
+.bounce {
+  animation: bounce var(--animation-slower) var(--ease-bounce);
+}
+
+/* Shake animation for errors */
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-5px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(5px);
+  }
+}
+
+.shake {
+  animation: shake var(--animation-slow) ease-in-out;
+}
+
+/* Ripple effect for clicks */
+@keyframes ripple {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+.ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  transform: translate(-50%, -50%);
+  animation: ripple 0.6s ease-out;
+}
+
+/* Focus visible improvements */
+:focus-visible {
+  outline: 2px solid rgb(var(--glow-blue));
+  outline-offset: 2px;
+}
+
+/* Disabled state styling */
+:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Smooth scroll reveal */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all var(--animation-slow) var(--ease-smooth);
+}
+
+.scroll-reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  transition: background var(--animation-quick);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Dark mode scrollbar */
+.dark ::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Theme transition animations */
+* {
+  transition: background-color var(--animation-base) var(--ease-smooth),
+              border-color var(--animation-base) var(--ease-smooth);
+}
+
+/* Twinkle animation for stars in dark mode */
+@keyframes twinkle {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-twinkle {
+  animation: twinkle 2s ease-in-out infinite;
+}
+
+/* Ripple animation for theme toggle */
+@keyframes ripple-once {
+  0% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.animate-ripple-once {
+  animation: ripple-once 0.6s ease-out;
+}
+
+/* Dark mode specific enhancements */
+.dark {
+  /* Smooth color transitions */
+  color-scheme: dark;
+}
+
+.dark .card, .dark [class*="card"] {
+  background: linear-gradient(135deg, rgb(var(--base-100)), rgb(var(--base-200)));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dark button:not(:disabled):hover {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3),
+              0 0 30px -5px rgba(var(--glow-purple), 0.3);
+}
+
+.dark input:focus, .dark textarea:focus, .dark select:focus {
+  box-shadow: 0 0 0 3px rgba(var(--glow-purple), 0.15),
+              0 0 20px -5px rgba(var(--glow-purple), 0.4);
+}
+
+/* Empty State Animations */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes bounce-slow {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.animate-bounce-slow {
+  animation: bounce-slow 2s ease-in-out infinite;
+}
+
+@keyframes scale-in {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-scale-in {
+  animation: scale-in 0.5s var(--ease-bounce);
+}
+
+@keyframes draw {
+  0% {
+    stroke-dasharray: 0 100;
+  }
+  100% {
+    stroke-dasharray: 100 0;
+  }
+}
+
+.animate-draw {
+  stroke-dasharray: 100;
+  animation: draw 0.5s ease-out forwards;
+  animation-delay: 0.3s;
 }

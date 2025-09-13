@@ -1,0 +1,66 @@
+{
+  "title": "Schedule Settings",
+  "subtitle": "Configure work patterns and rules to create optimal schedules.",
+  "tabs": {
+    "patterns": "Work Patterns",
+    "rules": "Work Rules",
+    "preferences": "Advanced Settings"
+  },
+  "patterns": {
+    "title": "Select Work Pattern",
+    "description": "Choose a pattern that matches your team's work style. Schedules will be automatically generated based on the selected pattern.",
+    "5day": {
+      "name": "5-Day Work",
+      "description": "5 days on, 2 days off per week"
+    },
+    "4day": {
+      "name": "4-Day Work",
+      "description": "4 days on, 3 days off per week"
+    },
+    "3shift": {
+      "name": "3-Shift",
+      "description": "Day/Evening/Night rotation"
+    },
+    "workDays": "Work",
+    "offDays": "Off",
+    "days": "days"
+  },
+  "rules": {
+    "title": "Configure Work Rules",
+    "description": "Set work rules according to legal requirements and team policies. These rules will be automatically applied during schedule generation.",
+    "maxConsecutive": "Max Consecutive Work",
+    "minRest": "Min Rest Hours",
+    "weekendFairness": "Weekend Fair Distribution",
+    "nightLimit": "Monthly Night Shift Limit",
+    "type": {
+      "limit": "Limit",
+      "minimum": "Minimum",
+      "balance": "Balance"
+    },
+    "units": {
+      "days": "days",
+      "hours": "hours",
+      "times": "times"
+    }
+  },
+  "preferences": {
+    "autoOptimization": "Auto Optimization",
+    "autoBalance": "Auto Balance",
+    "autoBalanceDesc": "Distribute work hours fairly among all staff",
+    "weekendRotation": "Weekend Rotation",
+    "weekendRotationDesc": "Rotate weekend shifts among all staff members",
+    "fairnessWeight": "Fairness Weight",
+    "efficiencyFirst": "Efficiency First",
+    "fairnessFirst": "Fairness First",
+    "scheduleOptions": "Schedule Generation Options",
+    "maxConsecutiveShifts": "Max Consecutive Shifts",
+    "minRestHours": "Min Rest Hours"
+  },
+  "actions": {
+    "previousStep": "Previous Step",
+    "saveAndGenerate": "Save and Generate Schedule"
+  },
+  "alerts": {
+    "saved": "Settings have been saved."
+  }
+}

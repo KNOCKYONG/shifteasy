@@ -2,7 +2,9 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, Save, Upload, Download, Users, ChevronRight, Edit2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { StaffCard } from "@/components/schedule/StaffCard";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { type Staff, type Role } from "@/lib/types";
 import { listTeamPresets, loadTeamPreset, saveTeamPreset, saveCurrentTeam, loadCurrentTeam } from "@/lib/teamStorage";
 
@@ -17,6 +19,7 @@ const ROLE_LABELS = {
 
 export default function TeamManagementPage() {
   const router = useRouter();
+  const { t } = useTranslation(['team', 'common']);
   const [wardId, setWardId] = useState("ward-1A");
   const [staff, setStaff] = useState<Staff[]>([]);
   const [presetName, setPresetName] = useState("");
@@ -159,14 +162,17 @@ export default function TeamManagementPage() {
                 </a>
               </nav>
             </div>
-            <button
-              onClick={handleSaveTeam}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
-            >
-              <Save className="w-4 h-4" />
-              저장하고 다음
-              <ChevronRight className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-3">
+              <LanguageSwitcher />
+              <button
+                onClick={handleSaveTeam}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+              >
+                <Save className="w-4 h-4" />
+                {t('actions.saveAndNext')}
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       </header>
