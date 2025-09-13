@@ -102,9 +102,9 @@ export default function ConfigPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <header className="bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-8">
@@ -145,7 +145,7 @@ export default function ConfigPage() {
         </div>
 
         {/* Tabs */}
-        <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
+        <div className="mb-6 border-b border-gray-200 dark:border-slate-700">
           <nav className="flex gap-8">
             <button
               onClick={() => setActiveTab("patterns")}
@@ -183,11 +183,11 @@ export default function ConfigPage() {
         {/* Tab Content */}
         {activeTab === "patterns" && (
           <div className="space-y-4">
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 flex items-start gap-3">
+            <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-900/30 rounded-xl p-4 flex items-start gap-3">
               <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm text-blue-900 dark:text-blue-200 font-medium">{t('patterns.title', { ns: 'config' })}</p>
-                <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                <p className="text-sm text-blue-900 dark:text-blue-300 font-medium">{t('patterns.title', { ns: 'config' })}</p>
+                <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
                   {t('patterns.description', { ns: 'config' })}
                 </p>
               </div>
@@ -197,7 +197,7 @@ export default function ConfigPage() {
               {config.patterns.map((pattern) => (
                 <div
                   key={pattern.id}
-                  className="bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 transition-colors cursor-pointer p-6"
+                  className="bg-white dark:bg-slate-800 rounded-xl border-2 border-gray-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600 transition-colors cursor-pointer p-6"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <Calendar className="w-8 h-8 text-gray-400 dark:text-gray-500" />
@@ -222,17 +222,17 @@ export default function ConfigPage() {
 
         {activeTab === "rules" && (
           <div className="space-y-4">
-            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex items-start gap-3">
+            <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-xl p-4 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm text-amber-900 dark:text-amber-200 font-medium">{t('rules.title', { ns: 'config' })}</p>
-                <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                <p className="text-sm text-amber-900 dark:text-amber-300 font-medium">{t('rules.title', { ns: 'config' })}</p>
+                <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
                   {t('rules.description', { ns: 'config' })}
                 </p>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700">
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 divide-y divide-gray-100 dark:divide-gray-700">
               {config.rules.map((rule) => (
                 <div key={rule.id} className="p-6 flex items-center justify-between">
                   <div className="flex-1">
@@ -252,7 +252,7 @@ export default function ConfigPage() {
                         type="number"
                         value={rule.value}
                         onChange={(e) => handleRuleValueChange(rule.id, parseInt(e.target.value))}
-                        className="w-20 px-3 py-1 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-20 px-3 py-1 border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         disabled={!rule.enabled}
                       />
                       <span className="text-sm text-gray-600 dark:text-gray-400">
@@ -279,7 +279,7 @@ export default function ConfigPage() {
 
         {activeTab === "preferences" && (
           <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-6">
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">{t('preferences.autoOptimization', { ns: 'config' })}</h3>
 
               <div className="space-y-6">
@@ -335,7 +335,7 @@ export default function ConfigPage() {
                       ...prev,
                       preferences: { ...prev.preferences, fairnessWeight: parseInt(e.target.value) }
                     }))}
-                    className="w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer"
+                    className="w-full h-2 bg-gray-200 dark:bg-slate-600 rounded-lg appearance-none cursor-pointer"
                   />
                   <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
                     <span>{t('preferences.efficiencyFirst', { ns: 'config' })}</span>
@@ -345,7 +345,7 @@ export default function ConfigPage() {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-6">
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">{t('preferences.scheduleOptions', { ns: 'config' })}</h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -361,7 +361,7 @@ export default function ConfigPage() {
                         ...prev,
                         preferences: { ...prev.preferences, maxConsecutiveShifts: parseInt(e.target.value) }
                       }))}
-                      className="w-24 px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-24 px-3 py-2 border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <span className="text-sm text-gray-600 dark:text-gray-400">{t('rules.units.days', { ns: 'config' })}</span>
                   </div>
@@ -379,7 +379,7 @@ export default function ConfigPage() {
                         ...prev,
                         preferences: { ...prev.preferences, minRestHours: parseInt(e.target.value) }
                       }))}
-                      className="w-24 px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-24 px-3 py-2 border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <span className="text-sm text-gray-600 dark:text-gray-400">{t('rules.units.hours', { ns: 'config' })}</span>
                   </div>
@@ -393,7 +393,7 @@ export default function ConfigPage() {
         <div className="mt-8 flex justify-between">
           <button
             onClick={() => router.push("/team")}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700"
           >
             {t('actions.previousStep', { ns: 'config' })}
           </button>

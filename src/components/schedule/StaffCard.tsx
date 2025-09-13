@@ -8,10 +8,10 @@ interface StaffCardProps {
 }
 
 const ROLE_COLORS = {
-  RN: { bg: "bg-blue-50 dark:bg-blue-900/20", text: "text-blue-700 dark:text-blue-400", border: "border-blue-200 dark:border-blue-800" },
-  CN: { bg: "bg-purple-50 dark:bg-purple-900/20", text: "text-purple-700 dark:text-purple-400", border: "border-purple-200 dark:border-purple-800" },
-  SN: { bg: "bg-green-50 dark:bg-green-900/20", text: "text-green-700 dark:text-green-400", border: "border-green-200 dark:border-green-800" },
-  NA: { bg: "bg-amber-50 dark:bg-amber-900/20", text: "text-amber-700 dark:text-amber-400", border: "border-amber-200 dark:border-amber-800" },
+  RN: { bg: "bg-blue-50 dark:bg-blue-900/10", text: "text-blue-700 dark:text-blue-300", border: "border-blue-200 dark:border-blue-900/30" },
+  CN: { bg: "bg-purple-50 dark:bg-purple-900/10", text: "text-purple-700 dark:text-purple-300", border: "border-purple-200 dark:border-purple-900/30" },
+  SN: { bg: "bg-green-50 dark:bg-green-900/10", text: "text-green-700 dark:text-green-300", border: "border-green-200 dark:border-green-900/30" },
+  NA: { bg: "bg-amber-50 dark:bg-amber-900/10", text: "text-amber-700 dark:text-amber-300", border: "border-amber-200 dark:border-amber-900/30" },
 };
 
 // Experience labels are now translated via i18n
@@ -28,7 +28,7 @@ export function StaffCard({ staff, compact = false }: StaffCardProps) {
     return (
       <div className="flex items-center gap-3">
         <div className="flex-shrink-0">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-slate-700 dark:to-slate-600 flex items-center justify-center">
             <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
               {staff.name?.charAt(0) || "?"}
             </span>
@@ -56,10 +56,10 @@ export function StaffCard({ staff, compact = false }: StaffCardProps) {
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-4 hover:shadow-md dark:hover:shadow-lg transition-shadow">
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 p-4 hover:shadow-md dark:hover:shadow-lg transition-shadow">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 flex items-center justify-center">
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-slate-700 dark:to-slate-600 flex items-center justify-center">
             <span className="text-lg font-medium text-gray-600 dark:text-gray-300">
               {staff.name?.charAt(0) || "?"}
             </span>
@@ -84,7 +84,7 @@ export function StaffCard({ staff, compact = false }: StaffCardProps) {
             {staff.skills.map((skill, index) => (
               <span
                 key={index}
-                className="inline-flex px-2 py-0.5 text-xs bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-md"
+                className="inline-flex px-2 py-0.5 text-xs bg-gray-50 dark:bg-slate-700 text-gray-600 dark:text-gray-300 rounded-md"
               >
                 {skill}
               </span>
@@ -94,7 +94,7 @@ export function StaffCard({ staff, compact = false }: StaffCardProps) {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-2 pt-3 border-t border-gray-50 dark:border-gray-700">
+      <div className="grid grid-cols-2 gap-2 pt-3 border-t border-gray-50 dark:border-slate-700">
         <div>
           <p className="text-xs text-gray-500 dark:text-gray-400">{t('staffCard.experience', { ns: 'components' })}</p>
           <p className="text-sm font-medium text-gray-900 dark:text-white">
@@ -118,7 +118,7 @@ export function StaffCard({ staff, compact = false }: StaffCardProps) {
         ].map((skill) => (
           <div key={skill.label} className="flex items-center gap-2">
             <span className="text-xs text-gray-500 dark:text-gray-400 w-12">{skill.label}</span>
-            <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
+            <div className="flex-1 bg-gray-100 dark:bg-slate-700 rounded-full h-1.5">
               <div
                 className="bg-blue-500 dark:bg-blue-400 h-1.5 rounded-full transition-all"
                 style={{ width: `${(skill.value / 5) * 100}%` }}
