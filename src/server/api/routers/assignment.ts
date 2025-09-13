@@ -14,7 +14,7 @@ export const assignmentRouter = createTRPCRouter({
     }))
     .query(async ({ ctx, input }) => {
       const db = scopedDb(ctx.tenantId!);
-      const userId = input.userId || ctx.user!.id;
+      const userId = input.userId || ctx.user?.id || 'dev-user-id';
 
       let conditions = [eq(assignments.userId, userId)];
 

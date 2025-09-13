@@ -1,0 +1,241 @@
+"use client";
+import { useState, useCallback } from "react";
+import { format, startOfWeek, addDays, isSameDay, isToday } from "date-fns";
+import { ko } from "date-fns/locale";
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCorners,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+} from "@dnd-kit/sortable";
+import { StaffCard } from "./StaffCard";
+import { ShiftCell } from "./ShiftCell";
+import { type Staff, type ShiftType, type WeekSchedule } from "@/lib/types";
+
+const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
+const SHIFT_COLORS = {
+  D: { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-700" },
+  E: { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700" },
+  N: { bg: "bg-indigo-50", border: "border-indigo-200", text: "text-indigo-700" },
+  O: { bg: "bg-gray-50", border: "border-gray-200", text: "text-gray-500" },
+};
+
+interface ScheduleBoardProps {
+  staff: Staff[];
+  schedule: WeekSchedule;
+  currentWeek: Date;
+  onScheduleChange: (schedule: WeekSchedule) => void;
+  isConfirmed?: boolean;
+}
+
+export function ScheduleBoard({
+  staff,
+  schedule,
+  currentWeek,
+  onScheduleChange,
+  isConfirmed = false,
+}: ScheduleBoardProps) {
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [draggedShift, setDraggedShift] = useState<{
+    staffId: string;
+    day: number;
+    shift: ShiftType;
+  } | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    setActiveId(active.id as string);
+
+    // Parse the drag data from the id
+    const [staffId, day, shift] = (active.id as string).split("-");
+    if (staffId && day && shift) {
+      setDraggedShift({
+        staffId,
+        day: parseInt(day),
+        shift: shift as ShiftType,
+      });
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || isConfirmed) {
+      setActiveId(null);
+      setDraggedShift(null);
+      return;
+    }
+
+    // Parse source and destination
+    const [fromStaffId, fromDay] = (active.id as string).split("-");
+    const [toStaffId, toDay] = (over.id as string).split("-");
+
+    if (fromStaffId && toStaffId && fromDay && toDay) {
+      const newSchedule = { ...schedule };
+
+      // Swap shifts
+      const fromShift = newSchedule[fromStaffId]?.[parseInt(fromDay)];
+      const toShift = newSchedule[toStaffId]?.[parseInt(toDay)];
+
+      if (!newSchedule[fromStaffId]) newSchedule[fromStaffId] = {};
+      if (!newSchedule[toStaffId]) newSchedule[toStaffId] = {};
+
+      if (toShift) {
+        newSchedule[fromStaffId][parseInt(fromDay)] = toShift;
+      } else {
+        delete newSchedule[fromStaffId][parseInt(fromDay)];
+      }
+
+      if (fromShift) {
+        newSchedule[toStaffId][parseInt(toDay)] = fromShift;
+      } else {
+        delete newSchedule[toStaffId][parseInt(toDay)];
+      }
+
+      onScheduleChange(newSchedule);
+    }
+
+    setActiveId(null);
+    setDraggedShift(null);
+  };
+
+  const weekStart = startOfWeek(currentWeek, { weekStartsOn: 0 });
+  const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      {/* Header */}
+      <div className="px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-gray-900">
+            주간 스케줄
+          </h2>
+          {isConfirmed && (
+            <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-sm font-medium">
+              확정됨
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Schedule Grid */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-100">
+                <th className="sticky left-0 bg-white z-10 px-6 py-3 text-left">
+                  <span className="text-sm font-medium text-gray-500">직원</span>
+                </th>
+                {weekDates.map((date, i) => (
+                  <th key={i} className="px-2 py-3 text-center min-w-[100px]">
+                    <div className="flex flex-col items-center gap-1">
+                      <span className={`text-xs font-medium ${
+                        isToday(date) ? "text-blue-600" : "text-gray-500"
+                      }`}>
+                        {DAYS[i]}
+                      </span>
+                      <span className={`text-sm font-semibold ${
+                        isToday(date) ? "text-blue-600" : "text-gray-900"
+                      }`}>
+                        {format(date, "M/d")}
+                      </span>
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {staff.map((member) => (
+                <tr key={member.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                  <td className="sticky left-0 bg-white z-10 px-6 py-4">
+                    <StaffCard staff={member} compact />
+                  </td>
+                  {weekDates.map((_, dayIndex) => {
+                    const shift = schedule[member.id]?.[dayIndex];
+                    return (
+                      <td key={dayIndex} className="px-2 py-4">
+                        <ShiftCell
+                          id={`${member.id}-${dayIndex}`}
+                          shift={shift}
+                          isDisabled={isConfirmed}
+                          onShiftChange={(newShift) => {
+                            if (!isConfirmed) {
+                              const newSchedule = { ...schedule };
+                              if (!newSchedule[member.id]) {
+                                newSchedule[member.id] = {};
+                              }
+                              if (newShift) {
+                                newSchedule[member.id][dayIndex] = newShift;
+                              } else {
+                                delete newSchedule[member.id][dayIndex];
+                              }
+                              onScheduleChange(newSchedule);
+                            }
+                          }}
+                        />
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <DragOverlay>
+          {activeId && draggedShift && (
+            <div className={`px-4 py-2 rounded-xl font-medium shadow-lg ${
+              SHIFT_COLORS[draggedShift.shift].bg
+            } ${SHIFT_COLORS[draggedShift.shift].border} ${
+              SHIFT_COLORS[draggedShift.shift].text
+            } border-2`}>
+              {draggedShift.shift}
+            </div>
+          )}
+        </DragOverlay>
+      </DndContext>
+
+      {/* Footer Stats */}
+      <div className="px-6 py-4 bg-gray-50/50 border-t border-gray-100">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            {Object.entries(SHIFT_COLORS).map(([shift, colors]) => (
+              <div key={shift} className="flex items-center gap-2">
+                <div className={`w-3 h-3 rounded-full ${colors.bg} ${colors.border} border`} />
+                <span className="text-sm text-gray-600">
+                  {shift === "D" ? "주간" : shift === "E" ? "저녁" : shift === "N" ? "야간" : "휴무"}
+                </span>
+              </div>
+            ))}
+          </div>
+          <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+            통계 보기
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

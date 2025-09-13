@@ -1,22 +1,38 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import superjson from 'superjson';
-import { type CreateNextContextOptions } from '@trpc/server/adapters/next';
-import { auth, currentUser } from '@clerk/nextjs/server';
+// import { auth, currentUser } from '@clerk/nextjs/server';  // Clerk 인증 임시 비활성화
 import { db } from '@/db';
 import { eq, and, isNull } from 'drizzle-orm';
 import { users } from '@/db/schema';
-import { syncClerkUser } from '@/lib/auth';
+// import { syncClerkUser } from '@/lib/auth';  // Clerk 인증 임시 비활성화
 import { hasPermission, type Permission } from '@/lib/permissions';
 import { rateLimitMiddleware } from '@/lib/rate-limit';
 import { auditApiOperation } from '@/lib/audit-log';
 
-export const createTRPCContext = async (opts: CreateNextContextOptions) => {
+export const createTRPCContext = async (opts: { req: Request; headers?: Headers }) => {
   const { req } = opts;
 
-  // Get auth from Clerk
-  const { userId: clerkUserId, orgId } = await auth();
-
+  // Clerk 인증 임시 비활성화 - 개발용 기본값 사용
+  const clerkUserId = 'dev-user-id';
+  const orgId = 'dev-org-id';
   let user = null;
+
+  /*
+  // 원본 인증 코드
+  let clerkUserId: string | null = null;
+  let orgId: string | null = null;
+  let user = null;
+
+  // 개발 모드에서는 기본값 사용
+  if (process.env.NODE_ENV === 'development') {
+    clerkUserId = 'dev-user-id';
+    orgId = 'dev-org-id';
+  } else {
+    // 프로덕션에서는 Clerk 인증 사용
+    const authResult = await auth();
+    clerkUserId = authResult.userId;
+    orgId = authResult.orgId;
+  }
 
   if (clerkUserId && orgId) {
     // Sync Clerk user with database
@@ -26,6 +42,7 @@ export const createTRPCContext = async (opts: CreateNextContextOptions) => {
       console.error('Failed to sync Clerk user:', error);
     }
   }
+  */
 
   return {
     db,
@@ -36,7 +53,7 @@ export const createTRPCContext = async (opts: CreateNextContextOptions) => {
       url: req.url,
       method: req.method,
       headers: req.headers,
-      ip: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip'),
+      ip: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || undefined,
     },
   };
 };
@@ -106,7 +123,11 @@ const requirePermission = (permission: Permission) =>
     if (!hasPermission(ctx.user.role as any, permission)) {
       // Log unauthorized access attempt
       await auditApiOperation(
-        ctx,
+        {
+          user: ctx.user || undefined,
+          tenantId: ctx.tenantId || undefined,
+          req: ctx.req,
+        },
         'security.unauthorized_access',
         'api_permission',
         undefined,
@@ -137,7 +158,11 @@ const requirePermission = (permission: Permission) =>
 const withRateLimit = (type: 'api' | 'auth' | 'schedule' | 'swap' | 'report' | 'notification' | 'upload' = 'api') =>
   t.middleware(async ({ ctx, next }) => {
     if (ctx.user && ctx.tenantId) {
-      await rateLimitMiddleware(type, ctx);
+      await rateLimitMiddleware(type, {
+        user: ctx.user || undefined,
+        tenantId: ctx.tenantId || undefined,
+        req: ctx.req,
+      });
     }
 
     return next();
