@@ -1,0 +1,37 @@
+{
+  "title": "Weekly Schedule",
+  "weekSchedule": "Weekly Schedule",
+  "monthSchedule": "Monthly Schedule",
+  "viewMode": {
+    "week": "Week",
+    "month": "Month"
+  },
+  "stats": {
+    "totalStaff": "Total Staff",
+    "dayShift": "Day Shift",
+    "nightShift": "Night Shift",
+    "offDuty": "Off Duty"
+  },
+  "actions": {
+    "autoGenerate": "Auto Generate",
+    "generating": "Generating...",
+    "export": "Export",
+    "confirmSchedule": "Confirm",
+    "confirmed": "Confirmed"
+  },
+  "generation": {
+    "success": "Schedule Auto Generation Complete",
+    "processingTime": "Processing Time",
+    "coverage": "Coverage",
+    "fairness": "Fairness"
+  },
+  "alerts": {
+    "noSchedule": "Please create a schedule first.",
+    "noTeam": "Please configure your team first.",
+    "noTeamData": "Team data not found. Please configure your team first.",
+    "generationFailed": "Schedule generation failed",
+    "generationError": "An error occurred during schedule generation."
+  },
+  "weekOf": "Week of {{date}}",
+  "employee": "Employee"
+}

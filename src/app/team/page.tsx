@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, Save, Upload, Download, Users, ChevronRight, Edit2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { StaffCard } from "@/components/schedule/StaffCard";
 import { type Staff, type Role } from "@/lib/types";
 import { listTeamPresets, loadTeamPreset, saveTeamPreset, saveCurrentTeam, loadCurrentTeam } from "@/lib/teamStorage";
@@ -9,15 +10,11 @@ import { ProfileDropdown } from "@/components/ProfileDropdown";
 
 const roles: Role[] = ["RN", "CN", "SN", "NA"];
 
-const ROLE_LABELS = {
-  RN: "간호사",
-  CN: "수간호사",
-  SN: "전문간호사",
-  NA: "간호조무사",
-};
+// Role labels are now translated via i18n
 
 export default function TeamManagementPage() {
   const router = useRouter();
+  const { t } = useTranslation(['team', 'common']);
   const [wardId, setWardId] = useState("ward-1A");
   const [staff, setStaff] = useState<Staff[]>([]);
   const [presetName, setPresetName] = useState("");
@@ -58,7 +55,7 @@ export default function TeamManagementPage() {
 
   const handleAddStaff = () => {
     if (!newStaff.name) {
-      alert("직원 이름을 입력해주세요.");
+      alert(t('alerts.enterName'));
       return;
     }
 
@@ -105,24 +102,24 @@ export default function TeamManagementPage() {
       router.push("/config");
     } catch (error) {
       console.error("Save failed:", error);
-      alert("팀 정보 저장 중 오류가 발생했습니다.");
+      alert(t('alerts.saveFailed'));
     }
   };
 
   const handleSavePreset = () => {
     if (!presetName.trim()) {
-      alert("프리셋 이름을 입력해주세요.");
+      alert(t('alerts.enterPresetName'));
       return;
     }
     saveTeamPreset(presetName.trim(), wardId, staff);
     setPresets(listTeamPresets());
     setPresetName("");
-    alert(`"${presetName.trim()}" 프리셋이 저장되었습니다.`);
+    alert(t('alerts.presetSaved', { name: presetName.trim() }));
   };
 
   const handleLoadPreset = () => {
     if (!selectedPreset) {
-      alert("불러올 프리셋을 선택해주세요.");
+      alert(t('alerts.selectPresetFirst'));
       return;
     }
     const preset = loadTeamPreset(selectedPreset);
@@ -131,7 +128,7 @@ export default function TeamManagementPage() {
       if (Array.isArray(preset.staff)) {
         setStaff(preset.staff);
       }
-      alert(`"${selectedPreset}" 프리셋을 불러왔습니다.`);
+      alert(t('alerts.presetLoaded', { name: selectedPreset }));
     }
   };
 
@@ -140,24 +137,34 @@ export default function TeamManagementPage() {
     count: staff.filter(s => s.role === role).length,
   }));
 
+  // Get translated role label
+  const getRoleLabel = (role: Role) => {
+    return t(`roles.${role}`);
+  };
+
+  // Get translated experience label
+  const getExperienceLabel = (exp: string) => {
+    return t(`experienceLevels.${exp}`);
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
+      <header className="bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-8">
-              <a href="/dashboard" className="text-xl font-semibold text-gray-900 hover:text-blue-600 transition-colors">
+              <a href="/dashboard" className="text-xl font-semibold text-gray-900 dark:text-white hover:text-blue-600 transition-colors">
                 ShiftEasy
               </a>
               <nav className="flex items-center gap-6">
-                <a href="/schedule" className="text-sm font-medium text-gray-600 hover:text-gray-900">
+                <a href="/schedule" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
                   스케줄
                 </a>
-                <a href="/team" className="text-sm font-medium text-blue-600">
+                <a href="/team" className="text-sm font-medium text-blue-600 dark:text-blue-400">
                   팀 관리
                 </a>
-                <a href="/config" className="text-sm font-medium text-gray-600 hover:text-gray-900">
+                <a href="/config" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
                   설정
                 </a>
               </nav>
@@ -168,7 +175,7 @@ export default function TeamManagementPage() {
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
               >
                 <Save className="w-4 h-4" />
-                저장하고 다음
+                {t('actions.saveAndNext')}
                 <ChevronRight className="w-4 h-4" />
               </button>
               <ProfileDropdown />
@@ -184,7 +191,7 @@ export default function TeamManagementPage() {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">병동 ID</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('wardId')}</label>
                 <input
                   type="text"
                   value={wardId}
@@ -196,13 +203,13 @@ export default function TeamManagementPage() {
             <div className="flex items-center gap-6">
               {roleStats.map(stat => (
                 <div key={stat.role} className="text-center">
-                  <p className="text-sm text-gray-500 mb-1">{ROLE_LABELS[stat.role]}</p>
+                  <p className="text-sm text-gray-500 mb-1">{getRoleLabel(stat.role)}</p>
                   <p className="text-2xl font-semibold text-gray-900">{stat.count}</p>
                 </div>
               ))}
               <div className="h-12 w-px bg-gray-200" />
               <div className="text-center">
-                <p className="text-sm text-gray-500 mb-1">총 인원</p>
+                <p className="text-sm text-gray-500 mb-1">{t('totalMembers')}</p>
                 <p className="text-2xl font-semibold text-blue-600">{staff.length}</p>
               </div>
             </div>
@@ -212,7 +219,7 @@ export default function TeamManagementPage() {
           <div className="flex items-center gap-3 pt-6 border-t border-gray-100">
             <input
               type="text"
-              placeholder="프리셋 이름"
+              placeholder={t('form.presetName')}
               value={presetName}
               onChange={(e) => setPresetName(e.target.value)}
               className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -222,7 +229,7 @@ export default function TeamManagementPage() {
               className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
             >
               <Download className="w-4 h-4" />
-              프리셋 저장
+              {t('actions.savePreset')}
             </button>
             <div className="flex items-center gap-2">
               <select
@@ -230,7 +237,7 @@ export default function TeamManagementPage() {
                 onChange={(e) => setSelectedPreset(e.target.value)}
                 className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="">프리셋 선택</option>
+                <option value="">{t('actions.selectPreset')}</option>
                 {presets.map(preset => (
                   <option key={preset} value={preset}>{preset}</option>
                 ))}
@@ -240,7 +247,7 @@ export default function TeamManagementPage() {
                 className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
               >
                 <Upload className="w-4 h-4" />
-                불러오기
+                {t('actions.loadPreset')}
               </button>
             </div>
           </div>
@@ -251,14 +258,14 @@ export default function TeamManagementPage() {
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
               <Users className="w-5 h-5 text-gray-400" />
-              팀 구성원
+              {t('teamMembers')}
             </h2>
             <button
               onClick={() => setShowAddForm(true)}
               className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100"
             >
               <Plus className="w-4 h-4" />
-              직원 추가
+              {t('actions.addStaff')}
             </button>
           </div>
 
@@ -267,38 +274,38 @@ export default function TeamManagementPage() {
             <div className="px-6 py-4 bg-blue-50/50 border-b border-blue-100">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">이름</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('form.name')}</label>
                   <input
                     type="text"
                     value={newStaff.name}
                     onChange={(e) => setNewStaff({ ...newStaff, name: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="예: 김간호"
+                    placeholder={t('form.namePlaceholder')}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">역할</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('form.role')}</label>
                   <select
                     value={newStaff.role}
                     onChange={(e) => setNewStaff({ ...newStaff, role: e.target.value as Role })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     {roles.map(role => (
-                      <option key={role} value={role}>{ROLE_LABELS[role]}</option>
+                      <option key={role} value={role}>{getRoleLabel(role)}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">경력</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('form.experience')}</label>
                   <select
                     value={newStaff.experienceLevel}
                     onChange={(e) => setNewStaff({ ...newStaff, experienceLevel: e.target.value as Staff["experienceLevel"] })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="JUNIOR">신입</option>
-                    <option value="INTERMEDIATE">경력</option>
-                    <option value="SENIOR">시니어</option>
-                    <option value="EXPERT">전문가</option>
+                    <option value="JUNIOR">{getExperienceLabel('JUNIOR')}</option>
+                    <option value="INTERMEDIATE">{getExperienceLabel('INTERMEDIATE')}</option>
+                    <option value="SENIOR">{getExperienceLabel('SENIOR')}</option>
+                    <option value="EXPERT">{getExperienceLabel('EXPERT')}</option>
                   </select>
                 </div>
               </div>
@@ -307,13 +314,13 @@ export default function TeamManagementPage() {
                   onClick={() => setShowAddForm(false)}
                   className="px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900"
                 >
-                  취소
+                  {t('actions.cancel')}
                 </button>
                 <button
                   onClick={handleAddStaff}
                   className="px-4 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
                 >
-                  추가
+                  {t('actions.add')}
                 </button>
               </div>
             </div>
@@ -344,8 +351,8 @@ export default function TeamManagementPage() {
             {staff.length === 0 && (
               <div className="col-span-full text-center py-12">
                 <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500">아직 팀 구성원이 없습니다.</p>
-                <p className="text-sm text-gray-400 mt-1">위의 "직원 추가" 버튼을 클릭하여 시작하세요.</p>
+                <p className="text-gray-500">{t('empty.noMembers')}</p>
+                <p className="text-sm text-gray-400 mt-1">{t('empty.getStarted')}</p>
               </div>
             )}
           </div>

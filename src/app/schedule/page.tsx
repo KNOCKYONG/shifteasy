@@ -1,8 +1,9 @@
 "use client";
 import { useState, useEffect } from "react";
 import { format, startOfWeek, addWeeks, subWeeks } from "date-fns";
-import { ko } from "date-fns/locale";
+import { ko, enUS, ja } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Calendar, Users, Settings, Download, Lock, Unlock, Wand2, RefreshCw, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { ScheduleBoard } from "@/components/schedule/ScheduleBoard";
 import { MonthView } from "@/components/schedule/MonthView";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
@@ -11,6 +12,7 @@ import { loadCurrentTeam } from "@/lib/teamStorage";
 import { ProfileDropdown } from "@/components/ProfileDropdown";
 
 export default function SchedulePage() {
+  const { t, i18n } = useTranslation(['schedule', 'common']);
   const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 0 }));
   const [staff, setStaff] = useState<Staff[]>([]);
   const [schedule, setSchedule] = useState<WeekSchedule>({});
@@ -18,6 +20,12 @@ export default function SchedulePage() {
   const [viewMode, setViewMode] = useState<"week" | "month">("week");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationMetrics, setGenerationMetrics] = useState<any>(null);
+
+  const getLocale = () => {
+    if (i18n.language === 'en') return enUS;
+    if (i18n.language === 'ja') return ja;
+    return ko;
+  };
 
   useEffect(() => {
     // Load team data
@@ -54,7 +62,7 @@ export default function SchedulePage() {
       );
 
       if (!hasSchedule) {
-        alert("스케줄을 먼저 작성해주세요.");
+        alert(t('alerts.noSchedule'));
         return;
       }
     }
@@ -63,7 +71,7 @@ export default function SchedulePage() {
 
   const handleGenerateSchedule = async () => {
     if (staff.length === 0) {
-      alert("먼저 팀을 구성해주세요.");
+      alert(t('alerts.noTeam'));
       return;
     }
 
@@ -73,7 +81,7 @@ export default function SchedulePage() {
     // Get team data
     const teamData = loadCurrentTeam();
     if (!teamData || !teamData.staff || teamData.staff.length === 0) {
-      alert("팀 데이터를 찾을 수 없습니다. 먼저 팀을 구성해주세요.");
+      alert(t('alerts.noTeamData'));
       setIsGenerating(false);
       return;
     }
@@ -97,7 +105,7 @@ export default function SchedulePage() {
       });
 
       if (!response.ok) {
-        throw new Error("스케줄 생성 실패");
+        throw new Error(t('alerts.generationFailed'));
       }
 
       const result = await response.json();
@@ -112,7 +120,7 @@ export default function SchedulePage() {
 
     } catch (error) {
       console.error("Schedule generation error:", error);
-      alert("스케줄 생성 중 오류가 발생했습니다.");
+      alert(t('alerts.generationError'));
     } finally {
       setIsGenerating(false);
     }
@@ -138,24 +146,24 @@ export default function SchedulePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
+      <header className="bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-8">
-              <a href="/dashboard" className="text-xl font-semibold text-gray-900 hover:text-blue-600 transition-colors">
-                ShiftEasy
+              <a href="/dashboard" className="text-xl font-semibold text-gray-900 dark:text-white hover:text-blue-600 transition-colors">
+                {t('app.name', { ns: 'common' })}
               </a>
               <nav className="flex items-center gap-6">
-                <a href="/schedule" className="text-sm font-medium text-blue-600">
-                  스케줄
+                <a href="/schedule" className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                  {t('nav.schedule', { ns: 'common' })}
                 </a>
-                <a href="/team" className="text-sm font-medium text-gray-600 hover:text-gray-900">
-                  팀 관리
+                <a href="/team" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
+                  {t('nav.team', { ns: 'common' })}
                 </a>
-                <a href="/config" className="text-sm font-medium text-gray-600 hover:text-gray-900">
-                  설정
+                <a href="/config" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
+                  {t('nav.config', { ns: 'common' })}
                 </a>
               </nav>
             </div>
@@ -175,12 +183,12 @@ export default function SchedulePage() {
                 {isGenerating ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    생성 중...
+                    {t('actions.generating')}
                   </>
                 ) : (
                   <>
                     <Wand2 className="w-4 h-4" />
-                    자동 생성
+                    {t('actions.autoGenerate')}
                   </>
                 )}
               </button>
@@ -190,7 +198,7 @@ export default function SchedulePage() {
                 className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
               >
                 <Download className="w-4 h-4" />
-                내보내기
+                {t('actions.export')}
               </button>
               <button
                 onClick={handleConfirmToggle}
@@ -203,12 +211,12 @@ export default function SchedulePage() {
                 {isConfirmed ? (
                   <>
                     <Lock className="w-4 h-4" />
-                    확정됨
+                    {t('actions.confirmed')}
                   </>
                 ) : (
                   <>
                     <Unlock className="w-4 h-4" />
-                    확정하기
+                    {t('actions.confirmSchedule')}
                   </>
                 )}
               </button>
@@ -233,7 +241,7 @@ export default function SchedulePage() {
                 onClick={handleToday}
                 className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                오늘
+                {t('buttons.today', { ns: 'common' })}
               </button>
               <button
                 onClick={handleNextWeek}
@@ -245,7 +253,7 @@ export default function SchedulePage() {
             <div className="flex items-center gap-2">
               <Calendar className="w-5 h-5 text-gray-400" />
               <h2 className="text-lg font-medium text-gray-900">
-                {format(currentWeek, "yyyy년 M월 d일", { locale: ko })} 주
+                {format(currentWeek, "yyyy년 M월 d일", { locale: getLocale() })}
               </h2>
             </div>
           </div>
@@ -259,7 +267,7 @@ export default function SchedulePage() {
                   : "text-gray-600 hover:bg-gray-100"
               }`}
             >
-              주간
+              {t('viewMode.week')}
             </button>
             <button
               onClick={() => setViewMode("month")}
@@ -269,7 +277,7 @@ export default function SchedulePage() {
                   : "text-gray-600 hover:bg-gray-100"
               }`}
             >
-              월간
+              {t('viewMode.month')}
             </button>
           </div>
         </div>
@@ -301,11 +309,11 @@ export default function SchedulePage() {
                   <Wand2 className="w-5 h-5 text-purple-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900">스케줄 자동 생성 완료</p>
+                  <p className="text-sm font-medium text-gray-900">{t('generation.success')}</p>
                   <p className="text-xs text-gray-600">
-                    처리 시간: {generationMetrics.processingTime}ms |
-                    커버리지: {Math.round(generationMetrics.coverageRate * 100)}% |
-                    공정성: {Math.round(generationMetrics.distributionBalance * 100)}%
+                    {t('generation.processingTime')}: {generationMetrics.processingTime}ms |
+                    {t('generation.coverage')}: {Math.round(generationMetrics.coverageRate * 100)}% |
+                    {t('generation.fairness')}: {Math.round(generationMetrics.distributionBalance * 100)}%
                   </p>
                 </div>
               </div>
@@ -324,7 +332,7 @@ export default function SchedulePage() {
           <div className="bg-white rounded-xl border border-gray-100 p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">총 직원</p>
+                <p className="text-sm text-gray-500">{t('stats.totalStaff')}</p>
                 <p className="text-2xl font-semibold text-gray-900">{staff.length}</p>
               </div>
               <Users className="w-8 h-8 text-gray-300" />
@@ -334,7 +342,7 @@ export default function SchedulePage() {
           <div className="bg-white rounded-xl border border-gray-100 p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">주간 근무</p>
+                <p className="text-sm text-gray-500">{t('stats.dayShift')}</p>
                 <p className="text-2xl font-semibold text-blue-600">
                   {Object.values(schedule).reduce((acc, staffSchedule) => {
                     return acc + Object.values(staffSchedule).filter(s => s === "D").length;
@@ -350,7 +358,7 @@ export default function SchedulePage() {
           <div className="bg-white rounded-xl border border-gray-100 p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">야간 근무</p>
+                <p className="text-sm text-gray-500">{t('stats.nightShift')}</p>
                 <p className="text-2xl font-semibold text-indigo-600">
                   {Object.values(schedule).reduce((acc, staffSchedule) => {
                     return acc + Object.values(staffSchedule).filter(s => s === "N").length;
@@ -366,7 +374,7 @@ export default function SchedulePage() {
           <div className="bg-white rounded-xl border border-gray-100 p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">휴무</p>
+                <p className="text-sm text-gray-500">{t('stats.offDuty')}</p>
                 <p className="text-2xl font-semibold text-gray-600">
                   {Object.values(schedule).reduce((acc, staffSchedule) => {
                     return acc + Object.values(staffSchedule).filter(s => s === "O").length;

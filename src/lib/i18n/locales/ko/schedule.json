@@ -1,0 +1,37 @@
+{
+  "title": "주간 스케줄",
+  "weekSchedule": "주간 스케줄",
+  "monthSchedule": "월간 스케줄",
+  "viewMode": {
+    "week": "주간",
+    "month": "월간"
+  },
+  "stats": {
+    "totalStaff": "총 직원",
+    "dayShift": "주간 근무",
+    "nightShift": "야간 근무",
+    "offDuty": "휴무"
+  },
+  "actions": {
+    "autoGenerate": "자동 생성",
+    "generating": "생성 중...",
+    "export": "내보내기",
+    "confirmSchedule": "확정하기",
+    "confirmed": "확정됨"
+  },
+  "generation": {
+    "success": "스케줄 자동 생성 완료",
+    "processingTime": "처리 시간",
+    "coverage": "커버리지",
+    "fairness": "공정성"
+  },
+  "alerts": {
+    "noSchedule": "스케줄을 먼저 작성해주세요.",
+    "noTeam": "먼저 팀을 구성해주세요.",
+    "noTeamData": "팀 데이터를 찾을 수 없습니다. 먼저 팀을 구성해주세요.",
+    "generationFailed": "스케줄 생성 실패",
+    "generationError": "스케줄 생성 중 오류가 발생했습니다."
+  },
+  "weekOf": "{{date}} 주",
+  "employee": "직원"
+}

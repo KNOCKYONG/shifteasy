@@ -1,0 +1,66 @@
+{
+  "title": "스케줄 설정",
+  "subtitle": "근무 패턴과 규칙을 설정하여 최적의 스케줄을 생성하세요.",
+  "tabs": {
+    "patterns": "근무 패턴",
+    "rules": "근무 규칙",
+    "preferences": "고급 설정"
+  },
+  "patterns": {
+    "title": "근무 패턴 선택",
+    "description": "팀의 근무 형태에 맞는 패턴을 선택하세요. 선택한 패턴에 따라 자동으로 스케줄이 생성됩니다.",
+    "5day": {
+      "name": "5일 근무",
+      "description": "주 5일 근무, 2일 휴무"
+    },
+    "4day": {
+      "name": "4일 근무",
+      "description": "주 4일 근무, 3일 휴무"
+    },
+    "3shift": {
+      "name": "3교대",
+      "description": "주간/저녁/야간 순환"
+    },
+    "workDays": "근무",
+    "offDays": "휴무",
+    "days": "일"
+  },
+  "rules": {
+    "title": "근무 규칙 설정",
+    "description": "법적 요구사항과 팀의 정책에 맞게 근무 규칙을 설정하세요. 이 규칙들은 스케줄 생성 시 자동으로 적용됩니다.",
+    "maxConsecutive": "최대 연속 근무",
+    "minRest": "최소 휴식 시간",
+    "weekendFairness": "주말 공평 배분",
+    "nightLimit": "월 야간 근무 제한",
+    "type": {
+      "limit": "제한",
+      "minimum": "최소",
+      "balance": "균형"
+    },
+    "units": {
+      "days": "일",
+      "hours": "시간",
+      "times": "회"
+    }
+  },
+  "preferences": {
+    "autoOptimization": "자동 최적화",
+    "autoBalance": "자동 균형 조정",
+    "autoBalanceDesc": "모든 직원의 근무 시간을 공평하게 분배합니다",
+    "weekendRotation": "주말 순환 근무",
+    "weekendRotationDesc": "주말 근무를 모든 직원이 순환하도록 설정합니다",
+    "fairnessWeight": "공정성 가중치",
+    "efficiencyFirst": "효율성 우선",
+    "fairnessFirst": "공정성 우선",
+    "scheduleOptions": "스케줄 생성 옵션",
+    "maxConsecutiveShifts": "최대 연속 근무일",
+    "minRestHours": "최소 휴식 시간"
+  },
+  "actions": {
+    "previousStep": "이전 단계",
+    "saveAndGenerate": "저장하고 스케줄 생성"
+  },
+  "alerts": {
+    "saved": "설정이 저장되었습니다."
+  }
+}

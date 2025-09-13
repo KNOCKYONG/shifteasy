@@ -1,0 +1,71 @@
+{
+  "app": {
+    "name": "ShiftEasy",
+    "title": "ShiftEasy - Smart Work Schedule Management"
+  },
+  "nav": {
+    "schedule": "Schedule",
+    "team": "Team Management",
+    "config": "Settings"
+  },
+  "buttons": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "add": "Add",
+    "confirm": "Confirm",
+    "export": "Export",
+    "import": "Import",
+    "generate": "Generate",
+    "next": "Next",
+    "previous": "Previous",
+    "today": "Today",
+    "viewStats": "View Stats"
+  },
+  "shift": {
+    "day": "Day",
+    "evening": "Evening",
+    "night": "Night",
+    "off": "Off",
+    "D": "D",
+    "E": "E",
+    "N": "N",
+    "O": "O"
+  },
+  "role": {
+    "RN": "Registered Nurse",
+    "CN": "Charge Nurse",
+    "SN": "Specialist Nurse",
+    "NA": "Nursing Assistant"
+  },
+  "experience": {
+    "JUNIOR": "Junior",
+    "INTERMEDIATE": "Intermediate",
+    "SENIOR": "Senior",
+    "EXPERT": "Expert"
+  },
+  "days": {
+    "sun": "Sun",
+    "mon": "Mon",
+    "tue": "Tue",
+    "wed": "Wed",
+    "thu": "Thu",
+    "fri": "Fri",
+    "sat": "Sat"
+  },
+  "months": {
+    "jan": "Jan",
+    "feb": "Feb",
+    "mar": "Mar",
+    "apr": "Apr",
+    "may": "May",
+    "jun": "Jun",
+    "jul": "Jul",
+    "aug": "Aug",
+    "sep": "Sep",
+    "oct": "Oct",
+    "nov": "Nov",
+    "dec": "Dec"
+  }
+}

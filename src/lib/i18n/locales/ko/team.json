@@ -1,0 +1,53 @@
+{
+  "title": "팀 관리",
+  "wardId": "병동 ID",
+  "teamMembers": "팀 구성원",
+  "totalMembers": "총 인원",
+  "stats": {
+    "nurse": "간호사",
+    "headNurse": "수간호사",
+    "specialistNurse": "전문간호사",
+    "assistantNurse": "간호조무사",
+    "total": "총 인원"
+  },
+  "roles": {
+    "RN": "간호사",
+    "CN": "수간호사",
+    "SN": "전문간호사",
+    "NA": "간호조무사"
+  },
+  "experienceLevels": {
+    "JUNIOR": "신입",
+    "INTERMEDIATE": "경력",
+    "SENIOR": "시니어",
+    "EXPERT": "전문가"
+  },
+  "actions": {
+    "addStaff": "직원 추가",
+    "saveAndNext": "저장하고 다음",
+    "savePreset": "프리셋 저장",
+    "loadPreset": "불러오기",
+    "selectPreset": "프리셋 선택",
+    "cancel": "취소",
+    "add": "추가"
+  },
+  "form": {
+    "name": "이름",
+    "namePlaceholder": "예: 김간호",
+    "role": "역할",
+    "experience": "경력",
+    "presetName": "프리셋 이름"
+  },
+  "alerts": {
+    "enterName": "직원 이름을 입력해주세요.",
+    "saveFailed": "팀 정보 저장 중 오류가 발생했습니다.",
+    "enterPresetName": "프리셋 이름을 입력해주세요.",
+    "presetSaved": "\"{{name}}\" 프리셋이 저장되었습니다.",
+    "selectPresetFirst": "불러올 프리셋을 선택해주세요.",
+    "presetLoaded": "\"{{name}}\" 프리셋을 불러왔습니다."
+  },
+  "empty": {
+    "noMembers": "아직 팀 구성원이 없습니다.",
+    "getStarted": "위의 \"직원 추가\" 버튼을 클릭하여 시작하세요."
+  }
+}

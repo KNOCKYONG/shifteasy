@@ -1,0 +1,34 @@
+{
+  "staffCard": {
+    "skills": "専門分野",
+    "experience": "経歴",
+    "weeklyMax": "週間最大",
+    "hours": "時間",
+    "technical": "技術",
+    "leadership": "リーダーシップ",
+    "communication": "コミュニケーション",
+    "unassigned": "未割当"
+  },
+  "scheduleBoard": {
+    "shiftTypes": {
+      "D": "日勤",
+      "E": "準夜",
+      "N": "夜勤",
+      "O": "休み"
+    },
+    "weekdays": {
+      "sunday": "日",
+      "monday": "月",
+      "tuesday": "火",
+      "wednesday": "水",
+      "thursday": "木",
+      "friday": "金",
+      "saturday": "土"
+    }
+  },
+  "monthView": {
+    "title": "月間スケジュール",
+    "today": "今日",
+    "shiftSummary": "{{count}}名勤務"
+  }
+}

@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Settings, Save, AlertCircle, Clock, Users, Calendar, Shield, ChevronRight, Info } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { type ShiftRule, type ShiftPattern } from "@/lib/types";
 import { ProfileDropdown } from "@/components/ProfileDropdown";
 
@@ -32,6 +33,37 @@ const DEFAULT_RULES: ShiftRule[] = [
 
 export default function ConfigPage() {
   const router = useRouter();
+  const { t } = useTranslation(['config', 'common']);
+
+  // Get pattern translation by ID
+  const getPatternName = (id: string): string => {
+    switch (id) {
+      case '5-day': return t('patterns.5day.name', { ns: 'config' });
+      case '4-day': return t('patterns.4day.name', { ns: 'config' });
+      case '3-shift': return t('patterns.3shift.name', { ns: 'config' });
+      default: return '';
+    }
+  };
+
+  const getPatternDescription = (id: string): string => {
+    switch (id) {
+      case '5-day': return t('patterns.5day.description', { ns: 'config' });
+      case '4-day': return t('patterns.4day.description', { ns: 'config' });
+      case '3-shift': return t('patterns.3shift.description', { ns: 'config' });
+      default: return '';
+    }
+  };
+
+  // Get rule translation by ID
+  const getRuleName = (id: string): string => {
+    switch (id) {
+      case 'max-consecutive': return t('rules.maxConsecutive', { ns: 'config' });
+      case 'min-rest': return t('rules.minRest', { ns: 'config' });
+      case 'weekend-fairness': return t('rules.weekendFairness', { ns: 'config' });
+      case 'night-limit': return t('rules.nightLimit', { ns: 'config' });
+      default: return '';
+    }
+  };
   const [activeTab, setActiveTab] = useState<"patterns" | "rules" | "preferences">("patterns");
   const [config, setConfig] = useState<ConfigData>({
     patterns: DEFAULT_PATTERNS,
@@ -48,7 +80,7 @@ export default function ConfigPage() {
   const handleSave = () => {
     // Save configuration to localStorage
     localStorage.setItem("shiftConfig", JSON.stringify(config));
-    alert("설정이 저장되었습니다.");
+    alert(t('alerts.saved', { ns: 'config' }));
     router.push("/schedule");
   };
 
@@ -71,24 +103,24 @@ export default function ConfigPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
+      <header className="bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-8">
-              <a href="/dashboard" className="text-xl font-semibold text-gray-900 hover:text-blue-600 transition-colors">
+              <a href="/dashboard" className="text-xl font-semibold text-gray-900 dark:text-white hover:text-blue-600 transition-colors">
                 ShiftEasy
               </a>
               <nav className="flex items-center gap-6">
-                <a href="/schedule" className="text-sm font-medium text-gray-600 hover:text-gray-900">
-                  스케줄
+                <a href="/schedule" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
+                  {t('nav.schedule', { ns: 'common' })}
                 </a>
-                <a href="/team" className="text-sm font-medium text-gray-600 hover:text-gray-900">
-                  팀 관리
+                <a href="/team" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
+                  {t('nav.team', { ns: 'common' })}
                 </a>
-                <a href="/config" className="text-sm font-medium text-blue-600">
-                  설정
+                <a href="/config" className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                  {t('nav.config', { ns: 'common' })}
                 </a>
               </nav>
             </div>
@@ -98,7 +130,7 @@ export default function ConfigPage() {
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
               >
                 <Save className="w-4 h-4" />
-                저장하고 스케줄 생성
+                {t('actions.saveAndGenerate', { ns: 'config' })}
                 <ChevronRight className="w-4 h-4" />
               </button>
               <ProfileDropdown />
@@ -111,45 +143,45 @@ export default function ConfigPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Title */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-            <Settings className="w-7 h-7 text-gray-400" />
-            스케줄 설정
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+            <Settings className="w-7 h-7 text-gray-400 dark:text-gray-500" />
+            {t('title', { ns: 'config' })}
           </h2>
-          <p className="mt-2 text-gray-600">근무 패턴과 규칙을 설정하여 최적의 스케줄을 생성하세요.</p>
+          <p className="mt-2 text-gray-600 dark:text-gray-400">{t('subtitle', { ns: 'config' })}</p>
         </div>
 
         {/* Tabs */}
-        <div className="mb-6 border-b border-gray-200">
+        <div className="mb-6 border-b border-gray-200 dark:border-slate-700">
           <nav className="flex gap-8">
             <button
               onClick={() => setActiveTab("patterns")}
               className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === "patterns"
-                  ? "text-blue-600 border-blue-600"
-                  : "text-gray-500 border-transparent hover:text-gray-700"
+                  ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
+                  : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
               }`}
             >
-              근무 패턴
+              {t('tabs.patterns', { ns: 'config' })}
             </button>
             <button
               onClick={() => setActiveTab("rules")}
               className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === "rules"
-                  ? "text-blue-600 border-blue-600"
-                  : "text-gray-500 border-transparent hover:text-gray-700"
+                  ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
+                  : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
               }`}
             >
-              근무 규칙
+              {t('tabs.rules', { ns: 'config' })}
             </button>
             <button
               onClick={() => setActiveTab("preferences")}
               className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === "preferences"
-                  ? "text-blue-600 border-blue-600"
-                  : "text-gray-500 border-transparent hover:text-gray-700"
+                  ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
+                  : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
               }`}
             >
-              고급 설정
+              {t('tabs.preferences', { ns: 'config' })}
             </button>
           </nav>
         </div>
@@ -157,12 +189,12 @@ export default function ConfigPage() {
         {/* Tab Content */}
         {activeTab === "patterns" && (
           <div className="space-y-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
-              <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-900/30 rounded-xl p-4 flex items-start gap-3">
+              <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm text-blue-900 font-medium">근무 패턴 선택</p>
-                <p className="text-sm text-blue-700 mt-1">
-                  팀의 근무 형태에 맞는 패턴을 선택하세요. 선택한 패턴에 따라 자동으로 스케줄이 생성됩니다.
+                <p className="text-sm text-blue-900 dark:text-blue-300 font-medium">{t('patterns.title', { ns: 'config' })}</p>
+                <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
+                  {t('patterns.description', { ns: 'config' })}
                 </p>
               </div>
             </div>
@@ -171,10 +203,10 @@ export default function ConfigPage() {
               {config.patterns.map((pattern) => (
                 <div
                   key={pattern.id}
-                  className="bg-white rounded-xl border-2 border-gray-200 hover:border-blue-300 transition-colors cursor-pointer p-6"
+                  className="bg-white dark:bg-slate-800 rounded-xl border-2 border-gray-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600 transition-colors cursor-pointer p-6"
                 >
                   <div className="flex items-start justify-between mb-4">
-                    <Calendar className="w-8 h-8 text-gray-400" />
+                    <Calendar className="w-8 h-8 text-gray-400 dark:text-gray-500" />
                     <input
                       type="radio"
                       name="pattern"
@@ -182,11 +214,11 @@ export default function ConfigPage() {
                       defaultChecked={pattern.id === "5-day"}
                     />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{pattern.name}</h3>
-                  <p className="text-sm text-gray-600 mb-4">{pattern.description}</p>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{getPatternName(pattern.id)}</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{getPatternDescription(pattern.id)}</p>
                   <div className="flex items-center gap-4 text-sm">
-                    <span className="text-gray-500">근무: {pattern.daysOn}일</span>
-                    <span className="text-gray-500">휴무: {pattern.daysOff}일</span>
+                    <span className="text-gray-500 dark:text-gray-400">{t('patterns.workDays', { ns: 'config' })}: {pattern.daysOn}{t('patterns.days', { ns: 'config' })}</span>
+                    <span className="text-gray-500 dark:text-gray-400">{t('patterns.offDays', { ns: 'config' })}: {pattern.daysOff}{t('patterns.days', { ns: 'config' })}</span>
                   </div>
                 </div>
               ))}
@@ -196,29 +228,29 @@ export default function ConfigPage() {
 
         {activeTab === "rules" && (
           <div className="space-y-4">
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-xl p-4 flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm text-amber-900 font-medium">근무 규칙 설정</p>
-                <p className="text-sm text-amber-700 mt-1">
-                  법적 요구사항과 팀의 정책에 맞게 근무 규칙을 설정하세요. 이 규칙들은 스케줄 생성 시 자동으로 적용됩니다.
+                <p className="text-sm text-amber-900 dark:text-amber-300 font-medium">{t('rules.title', { ns: 'config' })}</p>
+                <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+                  {t('rules.description', { ns: 'config' })}
                 </p>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-100">
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 divide-y divide-gray-100 dark:divide-gray-700">
               {config.rules.map((rule) => (
                 <div key={rule.id} className="p-6 flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
-                      <Shield className="w-5 h-5 text-gray-400" />
-                      <h4 className="font-medium text-gray-900">{rule.name}</h4>
+                      <Shield className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+                      <h4 className="font-medium text-gray-900 dark:text-white">{getRuleName(rule.id)}</h4>
                       <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
                         rule.type === "limit" ? "bg-red-50 text-red-700" :
                         rule.type === "minimum" ? "bg-blue-50 text-blue-700" :
                         "bg-green-50 text-green-700"
                       }`}>
-                        {rule.type === "limit" ? "제한" : rule.type === "minimum" ? "최소" : "균형"}
+                        {rule.type === "limit" ? t('rules.type.limit', { ns: 'config' }) : rule.type === "minimum" ? t('rules.type.minimum', { ns: 'config' }) : t('rules.type.balance', { ns: 'config' })}
                       </span>
                     </div>
                     <div className="mt-2 flex items-center gap-4">
@@ -226,13 +258,13 @@ export default function ConfigPage() {
                         type="number"
                         value={rule.value}
                         onChange={(e) => handleRuleValueChange(rule.id, parseInt(e.target.value))}
-                        className="w-20 px-3 py-1 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-20 px-3 py-1 border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         disabled={!rule.enabled}
                       />
-                      <span className="text-sm text-gray-600">
-                        {rule.id === "max-consecutive" ? "일" :
-                         rule.id === "min-rest" ? "시간" :
-                         rule.id === "night-limit" ? "회" : ""}
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        {rule.id === "max-consecutive" ? t('rules.units.days', { ns: 'config' }) :
+                         rule.id === "min-rest" ? t('rules.units.hours', { ns: 'config' }) :
+                         rule.id === "night-limit" ? t('rules.units.times', { ns: 'config' }) : ""}
                       </span>
                     </div>
                   </div>
@@ -253,14 +285,14 @@ export default function ConfigPage() {
 
         {activeTab === "preferences" && (
           <div className="space-y-6">
-            <div className="bg-white rounded-xl border border-gray-100 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6">자동 최적화</h3>
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">{t('preferences.autoOptimization', { ns: 'config' })}</h3>
 
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-gray-900">자동 균형 조정</p>
-                    <p className="text-sm text-gray-500 mt-1">모든 직원의 근무 시간을 공평하게 분배합니다</p>
+                    <p className="font-medium text-gray-900 dark:text-white">{t('preferences.autoBalance', { ns: 'config' })}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('preferences.autoBalanceDesc', { ns: 'config' })}</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
@@ -278,8 +310,8 @@ export default function ConfigPage() {
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-gray-900">주말 순환 근무</p>
-                    <p className="text-sm text-gray-500 mt-1">주말 근무를 모든 직원이 순환하도록 설정합니다</p>
+                    <p className="font-medium text-gray-900 dark:text-white">{t('preferences.weekendRotation', { ns: 'config' })}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('preferences.weekendRotationDesc', { ns: 'config' })}</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
@@ -297,8 +329,8 @@ export default function ConfigPage() {
 
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <p className="font-medium text-gray-900">공정성 가중치</p>
-                    <span className="text-sm font-medium text-blue-600">{config.preferences.fairnessWeight}%</span>
+                    <p className="font-medium text-gray-900 dark:text-white">{t('preferences.fairnessWeight', { ns: 'config' })}</p>
+                    <span className="text-sm font-medium text-blue-600 dark:text-blue-400">{config.preferences.fairnessWeight}%</span>
                   </div>
                   <input
                     type="range"
@@ -309,23 +341,23 @@ export default function ConfigPage() {
                       ...prev,
                       preferences: { ...prev.preferences, fairnessWeight: parseInt(e.target.value) }
                     }))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    className="w-full h-2 bg-gray-200 dark:bg-slate-600 rounded-lg appearance-none cursor-pointer"
                   />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>효율성 우선</span>
-                    <span>공정성 우선</span>
+                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <span>{t('preferences.efficiencyFirst', { ns: 'config' })}</span>
+                    <span>{t('preferences.fairnessFirst', { ns: 'config' })}</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl border border-gray-100 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6">스케줄 생성 옵션</h3>
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">{t('preferences.scheduleOptions', { ns: 'config' })}</h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    최대 연속 근무일
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {t('preferences.maxConsecutiveShifts', { ns: 'config' })}
                   </label>
                   <div className="flex items-center gap-3">
                     <input
@@ -335,15 +367,15 @@ export default function ConfigPage() {
                         ...prev,
                         preferences: { ...prev.preferences, maxConsecutiveShifts: parseInt(e.target.value) }
                       }))}
-                      className="w-24 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-24 px-3 py-2 border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                    <span className="text-sm text-gray-600">일</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">{t('rules.units.days', { ns: 'config' })}</span>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    최소 휴식 시간
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {t('preferences.minRestHours', { ns: 'config' })}
                   </label>
                   <div className="flex items-center gap-3">
                     <input
@@ -353,9 +385,9 @@ export default function ConfigPage() {
                         ...prev,
                         preferences: { ...prev.preferences, minRestHours: parseInt(e.target.value) }
                       }))}
-                      className="w-24 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-24 px-3 py-2 border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                    <span className="text-sm text-gray-600">시간</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">{t('rules.units.hours', { ns: 'config' })}</span>
                   </div>
                 </div>
               </div>
@@ -367,16 +399,16 @@ export default function ConfigPage() {
         <div className="mt-8 flex justify-between">
           <button
             onClick={() => router.push("/team")}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700"
           >
-            이전 단계
+            {t('actions.previousStep', { ns: 'config' })}
           </button>
           <button
             onClick={handleSave}
             className="inline-flex items-center gap-2 px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
           >
             <Save className="w-4 h-4" />
-            저장하고 스케줄 생성
+            {t('actions.saveAndGenerate', { ns: 'config' })}
           </button>
         </div>
       </main>
