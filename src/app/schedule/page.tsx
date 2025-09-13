@@ -2,9 +2,10 @@
 import { useState, useEffect } from "react";
 import { format, startOfWeek, addWeeks, subWeeks } from "date-fns";
 import { ko } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Calendar, Users, Settings, Download, Lock, Unlock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Users, Settings, Download, Lock, Unlock, Wand2, RefreshCw, X } from "lucide-react";
 import { ScheduleBoard } from "@/components/schedule/ScheduleBoard";
 import { MonthView } from "@/components/schedule/MonthView";
+import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { type Staff, type WeekSchedule } from "@/lib/types";
 import { loadCurrentTeam } from "@/lib/teamStorage";
 
@@ -14,6 +15,8 @@ export default function SchedulePage() {
   const [schedule, setSchedule] = useState<WeekSchedule>({});
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [viewMode, setViewMode] = useState<"week" | "month">("week");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationMetrics, setGenerationMetrics] = useState<any>(null);
 
   useEffect(() => {
     // Load team data
@@ -57,6 +60,63 @@ export default function SchedulePage() {
     setIsConfirmed(!isConfirmed);
   };
 
+  const handleGenerateSchedule = async () => {
+    if (staff.length === 0) {
+      alert("먼저 팀을 구성해주세요.");
+      return;
+    }
+
+    setIsGenerating(true);
+    setGenerationMetrics(null);
+
+    // Get team data
+    const teamData = loadCurrentTeam();
+    if (!teamData || !teamData.staff || teamData.staff.length === 0) {
+      alert("팀 데이터를 찾을 수 없습니다. 먼저 팀을 구성해주세요.");
+      setIsGenerating(false);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/schedule/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startDate: currentWeek.toISOString(),
+          teamData: teamData,
+          config: {
+            maxConsecutiveDays: 5,
+            minRestHours: 11,
+            maxWeeklyHours: 52,
+            minStaffPerShift: { D: 3, E: 2, N: 2, O: 0 },
+            fairnessWeight: 0.7,
+            preferenceWeight: 0.3,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("스케줄 생성 실패");
+      }
+
+      const result = await response.json();
+
+      setSchedule(result.schedule);
+      setGenerationMetrics(result.metrics);
+
+      // 성공 메시지
+      if (result.metrics.processingTime < 5000) {
+        console.log(`스케줄 생성 완료 (${result.metrics.processingTime}ms)`);
+      }
+
+    } catch (error) {
+      console.error("Schedule generation error:", error);
+      alert("스케줄 생성 중 오류가 발생했습니다.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const handleExport = () => {
     // Export schedule as JSON
     const exportData = {
@@ -97,6 +157,30 @@ export default function SchedulePage() {
               </nav>
             </div>
             <div className="flex items-center gap-3">
+              <NotificationCenter userId="dev-user-id" />
+
+              <button
+                onClick={handleGenerateSchedule}
+                disabled={isGenerating}
+                className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg ${
+                  isGenerating
+                    ? "text-gray-400 bg-gray-100 cursor-not-allowed"
+                    : "text-purple-700 bg-purple-50 border border-purple-200 hover:bg-purple-100"
+                }`}
+              >
+                {isGenerating ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    생성 중...
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="w-4 h-4" />
+                    자동 생성
+                  </>
+                )}
+              </button>
+
               <button
                 onClick={handleExport}
                 className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
@@ -202,6 +286,33 @@ export default function SchedulePage() {
             currentMonth={currentWeek}
             onMonthChange={setCurrentWeek}
           />
+        )}
+
+        {/* Generation Metrics */}
+        {generationMetrics && (
+          <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl border border-purple-100">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white rounded-lg shadow-sm">
+                  <Wand2 className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">스케줄 자동 생성 완료</p>
+                  <p className="text-xs text-gray-600">
+                    처리 시간: {generationMetrics.processingTime}ms |
+                    커버리지: {Math.round(generationMetrics.coverageRate * 100)}% |
+                    공정성: {Math.round(generationMetrics.distributionBalance * 100)}%
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setGenerationMetrics(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         )}
 
         {/* Quick Stats */}
