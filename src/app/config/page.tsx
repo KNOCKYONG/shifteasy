@@ -33,7 +33,7 @@ const DEFAULT_RULES: ShiftRule[] = [
 
 export default function ConfigPage() {
   const router = useRouter();
-  const { t } = useTranslation(['config', 'common']);
+  const { t, ready } = useTranslation(['config', 'common']);
 
   // Get pattern translation by ID
   const getPatternName = (id: string): string => {
@@ -114,13 +114,13 @@ export default function ConfigPage() {
               </a>
               <nav className="flex items-center gap-6">
                 <a href="/schedule" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
-                  {t('nav.schedule', { ns: 'common' })}
+                  {t('nav.schedule', { ns: 'common', defaultValue: '스케줄' })}
                 </a>
                 <a href="/team" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
-                  {t('nav.team', { ns: 'common' })}
+                  {t('nav.team', { ns: 'common', defaultValue: '팀 관리' })}
                 </a>
                 <a href="/config" className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                  {t('nav.config', { ns: 'common' })}
+                  {t('nav.config', { ns: 'common', defaultValue: '설정' })}
                 </a>
               </nav>
             </div>

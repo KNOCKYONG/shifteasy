@@ -1,14 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useSignIn, useAuth } from '@clerk/nextjs';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SignInPage() {
-  const { isLoaded, signIn, setActive } = useSignIn();
-  const { isSignedIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -16,56 +13,23 @@ export default function SignInPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  // 이미 로그인된 경우 대시보드로 리다이렉트
-  useEffect(() => {
-    if (isSignedIn) {
-      router.push('/dashboard');
-    }
-  }, [isSignedIn, router]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!isLoaded) return;
-
     setError('');
     setLoading(true);
 
     try {
-      // Clerk를 사용한 로그인
-      const result = await signIn.create({
-        identifier: email,
-        password,
-      });
-
-      if (result.status === 'complete') {
-        await setActive({ session: result.createdSessionId });
-        router.push('/dashboard');
-      } else {
-        // 추가 인증이 필요한 경우
-        console.log('Additional auth required:', result);
-        setError('추가 인증이 필요합니다.');
-      }
-    } catch (err: any) {
-      console.error('Sign in error:', err);
-
-      // Clerk 에러 메시지 처리
-      if (err.errors?.[0]?.message) {
-        const message = err.errors[0].message;
-        if (message.includes('already signed in')) {
-          // 이미 로그인된 경우 대시보드로 이동
+      // Mock authentication - in production, this would use Clerk or another auth provider
+      if (email && password) {
+        // Simple mock validation
+        setTimeout(() => {
           router.push('/dashboard');
-          return;
-        } else if (message.includes('password')) {
-          setError('비밀번호가 올바르지 않습니다.');
-        } else if (message.includes('identifier') || message.includes("Couldn't find your account")) {
-          setError('등록되지 않은 이메일입니다. 회원가입을 먼저 진행해주세요.');
-        } else {
-          setError('로그인에 실패했습니다. 다시 시도해주세요.');
-        }
+        }, 1000);
       } else {
-        setError('로그인 중 오류가 발생했습니다.');
+        setError('이메일과 비밀번호를 입력해주세요.');
       }
+    } catch (err) {
+      setError('로그인 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
