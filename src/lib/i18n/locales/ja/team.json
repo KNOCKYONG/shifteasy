@@ -10,12 +10,26 @@
     "assistantNurse": "看護助手",
     "total": "合計"
   },
+  "roles": {
+    "RN": "看護師",
+    "CN": "主任看護師",
+    "SN": "専門看護師",
+    "NA": "看護助手"
+  },
+  "experienceLevels": {
+    "JUNIOR": "新人",
+    "INTERMEDIATE": "経験者",
+    "SENIOR": "シニア",
+    "EXPERT": "エキスパート"
+  },
   "actions": {
     "addStaff": "スタッフ追加",
     "saveAndNext": "保存して次へ",
     "savePreset": "プリセット保存",
     "loadPreset": "読み込み",
-    "selectPreset": "プリセット選択"
+    "selectPreset": "プリセット選択",
+    "cancel": "キャンセル",
+    "add": "追加"
   },
   "form": {
     "name": "名前",

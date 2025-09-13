@@ -1,0 +1,34 @@
+{
+  "staffCard": {
+    "skills": "전문 분야",
+    "experience": "경력",
+    "weeklyMax": "주간 최대",
+    "hours": "시간",
+    "technical": "기술",
+    "leadership": "리더십",
+    "communication": "소통",
+    "unassigned": "미배정"
+  },
+  "scheduleBoard": {
+    "shiftTypes": {
+      "D": "주간",
+      "E": "저녁",
+      "N": "야간",
+      "O": "휴무"
+    },
+    "weekdays": {
+      "sunday": "일",
+      "monday": "월",
+      "tuesday": "화",
+      "wednesday": "수",
+      "thursday": "목",
+      "friday": "금",
+      "saturday": "토"
+    }
+  },
+  "monthView": {
+    "title": "월간 일정",
+    "today": "오늘",
+    "shiftSummary": "{{count}}명 근무"
+  }
+}

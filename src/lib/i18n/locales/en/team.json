@@ -10,12 +10,26 @@
     "assistantNurse": "Assistant Nurse",
     "total": "Total"
   },
+  "roles": {
+    "RN": "Registered Nurse",
+    "CN": "Charge Nurse",
+    "SN": "Specialist Nurse",
+    "NA": "Nursing Assistant"
+  },
+  "experienceLevels": {
+    "JUNIOR": "Junior",
+    "INTERMEDIATE": "Intermediate",
+    "SENIOR": "Senior",
+    "EXPERT": "Expert"
+  },
   "actions": {
     "addStaff": "Add Staff",
     "saveAndNext": "Save and Next",
     "savePreset": "Save Preset",
     "loadPreset": "Load",
-    "selectPreset": "Select Preset"
+    "selectPreset": "Select Preset",
+    "cancel": "Cancel",
+    "add": "Add"
   },
   "form": {
     "name": "Name",

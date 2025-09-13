@@ -7,7 +7,6 @@ import { useTranslation } from "react-i18next";
 import { ScheduleBoard } from "@/components/schedule/ScheduleBoard";
 import { MonthView } from "@/components/schedule/MonthView";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { type Staff, type WeekSchedule } from "@/lib/types";
 import { loadCurrentTeam } from "@/lib/teamStorage";
 
@@ -146,27 +145,26 @@ export default function SchedulePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-8">
-              <h1 className="text-xl font-semibold text-gray-900">{t('app.name', { ns: 'common' })}</h1>
+              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('app.name', { ns: 'common' })}</h1>
               <nav className="flex items-center gap-6">
-                <a href="/schedule" className="text-sm font-medium text-blue-600">
+                <a href="/schedule" className="text-sm font-medium text-blue-600 dark:text-blue-400">
                   {t('nav.schedule', { ns: 'common' })}
                 </a>
-                <a href="/team" className="text-sm font-medium text-gray-600 hover:text-gray-900">
+                <a href="/team" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
                   {t('nav.team', { ns: 'common' })}
                 </a>
-                <a href="/config" className="text-sm font-medium text-gray-600 hover:text-gray-900">
+                <a href="/config" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
                   {t('nav.config', { ns: 'common' })}
                 </a>
               </nav>
             </div>
             <div className="flex items-center gap-3">
-              <LanguageSwitcher />
               <NotificationCenter userId="dev-user-id" />
 
               <button

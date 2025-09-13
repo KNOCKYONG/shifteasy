@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { SettingsMenu } from "@/components/SettingsMenu";
 import { I18nProvider } from "@/components/providers/I18nProvider";
 // import { ClerkProvider } from "@clerk/nextjs"; // Clerk 임시 비활성화
 
@@ -29,7 +29,7 @@ export default function RootLayout({
             disableTransitionOnChange={false}
           >
             <div className="fixed top-4 right-4 z-50">
-              <ThemeToggle />
+              <SettingsMenu />
             </div>
             {children}
           </ThemeProvider>

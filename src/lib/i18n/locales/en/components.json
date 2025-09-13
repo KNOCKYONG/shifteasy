@@ -1,0 +1,34 @@
+{
+  "staffCard": {
+    "skills": "Skills",
+    "experience": "Experience",
+    "weeklyMax": "Weekly Max",
+    "hours": "hours",
+    "technical": "Technical",
+    "leadership": "Leadership",
+    "communication": "Communication",
+    "unassigned": "Unassigned"
+  },
+  "scheduleBoard": {
+    "shiftTypes": {
+      "D": "Day",
+      "E": "Evening",
+      "N": "Night",
+      "O": "Off"
+    },
+    "weekdays": {
+      "sunday": "Sun",
+      "monday": "Mon",
+      "tuesday": "Tue",
+      "wednesday": "Wed",
+      "thursday": "Thu",
+      "friday": "Fri",
+      "saturday": "Sat"
+    }
+  },
+  "monthView": {
+    "title": "Monthly Schedule",
+    "today": "Today",
+    "shiftSummary": "{{count}} on duty"
+  }
+}

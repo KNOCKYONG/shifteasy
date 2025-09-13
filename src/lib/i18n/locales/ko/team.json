@@ -10,12 +10,26 @@
     "assistantNurse": "간호조무사",
     "total": "총 인원"
   },
+  "roles": {
+    "RN": "간호사",
+    "CN": "수간호사",
+    "SN": "전문간호사",
+    "NA": "간호조무사"
+  },
+  "experienceLevels": {
+    "JUNIOR": "신입",
+    "INTERMEDIATE": "경력",
+    "SENIOR": "시니어",
+    "EXPERT": "전문가"
+  },
   "actions": {
     "addStaff": "직원 추가",
     "saveAndNext": "저장하고 다음",
     "savePreset": "프리셋 저장",
     "loadPreset": "불러오기",
-    "selectPreset": "프리셋 선택"
+    "selectPreset": "프리셋 선택",
+    "cancel": "취소",
+    "add": "추가"
   },
   "form": {
     "name": "이름",
