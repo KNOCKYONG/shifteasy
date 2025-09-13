@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Trash2, Save, Upload, Download, Users, ChevronRight, Edit2, Mail, Phone, Calendar, Shield, Clock, Star } from "lucide-react";
 import { mockTeamMembers, type MockTeamMember } from "@/lib/mock/team-members";
 import { ProfileDropdown } from "@/components/ProfileDropdown";
+import { AddTeamMemberModal } from "@/components/AddTeamMemberModal";
 
 export default function TeamManagementPage() {
   const router = useRouter();
@@ -43,6 +44,15 @@ export default function TeamManagementPage() {
     if (confirm('정말로 이 팀원을 삭제하시겠습니까?')) {
       setTeamMembers(teamMembers.filter(m => m.id !== id));
     }
+  };
+
+  const handleAddMember = (newMember: Omit<MockTeamMember, "id">) => {
+    const member: MockTeamMember = {
+      ...newMember,
+      id: `member-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    };
+    setTeamMembers([...teamMembers, member]);
+    setShowAddForm(false);
   };
 
   const getRoleBadgeColor = (role: string) => {
@@ -285,6 +295,14 @@ export default function TeamManagementPage() {
           )}
         </div>
       </main>
+
+      {/* Add Team Member Modal */}
+      <AddTeamMemberModal
+        isOpen={showAddForm}
+        onClose={() => setShowAddForm(false)}
+        onAdd={handleAddMember}
+        departments={departments}
+      />
     </div>
   );
 }

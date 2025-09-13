@@ -1,60 +1,88 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ScheduleOptimizer } from '@/lib/scheduling/optimizer';
-import { notifyScheduleUpdate } from '@/lib/sse/sseManager';
+import { Scheduler, type SchedulingRequest, type SchedulingResult } from '@/lib/scheduler/core';
+import { z } from 'zod';
 
-export async function POST(req: NextRequest) {
+// Request validation schema
+const GenerateScheduleSchema = z.object({
+  departmentId: z.string(),
+  startDate: z.string(),
+  endDate: z.string(),
+  employees: z.array(z.any()),
+  shifts: z.array(z.any()),
+  constraints: z.array(z.any()),
+  optimizationGoal: z.enum(['fairness', 'preference', 'coverage', 'cost', 'balanced']),
+  pattern: z.any().optional(),
+  lockedAssignments: z.array(z.any()).optional(),
+});
+
+export async function POST(request: NextRequest) {
   try {
-    const { startDate, config, teamData } = await req.json();
+    // Get tenant ID from headers (mock for now)
+    const tenantId = request.headers.get('x-tenant-id') || 'test-tenant';
+    const userId = request.headers.get('x-user-id') || 'test-user';
 
-    // 팀 데이터 검증
-    if (!teamData || !teamData.staff || teamData.staff.length === 0) {
+    // Parse and validate request body
+    const body = await request.json();
+    const validationResult = GenerateScheduleSchema.safeParse(body);
+
+    if (!validationResult.success) {
       return NextResponse.json(
-        { error: '팀 데이터를 찾을 수 없습니다. 먼저 팀을 구성해주세요.' },
+        {
+          error: 'Invalid request data',
+          details: validationResult.error.errors
+        },
         { status: 400 }
       );
     }
 
-    // 스케줄 최적화 실행
-    const optimizer = new ScheduleOptimizer(
-      teamData.staff,
-      new Date(startDate),
-      config
-    );
+    const schedulingRequest: SchedulingRequest = {
+      ...validationResult.data,
+      startDate: new Date(validationResult.data.startDate),
+      endDate: new Date(validationResult.data.endDate),
+    };
 
-    const startTime = Date.now();
-    const result = optimizer.optimize();
-    const processingTime = Date.now() - startTime;
+    // Generate schedule using the scheduler
+    const scheduler = new Scheduler();
+    const result: SchedulingResult = await scheduler.createSchedule(schedulingRequest);
 
-    // 처리 시간이 5초를 초과하면 경고
-    if (processingTime > 5000) {
-      console.warn(`Schedule generation took ${processingTime}ms`);
-    }
+    // Log the generation for audit trail
+    console.log(`[${new Date().toISOString()}] Schedule generated for tenant: ${tenantId}, user: ${userId}, department: ${schedulingRequest.departmentId}`);
 
-    // 실시간 알림 발송
-    notifyScheduleUpdate('new-schedule', {
-      action: 'generated',
-      startDate,
-      staffCount: teamData.staff.length,
-      metrics: result.metrics
-    });
-
-    return NextResponse.json({
-      success: true,
-      schedule: result.schedule,
-      metrics: {
-        ...result.metrics,
-        processingTime
+    // Add metadata to the result
+    const response = {
+      ...result,
+      metadata: {
+        generatedAt: new Date().toISOString(),
+        generatedBy: userId,
+        tenantId,
+        departmentId: schedulingRequest.departmentId,
+        period: {
+          start: schedulingRequest.startDate.toISOString(),
+          end: schedulingRequest.endDate.toISOString(),
+        },
       },
-      validation: result.validationResult,
-      fairnessScore: result.fairnessScore,
-      violations: result.validationResult?.violations || []
-    });
+    };
 
+    return NextResponse.json(response, { status: 200 });
   } catch (error) {
     console.error('Schedule generation error:', error);
     return NextResponse.json(
-      { error: '스케줄 생성 중 오류가 발생했습니다.' },
+      {
+        error: 'Failed to generate schedule',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
       { status: 500 }
     );
   }
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, x-tenant-id, x-user-id',
+    },
+  });
 }
