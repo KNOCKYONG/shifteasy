@@ -52,6 +52,7 @@ export interface EmployeePreferences {
   preferredDaysOff: number[]; // 0-6 (일-토)
   maxConsecutiveDays: number;
   preferNightShift: boolean;
+  offDayPattern?: 'short' | 'long' | 'flexible'; // 휴무 패턴 선호도
 }
 
 // 직원 가용성

@@ -284,7 +284,7 @@ export default function TeamManagementPage() {
           >
             <div className="flex items-center justify-between">
               <div className="text-left">
-                <p className="text-sm text-gray-500 dark:text-gray-400">휴가 중</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">휴직 중</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{stats.onLeave}명</p>
               </div>
               <div className="p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg">
@@ -429,7 +429,7 @@ export default function TeamManagementPage() {
                   </span>
                 )}
                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusBadgeColor(member.status)}`}>
-                  {member.status === 'active' ? '근무중' : member.status === 'on-leave' ? '휴가' : '비활성'}
+                  {member.status === 'active' ? '근무중' : member.status === 'on-leave' ? '휴직' : '비활성'}
                 </span>
                 <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
                   {getContractTypeBadge(member.contractType)}

@@ -196,55 +196,6 @@ const mockSwapRequests: SwapRequest[] = [
     managerApproval: true,
     message: '최종 확정되었습니다.',
   },
-  // 자동 매칭 요청들
-  {
-    id: 'swap-004',
-    type: 'auto-match',
-    requesterId: 'emp-007',
-    requesterName: '장현우',
-    requesterShift: {
-      date: format(addDays(new Date(), 4), 'yyyy-MM-dd'),
-      type: '야간',
-      time: '23:00 - 07:00',
-    },
-    status: 'requested',
-    reason: '개인 일정',
-    createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000),
-  },
-  {
-    id: 'swap-005',
-    type: 'auto-match',
-    requesterId: 'emp-008',
-    requesterName: '오지훈',
-    requesterShift: {
-      date: format(addDays(new Date(), 4), 'yyyy-MM-dd'),
-      type: '야간',
-      time: '23:00 - 07:00',
-    },
-    status: 'requested',
-    reason: '가족 모임',
-    createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000),
-  },
-  {
-    id: 'swap-006',
-    type: 'auto-match',
-    requesterId: 'emp-009',
-    requesterName: '한소영',
-    requesterShift: {
-      date: format(addDays(new Date(), 7), 'yyyy-MM-dd'),
-      type: '주간',
-      time: '07:00 - 15:00',
-    },
-    status: 'in-approval',
-    reason: '병원 검진',
-    createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
-    targetId: 'emp-010',
-    targetName: '박민재',
-    matchedRequests: ['swap-007'],
-    message: '자동 매칭 완료, 관리자 승인 대기중',
-    approvedAt: new Date(Date.now() - 11 * 60 * 60 * 1000),
-    managerApproval: false,
-  },
 ];
 
 export default function SwapPage() {
@@ -450,9 +401,6 @@ export default function SwapPage() {
         {/* 요청 타입 표시 */}
         <div className="col-span-2 mb-2">
           {getTypeBadge(request.type)}
-          {request.type === 'auto-match' && !request.targetId && (
-            <span className="ml-2 text-xs text-purple-600 dark:text-purple-400">매칭 대기중...</span>
-          )}
         </div>
         {/* 요청자 정보 */}
         <div className="space-y-2">
@@ -488,12 +436,7 @@ export default function SwapPage() {
               </>
             )}
           </div>
-        ) : (
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-gray-400 dark:text-gray-500">매칭 대기중</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500">자동 매칭을 기다리는 중입니다</p>
-          </div>
-        )}
+        ) : null}
       </div>
 
       <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">

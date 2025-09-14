@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { format, startOfWeek, addWeeks, subWeeks, addDays } from "date-fns";
 import { ko } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Calendar, Users, Download, Lock, Unlock, Wand2, RefreshCw, X, BarChart3 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Users, Download, Lock, Unlock, Wand2, RefreshCw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks } from "lucide-react";
 import { ProfileDropdown } from "@/components/ProfileDropdown";
 import { mockTeamMembers } from "@/lib/mock/team-members";
 import { Scheduler, type SchedulingRequest, type SchedulingResult } from "@/lib/scheduler/core";
@@ -100,6 +100,8 @@ export default function SchedulePage() {
   const [selectedShiftTypes, setSelectedShiftTypes] = useState<Set<string>>(new Set());
   const [showOnlyOvertime, setShowOnlyOvertime] = useState(false); // 초과근무 직원만 표시
   const [showOnlyConflicts, setShowOnlyConflicts] = useState(false); // 제약 위반 직원만 표시
+  const [showReport, setShowReport] = useState(false); // 스케줄링 리포트 모달
+  const [activeView, setActiveView] = useState<'preferences' | 'schedule'>('preferences'); // 기본 뷰를 preferences로 설정
 
   // 부서별 필터링
   const departments = [
@@ -301,6 +303,7 @@ export default function SchedulePage() {
       if (result.success && result.schedule) {
         setSchedule(result.schedule.assignments);
         setGenerationResult(result);
+        setActiveView('schedule'); // 스케줄 생성 후 스케줄 뷰로 전환
 
         // 6. 생성 결과 로깅
         console.log('Schedule generated successfully:', {
@@ -425,6 +428,16 @@ export default function SchedulePage() {
                 내보내기
               </button>
 
+              {generationResult && (
+                <button
+                  onClick={() => setShowReport(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-950/50"
+                >
+                  <FileText className="w-4 h-4" />
+                  리포트 보기
+                </button>
+              )}
+
               <button
                 onClick={handleConfirmToggle}
                 className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg ${
@@ -454,7 +467,132 @@ export default function SchedulePage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Shift Type Filters */}
+        {/* View Tabs - Moved to top */}
+        <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
+          <nav className="flex gap-8">
+            <button
+              onClick={() => setActiveView('preferences')}
+              className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+                activeView === 'preferences'
+                  ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
+                  : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
+              }`}
+            >
+              <Heart className="w-4 h-4" />
+              직원 선호사항
+            </button>
+            <button
+              onClick={() => setActiveView('schedule')}
+              className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+                activeView === 'schedule'
+                  ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
+                  : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
+              }`}
+            >
+              <Calendar className="w-4 h-4" />
+              스케줄 보기
+            </button>
+          </nav>
+        </div>
+
+        {/* Preferences View */}
+        {activeView === 'preferences' && (
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-6">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                <ListChecks className="w-5 h-5 text-blue-500" />
+                이번 달 직원 요구사항 및 선호사항
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredMembers.map(member => (
+                  <div key={member.id} className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-medium text-gray-900 dark:text-gray-100">{member.name}</h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{member.position}</p>
+                      </div>
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        member.status === 'active'
+                          ? 'bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                      }`}>
+                        {member.status === 'active' ? '근무중' : '휴직중'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 text-sm">
+                      {/* 선호 시프트 */}
+                      {member.preferredShifts && member.preferredShifts.length > 0 && (
+                        <div className="flex items-start gap-2">
+                          <span className="text-green-500 dark:text-green-400">✓</span>
+                          <div>
+                            <span className="text-gray-600 dark:text-gray-400">선호:</span>
+                            <span className="ml-1 text-gray-900 dark:text-gray-100">
+                              {member.preferredShifts.map(shift =>
+                                shift === 'day' ? '주간' : shift === 'evening' ? '저녁' : shift === 'night' ? '야간' : shift
+                              ).join(', ')}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 회피 시프트 */}
+                      {member.avoidShifts && member.avoidShifts.length > 0 && (
+                        <div className="flex items-start gap-2">
+                          <span className="text-red-500 dark:text-red-400">✗</span>
+                          <div>
+                            <span className="text-gray-600 dark:text-gray-400">회피:</span>
+                            <span className="ml-1 text-gray-900 dark:text-gray-100">
+                              {member.avoidShifts.map(shift =>
+                                shift === 'day' ? '주간' : shift === 'evening' ? '저녁' : shift === 'night' ? '야간' : shift
+                              ).join(', ')}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 주당 근무시간 */}
+                      <div className="flex items-start gap-2">
+                        <Clock className="w-3.5 h-3.5 text-gray-400 mt-0.5" />
+                        <div>
+                          <span className="text-gray-600 dark:text-gray-400">주당:</span>
+                          <span className="ml-1 text-gray-900 dark:text-gray-100">
+                            {member.minHoursPerWeek}-{member.maxHoursPerWeek}시간
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 특별 요구사항 */}
+                      {(member.status === 'leave' || member.skills?.includes('신입')) && (
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="w-3.5 h-3.5 text-amber-500 mt-0.5" />
+                          <div>
+                            <span className="text-amber-600 dark:text-amber-400">
+                              {member.status === 'leave' ? '휴직 중' : member.skills?.includes('신입') ? '신입 교육 중' : ''}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {filteredMembers.length === 0 && (
+                <div className="text-center py-12">
+                  <Users className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                  <p className="text-gray-500 dark:text-gray-400">선택된 부서에 직원이 없습니다</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Schedule View */}
+        {activeView === 'schedule' && (
+          <>
+        {/* Shift Type Filters - Now inside schedule view */}
         <div className="mb-4 flex items-center gap-3">
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">근무 필터:</span>
           <button
@@ -624,6 +762,101 @@ export default function SchedulePage() {
           </div>
         )}
 
+
+        {/* Preferences View */}
+        {activeView === 'preferences' && (
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-6">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                <ListChecks className="w-5 h-5 text-blue-500" />
+                이번 달 직원 요구사항 및 선호사항
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredMembers.map(member => (
+                  <div key={member.id} className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-medium text-gray-900 dark:text-gray-100">{member.name}</h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{member.position}</p>
+                      </div>
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        member.status === 'active'
+                          ? 'bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                      }`}>
+                        {member.status === 'active' ? '근무중' : '휴직중'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 text-sm">
+                      {/* 선호 시프트 */}
+                      {member.preferredShifts && member.preferredShifts.length > 0 && (
+                        <div className="flex items-start gap-2">
+                          <span className="text-green-500 dark:text-green-400">✓</span>
+                          <div>
+                            <span className="text-gray-600 dark:text-gray-400">선호:</span>
+                            <span className="ml-1 text-gray-900 dark:text-gray-100">
+                              {member.preferredShifts.map(shift =>
+                                shift === 'day' ? '주간' : shift === 'evening' ? '저녁' : shift === 'night' ? '야간' : shift
+                              ).join(', ')}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 회피 시프트 */}
+                      {member.avoidShifts && member.avoidShifts.length > 0 && (
+                        <div className="flex items-start gap-2">
+                          <span className="text-red-500 dark:text-red-400">✗</span>
+                          <div>
+                            <span className="text-gray-600 dark:text-gray-400">회피:</span>
+                            <span className="ml-1 text-gray-900 dark:text-gray-100">
+                              {member.avoidShifts.map(shift =>
+                                shift === 'day' ? '주간' : shift === 'evening' ? '저녁' : shift === 'night' ? '야간' : shift
+                              ).join(', ')}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 주당 근무시간 */}
+                      <div className="flex items-start gap-2">
+                        <Clock className="w-3.5 h-3.5 text-gray-400 mt-0.5" />
+                        <div>
+                          <span className="text-gray-600 dark:text-gray-400">주당:</span>
+                          <span className="ml-1 text-gray-900 dark:text-gray-100">
+                            {member.minHoursPerWeek}-{member.maxHoursPerWeek}시간
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 특별 요구사항 */}
+                      {(member.status === 'leave' || member.skills?.includes('신입')) && (
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="w-3.5 h-3.5 text-amber-500 mt-0.5" />
+                          <div>
+                            <span className="text-amber-600 dark:text-amber-400">
+                              {member.status === 'leave' ? '휴직 중' : member.skills?.includes('신입') ? '신입 교육 중' : ''}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {filteredMembers.length === 0 && (
+                <div className="text-center py-12">
+                  <Users className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                  <p className="text-gray-500 dark:text-gray-400">선택된 부서에 직원이 없습니다</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Schedule Grid */}
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
           <div className="grid grid-cols-8 border-b border-gray-200 dark:border-gray-700">
@@ -647,9 +880,6 @@ export default function SchedulePage() {
             {displayMembers.map(member => (
               <div key={member.id} className="grid grid-cols-8 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                 <div className="p-4 flex items-center gap-2">
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                    {member.name.slice(0, 2)}
-                  </div>
                   <div className="flex-1">
                     <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{member.name}</div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">{member.position}</div>
@@ -754,7 +984,245 @@ export default function SchedulePage() {
             })}
           </div>
         )}
+          </>
+        )}
       </main>
+
+      {/* 스케줄링 리포트 모달 */}
+      {showReport && generationResult && (
+        <div className="fixed inset-0 bg-gray-900/50 dark:bg-gray-950/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                  <FileText className="w-5 h-5" />
+                  스케줄링 상세 리포트
+                </h2>
+                <button
+                  onClick={() => setShowReport(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                >
+                  <X className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-100px)]">
+              {/* 전체 성과 요약 */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                  📊 전체 스케줄링 성과
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4">
+                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                      {generationResult.score.total}%
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">전체 점수</div>
+                  </div>
+                  <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-4">
+                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                      {generationResult.score.fairness}%
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">공정성</div>
+                  </div>
+                  <div className="bg-purple-50 dark:bg-purple-950/30 rounded-lg p-4">
+                    <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                      {generationResult.score.preference}%
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">선호도 반영</div>
+                  </div>
+                  <div className="bg-orange-50 dark:bg-orange-950/30 rounded-lg p-4">
+                    <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                      {generationResult.score.coverage}%
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">커버리지</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 선호도 반영 상세 */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                  💡 선호도 반영 내역
+                </h3>
+                <div className="space-y-3">
+                  {generationResult.score.breakdown
+                    .filter(item => item.category === 'preference')
+                    .map((item, idx) => (
+                      <div key={idx} className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            {item.details}
+                          </span>
+                          <span className="text-sm font-bold text-green-600 dark:text-green-400">
+                            {item.score}%
+                          </span>
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {item.score >= 80
+                            ? "✅ 선호도가 잘 반영되었습니다"
+                            : item.score >= 60
+                            ? "⚠️ 부분적으로 반영되었습니다"
+                            : "❌ 다른 제약조건으로 인해 반영이 제한되었습니다"}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              {/* 제약조건 준수 현황 */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                  ⚖️ 제약조건 준수 현황
+                </h3>
+                <div className="space-y-3">
+                  {generationResult.violations.length === 0 ? (
+                    <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-4">
+                      <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="font-medium">모든 제약조건이 준수되었습니다!</span>
+                      </div>
+                    </div>
+                  ) : (
+                    generationResult.violations.map((violation, idx) => (
+                      <div key={idx} className={`rounded-lg p-4 ${
+                        violation.severity === 'critical'
+                          ? 'bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800'
+                          : violation.severity === 'high'
+                          ? 'bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800'
+                          : 'bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800'
+                      }`}>
+                        <div className="flex items-start justify-between mb-2">
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            {violation.constraintName}
+                          </span>
+                          <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                            violation.severity === 'critical'
+                              ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300'
+                              : violation.severity === 'high'
+                              ? 'bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300'
+                              : 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300'
+                          }`}>
+                            {violation.severity === 'critical' ? '심각' : violation.severity === 'high' ? '높음' : '보통'}
+                          </span>
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                          {violation.message}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-500">
+                          <span className="font-medium">이유:</span>{' '}
+                          {violation.type === 'hard'
+                            ? "필수 제약조건으로 반드시 준수해야 하나, 직원 부족으로 인해 불가피하게 위반되었습니다."
+                            : "소프트 제약조건으로 가능한 준수하려 했으나, 더 중요한 제약조건과의 충돌로 위반되었습니다."}
+                        </div>
+                        {violation.affectedEmployees.length > 0 && (
+                          <div className="mt-2 text-xs text-gray-500 dark:text-gray-500">
+                            <span className="font-medium">영향받은 직원:</span>{' '}
+                            {violation.affectedEmployees.slice(0, 3).join(', ')}
+                            {violation.affectedEmployees.length > 3 && ` 외 ${violation.affectedEmployees.length - 3}명`}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* 공정성 분석 */}
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                  🤝 공정성 분석
+                </h3>
+                <div className="space-y-3">
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                    <div className="text-sm text-gray-700 dark:text-gray-300 space-y-2">
+                      <div className="flex justify-between">
+                        <span>주간/야간 근무 분배</span>
+                        <span className="font-medium">
+                          {generationResult.score.fairness >= 80 ? '균등' : '불균등'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>주말 근무 분배</span>
+                        <span className="font-medium">
+                          {generationResult.score.fairness >= 75 ? '공평' : '개선 필요'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>총 근무시간 편차</span>
+                        <span className="font-medium">
+                          {generationResult.score.fairness >= 85 ? '적정' : '편차 존재'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                      공정성 지수는 Jain's Fairness Index를 기반으로 계산되었으며,
+                      모든 직원의 근무 부담이 얼마나 균등하게 분배되었는지를 나타냅니다.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 개선 제안 */}
+              {generationResult.suggestions && generationResult.suggestions.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                    💭 개선 제안사항
+                  </h3>
+                  <div className="space-y-3">
+                    {generationResult.suggestions.map((suggestion, idx) => (
+                      <div key={idx} className={`rounded-lg p-4 ${
+                        suggestion.priority === 'high'
+                          ? 'bg-red-50 dark:bg-red-950/30'
+                          : suggestion.priority === 'medium'
+                          ? 'bg-yellow-50 dark:bg-yellow-950/30'
+                          : 'bg-blue-50 dark:bg-blue-950/30'
+                      }`}>
+                        <div className="flex items-start gap-3">
+                          <div className={`px-2 py-1 text-xs font-medium rounded ${
+                            suggestion.priority === 'high'
+                              ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300'
+                              : suggestion.priority === 'medium'
+                              ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300'
+                              : 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                          }`}>
+                            {suggestion.priority === 'high' ? '높음' : suggestion.priority === 'medium' ? '중간' : '낮음'}
+                          </div>
+                          <div className="flex-1">
+                            <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              {suggestion.description}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              {suggestion.impact}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 계산 정보 */}
+              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Clock className="w-3 h-3" />
+                    계산 시간: {generationResult.computationTime}ms
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RefreshCw className="w-3 h-3" />
+                    반복 횟수: {generationResult.iterations}회
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

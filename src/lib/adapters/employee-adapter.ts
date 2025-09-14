@@ -125,12 +125,24 @@ export class EmployeeAdapter {
       adjustedPreferredShifts = ['evening']; // 예시
     }
 
+    // 휴무 패턴 선호도를 반영한 연속 근무일 조정
+    let adjustedMaxConsecutiveDays = workPrefs.maxConsecutiveDays;
+    if (workPrefs.offDayPattern === 'short') {
+      // 짧은 휴무 선호 - 연속 근무일을 줄임
+      adjustedMaxConsecutiveDays = Math.min(workPrefs.maxConsecutiveDays, 3);
+    } else if (workPrefs.offDayPattern === 'long') {
+      // 긴 휴무 선호 - 연속 근무일을 늘려서 긴 휴무 확보
+      adjustedMaxConsecutiveDays = Math.max(workPrefs.maxConsecutiveDays, 5);
+    }
+
     return {
       preferredShifts: adjustedPreferredShifts,
       avoidShifts: [...new Set(adjustedAvoidShifts)], // 중복 제거
       preferredDaysOff: this.calculatePreferredDaysOff(comprehensive),
-      maxConsecutiveDays: workPrefs.maxConsecutiveDays,
-      preferNightShift: !adjustedAvoidShifts.includes('night')
+      maxConsecutiveDays: adjustedMaxConsecutiveDays,
+      preferNightShift: !adjustedAvoidShifts.includes('night'),
+      // 추가: 휴무 패턴 선호도를 스케줄러가 이해할 수 있는 형태로 전달
+      offDayPattern: workPrefs.offDayPattern
     };
   }
 

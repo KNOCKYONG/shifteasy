@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import {
-  X, Save, AlertCircle, User, Calendar, Heart, Home, Users,
+  X, Save, AlertCircle, User, Calendar, Users,
   Baby, GraduationCap, Stethoscope, Car, Coffee, Moon, Sun,
-  Cloud, Shield, Clock, Activity, Sparkles, Target, Award,
-  MessageSquare, AlertTriangle, CheckCircle
+  Cloud, Shield, Clock, Activity, Sparkles, Award,
+  AlertTriangle, CheckCircle
 } from "lucide-react";
 
 // 선호도 인터페이스 정의
@@ -13,12 +13,14 @@ export interface ComprehensivePreferences {
   // 기본 근무 선호
   workPreferences: {
     preferredShifts: ('day' | 'evening' | 'night')[];
+    avoidShifts?: ('day' | 'evening' | 'night')[];
     maxConsecutiveDays: number;
     minRestDays: number;
     preferredWorkload: 'light' | 'moderate' | 'heavy' | 'flexible';
     weekendPreference: 'prefer' | 'avoid' | 'neutral';
     holidayPreference: 'prefer' | 'avoid' | 'neutral';
     overtimeWillingness: 'never' | 'emergency' | 'sometimes' | 'always';
+    offDayPattern: 'short' | 'long' | 'flexible'; // 짧은 휴무 선호 vs 긴 휴무 선호
   };
 
   // 개인 사정
@@ -139,12 +141,14 @@ export function MyPreferencesPanel({
   const [preferences, setPreferences] = useState<ComprehensivePreferences>({
     workPreferences: initialPreferences?.workPreferences || {
       preferredShifts: ['day'],
+      avoidShifts: [],
       maxConsecutiveDays: 5,
       minRestDays: 2,
       preferredWorkload: 'moderate',
       weekendPreference: 'neutral',
       holidayPreference: 'neutral',
-      overtimeWillingness: 'sometimes'
+      overtimeWillingness: 'sometimes',
+      offDayPattern: 'flexible'
     },
     personalCircumstances: initialPreferences?.personalCircumstances || {
       hasYoungChildren: false,
@@ -217,8 +221,8 @@ export function MyPreferencesPanel({
     // 검증
     const errors: string[] = [];
 
-    if (preferences.workPreferences.preferredShifts.length === 0) {
-      errors.push('최소 하나의 선호 시프트를 선택해주세요');
+    if (!preferences.workPreferences.preferredShifts || preferences.workPreferences.preferredShifts.length === 0) {
+      errors.push('선호 시프트를 선택해주세요');
     }
 
     if (preferences.specialRequests.emergencyContact.name &&
@@ -253,17 +257,70 @@ export function MyPreferencesPanel({
             <label className="block text-sm font-medium text-gray-700 mb-2">선호 시프트</label>
             <div className="flex gap-3">
               {(['day', 'evening', 'night'] as const).map(shift => (
-                <label key={shift} className="flex items-center gap-2">
+                <label key={shift} className="flex items-center gap-2 cursor-pointer">
                   <input
-                    type="checkbox"
-                    checked={preferences.workPreferences.preferredShifts.includes(shift)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
+                    type="radio"
+                    name="preferredShift"
+                    checked={preferences.workPreferences.preferredShifts[0] === shift}
+                    onChange={() => {
+                      setPreferences(prev => ({
+                        ...prev,
+                        workPreferences: {
+                          ...prev.workPreferences,
+                          preferredShifts: [shift],
+                          // Clear avoid shift if it conflicts with the new preferred shift
+                          avoidShifts: prev.workPreferences.avoidShifts?.[0] === shift ? [] : prev.workPreferences.avoidShifts
+                        }
+                      }));
+                    }}
+                    className="text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm">
+                    {shift === 'day' && '주간 (07:00-15:00)'}
+                    {shift === 'evening' && '저녁 (15:00-23:00)'}
+                    {shift === 'night' && '야간 (23:00-07:00)'}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">기피 시프트</label>
+            <div className="flex gap-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="avoidShift"
+                  checked={!preferences.workPreferences.avoidShifts || preferences.workPreferences.avoidShifts.length === 0}
+                  onChange={() => {
+                    setPreferences(prev => ({
+                      ...prev,
+                      workPreferences: {
+                        ...prev.workPreferences,
+                        avoidShifts: []
+                      }
+                    }));
+                  }}
+                  className="text-gray-600 focus:ring-gray-500"
+                />
+                <span className="text-sm">없음</span>
+              </label>
+              {(['day', 'evening', 'night'] as const).map(shift => (
+                <label key={shift} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="avoidShift"
+                    checked={preferences.workPreferences.avoidShifts?.[0] === shift}
+                    onChange={() => {
+                      // Check if this shift is already preferred
+                      if (preferences.workPreferences.preferredShifts[0] === shift) {
+                        // Clear the avoid shift selection if it conflicts
                         setPreferences(prev => ({
                           ...prev,
                           workPreferences: {
                             ...prev.workPreferences,
-                            preferredShifts: [...prev.workPreferences.preferredShifts, shift]
+                            avoidShifts: []
                           }
                         }));
                       } else {
@@ -271,102 +328,155 @@ export function MyPreferencesPanel({
                           ...prev,
                           workPreferences: {
                             ...prev.workPreferences,
-                            preferredShifts: prev.workPreferences.preferredShifts.filter(s => s !== shift)
+                            avoidShifts: [shift]
                           }
                         }));
                       }
                     }}
-                    className="rounded text-blue-600"
+                    className="text-red-600 focus:ring-red-500"
                   />
                   <span className="text-sm">
-                    {shift === 'day' && '🌅 주간 (07:00-15:00)'}
-                    {shift === 'evening' && '🌆 저녁 (15:00-23:00)'}
-                    {shift === 'night' && '🌙 야간 (23:00-07:00)'}
+                    {shift === 'day' && '주간 (07:00-15:00)'}
+                    {shift === 'evening' && '저녁 (15:00-23:00)'}
+                    {shift === 'night' && '야간 (23:00-07:00)'}
                   </span>
                 </label>
               ))}
             </div>
+            {preferences.workPreferences.preferredShifts[0] &&
+             preferences.workPreferences.avoidShifts?.[0] === preferences.workPreferences.preferredShifts[0] && (
+              <p className="text-xs text-red-600 mt-1">
+                ⚠️ 선호 시프트와 기피 시프트가 동일할 수 없습니다
+              </p>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">최대 연속 근무일</label>
-              <select
-                value={preferences.workPreferences.maxConsecutiveDays}
-                onChange={(e) => setPreferences(prev => ({
-                  ...prev,
-                  workPreferences: {
-                    ...prev.workPreferences,
-                    maxConsecutiveDays: parseInt(e.target.value)
-                  }
-                }))}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {[3, 4, 5, 6, 7].map(days => (
-                  <option key={days} value={days}>{days}일</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">최소 휴무일</label>
-              <select
-                value={preferences.workPreferences.minRestDays}
-                onChange={(e) => setPreferences(prev => ({
-                  ...prev,
-                  workPreferences: {
-                    ...prev.workPreferences,
-                    minRestDays: parseInt(e.target.value)
-                  }
-                }))}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {[1, 2, 3, 4].map(days => (
-                  <option key={days} value={days}>주 {days}일</option>
-                ))}
-              </select>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">휴무 패턴 선호</label>
+            <select
+              value={preferences.workPreferences.offDayPattern}
+              onChange={(e) => setPreferences(prev => ({
+                ...prev,
+                workPreferences: {
+                  ...prev.workPreferences,
+                  offDayPattern: e.target.value as 'short' | 'long' | 'flexible'
+                }
+              }))}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="short">짧은 휴무 선호 (1-2일씩 자주)</option>
+              <option value="long">긴 휴무 선호 (3일 이상 연속)</option>
+              <option value="flexible">상관없음</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              {preferences.workPreferences.offDayPattern === 'short'
+                ? '규칙적인 짧은 휴식을 통해 체력 관리를 선호합니다'
+                : preferences.workPreferences.offDayPattern === 'long'
+                ? '연속 휴무로 충분한 휴식과 개인 시간을 선호합니다'
+                : '스케줄에 따라 유연하게 조정 가능합니다'}
+            </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">주말 근무</label>
-              <select
-                value={preferences.workPreferences.weekendPreference}
-                onChange={(e) => setPreferences(prev => ({
-                  ...prev,
-                  workPreferences: {
-                    ...prev.workPreferences,
-                    weekendPreference: e.target.value as 'prefer' | 'avoid' | 'neutral'
-                  }
-                }))}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="prefer">선호함 (수당)</option>
-                <option value="neutral">상관없음</option>
-                <option value="avoid">피하고 싶음</option>
-              </select>
-            </div>
+          {/* Pattern Display */}
+          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <label className="block text-sm font-medium text-gray-700 mb-2">예상 근무 패턴</label>
+            <div className="font-mono text-lg text-gray-900">
+              {(() => {
+                const preferred = preferences.workPreferences.preferredShifts;
+                const avoided = preferences.workPreferences.avoidShifts || [];
+                const offPattern = preferences.workPreferences.offDayPattern;
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">초과근무 의향</label>
-              <select
-                value={preferences.workPreferences.overtimeWillingness}
-                onChange={(e) => setPreferences(prev => ({
-                  ...prev,
-                  workPreferences: {
-                    ...prev.workPreferences,
-                    overtimeWillingness: e.target.value as 'never' | 'emergency' | 'sometimes' | 'always'
+                // Generate a sample weekly pattern
+                const pattern: string[] = [];
+                const validShifts = ['day', 'evening', 'night'].filter(
+                  s => preferred.includes(s as any) && !avoided.includes(s as any)
+                );
+
+                if (validShifts.length === 0) {
+                  // If no valid shifts after filtering, use preferred only
+                  validShifts.push(...preferred);
+                }
+
+                // Helper function to check if shift transition is valid
+                const canFollow = (prevShift: string, nextShift: string): boolean => {
+                  // Night shift cannot be followed by day shift (need rest)
+                  if (prevShift === 'night' && nextShift === 'day') return false;
+                  // Night shift cannot be followed by evening shift either (need rest)
+                  if (prevShift === 'night' && nextShift === 'evening') return false;
+                  return true;
+                };
+
+                // Helper function to get next valid shift
+                const getNextShift = (lastShift: string, availableShifts: string[]): string => {
+                  // First try to find a valid shift that can follow
+                  for (const shift of availableShifts) {
+                    if (canFollow(lastShift, shift)) {
+                      return shift;
+                    }
                   }
-                }))}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="always">언제든 가능</option>
-                <option value="sometimes">때때로 가능</option>
-                <option value="emergency">응급상황만</option>
-                <option value="never">불가능</option>
-              </select>
+                  // If no valid shift, return 'off' to provide rest
+                  return 'off';
+                };
+
+                // Generate pattern based on off-day preference
+                if (offPattern === 'short') {
+                  // Short breaks: work 2 days, off 1 day pattern
+                  let lastShift = '';
+                  for (let i = 0; i < 7; i++) {
+                    if (i % 3 === 2) {
+                      pattern.push('off');
+                      lastShift = 'off';
+                    } else {
+                      const shift = lastShift === 'off' || lastShift === ''
+                        ? validShifts[0] || 'day'
+                        : getNextShift(lastShift, validShifts);
+                      pattern.push(shift);
+                      lastShift = shift;
+                    }
+                  }
+                } else if (offPattern === 'long') {
+                  // Long breaks: work 4-5 days, off 2-3 days
+                  // Start with a safe shift progression
+                  if (validShifts.includes('day')) {
+                    pattern.push('day', 'day', 'evening', 'evening', 'night', 'off', 'off');
+                  } else if (validShifts.includes('evening')) {
+                    pattern.push('evening', 'evening', 'evening', 'night', 'night', 'off', 'off');
+                  } else if (validShifts.includes('night')) {
+                    pattern.push('night', 'off', 'off', 'night', 'night', 'off', 'off');
+                  } else {
+                    pattern.push('day', 'day', 'day', 'day', 'day', 'off', 'off');
+                  }
+                } else {
+                  // Flexible: mixed pattern with proper transitions
+                  if (validShifts.length === 1) {
+                    // Single shift type
+                    const shift = validShifts[0];
+                    if (shift === 'night') {
+                      pattern.push('night', 'off', 'off', 'night', 'night', 'off', 'night');
+                    } else {
+                      pattern.push(shift, shift, 'off', shift, shift, shift, 'off');
+                    }
+                  } else if (validShifts.includes('day') && validShifts.includes('evening')) {
+                    pattern.push('day', 'day', 'evening', 'off', 'day', 'evening', 'off');
+                  } else if (validShifts.includes('evening') && validShifts.includes('night')) {
+                    pattern.push('evening', 'evening', 'night', 'off', 'off', 'evening', 'night');
+                  } else if (validShifts.includes('day') && validShifts.includes('night')) {
+                    pattern.push('day', 'day', 'off', 'night', 'off', 'day', 'off');
+                  } else {
+                    // All three shifts
+                    pattern.push('day', 'evening', 'night', 'off', 'off', 'day', 'evening');
+                  }
+                }
+
+                return pattern.join('-');
+              })()}
             </div>
+            <p className="text-xs text-gray-500 mt-2">
+              * 실제 스케줄은 팀 상황과 다른 직원들의 선호도를 고려하여 조정될 수 있습니다
+            </p>
+            <p className="text-xs text-gray-500">
+              * 야간 근무 후에는 충분한 휴식을 위해 주간/저녁 근무를 바로 배치하지 않습니다
+            </p>
           </div>
         </div>
       </div>
@@ -641,18 +751,6 @@ export function MyPreferencesPanel({
         <h3 className="text-sm font-semibold text-gray-900 mb-3">팀워크 선호</h3>
 
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Users className="w-4 h-4 inline mr-1" />
-              함께 일하고 싶은 동료
-            </label>
-            <textarea
-              placeholder="동료 이름을 입력해주세요 (쉼표로 구분)"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              rows={2}
-            />
-          </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">멘토링 역할</label>
             <select
@@ -931,11 +1029,7 @@ export function MyPreferencesPanel({
 
   const tabs = [
     { id: 'work', label: '근무 선호', icon: Clock },
-    { id: 'personal', label: '개인 사정', icon: Home },
-    { id: 'health', label: '건강/통근', icon: Heart },
     { id: 'team', label: '팀/경력', icon: Users },
-    { id: 'special', label: '특별 요청', icon: MessageSquare },
-    { id: 'priority', label: '우선순위', icon: Target },
   ];
 
   return (
@@ -993,11 +1087,7 @@ export function MyPreferencesPanel({
           )}
 
           {activeTab === 'work' && renderWorkPreferences()}
-          {activeTab === 'personal' && renderPersonalCircumstances()}
-          {activeTab === 'health' && renderHealthConsiderations()}
           {activeTab === 'team' && renderTeamPreferences()}
-          {activeTab === 'special' && renderSpecialRequests()}
-          {activeTab === 'priority' && renderPriorities()}
         </div>
 
         {/* Footer */}
