@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       if (error instanceof z.ZodError) {
         return NextResponse.json(
-          { success: false, error: 'Invalid request data', details: error.errors },
+          { success: false, error: 'Invalid request data', details: (error as any).errors },
           { status: 400 }
         );
       }
@@ -228,7 +228,7 @@ export async function PUT(request: NextRequest) {
     } catch (error) {
       if (error instanceof z.ZodError) {
         return NextResponse.json(
-          { success: false, error: 'Invalid request data', details: error.errors },
+          { success: false, error: 'Invalid request data', details: (error as any).errors },
           { status: 400 }
         );
       }

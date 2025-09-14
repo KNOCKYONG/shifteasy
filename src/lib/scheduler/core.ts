@@ -946,3 +946,6 @@ export class Scheduler {
     return date1.toDateString() === date2.toDateString();
   }
 }
+
+// Re-export types for convenience
+export type { SchedulingRequest, SchedulingResult } from './types';

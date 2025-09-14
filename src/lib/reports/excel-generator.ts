@@ -110,7 +110,7 @@ export class ExcelReportGenerator {
       to: `G${worksheet.rowCount - 1}`,
     };
 
-    return await this.workbook.xlsx.writeBuffer() as Buffer;
+    return await this.workbook.xlsx.writeBuffer() as unknown as Buffer;
   }
 
   /**
@@ -181,13 +181,10 @@ export class ExcelReportGenerator {
       }
     });
 
-    // Add chart placeholder comment
-    worksheet.addComment('A1', {
-      text: 'Charts can be added programmatically or in Excel after export',
-      author: 'ShiftEasy',
-    });
+    // Note: Charts can be added programmatically or in Excel after export
+    // ExcelJS doesn't support addComment on worksheet directly in this version
 
-    return await this.workbook.xlsx.writeBuffer() as Buffer;
+    return await this.workbook.xlsx.writeBuffer() as unknown as Buffer;
   }
 
   /**
@@ -237,7 +234,7 @@ export class ExcelReportGenerator {
 
     // Add conditional formatting for overtime
     const overtimeColumn = worksheet.getColumn('overtimeHours');
-    worksheet.conditionalFormattings.addConditionalFormatting({
+    worksheet.addConditionalFormatting({
       ref: `E2:E${worksheet.rowCount}`,
       rules: [
         {
@@ -259,7 +256,7 @@ export class ExcelReportGenerator {
       ],
     });
 
-    return await this.workbook.xlsx.writeBuffer() as Buffer;
+    return await this.workbook.xlsx.writeBuffer() as unknown as Buffer;
   }
 
   /**

@@ -53,16 +53,18 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments }: AddT
       name: formData.name,
       email: formData.email,
       phone: formData.phone,
+      department: departments.find(d => d.id === formData.departmentId)?.name || '',
       departmentId: formData.departmentId,
       position: formData.position,
-      role: formData.role,
+      role: formData.role === 'employee' ? 'staff' : formData.role as 'staff' | 'admin' | 'manager',
       contractType: formData.contractType,
       status: formData.status,
       joinDate: formData.joinDate,
       maxHoursPerWeek: formData.maxHoursPerWeek,
+      minHoursPerWeek: Math.floor(formData.maxHoursPerWeek * 0.8),
       preferredShifts: formData.preferredShifts,
+      avoidShifts: [],
       skills: formData.skills,
-      availability: formData.availability,
     };
 
     onAdd(newMember);

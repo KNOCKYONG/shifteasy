@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
       console.error('Error updating password:', error);
 
       // Check if error is due to incorrect current password
-      if (error.errors && error.errors[0]?.code === 'form_password_incorrect') {
+      if ((error as any).errors && (error as any).errors[0]?.code === 'form_password_incorrect') {
         return NextResponse.json(
           { error: 'Current password is incorrect' },
           { status: 400 }

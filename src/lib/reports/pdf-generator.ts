@@ -125,7 +125,7 @@ export class PDFReportGenerator {
     this.doc.setFont('helvetica', 'bold');
     this.doc.text(`Total Hours: ${totalHours}`, this.margin, this.currentY);
 
-    return this.doc.output('arraybuffer') as Uint8Array;
+    return new Uint8Array(this.doc.output('arraybuffer'));
   }
 
   /**
@@ -198,7 +198,7 @@ export class PDFReportGenerator {
       { align: 'center' }
     );
 
-    return this.doc.output('arraybuffer') as Uint8Array;
+    return new Uint8Array(this.doc.output('arraybuffer'));
   }
 
   /**
@@ -256,7 +256,7 @@ export class PDFReportGenerator {
     // Add footer on last page
     this.addFooter();
 
-    return this.doc.output('arraybuffer') as Uint8Array;
+    return new Uint8Array(this.doc.output('arraybuffer'));
   }
 
   /**
@@ -294,7 +294,7 @@ export class PDFReportGenerator {
     });
 
     this.addFooter();
-    return this.doc.output('arraybuffer') as Uint8Array;
+    return new Uint8Array(this.doc.output('arraybuffer'));
   }
 
   /**

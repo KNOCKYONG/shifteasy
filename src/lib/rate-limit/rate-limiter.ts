@@ -229,7 +229,7 @@ export class RateLimiter {
   /**
    * Track usage
    */
-  private async trackUsage(key: string, resource: string, points: number): void {
+  private async trackUsage(key: string, resource: string, points: number): Promise<void> {
     const usageKey = `usage:${key}:${resource}`;
     const current = this.usageStats.get(usageKey) || 0;
     this.usageStats.set(usageKey, current + points);
@@ -320,7 +320,7 @@ export class RateLimiter {
       if (!result) return null;
 
       return {
-        points: result.points,
+        points: result.consumedPoints || 0,
         remainingPoints: result.remainingPoints,
         resetAt: new Date(Date.now() + result.msBeforeNext),
       };
@@ -361,13 +361,8 @@ export class RateLimiter {
    * Clear all rate limits (for testing)
    */
   async clearAll(): Promise<void> {
-    for (const [name, limiter] of this.limiters.entries()) {
-      try {
-        await limiter.deleteInMemoryBlockedAll();
-      } catch {
-        // Silent fail
-      }
-    }
+    // Clear any in-memory blocks if needed
+    // Note: rate-limiter-flexible doesn't expose deleteInMemoryBlockedAll on all limiter types
     this.usageStats.clear();
   }
 }

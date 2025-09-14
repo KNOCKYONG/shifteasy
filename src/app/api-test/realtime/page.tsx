@@ -677,7 +677,7 @@ export default function RealtimeApiTestPage() {
                             </span>
                             {notification.actions && (
                               <div className="flex gap-2">
-                                {notification.actions.map((action) => (
+                                {notification.actions.map((action: any) => (
                                   <button
                                     key={action.id}
                                     className={`text-xs px-2 py-1 rounded ${

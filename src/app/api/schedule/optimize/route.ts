@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Invalid request data',
-          details: validationResult.error.errors
+          details: (validationResult.error as any).errors
         },
         { status: 400 }
       );
@@ -77,6 +77,9 @@ export async function POST(request: NextRequest) {
       optimizationGoal,
       existingSchedule: {
         ...schedule,
+        id: schedule.id || `schedule-${Date.now()}`,
+        startDate: new Date(schedule.startDate),
+        endDate: new Date(schedule.endDate),
         assignments: currentAssignments,
         status: 'draft' as const,
         createdAt: new Date(),

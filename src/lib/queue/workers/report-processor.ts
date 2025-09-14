@@ -5,7 +5,7 @@
 import { Job } from 'bull';
 import { ReportJobData } from '../bull-config';
 import { excelGenerator } from '@/lib/reports/excel-generator';
-import { pdfGenerator } from '@/lib/reports/pdf-generator';
+import { createPDFReport } from '@/lib/reports/pdf-generator';
 
 export async function reportProcessor(job: Job<ReportJobData>): Promise<any> {
   const { tenantId, reportType, format, dateRange, options } = job.data;
@@ -148,11 +148,17 @@ async function generateExcelReport(
         break;
 
       case 'kpi':
-        buffer = await excelGenerator.generateKPIReport(data);
+        buffer = await excelGenerator.generateKPIReport(
+          data,
+          `${new Date(dateRange.start).toLocaleDateString()} - ${new Date(dateRange.end).toLocaleDateString()}`
+        );
         break;
 
       case 'employee':
-        buffer = await excelGenerator.generateEmployeeSummaryReport(data);
+        buffer = await excelGenerator.generateEmployeeSummary(
+          data,
+          `${new Date(dateRange.start).toLocaleDateString()} - ${new Date(dateRange.end).toLocaleDateString()}`
+        );
         break;
 
       default:
@@ -183,20 +189,36 @@ async function generatePdfReport(
 
     switch (reportType) {
       case 'schedule':
-        pdfData = pdfGenerator.generateSchedulePDF(data);
+        const scheduleGenerator = createPDFReport({
+          title: 'Schedule Report',
+          author: 'ShiftEasy'
+        });
+        pdfData = scheduleGenerator.generateSchedulePDF(data);
         break;
 
       case 'kpi':
-        pdfData = pdfGenerator.generateKPIPDF(data);
+        const kpiGenerator = createPDFReport({
+          title: 'KPI Report',
+          author: 'ShiftEasy'
+        });
+        pdfData = kpiGenerator.generateKPIPDF(data);
         break;
 
       case 'employee':
-        pdfData = pdfGenerator.generateEmployeeSummaryPDF(data);
+        const employeeGenerator = createPDFReport({
+          title: 'Employee Summary Report',
+          author: 'ShiftEasy'
+        });
+        pdfData = employeeGenerator.generateEmployeeSummaryPDF(data);
         break;
 
       default:
         // For other types, use schedule PDF as template
-        pdfData = pdfGenerator.generateSchedulePDF(data);
+        const defaultGenerator = createPDFReport({
+          title: 'Report',
+          author: 'ShiftEasy'
+        });
+        pdfData = defaultGenerator.generateSchedulePDF(data);
     }
 
     return {

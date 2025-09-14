@@ -191,7 +191,7 @@ export class UpstashRateLimiter {
     if (!limiter) return null;
 
     const result = await limiter.getRemaining(identifier);
-    return result;
+    return result.remaining;
   }
 
   /**

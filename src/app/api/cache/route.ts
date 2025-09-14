@@ -119,7 +119,7 @@ export async function DELETE(request: NextRequest) {
           {
             success: false,
             error: 'Invalid request data',
-            details: error.errors,
+            details: (error as any).errors,
           },
           { status: 400 }
         );

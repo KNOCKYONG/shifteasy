@@ -7,10 +7,11 @@ import { batchProcessor } from '@/lib/batch/batch-processor';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { jobId: string } }
+  { params }: { params: Promise<{ jobId: string }> }
 ) {
   try {
-    const job = batchProcessor.getJob(params.jobId);
+    const { jobId } = await params;
+    const job = batchProcessor.getJob(jobId);
 
     if (!job) {
       return NextResponse.json(
@@ -42,10 +43,11 @@ export async function GET(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { jobId: string } }
+  { params }: { params: Promise<{ jobId: string }> }
 ) {
   try {
-    const cancelled = batchProcessor.cancelJob(params.jobId);
+    const { jobId } = await params;
+    const cancelled = batchProcessor.cancelJob(jobId);
 
     if (!cancelled) {
       return NextResponse.json(
@@ -60,7 +62,7 @@ export async function DELETE(
     return NextResponse.json({
       success: true,
       message: 'Job cancelled successfully',
-      jobId: params.jobId,
+      jobId,
     });
 
   } catch (error) {

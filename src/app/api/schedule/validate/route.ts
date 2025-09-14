@@ -28,7 +28,7 @@ const ValidateScheduleSchema = z.object({
     category: z.enum(['legal', 'contractual', 'operational', 'preference', 'fairness']),
     weight: z.number(),
     active: z.boolean(),
-    config: z.record(z.any()).optional(),
+    config: z.record(z.string(), z.any()).optional(),
   })),
 });
 
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Invalid request data',
-          details: validationResult.error.errors
+          details: (validationResult.error as any).errors
         },
         { status: 400 }
       );
@@ -134,31 +134,32 @@ function generateSuggestions(violations: any[], employeeMap: Map<string, any>, s
 
   // Generate suggestions for each violation type
   for (const [constraintName, constraintViolations] of Object.entries(violationsByType)) {
+    const violations = constraintViolations as any[];
     if (constraintName.includes('consecutive')) {
       suggestions.push({
         type: 'swap',
         priority: 'high',
-        description: `${constraintViolations.length} employees exceed consecutive work limit`,
+        description: `${violations.length} employees exceed consecutive work limit`,
         impact: 'Legal compliance risk',
-        affectedEmployees: constraintViolations.flatMap(v => v.affectedEmployees),
+        affectedEmployees: violations.flatMap((v: any) => v.affectedEmployees),
         proposedChange: 'Add rest days or redistribute shifts',
       });
     } else if (constraintName.includes('hours')) {
       suggestions.push({
         type: 'adjustment',
         priority: 'high',
-        description: `${constraintViolations.length} employees exceed working hours limit`,
+        description: `${violations.length} employees exceed working hours limit`,
         impact: 'Labor law violation risk',
-        affectedEmployees: constraintViolations.flatMap(v => v.affectedEmployees),
+        affectedEmployees: violations.flatMap((v: any) => v.affectedEmployees),
         proposedChange: 'Adjust hours or add staff',
       });
     } else if (constraintName.includes('preference')) {
       suggestions.push({
         type: 'pattern',
         priority: 'medium',
-        description: `${constraintViolations.length} preference violations`,
+        description: `${violations.length} preference violations`,
         impact: 'Employee satisfaction impact',
-        affectedEmployees: constraintViolations.flatMap(v => v.affectedEmployees),
+        affectedEmployees: violations.flatMap((v: any) => v.affectedEmployees),
         proposedChange: 'Reassign preferred shifts where possible',
       });
     }

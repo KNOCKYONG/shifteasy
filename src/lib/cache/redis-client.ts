@@ -192,7 +192,8 @@ export class RedisClient {
     if (!this.client || !this.isConnected) return 0;
 
     try {
-      return await this.client.del(key);
+      const keys = Array.isArray(key) ? key : [key];
+      return await this.client.del(...keys);
     } catch (error) {
       console.error('Redis del error:', error);
       return 0;
@@ -253,7 +254,7 @@ export class RedisClient {
         let cursor = 0;
         do {
           const result = await this.upstashClient.scan(cursor, { match: pattern, count: 100 });
-          cursor = result[0];
+          cursor = Number(result[0]);
           keys.push(...(result[1] as string[]));
         } while (cursor !== 0);
         return keys;
@@ -382,7 +383,7 @@ export class RedisClient {
     if (this.useUpstash && this.upstashClient) {
       try {
         const result = await this.upstashClient.hgetall(key);
-        return result || {};
+        return (result as Record<string, string>) || {};
       } catch (error) {
         console.error('Upstash hgetall error:', error);
         return {};

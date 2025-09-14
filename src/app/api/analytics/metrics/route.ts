@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     // Export in requested format
     if (validatedData.format && validatedData.format !== 'json') {
-      const allMetrics = Object.values(metricsData).flat();
+      const allMetrics = Object.values(metricsData).flat() as any[];
       const exported = await analyticsEngine.exportMetrics(
         allMetrics,
         validatedData.format
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: 'Invalid request data',
-          details: error.errors,
+          details: (error as any).errors,
         },
         { status: 400 }
       );

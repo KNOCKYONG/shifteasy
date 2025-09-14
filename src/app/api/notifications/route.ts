@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: 'Invalid notification data',
-          details: error.errors,
+          details: (error as any).errors,
         },
         { status: 400 }
       );

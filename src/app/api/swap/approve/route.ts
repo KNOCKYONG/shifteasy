@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Invalid request data',
-          details: validationResult.error.errors
+          details: (validationResult.error as any).errors
         },
         { status: 400 }
       );
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
 
     // Update swap request status
     const updates = {
-      status: action === 'approve' ? 'approved' : 'rejected',
+      status: (action === 'approve' ? 'approved' : 'rejected') as 'approved' | 'rejected',
       decidedAt: new Date(),
       decidedBy: userId,
       comments: comments,
@@ -212,13 +212,19 @@ async function validateSwap(swapRequest: any) {
     [swapRequest.requesterId, {
       id: swapRequest.requesterId,
       name: 'Requester',
+      departmentId: 'dept-1',
+      role: 'staff' as const,
+      contractType: 'full-time' as const,
+      skills: [],
       maxHoursPerWeek: 40,
       minHoursPerWeek: 36,
       preferences: {
         maxConsecutiveDays: 5,
         minRestHours: 11,
-        preferredShifts: ['day'],
-        avoidShifts: ['night']
+        preferredShifts: ['day' as const],
+        avoidShifts: ['night' as const],
+        preferredDaysOff: [0, 6],
+        preferNightShift: false
       },
       availability: {
         timeOffRequests: [],
@@ -229,13 +235,19 @@ async function validateSwap(swapRequest: any) {
     [swapRequest.targetEmployeeId, {
       id: swapRequest.targetEmployeeId,
       name: 'Target',
+      departmentId: 'dept-1',
+      role: 'staff' as const,
+      contractType: 'full-time' as const,
+      skills: [],
       maxHoursPerWeek: 40,
       minHoursPerWeek: 36,
       preferences: {
         maxConsecutiveDays: 5,
         minRestHours: 11,
-        preferredShifts: ['evening'],
-        avoidShifts: []
+        preferredShifts: ['evening' as const],
+        avoidShifts: [],
+        preferredDaysOff: [0, 6],
+        preferNightShift: false
       },
       availability: {
         timeOffRequests: [],
@@ -248,10 +260,18 @@ async function validateSwap(swapRequest: any) {
   const mockShiftMap = new Map([
     [swapRequest.originalAssignment.shiftId, {
       id: swapRequest.originalAssignment.shiftId,
+      type: 'day' as const,
+      name: 'Day Shift',
+      color: '#FFC107',
+      requiredStaff: 5,
       time: { hours: 8, start: '07:00', end: '15:00' }
     }],
     [swapRequest.targetAssignment?.shiftId || 'default', {
       id: swapRequest.targetAssignment?.shiftId || 'default',
+      type: 'evening' as const,
+      name: 'Evening Shift',
+      color: '#9C27B0',
+      requiredStaff: 5,
       time: { hours: 8, start: '15:00', end: '23:00' }
     }],
   ]);

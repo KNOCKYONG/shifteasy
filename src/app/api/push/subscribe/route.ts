@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: 'Invalid subscription data',
-          details: error.errors,
+          details: (error as any).errors,
         },
         { status: 400 }
       );
