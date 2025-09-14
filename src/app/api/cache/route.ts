@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { cacheManager } from '@/lib/cache/cache-manager';
+import { optimizedCacheManager } from '@/lib/cache/optimized-cache-manager';
 import { withRateLimit } from '@/lib/middleware/rate-limit-middleware';
 
 const cacheInvalidateSchema = z.object({
@@ -16,7 +16,7 @@ const cacheInvalidateSchema = z.object({
 export async function GET(request: NextRequest) {
   return withRateLimit(request, async () => {
     try {
-      const stats = cacheManager.getStatistics();
+      const stats = optimizedCacheManager.getStatistics();
 
       return NextResponse.json({
         success: true,
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
           { key: 'common:metadata', value: { version: '1.0.0' }, ttl: 3600 },
         ];
 
-        await cacheManager.warmUpCache(warmupData);
+        await optimizedCacheManager.warmUpCache(warmupData);
 
         return NextResponse.json({
           success: true,
@@ -87,7 +87,7 @@ export async function DELETE(request: NextRequest) {
       let invalidated = 0;
 
       if (validatedData.type === 'all') {
-        await cacheManager.clearAll();
+        optimizedCacheManager.clearLocalCache();
         return NextResponse.json({
           success: true,
           message: 'All cache cleared',
@@ -95,12 +95,16 @@ export async function DELETE(request: NextRequest) {
       }
 
       if (validatedData.pattern) {
-        invalidated = await cacheManager.invalidateByPattern(validatedData.pattern);
+        // Pattern-based invalidation is expensive in Upstash
+        // Clear local cache instead
+        optimizedCacheManager.clearLocalCache();
+        invalidated = 0;
+        console.warn('Pattern invalidation avoided to save Upstash commands');
       } else if (validatedData.type === 'schedule' && validatedData.key) {
         const [tenantId, scheduleId] = validatedData.key.split(':');
-        invalidated = await cacheManager.invalidateSchedule(tenantId, scheduleId);
+        invalidated = await optimizedCacheManager.invalidateSchedule(tenantId, scheduleId);
       } else if (validatedData.type === 'session' && validatedData.key) {
-        invalidated = await cacheManager.invalidateSession(validatedData.key);
+        invalidated = await optimizedCacheManager.invalidateSession(validatedData.key);
       }
 
       return NextResponse.json({
