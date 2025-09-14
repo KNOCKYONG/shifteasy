@@ -18,21 +18,10 @@ export default function SignInPage() {
     setError('');
     setLoading(true);
 
-    try {
-      // Mock authentication - in production, this would use Clerk or another auth provider
-      if (email && password) {
-        // Simple mock validation
-        setTimeout(() => {
-          router.push('/dashboard');
-        }, 1000);
-      } else {
-        setError('이메일과 비밀번호를 입력해주세요.');
-      }
-    } catch (err) {
-      setError('로그인 중 오류가 발생했습니다.');
-    } finally {
-      setLoading(false);
-    }
+    // 인증 없이 바로 대시보드로 이동 (개발/테스트 용도)
+    setTimeout(() => {
+      router.push('/dashboard');
+    }, 500);
   };
 
   return (
