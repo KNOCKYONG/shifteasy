@@ -295,12 +295,18 @@ export default function SettingsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-8">
-              <a href="/dashboard" className="text-xl font-semibold text-gray-900 hover:text-blue-600 transition-colors">
+              <span className="text-xl font-semibold text-gray-900">
                 ShiftEasy
-              </a>
+              </span>
               <nav className="flex items-center gap-6">
+                <a href="/dashboard" className="text-sm font-medium text-gray-600 hover:text-gray-900">
+                  대시보드
+                </a>
                 <a href="/schedule" className="text-sm font-medium text-gray-600 hover:text-gray-900">
                   스케줄
+                </a>
+                <a href="/swap" className="text-sm font-medium text-gray-600 hover:text-gray-900">
+                  스왑
                 </a>
                 <a href="/team" className="text-sm font-medium text-gray-600 hover:text-gray-900">
                   팀 관리

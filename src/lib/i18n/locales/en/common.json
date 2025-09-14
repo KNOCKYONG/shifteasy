@@ -4,6 +4,7 @@
     "title": "ShiftEasy - Smart Work Schedule Management"
   },
   "nav": {
+    "dashboard": "Dashboard",
     "schedule": "Schedule",
     "team": "Team Management",
     "config": "Settings"

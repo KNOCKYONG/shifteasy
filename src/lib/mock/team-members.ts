@@ -3,6 +3,8 @@
  * 나중에 Supabase 연동 시 제거 예정
  */
 
+export type SeniorityLevel = 'junior' | 'intermediate' | 'senior' | 'expert';
+
 export interface MockTeamMember {
   id: string;
   name: string;
@@ -21,6 +23,8 @@ export interface MockTeamMember {
   avatar?: string;
   status: 'active' | 'on-leave' | 'inactive';
   skills: string[];
+  experienceYears: number; // 경력 연차
+  seniorityLevel: SeniorityLevel; // 연차 레벨
 }
 
 export const mockTeamMembers: MockTeamMember[] = [
@@ -41,6 +45,8 @@ export const mockTeamMembers: MockTeamMember[] = [
     joinDate: '2020-03-15',
     status: 'active',
     skills: ['리더십', '응급처치', '중환자관리'],
+    experienceYears: 12,
+    seniorityLevel: 'expert',
   },
   {
     id: 'emp-002',
@@ -59,6 +65,8 @@ export const mockTeamMembers: MockTeamMember[] = [
     joinDate: '2021-06-01',
     status: 'active',
     skills: ['응급처치', '소아간호', '외상처치'],
+    experienceYears: 3,
+    seniorityLevel: 'intermediate',
   },
   {
     id: 'emp-003',
@@ -77,6 +85,8 @@ export const mockTeamMembers: MockTeamMember[] = [
     joinDate: '2022-01-10',
     status: 'active',
     skills: ['중환자관리', '인공호흡기', '투석'],
+    experienceYears: 2,
+    seniorityLevel: 'junior',
   },
   {
     id: 'emp-004',
@@ -95,6 +105,8 @@ export const mockTeamMembers: MockTeamMember[] = [
     joinDate: '2021-09-20',
     status: 'active',
     skills: ['수술보조', '마취관리', '무균술'],
+    experienceYears: 3,
+    seniorityLevel: 'intermediate',
   },
   {
     id: 'emp-005',
@@ -113,6 +125,8 @@ export const mockTeamMembers: MockTeamMember[] = [
     joinDate: '2023-02-15',
     status: 'active',
     skills: ['일반간호', '환자교육', '투약관리'],
+    experienceYears: 1,
+    seniorityLevel: 'junior',
   },
   {
     id: 'emp-006',
@@ -131,6 +145,8 @@ export const mockTeamMembers: MockTeamMember[] = [
     joinDate: '2020-11-05',
     status: 'active',
     skills: ['응급처치', '심폐소생술', '외상처치'],
+    experienceYears: 4,
+    seniorityLevel: 'intermediate',
   },
   {
     id: 'emp-007',
@@ -149,6 +165,8 @@ export const mockTeamMembers: MockTeamMember[] = [
     joinDate: '2019-05-10',
     status: 'active',
     skills: ['리더십', '중환자관리', '교육'],
+    experienceYears: 15,
+    seniorityLevel: 'expert',
   },
   {
     id: 'emp-008',
@@ -167,6 +185,8 @@ export const mockTeamMembers: MockTeamMember[] = [
     joinDate: '2022-07-01',
     status: 'active',
     skills: ['수술보조', '기구관리', '감염관리'],
+    experienceYears: 2,
+    seniorityLevel: 'junior',
   },
   {
     id: 'emp-009',
@@ -185,6 +205,8 @@ export const mockTeamMembers: MockTeamMember[] = [
     joinDate: '2021-12-20',
     status: 'on-leave',
     skills: ['일반간호', '노인간호', '재활간호'],
+    experienceYears: 3,
+    seniorityLevel: 'intermediate',
   },
   {
     id: 'emp-010',
@@ -203,6 +225,8 @@ export const mockTeamMembers: MockTeamMember[] = [
     joinDate: '2023-03-01',
     status: 'active',
     skills: ['응급처치', '트리아지', '약물관리'],
+    experienceYears: 1,
+    seniorityLevel: 'junior',
   },
   {
     id: 'emp-011',
@@ -221,6 +245,8 @@ export const mockTeamMembers: MockTeamMember[] = [
     joinDate: '2020-08-15',
     status: 'active',
     skills: ['중환자관리', '심전도', '혈액투석'],
+    experienceYears: 4,
+    seniorityLevel: 'intermediate',
   },
   {
     id: 'emp-012',
@@ -239,6 +265,8 @@ export const mockTeamMembers: MockTeamMember[] = [
     joinDate: '2022-10-10',
     status: 'active',
     skills: ['수술보조', '소독관리', '장비관리'],
+    experienceYears: 2,
+    seniorityLevel: 'junior',
   },
   {
     id: 'emp-013',
@@ -257,6 +285,8 @@ export const mockTeamMembers: MockTeamMember[] = [
     joinDate: '2021-04-05',
     status: 'active',
     skills: ['일반간호', '상처관리', '정맥주사'],
+    experienceYears: 5,
+    seniorityLevel: 'senior',
   },
   {
     id: 'emp-014',
@@ -275,6 +305,8 @@ export const mockTeamMembers: MockTeamMember[] = [
     joinDate: '2023-01-15',
     status: 'active',
     skills: ['응급처치', '소아응급', '독극물처치'],
+    experienceYears: 6,
+    seniorityLevel: 'senior',
   },
   {
     id: 'emp-015',
@@ -293,6 +325,8 @@ export const mockTeamMembers: MockTeamMember[] = [
     joinDate: '2018-06-20',
     status: 'active',
     skills: ['리더십', '수술계획', '품질관리'],
+    experienceYears: 10,
+    seniorityLevel: 'expert',
   },
   {
     id: 'emp-016',
@@ -311,6 +345,8 @@ export const mockTeamMembers: MockTeamMember[] = [
     joinDate: '2022-05-25',
     status: 'active',
     skills: ['중환자관리', 'ECMO', '기계환기'],
+    experienceYears: 3,
+    seniorityLevel: 'intermediate',
   },
   {
     id: 'emp-017',
@@ -329,6 +365,8 @@ export const mockTeamMembers: MockTeamMember[] = [
     joinDate: '2023-06-01',
     status: 'active',
     skills: ['일반간호', '감염관리', '문서작성'],
+    experienceYears: 1,
+    seniorityLevel: 'junior',
   },
   {
     id: 'emp-018',
@@ -347,6 +385,8 @@ export const mockTeamMembers: MockTeamMember[] = [
     joinDate: '2020-12-10',
     status: 'active',
     skills: ['응급처치', '중증외상', '재난의료'],
+    experienceYears: 4,
+    seniorityLevel: 'intermediate',
   },
   {
     id: 'emp-019',
@@ -365,6 +405,8 @@ export const mockTeamMembers: MockTeamMember[] = [
     joinDate: '2021-08-30',
     status: 'active',
     skills: ['중환자관리', '신경계간호', '순환기간호'],
+    experienceYears: 1,
+    seniorityLevel: 'junior',
   },
   {
     id: 'emp-020',
@@ -383,6 +425,109 @@ export const mockTeamMembers: MockTeamMember[] = [
     joinDate: '2015-03-01',
     status: 'active',
     skills: ['경영관리', '정책수립', '인사관리'],
+    experienceYears: 20,
+    seniorityLevel: 'expert',
+  },
+  // 파트타임 직원 추가
+  {
+    id: 'emp-021',
+    name: '김하늘',
+    email: 'haneul.kim@hospital.com',
+    role: 'staff',
+    position: '간호사',
+    department: '일반병동',
+    departmentId: 'dept-ward',
+    contractType: 'part-time',
+    maxHoursPerWeek: 20,
+    minHoursPerWeek: 12,
+    preferredShifts: ['day'],
+    avoidShifts: ['night'],
+    phone: '010-1357-2468',
+    joinDate: '2023-03-15',
+    status: 'active',
+    skills: ['일반간호', '환자교육'],
+    experienceYears: 1,
+    seniorityLevel: 'junior',
+  },
+  {
+    id: 'emp-022',
+    name: '이소영',
+    email: 'soyoung.lee@hospital.com',
+    role: 'staff',
+    position: '간호사',
+    department: '응급실',
+    departmentId: 'dept-er',
+    contractType: 'part-time',
+    maxHoursPerWeek: 24,
+    minHoursPerWeek: 16,
+    preferredShifts: ['evening', 'night'],
+    avoidShifts: [],
+    phone: '010-2468-3579',
+    joinDate: '2022-11-20',
+    status: 'active',
+    skills: ['응급처치', '야간간호'],
+    experienceYears: 1,
+    seniorityLevel: 'junior',
+  },
+  {
+    id: 'emp-023',
+    name: '박미래',
+    email: 'mirae.park@hospital.com',
+    role: 'staff',
+    position: '간호사',
+    department: '중환자실',
+    departmentId: 'dept-icu',
+    contractType: 'part-time',
+    maxHoursPerWeek: 28,
+    minHoursPerWeek: 20,
+    preferredShifts: ['day', 'evening'],
+    avoidShifts: [],
+    phone: '010-3579-4680',
+    joinDate: '2023-01-05',
+    status: 'active',
+    skills: ['중환자관리', '모니터링'],
+    experienceYears: 2,
+    seniorityLevel: 'junior',
+  },
+  {
+    id: 'emp-024',
+    name: '정유진',
+    email: 'yujin.jung@hospital.com',
+    role: 'staff',
+    position: '간호사',
+    department: '수술실',
+    departmentId: 'dept-or',
+    contractType: 'part-time',
+    maxHoursPerWeek: 30,
+    minHoursPerWeek: 20,
+    preferredShifts: ['day'],
+    avoidShifts: ['night'],
+    phone: '010-4680-5791',
+    joinDate: '2022-09-10',
+    status: 'active',
+    skills: ['수술보조', '기구관리'],
+    experienceYears: 1,
+    seniorityLevel: 'junior',
+  },
+  {
+    id: 'emp-025',
+    name: '최은서',
+    email: 'eunseo.choi@hospital.com',
+    role: 'staff',
+    position: '간호사',
+    department: '일반병동',
+    departmentId: 'dept-ward',
+    contractType: 'part-time',
+    maxHoursPerWeek: 25,
+    minHoursPerWeek: 15,
+    preferredShifts: ['evening'],
+    avoidShifts: ['night'],
+    phone: '010-5791-6802',
+    joinDate: '2023-05-01',
+    status: 'active',
+    skills: ['일반간호', '노인간호'],
+    experienceYears: 2,
+    seniorityLevel: 'junior',
   },
 ];
 

@@ -15,66 +15,55 @@ const getStoredLanguage = () => {
   return 'ko'
 }
 
-// Initialize i18next
-const initI18n = async () => {
-  const lng = getStoredLanguage()
+// Create and initialize i18n instance
+const i18nInstance = i18next.createInstance()
 
-  if (!i18next.isInitialized) {
-    await i18next
-      .use(initReactI18next)
-      .use(resourcesToBackend((language: string, namespace: string) =>
-        import(`@/lib/i18n/locales/${language}/${namespace}.json`)
-      ))
-      .init({
-        ...getOptions(),
-        lng,
-        fallbackLng: 'ko',
-        react: {
-          useSuspense: false
-        }
-      })
-  }
-
-  return i18next
+// Initialize once
+if (!i18nInstance.isInitialized) {
+  i18nInstance
+    .use(initReactI18next)
+    .use(resourcesToBackend((language: string, namespace: string) =>
+      import(`@/lib/i18n/locales/${language}/${namespace}.json`)
+    ))
+    .init({
+      ...getOptions(),
+      lng: 'ko',
+      fallbackLng: 'ko',
+      react: {
+        useSuspense: false
+      }
+    })
 }
 
-// Initialize i18n immediately
-const i18nPromise = initI18n()
-
-// Create a pre-initialized instance for SSR
-const preInitI18n = i18next.createInstance()
-preInitI18n
-  .use(initReactI18next)
-  .use(resourcesToBackend((language: string, namespace: string) =>
-    import(`@/lib/i18n/locales/${language}/${namespace}.json`)
-  ))
-  .init({
-    ...getOptions(),
-    lng: 'ko', // Always start with Korean for SSR
-    fallbackLng: 'ko',
-    react: {
-      useSuspense: false
-    }
-  })
-
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [i18n, setI18n] = useState<typeof i18next>(preInitI18n)
-  const [isClient, setIsClient] = useState(false)
+  const [isReady, setIsReady] = useState(false)
 
   useEffect(() => {
-    setIsClient(true)
-    // After mounting, initialize with the correct language from localStorage
-    const initClientI18n = async () => {
-      const lng = getStoredLanguage()
-      if (lng !== 'ko') {
-        await i18n.changeLanguage(lng)
+    const initI18n = async () => {
+      // Wait for i18n to be initialized
+      if (!i18nInstance.isInitialized) {
+        await i18nInstance.init()
       }
+
+      // After mounting, set the correct language from localStorage
+      const lng = getStoredLanguage()
+      if (lng !== i18nInstance.language) {
+        await i18nInstance.changeLanguage(lng)
+      }
+
+      setIsReady(true)
     }
-    initClientI18n()
-  }, [i18n])
+
+    initI18n()
+  }, [])
+
+  // Show loading state while i18n is initializing
+  if (!isReady) {
+    return <div>{children}</div>
+  }
 
   return (
-    <I18nextProvider i18n={i18n}>
+    <I18nextProvider i18n={i18nInstance}>
       {children}
     </I18nextProvider>
   )

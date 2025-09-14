@@ -139,7 +139,7 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments }: AddT
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Basic Information */}
           <div className="space-y-4">
-            <h3 className="font-medium text-gray-900 flex items-center gap-2">
+            <h3 className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
               <User className="w-4 h-4" />
               기본 정보
             </h3>

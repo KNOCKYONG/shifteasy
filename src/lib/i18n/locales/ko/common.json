@@ -4,6 +4,7 @@
     "title": "ShiftEasy - 스마트한 근무 스케줄 관리"
   },
   "nav": {
+    "dashboard": "대시보드",
     "schedule": "스케줄",
     "team": "팀 관리",
     "config": "설정"

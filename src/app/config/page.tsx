@@ -103,20 +103,26 @@ export default function ConfigPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* Header */}
-      <header className="bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-8">
-              <a href="/dashboard" className="text-xl font-semibold text-gray-900 dark:text-white hover:text-blue-600 transition-colors">
+              <span className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                 ShiftEasy
-              </a>
+              </span>
               <nav className="flex items-center gap-6">
-                <a href="/schedule" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
+                <a href="/dashboard" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+                  {t('nav.dashboard', { ns: 'common', defaultValue: '대시보드' })}
+                </a>
+                <a href="/schedule" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
                   {t('nav.schedule', { ns: 'common', defaultValue: '스케줄' })}
                 </a>
-                <a href="/team" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
+                <a href="/swap" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
+                  {t('nav.swap', { ns: 'common', defaultValue: '스왑' })}
+                </a>
+                <a href="/team" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
                   {t('nav.team', { ns: 'common', defaultValue: '팀 관리' })}
                 </a>
                 <a href="/config" className="text-sm font-medium text-blue-600 dark:text-blue-400">
@@ -127,7 +133,7 @@ export default function ConfigPage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={handleSave}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
               >
                 <Save className="w-4 h-4" />
                 {t('actions.saveAndGenerate', { ns: 'config' })}
@@ -143,7 +149,7 @@ export default function ConfigPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Title */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-3">
             <Settings className="w-7 h-7 text-gray-400 dark:text-gray-500" />
             {t('title', { ns: 'config' })}
           </h2>
@@ -151,7 +157,7 @@ export default function ConfigPage() {
         </div>
 
         {/* Tabs */}
-        <div className="mb-6 border-b border-gray-200 dark:border-slate-700">
+        <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
           <nav className="flex gap-8">
             <button
               onClick={() => setActiveTab("patterns")}
@@ -189,7 +195,7 @@ export default function ConfigPage() {
         {/* Tab Content */}
         {activeTab === "patterns" && (
           <div className="space-y-4">
-            <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-900/30 rounded-xl p-4 flex items-start gap-3">
+            <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-4 flex items-start gap-3">
               <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm text-blue-900 dark:text-blue-300 font-medium">{t('patterns.title', { ns: 'config' })}</p>
@@ -203,18 +209,18 @@ export default function ConfigPage() {
               {config.patterns.map((pattern) => (
                 <div
                   key={pattern.id}
-                  className="bg-white dark:bg-slate-800 rounded-xl border-2 border-gray-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-600 transition-colors cursor-pointer p-6"
+                  className="bg-white dark:bg-gray-900 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 transition-colors cursor-pointer p-6"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <Calendar className="w-8 h-8 text-gray-400 dark:text-gray-500" />
                     <input
                       type="radio"
                       name="pattern"
-                      className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                      className="w-4 h-4 text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-400"
                       defaultChecked={pattern.id === "5-day"}
                     />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{getPatternName(pattern.id)}</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">{getPatternName(pattern.id)}</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{getPatternDescription(pattern.id)}</p>
                   <div className="flex items-center gap-4 text-sm">
                     <span className="text-gray-500 dark:text-gray-400">{t('patterns.workDays', { ns: 'config' })}: {pattern.daysOn}{t('patterns.days', { ns: 'config' })}</span>
@@ -228,7 +234,7 @@ export default function ConfigPage() {
 
         {activeTab === "rules" && (
           <div className="space-y-4">
-            <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-xl p-4 flex items-start gap-3">
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm text-amber-900 dark:text-amber-300 font-medium">{t('rules.title', { ns: 'config' })}</p>
@@ -238,17 +244,17 @@ export default function ConfigPage() {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 divide-y divide-gray-100 dark:divide-gray-700">
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700">
               {config.rules.map((rule) => (
                 <div key={rule.id} className="p-6 flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
                       <Shield className="w-5 h-5 text-gray-400 dark:text-gray-500" />
-                      <h4 className="font-medium text-gray-900 dark:text-white">{getRuleName(rule.id)}</h4>
+                      <h4 className="font-medium text-gray-900 dark:text-gray-100">{getRuleName(rule.id)}</h4>
                       <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                        rule.type === "limit" ? "bg-red-50 text-red-700" :
-                        rule.type === "minimum" ? "bg-blue-50 text-blue-700" :
-                        "bg-green-50 text-green-700"
+                        rule.type === "limit" ? "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400" :
+                        rule.type === "minimum" ? "bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400" :
+                        "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400"
                       }`}>
                         {rule.type === "limit" ? t('rules.type.limit', { ns: 'config' }) : rule.type === "minimum" ? t('rules.type.minimum', { ns: 'config' }) : t('rules.type.balance', { ns: 'config' })}
                       </span>
@@ -258,7 +264,7 @@ export default function ConfigPage() {
                         type="number"
                         value={rule.value}
                         onChange={(e) => handleRuleValueChange(rule.id, parseInt(e.target.value))}
-                        className="w-20 px-3 py-1 border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-20 px-3 py-1 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
                         disabled={!rule.enabled}
                       />
                       <span className="text-sm text-gray-600 dark:text-gray-400">
@@ -275,7 +281,7 @@ export default function ConfigPage() {
                       onChange={() => handleRuleToggle(rule.id)}
                       className="sr-only peer"
                     />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 dark:peer-checked:bg-blue-500"></div>
                   </label>
                 </div>
               ))}
@@ -285,13 +291,13 @@ export default function ConfigPage() {
 
         {activeTab === "preferences" && (
           <div className="space-y-6">
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">{t('preferences.autoOptimization', { ns: 'config' })}</h3>
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6">{t('preferences.autoOptimization', { ns: 'config' })}</h3>
 
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-gray-900 dark:text-white">{t('preferences.autoBalance', { ns: 'config' })}</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{t('preferences.autoBalance', { ns: 'config' })}</p>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('preferences.autoBalanceDesc', { ns: 'config' })}</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
@@ -304,13 +310,13 @@ export default function ConfigPage() {
                       }))}
                       className="sr-only peer"
                     />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 dark:peer-checked:bg-blue-500"></div>
                   </label>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-gray-900 dark:text-white">{t('preferences.weekendRotation', { ns: 'config' })}</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{t('preferences.weekendRotation', { ns: 'config' })}</p>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('preferences.weekendRotationDesc', { ns: 'config' })}</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
@@ -323,13 +329,13 @@ export default function ConfigPage() {
                       }))}
                       className="sr-only peer"
                     />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 dark:peer-checked:bg-blue-500"></div>
                   </label>
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <p className="font-medium text-gray-900 dark:text-white">{t('preferences.fairnessWeight', { ns: 'config' })}</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{t('preferences.fairnessWeight', { ns: 'config' })}</p>
                     <span className="text-sm font-medium text-blue-600 dark:text-blue-400">{config.preferences.fairnessWeight}%</span>
                   </div>
                   <input
@@ -341,7 +347,7 @@ export default function ConfigPage() {
                       ...prev,
                       preferences: { ...prev.preferences, fairnessWeight: parseInt(e.target.value) }
                     }))}
-                    className="w-full h-2 bg-gray-200 dark:bg-slate-600 rounded-lg appearance-none cursor-pointer"
+                    className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
                   />
                   <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
                     <span>{t('preferences.efficiencyFirst', { ns: 'config' })}</span>
@@ -351,8 +357,8 @@ export default function ConfigPage() {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">{t('preferences.scheduleOptions', { ns: 'config' })}</h3>
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6">{t('preferences.scheduleOptions', { ns: 'config' })}</h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -367,7 +373,7 @@ export default function ConfigPage() {
                         ...prev,
                         preferences: { ...prev.preferences, maxConsecutiveShifts: parseInt(e.target.value) }
                       }))}
-                      className="w-24 px-3 py-2 border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-24 px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
                     />
                     <span className="text-sm text-gray-600 dark:text-gray-400">{t('rules.units.days', { ns: 'config' })}</span>
                   </div>
@@ -385,7 +391,7 @@ export default function ConfigPage() {
                         ...prev,
                         preferences: { ...prev.preferences, minRestHours: parseInt(e.target.value) }
                       }))}
-                      className="w-24 px-3 py-2 border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-24 px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
                     />
                     <span className="text-sm text-gray-600 dark:text-gray-400">{t('rules.units.hours', { ns: 'config' })}</span>
                   </div>
@@ -399,13 +405,13 @@ export default function ConfigPage() {
         <div className="mt-8 flex justify-between">
           <button
             onClick={() => router.push("/team")}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700"
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             {t('actions.previousStep', { ns: 'config' })}
           </button>
           <button
             onClick={handleSave}
-            className="inline-flex items-center gap-2 px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+            className="inline-flex items-center gap-2 px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
           >
             <Save className="w-4 h-4" />
             {t('actions.saveAndGenerate', { ns: 'config' })}
