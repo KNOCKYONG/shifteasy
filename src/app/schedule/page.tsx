@@ -542,10 +542,10 @@ export default function SchedulePage() {
             // CSV 데이터를 ScheduleAssignment 형식으로 변환
             if (assignment.employeeId && assignment.date && assignment.shiftId) {
               assignments.push({
-                id: assignment.id || `imported-${Date.now()}-${i}`,
                 employeeId: assignment.employeeId,
                 date: new Date(assignment.date),
                 shiftId: assignment.shiftId,
+                isLocked: false,
               });
             }
           }
