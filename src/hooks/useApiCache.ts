@@ -130,7 +130,14 @@ export function getCacheStats() {
       activeCount++;
     }
     // 대략적인 메모리 크기 추정
-    totalSize += JSON.stringify(entry.data).length;
+    if (entry.data !== undefined && entry.data !== null) {
+      try {
+        totalSize += JSON.stringify(entry.data).length;
+      } catch (e) {
+        // JSON.stringify 실패 시 무시
+        console.warn('Failed to stringify cache entry:', e);
+      }
+    }
   });
 
   return {
