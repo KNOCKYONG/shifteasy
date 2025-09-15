@@ -631,7 +631,11 @@ export default function SwapPage() {
                               employeeName: currentUser.name,
                               experienceYears: currentUser.experienceYears,
                               seniorityLevel: currentUser.seniorityLevel,
-                              shift: confirmedSchedules[0], // 실제로는 선택된 교환 날짜
+                              shift: {
+                                date: confirmedSchedules[0].date,
+                                type: confirmedSchedules[0].shiftType,
+                                time: confirmedSchedules[0].time
+                              },
                               appliedAt: new Date(),
                               message
                             };
@@ -785,7 +789,7 @@ export default function SwapPage() {
           currentUser={{
             id: currentUser.id,
             name: currentUser.name,
-            experienceYears: currentUser.experienceYears,
+            position: currentUser.position,
             seniorityLevel: currentUser.seniorityLevel,
           }}
           confirmedSchedules={confirmedSchedules}

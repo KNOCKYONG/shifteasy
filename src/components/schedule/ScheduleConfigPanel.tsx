@@ -129,9 +129,9 @@ export function ScheduleConfigPanel({ onConfigChange, currentConfig }: ScheduleC
       description: "일반 병동 3교대 표준 설정",
       config: {
         shifts: [
-          { id: 'day', name: '주간', time: { start: '07:00', end: '15:00', hours: 8 }, requiredStaff: 7, minStaff: 5 },
-          { id: 'evening', name: '저녁', time: { start: '15:00', end: '23:00', hours: 8 }, requiredStaff: 5, minStaff: 4 },
-          { id: 'night', name: '야간', time: { start: '23:00', end: '07:00', hours: 8 }, requiredStaff: 4, minStaff: 3 },
+          { id: 'day', name: '주간', type: 'day' as const, color: 'bg-blue-100', time: { start: '07:00', end: '15:00', hours: 8 }, requiredStaff: 7, minStaff: 5 },
+          { id: 'evening', name: '저녁', type: 'evening' as const, color: 'bg-purple-100', time: { start: '15:00', end: '23:00', hours: 8 }, requiredStaff: 5, minStaff: 4 },
+          { id: 'night', name: '야간', type: 'night' as const, color: 'bg-indigo-100', time: { start: '23:00', end: '07:00', hours: 8 }, requiredStaff: 4, minStaff: 3 },
         ],
         constraints: {
           operational: {
@@ -146,8 +146,8 @@ export function ScheduleConfigPanel({ onConfigChange, currentConfig }: ScheduleC
       description: "중환자실 강화된 인력 배치",
       config: {
         shifts: [
-          { id: 'day', name: '주간', time: { start: '07:00', end: '19:00', hours: 12 }, requiredStaff: 10, minStaff: 8 },
-          { id: 'night', name: '야간', time: { start: '19:00', end: '07:00', hours: 12 }, requiredStaff: 8, minStaff: 6 },
+          { id: 'day', name: '주간', type: 'day' as const, color: 'bg-blue-100', time: { start: '07:00', end: '19:00', hours: 12 }, requiredStaff: 10, minStaff: 8 },
+          { id: 'night', name: '야간', type: 'night' as const, color: 'bg-indigo-100', time: { start: '19:00', end: '07:00', hours: 12 }, requiredStaff: 8, minStaff: 6 },
         ],
         constraints: {
           operational: {
@@ -163,9 +163,9 @@ export function ScheduleConfigPanel({ onConfigChange, currentConfig }: ScheduleC
       description: "24시간 응급실 변동 인력",
       config: {
         shifts: [
-          { id: 'day', name: '주간', time: { start: '08:00', end: '16:00', hours: 8 }, requiredStaff: 8, minStaff: 6 },
-          { id: 'evening', name: '저녁', time: { start: '16:00', end: '00:00', hours: 8 }, requiredStaff: 10, minStaff: 8 },
-          { id: 'night', name: '야간', time: { start: '00:00', end: '08:00', hours: 8 }, requiredStaff: 6, minStaff: 5 },
+          { id: 'day', name: '주간', type: 'day' as const, color: 'bg-blue-100', time: { start: '08:00', end: '16:00', hours: 8 }, requiredStaff: 8, minStaff: 6 },
+          { id: 'evening', name: '저녁', type: 'evening' as const, color: 'bg-purple-100', time: { start: '16:00', end: '00:00', hours: 8 }, requiredStaff: 10, minStaff: 8 },
+          { id: 'night', name: '야간', type: 'night' as const, color: 'bg-indigo-100', time: { start: '00:00', end: '08:00', hours: 8 }, requiredStaff: 6, minStaff: 5 },
         ],
         specialRules: [
           {
@@ -185,7 +185,15 @@ export function ScheduleConfigPanel({ onConfigChange, currentConfig }: ScheduleC
     if (preset) {
       setConfig(prev => ({
         ...prev,
-        ...preset.config
+        shifts: preset.config.shifts,
+        constraints: {
+          ...prev.constraints,
+          operational: {
+            ...prev.constraints.operational,
+            ...(preset.config as any).constraints?.operational
+          }
+        },
+        specialRules: (preset.config as any).specialRules || prev.specialRules
       }));
     }
   };
@@ -358,13 +366,13 @@ function BasicSettings({ config, setConfig }: any) {
                   {key === 'cost' && '비용 효율성'}
                   {key === 'continuity' && '팀 연속성'}
                 </label>
-                <span className="text-sm text-gray-500">{value}%</span>
+                <span className="text-sm text-gray-500">{value as number}%</span>
               </div>
               <input
                 type="range"
                 min="0"
                 max="100"
-                value={value}
+                value={value as number}
                 onChange={(e) => setConfig({
                   ...config,
                   weights: {...config.weights, [key]: parseInt(e.target.value)}

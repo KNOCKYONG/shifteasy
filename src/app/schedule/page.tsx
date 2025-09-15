@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { format, startOfWeek, addWeeks, subWeeks, addDays } from "date-fns";
 import { ko } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Calendar, Users, Download, Lock, Unlock, Wand2, RefreshCw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Users, Download, Lock, Unlock, Wand2, RefreshCw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3 } from "lucide-react";
 import { ProfileDropdown } from "@/components/ProfileDropdown";
 import { mockTeamMembers } from "@/lib/mock/team-members";
 import { Scheduler, type SchedulingRequest, type SchedulingResult } from "@/lib/scheduler/core";
@@ -11,6 +11,7 @@ import { EmployeeAdapter } from "@/lib/adapters/employee-adapter";
 import type { ComprehensivePreferences } from "@/components/team/MyPreferencesPanel";
 import type { UnifiedEmployee } from "@/lib/types/unified-employee";
 import { validateSchedulingRequest, validateEmployee } from "@/lib/validation/schemas";
+import { ScheduleReviewPanel } from "@/components/schedule/ScheduleReviewPanel";
 
 // 기본 시프트 정의
 const DEFAULT_SHIFTS: Shift[] = [
@@ -93,6 +94,7 @@ const DEFAULT_CONSTRAINTS: Constraint[] = [
 export default function SchedulePage() {
   const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [schedule, setSchedule] = useState<ScheduleAssignment[]>([]);
+  const [originalSchedule, setOriginalSchedule] = useState<ScheduleAssignment[]>([]); // 원본 스케줄 저장
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationResult, setGenerationResult] = useState<SchedulingResult | null>(null);
@@ -101,7 +103,8 @@ export default function SchedulePage() {
   const [showOnlyOvertime, setShowOnlyOvertime] = useState(false); // 초과근무 직원만 표시
   const [showOnlyConflicts, setShowOnlyConflicts] = useState(false); // 제약 위반 직원만 표시
   const [showReport, setShowReport] = useState(false); // 스케줄링 리포트 모달
-  const [activeView, setActiveView] = useState<'preferences' | 'schedule'>('preferences'); // 기본 뷰를 preferences로 설정
+  const [activeView, setActiveView] = useState<'preferences' | 'schedule' | 'review'>('preferences'); // 기본 뷰를 preferences로 설정
+  const [isReviewMode, setIsReviewMode] = useState(false); // 리뷰 모드 상태
 
   // 부서별 필터링
   const departments = [
@@ -302,6 +305,7 @@ export default function SchedulePage() {
 
       if (result.success && result.schedule) {
         setSchedule(result.schedule.assignments);
+        setOriginalSchedule(result.schedule.assignments); // 원본 저장
         setGenerationResult(result);
         setActiveView('schedule'); // 스케줄 생성 후 스케줄 뷰로 전환
 
@@ -429,13 +433,30 @@ export default function SchedulePage() {
               </button>
 
               {generationResult && (
-                <button
-                  onClick={() => setShowReport(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-950/50"
-                >
-                  <FileText className="w-4 h-4" />
-                  리포트 보기
-                </button>
+                <>
+                  <button
+                    onClick={() => setShowReport(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-950/50"
+                  >
+                    <FileText className="w-4 h-4" />
+                    리포트 보기
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsReviewMode(!isReviewMode);
+                      setActiveView(isReviewMode ? 'schedule' : 'review');
+                    }}
+                    className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg ${
+                      isReviewMode
+                        ? "bg-orange-500 text-white hover:bg-orange-600"
+                        : "text-orange-700 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-950/50"
+                    }`}
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    {isReviewMode ? "리뷰 종료" : "스케줄 검토"}
+                  </button>
+                </>
               )}
 
               <button
@@ -468,30 +489,52 @@ export default function SchedulePage() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* View Tabs - Moved to top */}
-        <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
-          <nav className="flex gap-8">
+        <div className="mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+          <nav className="flex gap-2 sm:gap-4 md:gap-8 min-w-max">
             <button
-              onClick={() => setActiveView('preferences')}
-              className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+              onClick={() => {
+                setActiveView('preferences');
+                setIsReviewMode(false);
+              }}
+              className={`pb-3 px-1 text-xs sm:text-sm font-medium border-b-2 transition-colors flex items-center gap-1 sm:gap-2 whitespace-nowrap ${
                 activeView === 'preferences'
                   ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
                   : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
               }`}
             >
               <Heart className="w-4 h-4" />
-              직원 선호사항
+              <span className="hidden sm:inline">직원 </span>선호사항
             </button>
             <button
-              onClick={() => setActiveView('schedule')}
-              className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+              onClick={() => {
+                setActiveView('schedule');
+                setIsReviewMode(false);
+              }}
+              className={`pb-3 px-1 text-xs sm:text-sm font-medium border-b-2 transition-colors flex items-center gap-1 sm:gap-2 whitespace-nowrap ${
                 activeView === 'schedule'
                   ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
                   : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
               }`}
             >
               <Calendar className="w-4 h-4" />
-              스케줄 보기
+              스케줄<span className="hidden sm:inline"> 보기</span>
             </button>
+            {generationResult && (
+              <button
+                onClick={() => {
+                  setActiveView('review');
+                  setIsReviewMode(true);
+                }}
+                className={`pb-3 px-1 text-xs sm:text-sm font-medium border-b-2 transition-colors flex items-center gap-1 sm:gap-2 whitespace-nowrap ${
+                  activeView === 'review'
+                    ? "text-orange-600 dark:text-orange-400 border-orange-600 dark:border-orange-400"
+                    : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
+                }`}
+              >
+                <Edit3 className="w-4 h-4" />
+                <span className="hidden sm:inline">스케줄 </span>검토<span className="hidden md:inline"> 및 수정</span>
+              </button>
+            )}
           </nav>
         </div>
 
@@ -564,12 +607,12 @@ export default function SchedulePage() {
                       </div>
 
                       {/* 특별 요구사항 */}
-                      {(member.status === 'leave' || member.skills?.includes('신입')) && (
+                      {(member.status === 'on-leave' || member.skills?.includes('신입')) && (
                         <div className="flex items-start gap-2">
                           <AlertCircle className="w-3.5 h-3.5 text-amber-500 mt-0.5" />
                           <div>
                             <span className="text-amber-600 dark:text-amber-400">
-                              {member.status === 'leave' ? '휴직 중' : member.skills?.includes('신입') ? '신입 교육 중' : ''}
+                              {member.status === 'on-leave' ? '휴직 중' : member.skills?.includes('신입') ? '신입 교육 중' : ''}
                             </span>
                           </div>
                         </div>
@@ -762,101 +805,6 @@ export default function SchedulePage() {
           </div>
         )}
 
-
-        {/* Preferences View */}
-        {activeView === 'preferences' && (
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-6">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-                <ListChecks className="w-5 h-5 text-blue-500" />
-                이번 달 직원 요구사항 및 선호사항
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredMembers.map(member => (
-                  <div key={member.id} className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h4 className="font-medium text-gray-900 dark:text-gray-100">{member.name}</h4>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{member.position}</p>
-                      </div>
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        member.status === 'active'
-                          ? 'bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                      }`}>
-                        {member.status === 'active' ? '근무중' : '휴직중'}
-                      </span>
-                    </div>
-
-                    <div className="space-y-2 text-sm">
-                      {/* 선호 시프트 */}
-                      {member.preferredShifts && member.preferredShifts.length > 0 && (
-                        <div className="flex items-start gap-2">
-                          <span className="text-green-500 dark:text-green-400">✓</span>
-                          <div>
-                            <span className="text-gray-600 dark:text-gray-400">선호:</span>
-                            <span className="ml-1 text-gray-900 dark:text-gray-100">
-                              {member.preferredShifts.map(shift =>
-                                shift === 'day' ? '주간' : shift === 'evening' ? '저녁' : shift === 'night' ? '야간' : shift
-                              ).join(', ')}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* 회피 시프트 */}
-                      {member.avoidShifts && member.avoidShifts.length > 0 && (
-                        <div className="flex items-start gap-2">
-                          <span className="text-red-500 dark:text-red-400">✗</span>
-                          <div>
-                            <span className="text-gray-600 dark:text-gray-400">회피:</span>
-                            <span className="ml-1 text-gray-900 dark:text-gray-100">
-                              {member.avoidShifts.map(shift =>
-                                shift === 'day' ? '주간' : shift === 'evening' ? '저녁' : shift === 'night' ? '야간' : shift
-                              ).join(', ')}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* 주당 근무시간 */}
-                      <div className="flex items-start gap-2">
-                        <Clock className="w-3.5 h-3.5 text-gray-400 mt-0.5" />
-                        <div>
-                          <span className="text-gray-600 dark:text-gray-400">주당:</span>
-                          <span className="ml-1 text-gray-900 dark:text-gray-100">
-                            {member.minHoursPerWeek}-{member.maxHoursPerWeek}시간
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* 특별 요구사항 */}
-                      {(member.status === 'leave' || member.skills?.includes('신입')) && (
-                        <div className="flex items-start gap-2">
-                          <AlertCircle className="w-3.5 h-3.5 text-amber-500 mt-0.5" />
-                          <div>
-                            <span className="text-amber-600 dark:text-amber-400">
-                              {member.status === 'leave' ? '휴직 중' : member.skills?.includes('신입') ? '신입 교육 중' : ''}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {filteredMembers.length === 0 && (
-                <div className="text-center py-12">
-                  <Users className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                  <p className="text-gray-500 dark:text-gray-400">선택된 부서에 직원이 없습니다</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Schedule Grid */}
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
           <div className="grid grid-cols-8 border-b border-gray-200 dark:border-gray-700">
@@ -985,6 +933,30 @@ export default function SchedulePage() {
           </div>
         )}
           </>
+        )}
+
+        {/* Review View - 스케줄 검토 및 수정 */}
+        {activeView === 'review' && generationResult && (
+          <ScheduleReviewPanel
+            originalSchedule={originalSchedule}
+            modifiedSchedule={schedule}
+            staff={filteredMembers as any}
+            currentWeek={currentWeek}
+            onScheduleUpdate={(newSchedule) => setSchedule(newSchedule)}
+            onApplyChanges={() => {
+              // 변경사항 적용
+              setOriginalSchedule(schedule);
+              setIsReviewMode(false);
+              setActiveView('schedule');
+              alert('변경사항이 적용되었습니다.');
+            }}
+            onDiscardChanges={() => {
+              // 변경사항 취소
+              setSchedule(originalSchedule);
+              setIsReviewMode(false);
+              setActiveView('schedule');
+            }}
+          />
         )}
       </main>
 

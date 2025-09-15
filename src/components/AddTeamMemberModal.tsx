@@ -65,6 +65,8 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments }: AddT
       preferredShifts: formData.preferredShifts,
       avoidShifts: [],
       skills: formData.skills,
+      experienceYears: 0,
+      seniorityLevel: "junior",
     };
 
     onAdd(newMember);

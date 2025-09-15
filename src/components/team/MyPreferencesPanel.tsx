@@ -5,7 +5,7 @@ import {
   X, Save, AlertCircle, User, Calendar, Users,
   Baby, GraduationCap, Stethoscope, Car, Coffee, Moon, Sun,
   Cloud, Shield, Clock, Activity, Sparkles, Award,
-  AlertTriangle, CheckCircle
+  AlertTriangle, CheckCircle, Heart
 } from "lucide-react";
 
 // 선호도 인터페이스 정의

@@ -4,7 +4,7 @@ import {
   BarChart3, Scale, TrendingUp, Users, Calendar, Clock,
   AlertCircle, CheckCircle, Info, ChevronRight, Download,
   Sun, Moon, Sunset, Coffee, Award, Target, Activity,
-  Eye, FileText, PieChart, TrendingDown
+  Eye, FileText, PieChart, TrendingDown, Heart, Brain, Shield
 } from "lucide-react";
 import { type ScheduleAssignment, type Employee, type Shift, type ConstraintViolation, type ScheduleScore } from "@/lib/scheduler/types";
 
@@ -343,6 +343,7 @@ export function FairnessReportDashboard({
             setSelectedEmployee={setSelectedEmployee}
             schedule={schedule}
             shifts={shifts}
+            averageStats={averageStats}
           />
         )}
 
@@ -518,7 +519,7 @@ function OverviewTab({ employeeStats, averageStats, jainsFairnessIndex, score }:
 }
 
 // 개인별 분석 탭
-function IndividualAnalysisTab({ employeeStats, selectedEmployee, setSelectedEmployee, schedule, shifts }: any) {
+function IndividualAnalysisTab({ employeeStats, selectedEmployee, setSelectedEmployee, schedule, shifts, averageStats }: any) {
   const selectedStats = selectedEmployee
     ? employeeStats.find((s: EmployeeStatistics) => s.employeeId === selectedEmployee)
     : null;
@@ -569,7 +570,7 @@ function IndividualAnalysisTab({ employeeStats, selectedEmployee, setSelectedEmp
                 <div className="bg-white rounded-lg p-3 border border-gray-200">
                   <div className="text-sm text-gray-600">총 근무시간</div>
                   <div className="text-xl font-bold">{selectedStats.totalHours}시간</div>
-                  <div className="text-xs text-gray-500">평균 대비 {((selectedStats.totalHours / averageStats?.totalHours - 1) * 100).toFixed(0)}%</div>
+                  <div className="text-xs text-gray-500">평균 대비 {averageStats ? ((selectedStats.totalHours / averageStats.totalHours - 1) * 100).toFixed(0) : 0}%</div>
                 </div>
 
                 <div className="bg-white rounded-lg p-3 border border-gray-200">

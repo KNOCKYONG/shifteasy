@@ -17,6 +17,7 @@ const PreferencesSchema = z.object({
       weekendPreference: z.enum(['prefer', 'avoid', 'neutral']),
       holidayPreference: z.enum(['prefer', 'avoid', 'neutral']),
       overtimeWillingness: z.enum(['never', 'emergency', 'sometimes', 'always']),
+      offDayPattern: z.enum(['short', 'long', 'flexible']),
     }),
     personalCircumstances: z.object({
       hasYoungChildren: z.boolean(),
