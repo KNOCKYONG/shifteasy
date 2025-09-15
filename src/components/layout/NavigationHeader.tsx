@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ProfileDropdown } from '@/components/ProfileDropdown';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { useTranslation } from 'react-i18next';
+import { useEffect, useState } from 'react';
 
 interface NavItem {
   href: string;
@@ -14,7 +15,12 @@ interface NavItem {
 
 export function NavigationHeader() {
   const pathname = usePathname();
-  const { t } = useTranslation('common');
+  const { t, ready } = useTranslation('common');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // 네비게이션 항목 정의 - 대시보드 탭 제외
   const navItems: NavItem[] = [
@@ -27,6 +33,17 @@ export function NavigationHeader() {
   // 인증이 필요없는 페이지들
   const publicPages = ['/sign-in', '/sign-up', '/join'];
   const isPublicPage = publicPages.some(page => pathname?.startsWith(page));
+
+  // i18n이 준비되지 않았거나 마운트되지 않았으면 로딩 상태 표시
+  if (!mounted || !ready) {
+    return (
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="h-16" />
+        </div>
+      </header>
+    );
+  }
 
   if (isPublicPage) {
     return null; // 인증 페이지에서는 네비게이션 헤더를 표시하지 않음
@@ -61,7 +78,7 @@ export function NavigationHeader() {
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
                     }`}
                   >
-                    {item.i18nKey ? t(item.i18nKey, item.label) : item.label}
+                    {item.i18nKey && ready ? t(item.i18nKey, { defaultValue: item.label }) : item.label}
                   </Link>
                 );
               })}
