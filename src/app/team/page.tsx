@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, Save, Upload, Download, Users, ChevronRight, Edit2, Mail, Phone, Calendar, Shield, Clock, Star, Settings, Heart, MessageSquare, AlertCircle } from "lucide-react";
 import { mockTeamMembers, type MockTeamMember } from "@/lib/mock/team-members";
-import { ProfileDropdown } from "@/components/ProfileDropdown";
+import { MainLayout } from "@/components/layout/MainLayout";
 import { AddTeamMemberModal } from "@/components/AddTeamMemberModal";
 import { MyPreferencesPanel, type ComprehensivePreferences } from "@/components/team/MyPreferencesPanel";
 import { SpecialRequestModal, type SpecialRequest } from "@/components/team/SpecialRequestModal";
@@ -149,42 +149,7 @@ export default function TeamManagementPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-8">
-              <span className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                ShiftEasy
-              </span>
-              <nav className="flex items-center gap-6">
-                <a href="/dashboard" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                  대시보드
-                </a>
-                <a href="/schedule" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                  스케줄
-                </a>
-                <a href="/swap" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                  스왑
-                </a>
-                <a href="/team" className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                  팀 관리
-                </a>
-                <a href="/config" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                  설정
-                </a>
-              </nav>
-            </div>
-            <div className="flex items-center gap-3">
-              <ProfileDropdown />
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <MainLayout>
         {/* My Preferences Section - 현재 사용자용 */}
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl p-6 mb-8 border border-blue-200 dark:border-blue-800">
           <div className="flex items-center justify-between">
@@ -477,8 +442,6 @@ export default function TeamManagementPage() {
             </div>
           )}
         </div>
-      </main>
-
       {/* Add Team Member Modal */}
       <AddTeamMemberModal
         isOpen={showAddForm}
@@ -504,6 +467,6 @@ export default function TeamManagementPage() {
         onSubmit={handleSubmitSpecialRequest}
         existingRequests={specialRequests.filter(r => r.employeeId === currentUserId)}
       />
-    </div>
+    </MainLayout>
   );
 }

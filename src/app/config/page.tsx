@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Settings, Save, AlertCircle, Clock, Users, Calendar, Shield, ChevronRight, Info, Database, Trash2, Activity } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { type ShiftRule, type ShiftPattern } from "@/lib/types";
-import { ProfileDropdown } from "@/components/ProfileDropdown";
+import { MainLayout } from "@/components/layout/MainLayout";
 import { getCacheStats, clearAllCache, clearCachePattern } from "@/hooks/useApiCache";
 
 interface ConfigData {
@@ -124,42 +124,7 @@ export default function ConfigPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-8">
-              <span className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                ShiftEasy
-              </span>
-              <nav className="flex items-center gap-6">
-                <a href="/dashboard" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                  {t('nav.dashboard', { ns: 'common', defaultValue: '대시보드' })}
-                </a>
-                <a href="/schedule" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                  {t('nav.schedule', { ns: 'common', defaultValue: '스케줄' })}
-                </a>
-                <a href="/swap" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                  {t('nav.swap', { ns: 'common', defaultValue: '스왑' })}
-                </a>
-                <a href="/team" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                  {t('nav.team', { ns: 'common', defaultValue: '팀 관리' })}
-                </a>
-                <a href="/config" className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                  {t('nav.config', { ns: 'common', defaultValue: '설정' })}
-                </a>
-              </nav>
-            </div>
-            <div className="flex items-center gap-3">
-              <ProfileDropdown />
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <MainLayout>
         {/* Page Title */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-3">
@@ -557,7 +522,6 @@ export default function ConfigPage() {
             {t('actions.saveAndGenerate', { ns: 'config' })}
           </button>
         </div>
-      </main>
-    </div>
+    </MainLayout>
   );
 }

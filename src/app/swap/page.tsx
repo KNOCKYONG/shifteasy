@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Calendar, Clock, Users, ArrowLeftRight, Check, X, AlertCircle, Plus, Filter, Sparkles } from 'lucide-react';
-import { ProfileDropdown } from '@/components/ProfileDropdown';
+import { MainLayout } from '@/components/layout/MainLayout';
 import { format, addDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { NewRequestModal, NewRequestData } from '@/components/swap/NewRequestModal';
@@ -449,42 +449,7 @@ export default function SwapPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-8">
-              <span className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                ShiftEasy
-              </span>
-              <nav className="flex items-center gap-6">
-                <a href="/dashboard" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                  대시보드
-                </a>
-                <a href="/schedule" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                  스케줄
-                </a>
-                <a href="/swap" className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                  스왑
-                </a>
-                <a href="/team" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                  팀 관리
-                </a>
-                <a href="/config" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                  설정
-                </a>
-              </nav>
-            </div>
-            <div className="flex items-center gap-3">
-              <ProfileDropdown />
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <MainLayout>
         {/* 자동 매칭 알림 */}
         {showAutoMatchAlert && (
           <div className="mb-6 p-4 bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-lg flex items-center gap-3">
@@ -794,7 +759,6 @@ export default function SwapPage() {
           }}
           confirmedSchedules={confirmedSchedules}
         />
-      </main>
-    </div>
+    </MainLayout>
   );
 }

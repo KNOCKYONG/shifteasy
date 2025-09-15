@@ -4,7 +4,7 @@
 import { Calendar, Users, Clock, TrendingUp, ChevronRight, BarChart3, FileText, Download, Activity } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { ProfileDropdown } from '@/components/ProfileDropdown';
+import { MainLayout } from '@/components/layout/MainLayout';
 import { mockTenant } from '@/lib/auth/mock-auth';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { useApiCache } from '@/hooks/useApiCache';
@@ -179,43 +179,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-8">
-              <a
-                href="/dashboard"
-                className="text-xl font-semibold text-gray-900 dark:text-gray-100 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-              >
-                ShiftEasy
-              </a>
-              <nav className="flex items-center gap-6">
-                <a href="/schedule" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                  스케줄
-                </a>
-                <a href="/swap" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                  스왑
-                </a>
-                <a href="/team" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                  팀 관리
-                </a>
-                <a href="/config" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                  설정
-                </a>
-              </nav>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600 dark:text-gray-400">{organization?.name || '서울대학교병원'}</span>
-              <ProfileDropdown />
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <MainLayout>
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
@@ -424,7 +388,6 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
-      </main>
-    </div>
+    </MainLayout>
   );
 }

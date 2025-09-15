@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { format, startOfWeek, addWeeks, subWeeks, addDays } from "date-fns";
 import { ko } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings } from "lucide-react";
-import { ProfileDropdown } from "@/components/ProfileDropdown";
+import { MainLayout } from "@/components/layout/MainLayout";
 import { mockTeamMembers } from "@/lib/mock/team-members";
 import { Scheduler, type SchedulingRequest, type SchedulingResult } from "@/lib/scheduler/core";
 import { type Employee, type Shift, type Constraint, type ScheduleAssignment } from "@/lib/scheduler/types";
@@ -710,42 +710,7 @@ export default function SchedulePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-8">
-              <a
-                href="/dashboard"
-                className="text-xl font-semibold text-gray-900 dark:text-gray-100 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-              >
-                ShiftEasy
-              </a>
-              <nav className="flex items-center gap-6">
-                <a href="/schedule" className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                  스케줄
-                </a>
-                <a href="/swap" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                  스왑
-                </a>
-                <a href="/team" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                  팀 관리
-                </a>
-                <a href="/config" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                  설정
-                </a>
-              </nav>
-            </div>
-            <div className="flex items-center gap-3">
-              <ProfileDropdown />
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <MainLayout>
         {/* Simplified Schedule Action Toolbar */}
         <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
           <div className="flex items-center justify-between">
@@ -1376,8 +1341,6 @@ export default function SchedulePage() {
             }}
           />
         )}
-      </main>
-
       {/* 가져오기 모달 */}
       {showImportModal && (
         <div className="fixed inset-0 bg-gray-900/50 dark:bg-gray-950/70 flex items-center justify-center z-50 p-4">
@@ -2027,6 +1990,6 @@ export default function SchedulePage() {
           </div>
         </div>
       )}
-    </div>
+    </MainLayout>
   );
 }
