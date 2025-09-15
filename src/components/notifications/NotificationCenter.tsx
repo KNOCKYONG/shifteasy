@@ -6,16 +6,18 @@ import { ko } from "date-fns/locale";
 
 export interface Notification {
   id: string;
-  type: 'swap.request' | 'swap.approved' | 'swap.rejected' | 'schedule.updated' | 'general';
+  type: 'swap.request' | 'swap.approved' | 'swap.rejected' | 'schedule.updated' | 'schedule.published' | 'emergency_call' | 'shift_reminder' | 'general';
   title: string;
   message: string;
   timestamp: number;
   read: boolean;
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
   actions?: Array<{
     label: string;
     action: string;
   }>;
   requestId?: string;
+  metadata?: any;
 }
 
 interface NotificationCenterProps {
@@ -27,14 +29,45 @@ export function NotificationCenter({ userId }: NotificationCenterProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [eventSource, setEventSource] = useState<EventSource | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
+
+  // 초기 알림 가져오기
+  useEffect(() => {
+    fetchNotifications();
+  }, [userId]);
+
+  const fetchNotifications = async () => {
+    try {
+      const response = await fetch('/api/notifications', {
+        headers: {
+          'x-user-id': userId,
+          'x-tenant-id': 'default-tenant'
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data) {
+          setNotifications(result.data.notifications);
+          setUnreadCount(result.data.unreadCount);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch notifications:', error);
+    }
+  };
 
   // SSE 연결 설정
   useEffect(() => {
     const connectSSE = () => {
-      const es = new EventSource(`/api/sse?userId=${userId}`);
+      setConnectionStatus('connecting');
+      const es = new EventSource(`/api/sse`, {
+        withCredentials: false
+      });
 
-      es.addEventListener('connected', (event) => {
-        console.log('SSE Connected:', event.data);
+      es.addEventListener('open', () => {
+        console.log('SSE Connected');
+        setConnectionStatus('connected');
       });
 
       es.addEventListener('notification', (event) => {
@@ -61,12 +94,14 @@ export function NotificationCenter({ userId }: NotificationCenterProps) {
         // Heartbeat 수신
       });
 
-      es.onerror = (error) => {
-        console.error('SSE Error:', error);
+      es.addEventListener('error', () => {
+        console.error('SSE Error');
+        setConnectionStatus('disconnected');
         es.close();
-        // 5초 후 재연결
-        setTimeout(connectSSE, 5000);
-      };
+        // 지수 백오프로 재연결
+        const retryDelay = Math.min(30000, 3000 * Math.pow(2, Math.random() * 3));
+        setTimeout(connectSSE, retryDelay);
+      });
 
       setEventSource(es);
     };
@@ -147,26 +182,57 @@ export function NotificationCenter({ userId }: NotificationCenterProps) {
   };
 
   const handleAction = async (notification: Notification, action: string) => {
-    if (notification.requestId) {
+    if (notification.type === 'swap.request' && notification.requestId) {
       // 스왑 요청 처리
       try {
         const response = await fetch(`/api/swap/${notification.requestId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-id': userId,
+            'x-tenant-id': 'default-tenant'
+          },
           body: JSON.stringify({
             action,
             [action === 'approve' ? 'approvedBy' : 'rejectedBy']: userId,
-            schedule: {} // 현재 스케줄 정보 필요
+            metadata: notification.metadata
           })
         });
 
         if (response.ok) {
           markAsRead(notification.id);
           // 성공 메시지 표시
+          alert(action === 'approve' ? '스왑 요청을 승인했습니다.' : '스왑 요청을 거절했습니다.');
+          // 알림 목록 새로고침
+          fetchNotifications();
         }
       } catch (error) {
         console.error('Action failed:', error);
+        alert('요청 처리에 실패했습니다.');
       }
+    } else if (notification.type === 'emergency_call') {
+      // 긴급 호출 응답
+      alert('긴급 호출에 응답하였습니다.');
+      markAsRead(notification.id);
+    }
+  };
+
+  const deleteAllNotifications = async () => {
+    try {
+      const response = await fetch('/api/notifications', {
+        method: 'DELETE',
+        headers: {
+          'x-user-id': userId,
+          'x-tenant-id': 'default-tenant'
+        }
+      });
+
+      if (response.ok) {
+        setNotifications([]);
+        setUnreadCount(0);
+      }
+    } catch (error) {
+      console.error('Failed to delete notifications:', error);
     }
   };
 
@@ -186,13 +252,22 @@ export function NotificationCenter({ userId }: NotificationCenterProps) {
       case 'swap.rejected':
         return <X className="w-4 h-4" />;
       case 'schedule.updated':
+      case 'schedule.published':
         return <Clock className="w-4 h-4" />;
+      case 'emergency_call':
+        return <AlertCircle className="w-4 h-4" />;
+      case 'shift_reminder':
+        return <Bell className="w-4 h-4" />;
       default:
         return <AlertCircle className="w-4 h-4" />;
     }
   };
 
-  const getNotificationColor = (type: Notification['type']) => {
+  const getNotificationColor = (type: Notification['type'], priority?: string) => {
+    if (priority === 'urgent') {
+      return 'bg-red-50 text-red-600';
+    }
+
     switch (type) {
       case 'swap.request':
         return 'bg-blue-50 text-blue-600';
@@ -201,7 +276,12 @@ export function NotificationCenter({ userId }: NotificationCenterProps) {
       case 'swap.rejected':
         return 'bg-red-50 text-red-600';
       case 'schedule.updated':
+      case 'schedule.published':
         return 'bg-purple-50 text-purple-600';
+      case 'emergency_call':
+        return 'bg-red-50 text-red-600';
+      case 'shift_reminder':
+        return 'bg-yellow-50 text-yellow-600';
       default:
         return 'bg-gray-50 text-gray-600';
     }
@@ -234,23 +314,36 @@ export function NotificationCenter({ userId }: NotificationCenterProps) {
           {/* 알림 패널 */}
           <div className="absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 max-h-[500px] overflow-hidden">
             {/* 헤더 */}
-            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">알림</h3>
-              <div className="flex items-center gap-2">
-                {unreadCount > 0 && (
+            <div className="px-4 py-3 border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">알림</h3>
+                <div className="flex items-center gap-2">
+                  {connectionStatus === 'connected' && (
+                    <div className="w-2 h-2 bg-green-500 rounded-full" title="연결됨" />
+                  )}
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllAsRead}
+                      className="text-sm text-blue-600 hover:text-blue-700"
+                    >
+                      모두 읽음
+                    </button>
+                  )}
+                  {notifications.length > 0 && (
+                    <button
+                      onClick={deleteAllNotifications}
+                      className="text-sm text-red-600 hover:text-red-700"
+                    >
+                      모두 삭제
+                    </button>
+                  )}
                   <button
-                    onClick={markAllAsRead}
-                    className="text-sm text-blue-600 hover:text-blue-700"
+                    onClick={() => setIsOpen(false)}
+                    className="p-1 hover:bg-gray-100 rounded-lg"
                   >
-                    모두 읽음
+                    <X className="w-4 h-4 text-gray-500" />
                   </button>
-                )}
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="p-1 hover:bg-gray-100 rounded-lg"
-                >
-                  <X className="w-4 h-4 text-gray-500" />
-                </button>
+                </div>
               </div>
             </div>
 
@@ -272,7 +365,7 @@ export function NotificationCenter({ userId }: NotificationCenterProps) {
                       onClick={() => markAsRead(notification.id)}
                     >
                       <div className="flex items-start gap-3">
-                        <div className={`p-2 rounded-lg ${getNotificationColor(notification.type)}`}>
+                        <div className={`p-2 rounded-lg ${getNotificationColor(notification.type, notification.priority)}`}>
                           {getNotificationIcon(notification.type)}
                         </div>
                         <div className="flex-1 min-w-0">

@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { format, startOfWeek, addWeeks, subWeeks, addDays } from "date-fns";
 import { ko } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Calendar, Users, Download, Lock, Unlock, Wand2, RefreshCw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings } from "lucide-react";
 import { ProfileDropdown } from "@/components/ProfileDropdown";
 import { mockTeamMembers } from "@/lib/mock/team-members";
 import { Scheduler, type SchedulingRequest, type SchedulingResult } from "@/lib/scheduler/core";
@@ -232,6 +232,155 @@ export default function SchedulePage() {
 
   const displayMembers = getFilteredMembersForDisplay();
 
+  // Validate current schedule
+  const handleValidateSchedule = async () => {
+    setIsValidating(true);
+    setShowValidationResults(false);
+
+    try {
+      const response = await fetch('/api/schedule/validate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': 'user-1', // 임시 사용자 ID
+          'x-tenant-id': 'default-tenant',
+        },
+        body: JSON.stringify({
+          schedule: schedule.map(assignment => ({
+            employeeId: assignment.employeeId,
+            shiftId: assignment.shiftId,
+            date: assignment.date,
+          })),
+          employees: filteredMembers,
+          shifts: DEFAULT_SHIFTS,
+          constraints: DEFAULT_CONSTRAINTS,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setValidationScore(result.data.score);
+        setValidationIssues(result.data.violations || []);
+        setShowValidationResults(true);
+
+        if (result.data.score === 100) {
+          alert('스케줄이 모든 제약조건을 만족합니다!');
+        } else if (result.data.score >= 80) {
+          alert(`스케줄 검증 점수: ${result.data.score}점\n경미한 문제가 있지만 사용 가능합니다.`);
+        } else {
+          alert(`스케줄 검증 점수: ${result.data.score}점\n개선이 필요한 사항이 있습니다.`);
+        }
+      } else {
+        alert('스케줄 검증에 실패했습니다: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Validation error:', error);
+      alert('스케줄 검증 중 오류가 발생했습니다.');
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  // Optimize current schedule
+  const handleOptimizeSchedule = async () => {
+    setIsOptimizing(true);
+
+    try {
+      const response = await fetch('/api/schedule/optimize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': 'user-1', // 임시 사용자 ID
+          'x-tenant-id': 'default-tenant',
+        },
+        body: JSON.stringify({
+          schedule: schedule.map(assignment => ({
+            employeeId: assignment.employeeId,
+            shiftId: assignment.shiftId,
+            date: assignment.date,
+          })),
+          employees: filteredMembers,
+          shifts: DEFAULT_SHIFTS,
+          constraints: DEFAULT_CONSTRAINTS,
+          targetScore: 90,
+          maxIterations: 10,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.data.optimizedSchedule) {
+        // Update schedule with optimized version
+        const newSchedule = result.data.optimizedSchedule.map((item: any) => ({
+          ...item,
+          id: `${item.employeeId}-${item.date}-${item.shiftId}`,
+        }));
+
+        setSchedule(newSchedule);
+
+        const improvement = result.data.finalScore - result.data.initialScore;
+        alert(`스케줄 최적화 완료!\n개선도: ${improvement.toFixed(1)}점\n최종 점수: ${result.data.finalScore}점`);
+
+        // Validate the optimized schedule
+        setTimeout(() => handleValidateSchedule(), 500);
+      } else {
+        alert('스케줄 최적화에 실패했습니다: ' + (result.error || '알 수 없는 오류'));
+      }
+    } catch (error) {
+      console.error('Optimization error:', error);
+      alert('스케줄 최적화 중 오류가 발생했습니다.');
+    } finally {
+      setIsOptimizing(false);
+    }
+  };
+
+  // Confirm and publish schedule
+  const handleConfirmSchedule = async () => {
+    setIsConfirming(true);
+
+    try {
+      const response = await fetch('/api/schedule/confirm', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': 'user-1', // 임시 사용자 ID
+          'x-tenant-id': 'default-tenant',
+        },
+        body: JSON.stringify({
+          schedule: schedule.map(assignment => ({
+            employeeId: assignment.employeeId,
+            shiftId: assignment.shiftId,
+            date: assignment.date,
+          })),
+          week: format(currentWeek, 'yyyy-MM-dd'),
+          departmentId: selectedDepartment,
+          notifyEmployees: true,
+          metadata: {
+            createdBy: 'user-1', // 임시 사용자 ID
+            createdAt: new Date().toISOString(),
+            validationScore: validationScore,
+          },
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setScheduleStatus('confirmed');
+        setShowConfirmDialog(false);
+        alert('스케줄이 확정되었습니다!\n직원들에게 알림이 발송되었습니다.');
+      } else {
+        alert('스케줄 확정에 실패했습니다: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Confirmation error:', error);
+      alert('스케줄 확정 중 오류가 발생했습니다.');
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
   const handleGenerateSchedule = async () => {
     if (filteredMembers.length === 0) {
       alert('선택된 부서에 활성 직원이 없습니다.');
@@ -335,23 +484,210 @@ export default function SchedulePage() {
     setIsConfirmed(!isConfirmed);
   };
 
-  const handleExport = () => {
-    const exportData = {
-      week: format(currentWeek, "yyyy-MM-dd"),
-      department: selectedDepartment,
-      assignments: schedule,
-      result: generationResult,
-      confirmed: isConfirmed,
-      exportedAt: new Date().toISOString(),
-    };
+  const [exportFormat, setExportFormat] = useState<'excel' | 'pdf' | 'both' | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
 
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `schedule-${format(currentWeek, "yyyy-MM-dd")}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+  // Schedule optimization and validation states
+  const [showValidationResults, setShowValidationResults] = useState(false);
+  const [validationScore, setValidationScore] = useState<number | null>(null);
+  const [validationIssues, setValidationIssues] = useState<any[]>([]);
+  const [isValidating, setIsValidating] = useState(false);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [scheduleStatus, setScheduleStatus] = useState<'draft' | 'confirmed'>('draft');
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = () => setShowMoreMenu(false);
+    if (showMoreMenu) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [showMoreMenu]);
+
+  const handleImport = async () => {
+    if (!importFile) {
+      alert('파일을 선택해주세요.');
+      return;
+    }
+
+    setIsImporting(true);
+    try {
+      const fileContent = await importFile.text();
+      let importData;
+
+      if (importFile.type === 'application/json') {
+        // JSON 파일 처리
+        importData = JSON.parse(fileContent);
+      } else if (importFile.type === 'text/csv') {
+        // CSV 파일 처리 - 간단한 파싱
+        const lines = fileContent.split('\n');
+        const headers = lines[0].split(',');
+        const assignments: ScheduleAssignment[] = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          if (lines[i].trim()) {
+            const values = lines[i].split(',');
+            const assignment: any = {};
+            headers.forEach((header, index) => {
+              assignment[header.trim()] = values[index]?.trim();
+            });
+
+            // CSV 데이터를 ScheduleAssignment 형식으로 변환
+            if (assignment.employeeId && assignment.date && assignment.shiftId) {
+              assignments.push({
+                id: assignment.id || `imported-${Date.now()}-${i}`,
+                employeeId: assignment.employeeId,
+                date: new Date(assignment.date),
+                shiftId: assignment.shiftId,
+              });
+            }
+          }
+        }
+        importData = { assignments };
+      } else {
+        throw new Error('지원하지 않는 파일 형식입니다.');
+      }
+
+      // 가져온 데이터 적용
+      if (importData.assignments && Array.isArray(importData.assignments)) {
+        // 날짜 문자열을 Date 객체로 변환
+        const processedAssignments = importData.assignments.map((a: any) => ({
+          ...a,
+          date: typeof a.date === 'string' ? new Date(a.date) : a.date,
+        }));
+
+        setSchedule(processedAssignments);
+        setOriginalSchedule(processedAssignments);
+
+        // 결과 정보가 있으면 적용
+        if (importData.result) {
+          setGenerationResult(importData.result);
+        }
+
+        // 확정 상태가 있으면 적용
+        if (importData.confirmed !== undefined) {
+          setIsConfirmed(importData.confirmed);
+        }
+
+        // 부서 정보가 있으면 적용
+        if (importData.department) {
+          setSelectedDepartment(importData.department);
+        }
+
+        // 주차 정보가 있으면 적용
+        if (importData.week) {
+          setCurrentWeek(new Date(importData.week));
+        }
+
+        setActiveView('schedule');
+        alert('스케줄을 성공적으로 가져왔습니다.');
+      } else {
+        throw new Error('올바른 스케줄 데이터가 없습니다.');
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      alert('파일 가져오기 중 오류가 발생했습니다. 파일 형식을 확인해주세요.');
+    } finally {
+      setIsImporting(false);
+      setShowImportModal(false);
+      setImportFile(null);
+    }
+  };
+
+  const handleExport = async (exportFormat: 'excel' | 'pdf' | 'both') => {
+    if (schedule.length === 0) {
+      alert('내보낼 스케줄이 없습니다.');
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const endDate = addDays(currentWeek, 6);
+
+      const response = await fetch('/api/report/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-id': 'default-tenant', // 실제 환경에서는 적절한 테넌트 ID 사용
+          'x-user-id': 'user-1', // 임시 사용자 ID
+        },
+        body: JSON.stringify({
+          reportType: 'schedule',
+          format: exportFormat,
+          period: {
+            start: format(currentWeek, 'yyyy-MM-dd'),
+            end: format(endDate, 'yyyy-MM-dd'),
+          },
+          async: false,
+          options: {
+            includeCharts: true,
+            includeMetadata: true,
+            departments: selectedDepartment === 'all' ? [] : [selectedDepartment],
+            scheduleData: {
+              assignments: schedule,
+              staff: filteredMembers,
+              shifts: DEFAULT_SHIFTS,
+              generationResult: generationResult,
+              confirmed: isConfirmed,
+            },
+          },
+        }),
+      });
+
+      const result = await response.json();
+      console.log('Report generation response:', result);
+
+      if (!response.ok) {
+        throw new Error(result.error || result.message || '리포트 생성 실패');
+      }
+
+      if (result.success && result.data) {
+        // Excel 파일 다운로드
+        if (result.data.excel) {
+          const excelBlob = new Blob(
+            [Uint8Array.from(atob(result.data.excel.data), c => c.charCodeAt(0))],
+            { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }
+          );
+          const excelUrl = URL.createObjectURL(excelBlob);
+          const a = document.createElement('a');
+          a.href = excelUrl;
+          a.download = result.data.excel.filename;
+          a.click();
+          URL.revokeObjectURL(excelUrl);
+        }
+
+        // PDF 파일 다운로드
+        if (result.data.pdf) {
+          const pdfBlob = new Blob(
+            [Uint8Array.from(atob(result.data.pdf.data), c => c.charCodeAt(0))],
+            { type: 'application/pdf' }
+          );
+          const pdfUrl = URL.createObjectURL(pdfBlob);
+          const a = document.createElement('a');
+          a.href = pdfUrl;
+          a.download = result.data.pdf.filename;
+          a.click();
+          URL.revokeObjectURL(pdfUrl);
+        }
+
+        alert(`스케줄이 ${exportFormat === 'both' ? 'Excel과 PDF' : exportFormat.toUpperCase()} 형식으로 내보내기되었습니다.`);
+      } else {
+        throw new Error(result.error || '리포트 생성 실패');
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('내보내기 중 오류가 발생했습니다. 다시 시도해주세요.');
+    } finally {
+      setIsExporting(false);
+      setShowExportModal(false);
+    }
   };
 
   // 날짜별 스케줄 그룹화
@@ -380,13 +716,13 @@ export default function SchedulePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-8">
-              <span className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+              <a
+                href="/dashboard"
+                className="text-xl font-semibold text-gray-900 dark:text-gray-100 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+              >
                 ShiftEasy
-              </span>
+              </a>
               <nav className="flex items-center gap-6">
-                <a href="/dashboard" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                  대시보드
-                </a>
                 <a href="/schedule" className="text-sm font-medium text-blue-600 dark:text-blue-400">
                   스케줄
                 </a>
@@ -402,6 +738,20 @@ export default function SchedulePage() {
               </nav>
             </div>
             <div className="flex items-center gap-3">
+              <ProfileDropdown />
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Simplified Schedule Action Toolbar */}
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
+          <div className="flex items-center justify-between">
+            {/* Primary Actions - Only Essential Buttons */}
+            <div className="flex items-center gap-2">
+              {/* AI Generate Button - Primary Action */}
               <button
                 onClick={handleGenerateSchedule}
                 disabled={isGenerating}
@@ -424,71 +774,139 @@ export default function SchedulePage() {
                 )}
               </button>
 
-              <button
-                onClick={handleExport}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                <Download className="w-4 h-4" />
-                내보내기
-              </button>
-
-              {generationResult && (
+              {/* Quick Actions for existing schedule */}
+              {schedule.length > 0 && (
                 <>
                   <button
-                    onClick={() => setShowReport(true)}
-                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-950/50"
+                    onClick={handleValidateSchedule}
+                    disabled={isValidating}
+                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    title="스케줄 검증"
                   >
-                    <FileText className="w-4 h-4" />
-                    리포트 보기
+                    <CheckCircle className="w-4 h-4" />
+                    <span className="hidden sm:inline">검증</span>
                   </button>
 
                   <button
-                    onClick={() => {
-                      setIsReviewMode(!isReviewMode);
-                      setActiveView(isReviewMode ? 'schedule' : 'review');
-                    }}
-                    className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg ${
-                      isReviewMode
-                        ? "bg-orange-500 text-white hover:bg-orange-600"
-                        : "text-orange-700 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-950/50"
-                    }`}
+                    onClick={() => setShowConfirmDialog(true)}
+                    disabled={scheduleStatus === 'confirmed'}
+                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    title="스케줄 확정"
                   >
-                    <Edit3 className="w-4 h-4" />
-                    {isReviewMode ? "리뷰 종료" : "스케줄 검토"}
+                    <Lock className="w-4 h-4" />
+                    <span className="hidden sm:inline">확정</span>
                   </button>
                 </>
               )}
+            </div>
 
+            {/* More Options Menu */}
+            <div className="flex items-center gap-2">
+              {/* Import/Export as icon buttons */}
               <button
-                onClick={handleConfirmToggle}
-                className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg ${
-                  isConfirmed
-                    ? "text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-950/50"
-                    : "text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-950/50"
-                }`}
+                onClick={() => setShowImportModal(true)}
+                className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                title="가져오기"
               >
-                {isConfirmed ? (
-                  <>
-                    <Lock className="w-4 h-4" />
-                    확정됨
-                  </>
-                ) : (
-                  <>
-                    <Unlock className="w-4 h-4" />
-                    스케줄 확정
-                  </>
-                )}
+                <Upload className="w-4 h-4" />
               </button>
 
-              <ProfileDropdown />
+              {schedule.length > 0 && (
+                <button
+                  onClick={() => setShowExportModal(true)}
+                  className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                  title="내보내기"
+                >
+                  <Download className="w-4 h-4" />
+                </button>
+              )}
+
+              {/* Dropdown Menu for Additional Options */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowMoreMenu(!showMoreMenu)}
+                  className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                  title="더 보기"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </button>
+
+                {/* Dropdown Menu */}
+                {showMoreMenu && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
+                    {schedule.length > 0 && (
+                      <>
+                        <button
+                          onClick={() => {
+                            handleOptimizeSchedule();
+                            setShowMoreMenu(false);
+                          }}
+                          className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
+                        >
+                          <Zap className="w-4 h-4" />
+                          스케줄 최적화
+                        </button>
+
+                        {generationResult && (
+                          <>
+                            <button
+                              onClick={() => {
+                                setShowReport(true);
+                                setShowMoreMenu(false);
+                              }}
+                              className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
+                            >
+                              <FileText className="w-4 h-4" />
+                              리포트 보기
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setIsReviewMode(!isReviewMode);
+                                setActiveView(isReviewMode ? 'schedule' : 'review');
+                                setShowMoreMenu(false);
+                              }}
+                              className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                              스케줄 검토
+                            </button>
+                          </>
+                        )}
+
+                        <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+                      </>
+                    )}
+
+                    <button
+                      onClick={() => {
+                        handleConfirmToggle();
+                        setShowMoreMenu(false);
+                      }}
+                      className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
+                    >
+                      {isConfirmed ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                      {isConfirmed ? "스케줄 해제" : "스케줄 잠금"}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        // Settings or preferences
+                        setShowMoreMenu(false);
+                      }}
+                      className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
+                    >
+                      <Settings className="w-4 h-4" />
+                      설정
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* View Tabs - Moved to top */}
+        {/* View Tabs */}
         <div className="mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
           <nav className="flex gap-2 sm:gap-4 md:gap-8 min-w-max">
             <button
@@ -960,6 +1378,202 @@ export default function SchedulePage() {
         )}
       </main>
 
+      {/* 가져오기 모달 */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-gray-900/50 dark:bg-gray-950/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-md">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                  <Upload className="w-5 h-5" />
+                  스케줄 가져오기
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowImportModal(false);
+                    setImportFile(null);
+                  }}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                >
+                  <X className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                이전에 내보낸 스케줄 파일을 선택하세요.
+              </p>
+
+              <div className="space-y-4">
+                <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6">
+                  <input
+                    type="file"
+                    accept=".json,.csv"
+                    onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                    className="hidden"
+                    id="file-upload"
+                  />
+                  <label
+                    htmlFor="file-upload"
+                    className="cursor-pointer flex flex-col items-center"
+                  >
+                    <FileUp className="w-12 h-12 text-gray-400 mb-3" />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      클릭하여 파일 선택
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      JSON 또는 CSV 형식 지원
+                    </span>
+                  </label>
+                </div>
+
+                {importFile && (
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        {importFile.name}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        ({(importFile.size / 1024).toFixed(1)} KB)
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setImportFile(null)}
+                      className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowImportModal(false);
+                      setImportFile(null);
+                    }}
+                    className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    취소
+                  </button>
+                  <button
+                    onClick={handleImport}
+                    disabled={!importFile || isImporting}
+                    className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg ${
+                      !importFile || isImporting
+                        ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
+                        : "text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+                    }`}
+                  >
+                    {isImporting ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin inline mr-2" />
+                        가져오는 중...
+                      </>
+                    ) : (
+                      "가져오기"
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <div className="bg-yellow-50 dark:bg-yellow-950/30 rounded-lg p-3">
+                  <p className="text-xs text-yellow-700 dark:text-yellow-400">
+                    <strong>주의:</strong> 가져오기를 실행하면 현재 스케줄이 대체됩니다.
+                    가져오기 전에 현재 스케줄을 저장하는 것을 권장합니다.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 내보내기 형식 선택 모달 */}
+      {showExportModal && (
+        <div className="fixed inset-0 bg-gray-900/50 dark:bg-gray-950/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-md">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                  <Download className="w-5 h-5" />
+                  스케줄 내보내기
+                </h2>
+                <button
+                  onClick={() => setShowExportModal(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                >
+                  <X className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                스케줄을 내보낼 파일 형식을 선택하세요.
+              </p>
+
+              <div className="space-y-3">
+                <button
+                  onClick={() => handleExport('excel')}
+                  disabled={isExporting}
+                  className="w-full flex items-center gap-3 p-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg hover:bg-green-100 dark:hover:bg-green-950/50 transition-colors"
+                >
+                  <FileSpreadsheet className="w-8 h-8 text-green-600 dark:text-green-400" />
+                  <div className="flex-1 text-left">
+                    <div className="font-medium text-gray-900 dark:text-gray-100">Excel 파일</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      편집 가능한 스프레드시트 형식 (.xlsx)
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => handleExport('pdf')}
+                  disabled={isExporting}
+                  className="w-full flex items-center gap-3 p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors"
+                >
+                  <FileText className="w-8 h-8 text-red-600 dark:text-red-400" />
+                  <div className="flex-1 text-left">
+                    <div className="font-medium text-gray-900 dark:text-gray-100">PDF 파일</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      인쇄 및 공유용 문서 형식 (.pdf)
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => handleExport('both')}
+                  disabled={isExporting}
+                  className="w-full flex items-center gap-3 p-4 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-950/50 transition-colors"
+                >
+                  <Package className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+                  <div className="flex-1 text-left">
+                    <div className="font-medium text-gray-900 dark:text-gray-100">Excel + PDF</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      두 형식 모두 다운로드
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3">
+                  <p className="text-xs text-blue-700 dark:text-blue-400">
+                    <strong>포함 내용:</strong> 주간 스케줄, 직원별 근무시간, 시프트 통계,
+                    {generationResult && "AI 생성 결과, "}
+                    {isConfirmed && "확정 상태"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 스케줄링 리포트 모달 */}
       {showReport && generationResult && (
         <div className="fixed inset-0 bg-gray-900/50 dark:bg-gray-950/70 flex items-center justify-center z-50 p-4">
@@ -1190,6 +1804,224 @@ export default function SchedulePage() {
                     반복 횟수: {generationResult.iterations}회
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Validation Results Modal */}
+      {showValidationResults && (
+        <div className="fixed inset-0 bg-gray-900/50 dark:bg-gray-950/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5" />
+                  스케줄 검증 결과
+                </h2>
+                <button
+                  onClick={() => setShowValidationResults(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                >
+                  <X className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[calc(80vh-100px)]">
+              {/* Validation Score */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    검증 점수
+                  </h3>
+                  <span className={`text-2xl font-bold ${
+                    validationScore && validationScore >= 80
+                      ? 'text-green-600 dark:text-green-400'
+                      : validationScore && validationScore >= 60
+                      ? 'text-yellow-600 dark:text-yellow-400'
+                      : 'text-red-600 dark:text-red-400'
+                  }`}>
+                    {validationScore}점
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+                  <div
+                    className={`h-3 rounded-full ${
+                      validationScore && validationScore >= 80
+                        ? 'bg-green-500'
+                        : validationScore && validationScore >= 60
+                        ? 'bg-yellow-500'
+                        : 'bg-red-500'
+                    }`}
+                    style={{ width: `${validationScore}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Validation Issues */}
+              {validationIssues.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                    발견된 문제점
+                  </h3>
+                  <div className="space-y-3">
+                    {validationIssues.map((issue, idx) => (
+                      <div
+                        key={idx}
+                        className={`rounded-lg p-4 ${
+                          issue.severity === 'critical'
+                            ? 'bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800'
+                            : issue.severity === 'high'
+                            ? 'bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800'
+                            : issue.severity === 'medium'
+                            ? 'bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800'
+                            : 'bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            {issue.constraintName || issue.type}
+                          </span>
+                          <span className={`text-xs font-bold uppercase px-2 py-1 rounded ${
+                            issue.severity === 'critical'
+                              ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+                              : issue.severity === 'high'
+                              ? 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300'
+                              : issue.severity === 'medium'
+                              ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300'
+                              : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                          }`}>
+                            {issue.severity}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                          {issue.message || issue.details}
+                        </p>
+                        {issue.suggestion && (
+                          <p className="text-xs text-gray-500 dark:text-gray-500 italic">
+                            💡 {issue.suggestion}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={() => setShowValidationResults(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  닫기
+                </button>
+                {validationScore && validationScore < 80 && (
+                  <button
+                    onClick={() => {
+                      setShowValidationResults(false);
+                      handleOptimizeSchedule();
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 rounded-lg"
+                  >
+                    최적화 실행
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Schedule Confirmation Dialog */}
+      {showConfirmDialog && (
+        <div className="fixed inset-0 bg-gray-900/50 dark:bg-gray-950/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-md">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                  <Lock className="w-5 h-5" />
+                  스케줄 확정
+                </h2>
+                <button
+                  onClick={() => setShowConfirmDialog(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                >
+                  <X className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <div className="mb-6">
+                <p className="text-gray-700 dark:text-gray-300 mb-4">
+                  현재 스케줄을 확정하시겠습니까?
+                </p>
+
+                {validationScore !== null && (
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        검증 점수
+                      </span>
+                      <span className={`text-lg font-bold ${
+                        validationScore >= 80
+                          ? 'text-green-600 dark:text-green-400'
+                          : validationScore >= 60
+                          ? 'text-yellow-600 dark:text-yellow-400'
+                          : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        {validationScore}점
+                      </span>
+                    </div>
+                    {validationScore < 80 && (
+                      <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                        ⚠️ 검증 점수가 낮습니다. 최적화를 먼저 실행하는 것을 권장합니다.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4">
+                  <p className="text-sm text-blue-700 dark:text-blue-400">
+                    <strong>확정 시 수행되는 작업:</strong>
+                  </p>
+                  <ul className="mt-2 space-y-1 text-sm text-blue-600 dark:text-blue-300">
+                    <li>• 스케줄이 최종 확정되어 수정 불가</li>
+                    <li>• 모든 직원에게 알림 발송</li>
+                    <li>• 스케줄 공개 및 접근 가능</li>
+                    <li>• 근무 일정 캘린더 동기화</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowConfirmDialog(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleConfirmSchedule}
+                  disabled={isConfirming}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg ${
+                    isConfirming
+                      ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
+                      : "text-white bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
+                  }`}
+                >
+                  {isConfirming ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin inline mr-2" />
+                      확정 중...
+                    </>
+                  ) : (
+                    "확정하기"
+                  )}
+                </button>
               </div>
             </div>
           </div>
