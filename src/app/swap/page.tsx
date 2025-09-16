@@ -371,60 +371,67 @@ export default function SwapPage() {
   };
 
   const SwapCard = ({ request, showActions = false }: { request: SwapRequest; showActions?: boolean }) => (
-    <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md dark:hover:shadow-gray-900/50 transition-shadow">
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2">
+    <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-3 sm:p-4 hover:shadow-md dark:hover:shadow-gray-900/50 transition-shadow">
+      <div className="flex items-start justify-between mb-2 sm:mb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
           {getStatusBadge(request.status)}
           <span className="text-xs text-gray-500 dark:text-gray-400">
             {format(request.createdAt, 'MM/dd HH:mm')}
           </span>
         </div>
         {showActions && request.status === 'requested' && (
-          <div className="flex gap-2">
+          <div className="flex gap-1 sm:gap-2">
             <button
               onClick={() => handleApprove(request.id)}
-              className="p-1.5 bg-green-50 dark:bg-green-950/30 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-100 dark:hover:bg-green-950/50 transition-colors"
+              className="p-1 sm:p-1.5 bg-green-50 dark:bg-green-950/30 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-100 dark:hover:bg-green-950/50 transition-colors"
             >
-              <Check className="w-4 h-4" />
+              <Check className="w-3.5 sm:w-4 h-3.5 sm:h-4" />
             </button>
             <button
               onClick={() => handleReject(request.id)}
-              className="p-1.5 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors"
+              className="p-1 sm:p-1.5 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 sm:w-4 h-3.5 sm:h-4" />
             </button>
           </div>
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      {/* 모바일에서는 세로 레이아웃으로 변경 */}
+      <div className="space-y-3">
         {/* 요청 타입 표시 */}
-        <div className="col-span-2 mb-2">
+        <div>
           {getTypeBadge(request.type)}
         </div>
+
         {/* 요청자 정보 */}
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{request.requesterName}</p>
-          <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-            <Calendar className="w-3 h-3" />
-            {format(new Date(request.requesterShift.date), 'MM/dd (EEE)', { locale: ko })}
-          </div>
-          <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-            <Clock className="w-3 h-3" />
-            {request.requesterShift.type} ({request.requesterShift.time})
+        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2 sm:p-3">
+          <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100 mb-1.5">{request.requesterName}</p>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+              <Calendar className="w-3 h-3" />
+              {format(new Date(request.requesterShift.date), 'MM/dd (EEE)', { locale: ko })}
+            </div>
+            <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+              <Clock className="w-3 h-3" />
+              {request.requesterShift.type} ({request.requesterShift.time})
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-center">
-          <ArrowLeftRight className="w-5 h-5 text-gray-400 dark:text-gray-500" />
-        </div>
+        {/* 교환 아이콘 */}
+        {request.targetId && (
+          <div className="flex items-center justify-center py-1">
+            <ArrowLeftRight className="w-4 sm:w-5 h-4 sm:h-5 text-gray-400 dark:text-gray-500 rotate-90 sm:rotate-0" />
+          </div>
+        )}
 
         {/* 대상자 정보 (있는 경우만) */}
-        {request.targetId ? (
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{request.targetName}</p>
+        {request.targetId && (
+          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2 sm:p-3">
+            <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100 mb-1.5">{request.targetName}</p>
             {request.targetShift && (
-              <>
+              <div className="space-y-1">
                 <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
                   <Calendar className="w-3 h-3" />
                   {format(new Date(request.targetShift.date), 'MM/dd (EEE)', { locale: ko })}
@@ -433,10 +440,10 @@ export default function SwapPage() {
                   <Clock className="w-3 h-3" />
                   {request.targetShift.type} ({request.targetShift.time})
                 </div>
-              </>
+              </div>
             )}
           </div>
-        ) : null}
+        )}
       </div>
 
       <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
@@ -458,26 +465,28 @@ export default function SwapPage() {
           </div>
         )}
 
-        {/* Page Header */}
-        <div className="flex items-center justify-between mb-8">
+        {/* Page Header - 모바일 최적화 */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">근무 교대 요청</h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">동료와 근무를 교대하거나 요청을 관리합니다</p>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">근무 교대 요청</h2>
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">동료와 근무를 교대하거나 요청을 관리합니다</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               onClick={handleAutoMatch}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-950/50 transition-colors"
+              className="inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-950/50 transition-colors"
             >
-              <ArrowLeftRight className="w-4 h-4" />
-              자동 매칭 실행
+              <ArrowLeftRight className="w-3.5 sm:w-4 h-3.5 sm:h-4" />
+              <span className="hidden sm:inline">자동 매칭 실행</span>
+              <span className="sm:hidden">자동매칭</span>
             </button>
             <button
               onClick={() => setShowNewRequestModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
+              className="inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
             >
-              <Plus className="w-4 h-4" />
-              새 요청
+              <Plus className="w-3.5 sm:w-4 h-3.5 sm:h-4" />
+              <span className="hidden sm:inline">새 요청</span>
+              <span className="sm:hidden">요청</span>
             </button>
           </div>
         </div>
@@ -512,60 +521,62 @@ export default function SwapPage() {
           </button>
         </div>
 
-        {/* Filter Tabs (일반 요청일 때만 표시) */}
+        {/* Filter Tabs - 모바일 스크롤 가능 */}
         {activeTab === 'regular' && (
-        <div className="flex items-center gap-2 mb-6">
-          <Filter className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-          <button
-            onClick={() => setFilterStatus('all')}
-            className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${
-              filterStatus === 'all'
-                ? 'bg-blue-100 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
-          >
-            전체 ({swapRequests.length})
-          </button>
-          <button
-            onClick={() => setFilterStatus('requested')}
-            className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${
-              filterStatus === 'requested'
-                ? 'bg-yellow-100 dark:bg-yellow-950/30 text-yellow-700 dark:text-yellow-400'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
-          >
-            요청 ({swapRequests.filter(r => r.status === 'requested').length})
-          </button>
-          <button
-            onClick={() => setFilterStatus('in-approval')}
-            className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${
-              filterStatus === 'in-approval'
-                ? 'bg-blue-100 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
-          >
-            결재중 ({swapRequests.filter(r => r.status === 'in-approval').length})
-          </button>
-          <button
-            onClick={() => setFilterStatus('confirmed')}
-            className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${
-              filterStatus === 'confirmed'
-                ? 'bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
-          >
-            확정 ({swapRequests.filter(r => r.status === 'confirmed' || r.status === 'auto-matched').length})
-          </button>
-          <button
-            onClick={() => setFilterStatus('rejected')}
-            className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${
-              filterStatus === 'rejected'
-                ? 'bg-red-100 dark:bg-red-950/30 text-red-700 dark:text-red-400'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
-          >
-            거절됨 ({swapRequests.filter(r => r.status === 'rejected').length})
-          </button>
+        <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
+          <Filter className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+          <div className="flex gap-2">
+            <button
+              onClick={() => setFilterStatus('all')}
+              className={`px-2.5 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+                filterStatus === 'all'
+                  ? 'bg-blue-100 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
+            >
+              전체 ({swapRequests.length})
+            </button>
+            <button
+              onClick={() => setFilterStatus('requested')}
+              className={`px-2.5 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+                filterStatus === 'requested'
+                  ? 'bg-yellow-100 dark:bg-yellow-950/30 text-yellow-700 dark:text-yellow-400'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
+            >
+              요청 ({swapRequests.filter(r => r.status === 'requested').length})
+            </button>
+            <button
+              onClick={() => setFilterStatus('in-approval')}
+              className={`px-2.5 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+                filterStatus === 'in-approval'
+                  ? 'bg-blue-100 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
+            >
+              결재중 ({swapRequests.filter(r => r.status === 'in-approval').length})
+            </button>
+            <button
+              onClick={() => setFilterStatus('confirmed')}
+              className={`px-2.5 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+                filterStatus === 'confirmed'
+                  ? 'bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
+            >
+              확정 ({swapRequests.filter(r => r.status === 'confirmed' || r.status === 'auto-matched').length})
+            </button>
+            <button
+              onClick={() => setFilterStatus('rejected')}
+              className={`px-2.5 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+                filterStatus === 'rejected'
+                  ? 'bg-red-100 dark:bg-red-950/30 text-red-700 dark:text-red-400'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
+            >
+              거절 ({swapRequests.filter(r => r.status === 'rejected').length})
+            </button>
+          </div>
         </div>
         )}
 
@@ -575,7 +586,7 @@ export default function SwapPage() {
           {activeTab === 'open' && (
             <div>
               {openRequests.length > 0 ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3 sm:gap-4">
                   {openRequests.map(request => (
                     <OpenRequestCard
                       key={request.id}
@@ -659,11 +670,11 @@ export default function SwapPage() {
           {/* 내가 받은 요청 */}
           {requestsToMe.length > 0 && (
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-orange-500 dark:text-orange-400" />
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4 flex items-center gap-2">
+                <AlertCircle className="w-4 sm:w-5 h-4 sm:h-5 text-orange-500 dark:text-orange-400" />
                 내가 받은 요청 ({requestsToMe.length})
               </h3>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3 sm:gap-4">
                 {requestsToMe.map(request => (
                   <SwapCard key={request.id} request={request} showActions={true} />
                 ))}
@@ -674,11 +685,11 @@ export default function SwapPage() {
           {/* 내가 보낸 요청 */}
           {myRequests.length > 0 && (
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-                <Users className="w-5 h-5 text-blue-500 dark:text-blue-400" />
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4 flex items-center gap-2">
+                <Users className="w-4 sm:w-5 h-4 sm:h-5 text-blue-500 dark:text-blue-400" />
                 내가 보낸 요청 ({myRequests.length})
               </h3>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3 sm:gap-4">
                 {myRequests.map(request => (
                   <SwapCard key={request.id} request={request} />
                 ))}
@@ -689,11 +700,11 @@ export default function SwapPage() {
           {/* 다른 직원들의 요청 */}
           {otherRequests.length > 0 && (
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-                <Users className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 sm:mb-4 flex items-center gap-2">
+                <Users className="w-4 sm:w-5 h-4 sm:h-5 text-gray-500 dark:text-gray-400" />
                 다른 직원 요청 ({otherRequests.length})
               </h3>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3 sm:gap-4">
                 {otherRequests.map(request => (
                   <SwapCard key={request.id} request={request} />
                 ))}

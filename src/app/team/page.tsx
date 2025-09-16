@@ -151,191 +151,194 @@ export default function TeamManagementPage() {
   return (
     <MainLayout>
         {/* My Preferences Section - 현재 사용자용 */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl p-6 mb-8 border border-blue-200 dark:border-blue-800">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-white dark:bg-gray-800 rounded-xl shadow-sm">
-                <Heart className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 border border-blue-200 dark:border-blue-800">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="p-2 sm:p-3 bg-white dark:bg-gray-800 rounded-xl shadow-sm">
+                <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" />
               </div>
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">나의 근무 선호도</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              <div className="flex-1">
+                <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">나의 근무 선호도</h2>
+                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-0.5 sm:mt-1 hidden sm:block">
                   개인 상황과 선호도를 입력하면 AI가 최적의 스케줄을 생성합니다
                 </p>
               </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-2 sm:gap-3">
               <button
                 onClick={() => setShowMyPreferences(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
               >
                 <Settings className="w-4 h-4" />
-                선호도 설정
+                <span className="hidden sm:inline">선호도 설정</span>
+                <span className="sm:hidden">설정</span>
               </button>
               <button
                 onClick={() => setShowSpecialRequest(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors"
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors"
               >
                 <MessageSquare className="w-4 h-4" />
-                특별 요청
+                <span className="hidden sm:inline">특별 요청</span>
+                <span className="sm:hidden">요청</span>
               </button>
             </div>
           </div>
 
-          {/* 현재 설정된 선호도 요약 */}
-          <div className="mt-4 grid grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">선호 시프트</p>
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">주간</p>
+          {/* 현재 설정된 선호도 요약 - 모바일에서는 2열 그리드 */}
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">선호 시프트</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">주간</p>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">주말 근무</p>
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">상관없음</p>
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">주말 근무</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">상관없음</p>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">최대 연속 근무</p>
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">5일</p>
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">최대 연속</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">5일</p>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">특별 요청</p>
-              <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                {specialRequests.filter(r => r.employeeId === currentUserId && r.status === 'pending').length}건 대기중
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">특별 요청</p>
+              <p className="text-xs sm:text-sm font-medium text-amber-600 dark:text-amber-400">
+                {specialRequests.filter(r => r.employeeId === currentUserId && r.status === 'pending').length}건
               </p>
             </div>
           </div>
         </div>
 
-        {/* Stats Cards - 클릭 가능한 필터 카드들 */}
-        <div className="grid grid-cols-5 gap-4 mb-8">
+        {/* Stats Cards - 모바일 스크롤 가능한 필터 카드들 */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4 mb-6 sm:mb-8">
           <button
             onClick={() => setStatusFilter('all')}
-            className={`bg-white dark:bg-gray-900 rounded-xl p-6 border transition-all ${
+            className={`bg-white dark:bg-gray-900 rounded-xl p-3 sm:p-4 lg:p-6 border transition-all ${
               statusFilter === 'all' ? 'border-blue-500 dark:border-blue-400 shadow-lg' : 'border-gray-100 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
             }`}
           >
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div className="text-left">
-                <p className="text-sm text-gray-500 dark:text-gray-400">전체 인원</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{stats.total}명</p>
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">전체 인원</p>
+                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-gray-100 mt-0.5 sm:mt-1">{stats.total}명</p>
               </div>
-              <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
-                <Users className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              <div className="hidden sm:block p-2 lg:p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                <Users className="w-5 h-5 lg:w-6 lg:h-6 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
           </button>
 
           <button
             onClick={() => setStatusFilter('active')}
-            className={`bg-white dark:bg-gray-900 rounded-xl p-6 border transition-all ${
+            className={`bg-white dark:bg-gray-900 rounded-xl p-3 sm:p-4 lg:p-6 border transition-all ${
               statusFilter === 'active' ? 'border-green-500 dark:border-green-400 shadow-lg' : 'border-gray-100 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
             }`}
           >
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div className="text-left">
-                <p className="text-sm text-gray-500 dark:text-gray-400">근무 중</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{stats.active}명</p>
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">근무 중</p>
+                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-gray-100 mt-0.5 sm:mt-1">{stats.active}명</p>
               </div>
-              <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
-                <Clock className="w-6 h-6 text-green-600 dark:text-green-400" />
+              <div className="hidden sm:block p-2 lg:p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                <Clock className="w-5 h-5 lg:w-6 lg:h-6 text-green-600 dark:text-green-400" />
               </div>
             </div>
           </button>
 
           <button
             onClick={() => setStatusFilter('on-leave')}
-            className={`bg-white dark:bg-gray-900 rounded-xl p-6 border transition-all ${
+            className={`bg-white dark:bg-gray-900 rounded-xl p-3 sm:p-4 lg:p-6 border transition-all ${
               statusFilter === 'on-leave' ? 'border-yellow-500 dark:border-yellow-400 shadow-lg' : 'border-gray-100 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
             }`}
           >
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div className="text-left">
-                <p className="text-sm text-gray-500 dark:text-gray-400">휴직 중</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{stats.onLeave}명</p>
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">휴직 중</p>
+                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-gray-100 mt-0.5 sm:mt-1">{stats.onLeave}명</p>
               </div>
-              <div className="p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg">
-                <Calendar className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
+              <div className="hidden sm:block p-2 lg:p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg">
+                <Calendar className="w-5 h-5 lg:w-6 lg:h-6 text-yellow-600 dark:text-yellow-400" />
               </div>
             </div>
           </button>
 
           <button
             onClick={() => setStatusFilter('manager')}
-            className={`bg-white dark:bg-gray-900 rounded-xl p-6 border transition-all ${
+            className={`bg-white dark:bg-gray-900 rounded-xl p-3 sm:p-4 lg:p-6 border transition-all ${
               statusFilter === 'manager' ? 'border-purple-500 dark:border-purple-400 shadow-lg' : 'border-gray-100 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
             }`}
           >
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div className="text-left">
-                <p className="text-sm text-gray-500 dark:text-gray-400">관리자</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{stats.managers}명</p>
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">관리자</p>
+                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-gray-100 mt-0.5 sm:mt-1">{stats.managers}명</p>
               </div>
-              <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
-                <Shield className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+              <div className="hidden sm:block p-2 lg:p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
+                <Shield className="w-5 h-5 lg:w-6 lg:h-6 text-purple-600 dark:text-purple-400" />
               </div>
             </div>
           </button>
 
           <button
             onClick={() => setStatusFilter('part-time')}
-            className={`bg-white dark:bg-gray-900 rounded-xl p-6 border transition-all ${
+            className={`bg-white dark:bg-gray-900 rounded-xl p-3 sm:p-4 lg:p-6 border transition-all col-span-2 sm:col-span-1 ${
               statusFilter === 'part-time' ? 'border-orange-500 dark:border-orange-400 shadow-lg' : 'border-gray-100 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
             }`}
           >
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div className="text-left">
-                <p className="text-sm text-gray-500 dark:text-gray-400">파트타임</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{stats.partTime}명</p>
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">파트타임</p>
+                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-gray-100 mt-0.5 sm:mt-1">{stats.partTime}명</p>
               </div>
-              <div className="p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
-                <Clock className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+              <div className="hidden sm:block p-2 lg:p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
+                <Clock className="w-5 h-5 lg:w-6 lg:h-6 text-orange-600 dark:text-orange-400" />
               </div>
             </div>
           </button>
         </div>
 
-        {/* Filters and Search */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">부서</label>
+        {/* Filters and Search - 모바일 최적화 */}
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6 mb-4 sm:mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 flex-1">
+              <div className="flex-1 sm:flex-none">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">부서</label>
                 <select
                   value={selectedDepartment}
                   onChange={(e) => setSelectedDepartment(e.target.value)}
-                  className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-gray-100"
+                  className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-gray-100"
                 >
                   {departments.map(dept => (
                     <option key={dept.id} value={dept.id}>{dept.name}</option>
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">검색</label>
+              <div className="flex-1">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">검색</label>
                 <input
                   type="text"
-                  placeholder="이름, 이메일, 직책으로 검색"
+                  placeholder="이름, 이메일, 직책"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="px-3 py-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+                  className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
                 />
               </div>
             </div>
             <button
               onClick={() => setShowAddForm(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 whitespace-nowrap"
             >
               <Plus className="w-4 h-4" />
-              팀원 추가
+              <span className="hidden sm:inline">팀원 추가</span>
+              <span className="sm:hidden">추가</span>
             </button>
           </div>
         </div>
 
-        {/* Team Members Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Team Members Grid - 모바일 최적화 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {filteredMembers.map((member) => (
-            <div key={member.id} className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 hover:shadow-md dark:hover:shadow-gray-900/50 transition-shadow">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
+            <div key={member.id} className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6 hover:shadow-md dark:hover:shadow-gray-900/50 transition-shadow">
+              <div className="flex items-start justify-between mb-3 sm:mb-4">
+                <div className="flex items-center gap-2 sm:gap-3">
                   {member.avatar ? (
                     <img
                       src={member.avatar}
@@ -352,8 +355,8 @@ export default function TeamManagementPage() {
                     <Users className="w-6 h-6 text-gray-400 dark:text-gray-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">{member.name}</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{member.position}</p>
+                    <h3 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">{member.name}</h3>
+                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{member.position}</p>
                   </div>
                 </div>
                 <div className="flex gap-1">
@@ -372,22 +375,23 @@ export default function TeamManagementPage() {
                 </div>
               </div>
 
-              <div className="space-y-2 mb-4">
-                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                  <Mail className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+              {/* 모바일에서는 연락처 정보 숨기기 */}
+              <div className="space-y-1.5 sm:space-y-2 mb-3 sm:mb-4 hidden sm:block">
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                  <Mail className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-gray-400 dark:text-gray-500" />
                   <span className="truncate">{member.email}</span>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                  <Phone className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                  <Phone className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-gray-400 dark:text-gray-500" />
                   <span>{member.phone}</span>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                  <Calendar className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                  <Calendar className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-gray-400 dark:text-gray-500" />
                   <span>입사일: {member.joinDate}</span>
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-2 mb-4">
+              <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-3 sm:mb-4">
                 {(member.role === 'admin' || member.role === 'manager') && (
                   <span className={`px-2 py-1 text-xs font-medium rounded-full ${getRoleBadgeColor(member.role)}`}>
                     {member.role === 'admin' ? '관리자' : '매니저'}
@@ -401,31 +405,31 @@ export default function TeamManagementPage() {
                 </span>
               </div>
 
-              <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">주 근무시간</span>
+              <div className="pt-3 sm:pt-4 border-t border-gray-100 dark:border-gray-800">
+                <div className="flex items-center justify-between text-xs sm:text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">주 근무</span>
                   <span className="font-medium text-gray-900 dark:text-gray-100">{member.maxHoursPerWeek}시간</span>
                 </div>
-                <div className="flex items-center justify-between text-sm mt-1">
-                  <span className="text-gray-500 dark:text-gray-400">선호 시프트</span>
-                  <div className="flex gap-1">
+                <div className="flex items-center justify-between text-xs sm:text-sm mt-1">
+                  <span className="text-gray-500 dark:text-gray-400">선호</span>
+                  <div className="flex gap-0.5 sm:gap-1">
                     {member.preferredShifts.map(shift => (
-                      <span key={shift} className="px-2 py-0.5 text-xs bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 rounded">
+                      <span key={shift} className="px-1.5 sm:px-2 py-0.5 text-xs bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 rounded">
                         {shift === 'day' ? '주간' : shift === 'evening' ? '저녁' : '야간'}
                       </span>
                     ))}
                   </div>
                 </div>
                 {member.skills.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-1">
-                    {member.skills.slice(0, 3).map(skill => (
-                      <span key={skill} className="px-2 py-0.5 text-xs bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded">
+                  <div className="mt-2 sm:mt-3 flex flex-wrap gap-0.5 sm:gap-1">
+                    {member.skills.slice(0, 2).map(skill => (
+                      <span key={skill} className="px-1.5 sm:px-2 py-0.5 text-xs bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded">
                         {skill}
                       </span>
                     ))}
-                    {member.skills.length > 3 && (
-                      <span className="px-2 py-0.5 text-xs bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded">
-                        +{member.skills.length - 3}
+                    {member.skills.length > 2 && (
+                      <span className="px-1.5 sm:px-2 py-0.5 text-xs bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded">
+                        +{member.skills.length - 2}
                       </span>
                     )}
                   </div>
