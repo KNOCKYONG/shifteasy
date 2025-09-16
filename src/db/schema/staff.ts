@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, integer, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, integer, pgEnum, boolean, real, index } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { wards } from './wards';
 import { users } from './tenants';
@@ -11,8 +11,8 @@ export const staffRoleEnum = pgEnum('staff_role', ['RN', 'CN', 'SN', 'NA']);
 
 export const staff = pgTable('staff', {
   id: uuid('id').primaryKey().defaultRandom(),
-  wardId: uuid('ward_id').references(() => wards.id).notNull(),
-  userId: uuid('user_id').references(() => users.id).unique(),
+  wardId: uuid('ward_id').references(() => wards.id, { onDelete: 'cascade' }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }).unique(),
 
   name: text('name').notNull(),
   role: staffRoleEnum('role').notNull(),
@@ -34,9 +34,13 @@ export const staff = pgTable('staff', {
   experienceLevel: text('experience_level').notNull().default('JUNIOR'), // NEWBIE, JUNIOR, SENIOR, EXPERT
 
   active: boolean('active').notNull().default(true),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => ({
+  wardIdx: index('staff_ward_id_idx').on(table.wardId),
+  userIdx: index('staff_user_id_idx').on(table.userId),
+  employeeIdx: index('staff_employee_id_idx').on(table.employeeId),
+}));
 
 export const staffRelations = relations(staff, ({ one, many }) => ({
   ward: one(wards, {
@@ -70,8 +74,9 @@ export const staffCompatibility = pgTable('staff_compatibility', {
   workStyleScore: real('work_style_score'),
   reliabilityScore: real('reliability_score'),
 
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => ({
+  staffPairIdx: index('staff_compatibility_pair_idx').on(table.staff1Id, table.staff2Id),
+}));
 
-import { boolean, real } from 'drizzle-orm/pg-core';

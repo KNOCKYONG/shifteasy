@@ -28,10 +28,10 @@ export async function createAuditLog(entry: AuditLogEntry) {
       .insert(auditLogs)
       .values({
         tenantId: entry.tenantId,
-        actorId: entry.actorId,
+        actorId: entry.actorId ?? null,
         action: entry.action,
         entityType: entry.entityType,
-        entityId: entry.entityId,
+        entityId: entry.entityId ?? '',
         before: entry.before,
         after: entry.after,
         metadata: entry.metadata,
@@ -56,10 +56,10 @@ export async function createAuditLogs(entries: AuditLogEntry[]) {
       .values(
         entries.map(entry => ({
           tenantId: entry.tenantId,
-          actorId: entry.actorId,
+          actorId: entry.actorId ?? null,
           action: entry.action,
           entityType: entry.entityType,
-          entityId: entry.entityId,
+          entityId: entry.entityId ?? '',
           before: entry.before,
           after: entry.after,
           metadata: entry.metadata,

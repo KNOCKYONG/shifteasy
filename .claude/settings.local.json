@@ -14,7 +14,8 @@
       "Bash(node:*)",
       "Bash(del update_experience.js)",
       "Bash(cmd /c start http://localhost:3002/swap)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "mcp__sequential-thinking__sequentialthinking"
     ],
     "deny": [],
     "ask": []

@@ -69,12 +69,14 @@ export async function DELETE(
     }
 
     // Delete from Clerk first
-    try {
-      const client = await clerkClient();
-      await client.users.deleteUser(userToDelete[0].clerkUserId);
-    } catch (clerkError) {
-      console.error('Error deleting user from Clerk:', clerkError);
-      // Continue with database deletion even if Clerk deletion fails
+    if (userToDelete[0].clerkUserId) {
+      try {
+        const client = await clerkClient();
+        await client.users.deleteUser(userToDelete[0].clerkUserId);
+      } catch (clerkError) {
+        console.error('Error deleting user from Clerk:', clerkError);
+        // Continue with database deletion even if Clerk deletion fails
+      }
     }
 
     // Delete user from database

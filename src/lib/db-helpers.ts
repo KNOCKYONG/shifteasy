@@ -102,10 +102,10 @@ export async function createAuditLog({
 
   return db.insert(auditLogs).values({
     tenantId,
-    actorId,
+    actorId: actorId ?? null,
     action,
     entityType,
-    entityId,
+    entityId: entityId ?? '',
     before,
     after,
     metadata,

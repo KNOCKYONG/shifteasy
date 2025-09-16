@@ -8,3 +8,7 @@ export * from './assignments';
 export * from './requests';
 export * from './preferences';
 export * from './system';
+
+// Aliases for backward compatibility
+export { wardAssignments as assignments } from './assignments';
+export { auditLog as auditLogs } from './system';

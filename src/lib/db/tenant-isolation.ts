@@ -5,13 +5,13 @@ import {
   users,
   departments,
   schedules,
-  assignments,
   swapRequests,
   notifications,
   auditLogs,
   shiftTypes,
   patterns
 } from '@/db/schema/tenants';
+import { wardAssignments as assignments } from '@/db/schema/assignments';
 import type { SQL } from 'drizzle-orm';
 
 /**

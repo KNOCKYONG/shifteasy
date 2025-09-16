@@ -8,7 +8,7 @@ export default defineConfig({
   out: './src/db/migrations',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL!,
+    url: process.env.DIRECT_URL!, // Use direct URL for migrations
   },
   verbose: true,
   strict: true,
