@@ -1,13 +1,13 @@
 import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure, adminProcedure } from '@/server/trpc';
 import { scopedDb, createAuditLog } from '@/lib/db-helpers';
-import { attendance, assignments } from '@/db/schema';
+import { attendance } from '@/db/schema';
 import { eq, and, gte, lte } from 'drizzle-orm';
 
 export const attendanceRouter = createTRPCRouter({
   clockIn: protectedProcedure
     .input(z.object({
-      assignmentId: z.string(),
+      shiftType: z.string().optional(),
       location: z.object({
         latitude: z.number(),
         longitude: z.number(),
@@ -17,42 +17,48 @@ export const attendanceRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const db = scopedDb((ctx.tenantId || 'dev-org-id'));
 
-      // Check if assignment belongs to user
-      const [assignment] = await db.query(assignments, eq(assignments.id, input.assignmentId));
+      // Check if already clocked in for today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
 
-      if (!assignment) {
-        throw new Error('Assignment not found');
-      }
+      const existing = await db.query(
+        attendance,
+        and(
+          eq(attendance.userId, ctx.user?.id || 'dev-user-id'),
+          gte(attendance.date, today),
+          lte(attendance.date, tomorrow)
+        )
+      );
 
-      if (assignment.userId !== (ctx.user?.id || 'dev-user-id')) {
-        throw new Error('This assignment does not belong to you');
-      }
-
-      // Check if already clocked in
-      const [existing] = await db.query(attendance, eq(attendance.assignmentId, input.assignmentId));
+      const existingRecord = existing[0];
 
       let result;
-      if (existing) {
-        if (existing.clockInTime) {
+      if (existingRecord) {
+        if (existingRecord.checkIn) {
           throw new Error('Already clocked in');
         }
 
-        [result] = await db.update(
+        const updated = await db.update(
           attendance,
           {
-            clockInTime: new Date(),
-            clockInLocation: input.location,
-            status: 'in_progress',
+            checkIn: new Date(),
+            status: 'present',
+            updatedAt: new Date(),
           },
-          eq(attendance.id, existing.id)
+          eq(attendance.id, existingRecord.id)
         );
+        result = updated[0];
       } else {
-        [result] = await db.insert(attendance, {
-          assignmentId: input.assignmentId,
-          clockInTime: new Date(),
-          clockInLocation: input.location,
-          status: 'in_progress',
+        const inserted = await db.insert(attendance, {
+          userId: ctx.user?.id || 'dev-user-id',
+          date: new Date(),
+          checkIn: new Date(),
+          status: 'present',
+          shiftType: input.shiftType || 'D',
         });
+        result = inserted[0];
       }
 
       await createAuditLog({
@@ -70,7 +76,6 @@ export const attendanceRouter = createTRPCRouter({
 
   clockOut: protectedProcedure
     .input(z.object({
-      assignmentId: z.string(),
       location: z.object({
         latitude: z.number(),
         longitude: z.number(),
@@ -81,45 +86,56 @@ export const attendanceRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const db = scopedDb((ctx.tenantId || 'dev-org-id'));
 
-      const [existing] = await db.query(attendance, eq(attendance.assignmentId, input.assignmentId));
+      // Get today's attendance record
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
 
-      if (!existing) {
+      const existing = await db.query(
+        attendance,
+        and(
+          eq(attendance.userId, ctx.user?.id || 'dev-user-id'),
+          gte(attendance.date, today),
+          lte(attendance.date, tomorrow)
+        )
+      );
+
+      const existingRecord = existing[0];
+
+      if (!existingRecord) {
         throw new Error('No clock-in record found');
       }
 
-      if (!existing.clockInTime) {
+      if (!existingRecord.checkIn) {
         throw new Error('Must clock in first');
       }
 
-      if (existing.clockOutTime) {
+      if (existingRecord.checkOut) {
         throw new Error('Already clocked out');
       }
 
-      const clockOutTime = new Date();
-      const workDuration = clockOutTime.getTime() - existing.clockInTime.getTime();
-      const overtimeMinutes = Math.max(0, Math.floor(workDuration / 60000) - 480); // Assuming 8 hour shift
-
-      const [result] = await db.update(
+      const updated = await db.update(
         attendance,
         {
-          clockOutTime,
-          clockOutLocation: input.location,
+          checkOut: new Date(),
           notes: input.notes,
-          overtimeMinutes,
-          status: 'completed',
+          status: 'present',
+          updatedAt: new Date(),
         },
-        eq(attendance.id, existing.id)
+        eq(attendance.id, existingRecord.id)
       );
+      const result = updated[0];
 
       await createAuditLog({
         tenantId: (ctx.tenantId || 'dev-org-id'),
         actorId: (ctx.user?.id || 'dev-user-id'),
         action: 'attendance.clock_out',
         entityType: 'attendance',
-        entityId: existing.id,
-        before: existing,
+        entityId: result.id,
+        before: existingRecord,
         after: result,
-        metadata: { location: input.location, overtimeMinutes },
+        metadata: { location: input.location, notes: input.notes },
       });
 
       return result;
@@ -135,61 +151,39 @@ export const attendanceRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const db = scopedDb((ctx.tenantId || 'dev-org-id'));
 
-      // Get all assignments in date range
-      let assignmentConditions = [
-        gte(assignments.date, input.startDate),
-        lte(assignments.date, input.endDate),
+      // Get all attendance records in date range
+      let conditions = [
+        gte(attendance.date, input.startDate),
+        lte(attendance.date, input.endDate),
       ];
 
       if (input.userId) {
-        assignmentConditions.push(eq(assignments.userId, input.userId));
+        conditions.push(eq(attendance.userId, input.userId));
       }
 
-      const assignmentResults = await db.query(assignments, and(...assignmentConditions));
-
-      // Get attendance records for these assignments
-      const assignmentIds = assignmentResults.map(a => a.id);
-      const attendanceResults = await Promise.all(
-        assignmentIds.map(id => db.query(attendance, eq(attendance.assignmentId, id)))
-      );
-
-      const attendanceMap = new Map();
-      attendanceResults.flat().forEach(a => {
-        attendanceMap.set(a.assignmentId, a);
-      });
+      const attendanceResults = await db.query(attendance, and(...conditions));
 
       // Calculate statistics
       const stats = {
-        totalShifts: assignmentResults.length,
-        completedShifts: 0,
+        totalRecords: attendanceResults.length,
+        presentCount: 0,
+        absentCount: 0,
         lateArrivals: 0,
-        absences: 0,
-        totalOvertimeMinutes: 0,
       };
 
-      assignmentResults.forEach(assignment => {
-        const record = attendanceMap.get(assignment.id);
-        if (record) {
-          if (record.status === 'completed') {
-            stats.completedShifts++;
-          }
-          if (record.status === 'late') {
-            stats.lateArrivals++;
-          }
-          stats.totalOvertimeMinutes += record.overtimeMinutes || 0;
-        } else {
-          if (assignment.date < new Date()) {
-            stats.absences++;
-          }
+      attendanceResults.forEach(record => {
+        if (record.status === 'present') {
+          stats.presentCount++;
+        } else if (record.status === 'absent') {
+          stats.absentCount++;
+        } else if (record.status === 'late') {
+          stats.lateArrivals++;
         }
       });
 
       return {
         stats,
-        details: assignmentResults.map(a => ({
-          assignment: a,
-          attendance: attendanceMap.get(a.id),
-        })),
+        details: attendanceResults,
       };
     }),
 });

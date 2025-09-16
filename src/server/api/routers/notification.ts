@@ -17,7 +17,7 @@ export const notificationRouter = createTRPCRouter({
       let conditions = [eq(notifications.userId, (ctx.user?.id || 'dev-user-id'))];
 
       if (input.unreadOnly) {
-        conditions.push(isNull(notifications.readAt));
+        conditions.push(eq(notifications.read, 'false'));
       }
 
       const results = await db.query(notifications, and(...conditions));
@@ -27,7 +27,7 @@ export const notificationRouter = createTRPCRouter({
           .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
           .slice(input.offset, input.offset + input.limit),
         total: results.length,
-        unreadCount: results.filter(n => !n.readAt).length,
+        unreadCount: results.filter(n => n.read === 'false').length,
       };
     }),
 
@@ -50,7 +50,7 @@ export const notificationRouter = createTRPCRouter({
 
       const [updated] = await db.update(
         notifications,
-        { readAt: new Date() },
+        { read: 'true', updatedAt: new Date() },
         eq(notifications.id, input.id)
       );
 
@@ -65,7 +65,7 @@ export const notificationRouter = createTRPCRouter({
         notifications,
         and(
           eq(notifications.userId, (ctx.user?.id || 'dev-user-id')),
-          isNull(notifications.readAt)
+          eq(notifications.read, 'false')
         )
       );
 
@@ -77,7 +77,7 @@ export const notificationRouter = createTRPCRouter({
         unreadNotifications.map(n =>
           db.update(
             notifications,
-            { readAt: new Date() },
+            { read: 'true', updatedAt: new Date() },
             eq(notifications.id, n.id)
           )
         )
