@@ -1,20 +1,21 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from '@/db/schema';
-import { staff, staffRoleEnum } from '@/db/schema/staff';
-import { wards } from '@/db/schema/wards';
+import { tenants } from '@/db/schema/tenants';
 import { hospitals } from '@/db/schema/hospitals';
-import { eq, and } from 'drizzle-orm';
+import { wards } from '@/db/schema/wards';
+import { staff, staffRoleEnum } from '@/db/schema/staff';
+import { eq } from 'drizzle-orm';
 import * as dotenv from 'dotenv';
 
 // Load environment variables
 dotenv.config({ path: '.env.local' });
 
-// Use SESSION_URL to avoid IPv6 issues (supports DDL operations)
+// Use SESSION_URL to avoid IPv6 issues
 const connectionString = process.env.SESSION_URL!;
 const client = postgres(connectionString, {
   ssl: 'require',
-  max: 1 // Single connection for seeding
+  max: 1
 });
 const db = drizzle(client, { schema });
 
@@ -68,25 +69,70 @@ const nurseData = {
   ]
 };
 
-async function updateStaffData() {
+async function seedAll() {
   try {
-    console.log('🏥 간호사 데이터 업데이트 시작...');
+    console.log('🏥 전체 데이터 시드 시작...');
 
-    // 1. test ward 찾기 또는 생성
-    let testWard = await db.query.wards.findFirst({
+    // 1. Create test tenant
+    console.log('\n📋 테넌트 생성...');
+    const testTenantId = '3760b5ec-462f-443c-9a90-4a2b2e295e9d'; // DEV_TENANT_ID from .env
+
+    const existingTenant = await db.query.tenants.findFirst({
+      where: eq(tenants.id, testTenantId)
+    });
+
+    if (!existingTenant) {
+      await db.insert(tenants).values({
+        id: testTenantId,
+        name: '서울대학교병원',
+        slug: 'snuh',
+        secretCode: 'SNUH-2025',
+        plan: 'enterprise',
+        settings: {
+          timezone: 'Asia/Seoul',
+          locale: 'ko',
+          maxUsers: 100,
+          maxDepartments: 10,
+          features: ['scheduling', 'attendance', 'notifications', 'analytics']
+        }
+      });
+      console.log('✅ 테넌트 생성 완료');
+    } else {
+      console.log('ℹ️ 테넌트가 이미 존재합니다');
+    }
+
+    // 2. Create hospital
+    console.log('\n🏥 병원 생성...');
+    let hospital = await db.query.hospitals.findFirst({
+      where: eq(hospitals.tenantId, testTenantId)
+    });
+
+    if (!hospital) {
+      const [newHospital] = await db.insert(hospitals).values({
+        tenantId: testTenantId,
+        name: '서울대학교병원',
+        code: 'SNUH',
+        settings: {
+          workingHours: { start: '07:00', end: '19:00' },
+          shiftTypes: ['D', 'E', 'N', 'DL', 'EL', '11D', 'OFF'],
+          requiresApproval: true
+        },
+        active: true
+      }).returning();
+
+      hospital = newHospital;
+      console.log('✅ 병원 생성 완료');
+    } else {
+      console.log('ℹ️ 병원이 이미 존재합니다');
+    }
+
+    // 3. Create ward
+    console.log('\n🏥 병동 생성...');
+    let ward = await db.query.wards.findFirst({
       where: eq(wards.name, '내과간호2팀')
     });
 
-    if (!testWard) {
-      // hospital 찾기
-      const hospital = await db.query.hospitals.findFirst();
-
-      if (!hospital) {
-        console.error('❌ 병원 데이터가 없습니다. 먼저 병원과 병동을 생성해주세요.');
-        return;
-      }
-
-      // 병동 생성
+    if (!ward) {
       const [newWard] = await db.insert(wards).values({
         hospitalId: hospital.id,
         name: '내과간호2팀',
@@ -108,23 +154,27 @@ async function updateStaffData() {
         active: true
       }).returning();
 
-      testWard = newWard;
-      console.log('✅ 내과간호2팀 병동 생성 완료');
+      ward = newWard;
+      console.log('✅ 병동 생성 완료');
+    } else {
+      console.log('ℹ️ 병동이 이미 존재합니다');
     }
 
-    // 2. 기존 직원 삭제
-    await db.delete(staff).where(eq(staff.wardId, testWard.id));
-    console.log('🗑️ 기존 직원 데이터 삭제 완료');
+    // 4. Delete existing staff and add new ones
+    console.log('\n🗑️ 기존 직원 데이터 삭제...');
+    await db.delete(staff).where(eq(staff.wardId, ward.id));
+    console.log('✅ 기존 직원 데이터 삭제 완료');
 
-    // 3. 새 직원 데이터 준비
+    // 5. Insert new staff
+    console.log('\n👥 새 직원 데이터 추가...');
     const staffData = [];
 
-    // Unit Manager 추가
+    // Unit Manager
     nurseData.managers.forEach((manager, index) => {
       staffData.push({
-        wardId: testWard.id,
+        wardId: ward.id,
         name: manager.name,
-        role: 'CN' as const, // Charge Nurse (수간호사)
+        role: 'CN' as const,
         employeeId: `UM-${String(index + 1).padStart(3, '0')}`,
         hireDate: new Date('2015-03-01'),
         maxWeeklyHours: 40,
@@ -139,12 +189,12 @@ async function updateStaffData() {
       });
     });
 
-    // FRN 추가
+    // FRN
     nurseData.frn_nurses.forEach((frn, index) => {
       staffData.push({
-        wardId: testWard.id,
+        wardId: ward.id,
         name: frn.name,
-        role: 'SN' as const, // Senior Nurse
+        role: 'SN' as const,
         employeeId: `FRN-${String(index + 1).padStart(3, '0')}`,
         hireDate: new Date(`201${8 - index}-06-01`),
         maxWeeklyHours: 52,
@@ -159,14 +209,14 @@ async function updateStaffData() {
       });
     });
 
-    // 일반 간호사 추가
+    // Regular nurses
     nurseData.regular_nurses.forEach((nurse, index) => {
       const experienceConfig = getExperienceConfig(nurse.experienceLevel);
 
       staffData.push({
-        wardId: testWard.id,
+        wardId: ward.id,
         name: nurse.name,
-        role: 'RN' as const, // Registered Nurse
+        role: 'RN' as const,
         employeeId: `RN-${String(index + 1).padStart(3, '0')}`,
         hireDate: experienceConfig.hireDate,
         maxWeeklyHours: 52,
@@ -181,24 +231,26 @@ async function updateStaffData() {
       });
     });
 
-    // 4. 데이터 삽입
     await db.insert(staff).values(staffData);
 
-    // 5. 결과 확인
+    // 6. Verify results
     const insertedStaff = await db.query.staff.findMany({
-      where: eq(staff.wardId, testWard.id)
+      where: eq(staff.wardId, ward.id)
     });
 
-    console.log('\n📊 업데이트 완료 요약:');
+    console.log('\n📊 시드 완료 요약:');
+    console.log(`  - 테넌트: ${existingTenant ? '기존 사용' : '신규 생성'}`);
+    console.log(`  - 병원: ${hospital.name}`);
+    console.log(`  - 병동: ${ward.name}`);
     console.log(`  - Unit Manager: ${nurseData.managers.length}명`);
     console.log(`  - FRN (Senior Nurse): ${nurseData.frn_nurses.length}명`);
     console.log(`  - RN (Registered Nurse): ${nurseData.regular_nurses.length}명`);
     console.log(`  - 총 인원: ${insertedStaff.length}명`);
 
-    console.log('\n✅ 모든 작업 완료!');
+    console.log('\n✅ 모든 데이터 시드 완료!');
 
   } catch (error) {
-    console.error('❌ 오류 발생:', error);
+    console.error('❌ 시드 실패:', error);
     throw error;
   }
 }
@@ -243,9 +295,9 @@ function getExperienceConfig(experienceLevel: string) {
   }
 }
 
-// 스크립트 실행
+// Run script
 if (require.main === module) {
-  updateStaffData()
+  seedAll()
     .then(async () => {
       await client.end();
       process.exit(0);
@@ -257,4 +309,4 @@ if (require.main === module) {
     });
 }
 
-export { updateStaffData };
+export { seedAll };

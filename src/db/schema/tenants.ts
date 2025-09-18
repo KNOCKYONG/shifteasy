@@ -8,12 +8,6 @@ export const tenants = pgTable('tenants', {
   slug: text('slug').unique().notNull(),
   secretCode: text('secret_code').unique().notNull(),
   plan: text('plan').notNull().default('free'), // free, pro, enterprise
-  billingInfo: jsonb('billing_info').$type<{
-    stripeCustomerId?: string;
-    stripeSubscriptionId?: string;
-    currentPeriodEnd?: string;
-    paymentMethodId?: string;
-  }>(),
   settings: jsonb('settings').$type<{
     timezone?: string;
     locale?: string;

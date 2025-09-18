@@ -25,6 +25,7 @@ type Args = {
   department?: string;
   deptCode?: string;
   role?: 'admin' | 'manager' | 'member';
+  createTenant?: boolean;
 };
 
 function parseArgs(): Args {
@@ -42,10 +43,12 @@ function parseArgs(): Args {
   }
   return {
     dir: args.dir || './roster_src',
-    tenant: args.tenant || process.env.DEV_TENANT_ID || 'dev-org-id',
+    // 기본값: 환경변수 DEV_TENANT_ID -> 내부 테스트 UUID -> (최후) 빈 문자열
+    tenant: args.tenant || process.env.DEV_TENANT_ID || '3760b5ec-462f-443c-9a90-4a2b2e295e9d',
     department: args.department || '테스트부서',
     deptCode: args.deptCode || 'TEST',
     role: (args.role as any) || 'member',
+    createTenant: args.createTenant === 'true',
   };
 }
 
@@ -147,13 +150,28 @@ function genEmailBaseFromName(name: string): string {
 }
 
 async function main() {
-  const { dir, tenant, department, deptCode, role } = parseArgs();
+  const { dir, tenant, department, deptCode, role, createTenant } = parseArgs();
 
   // 0) Tenant 확인
-  const tenantRow = await db.select().from(tenants).where(eq(tenants.id, tenant));
+  let tenantId = tenant;
+  const tenantRow = await db.select().from(tenants).where(eq(tenants.id, tenantId));
   if (tenantRow.length === 0) {
-    console.error(`지정한 tenant가 존재하지 않습니다. tenantId=${tenant}\nDEV_TENANT_ID 환경변수 또는 --tenant 옵션을 실제 존재하는 ID로 설정해 주세요.`);
-    process.exit(1);
+    if (createTenant) {
+      // slug/secretCode 임시값 생성
+      const rand = Math.random().toString(36).slice(2, 8);
+      const [created] = await db.insert(tenants).values({
+        name: 'Test Tenant',
+        slug: `test-${rand}`,
+        secretCode: `secret-${rand}-${Date.now()}`,
+        plan: 'free',
+        settings: { timezone: 'Asia/Seoul', locale: 'ko' },
+      }).returning();
+      tenantId = created.id as string;
+      console.log(`테넌트가 없어 새로 생성했습니다. tenantId=${tenantId}`);
+    } else {
+      console.error(`지정한 tenant가 존재하지 않습니다. tenantId=${tenantId}\n--createTenant true 옵션으로 임시 테넌트를 생성하거나, --tenant 에 실제 UUID를 전달해 주세요.`);
+      process.exit(1);
+    }
   }
 
   // 1) 디렉토리 내 roster 파일 수집
@@ -186,12 +204,12 @@ async function main() {
   // 3) 부서 준비 (없으면 생성)
   let deptId: string | null = null;
   if (department) {
-    const existing = await db.select().from(departments).where(and(eq(departments.tenantId, tenant), eq(departments.name, department)));
+    const existing = await db.select().from(departments).where(and(eq(departments.tenantId, tenantId), eq(departments.name, department)));
     if (existing.length > 0) {
       deptId = existing[0].id as string;
     } else {
       const inserted = await db.insert(departments).values({
-        tenantId: tenant,
+        tenantId: tenantId,
         name: department,
         code: deptCode,
         description: '로스터 임포트 생성',
@@ -205,7 +223,7 @@ async function main() {
   const existingUsers = await db
     .select()
     .from(users)
-    .where(eq(users.tenantId, tenant));
+    .where(eq(users.tenantId, tenantId));
   const byName = new Map<string, typeof existingUsers[number]>();
   for (const u of existingUsers) {
     byName.set(u.name.trim(), u);
@@ -235,13 +253,13 @@ async function main() {
     }
 
     toInsert.push({
-      tenantId: tenant,
+      tenantId: tenantId,
       departmentId: deptId,
       email,
       name,
       role: role || 'member',
-      employeeId: undefined,
-      position: undefined,
+      employeeId: `EMP-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+      position: 'Staff',
       profile: {
         phone: '',
         avatar: '',
@@ -281,4 +299,3 @@ if (require.main === module) {
 }
 
 export {}; // ESM 호환
-

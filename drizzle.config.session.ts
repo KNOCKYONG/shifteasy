@@ -8,10 +8,9 @@ export default defineConfig({
   out: './src/db/migrations',
   dialect: 'postgresql',
   dbCredentials: {
-    // Use SESSION_URL for migrations (supports DDL operations)
-    // Direct URL has IPv6 issues on some networks
-    url: process.env.SESSION_URL || process.env.DIRECT_URL!,
+    // Use SESSION_URL for migrations to avoid IPv6 issues
+    url: process.env.SESSION_URL!,
   },
   verbose: true,
-  strict: true,
+  strict: false, // Disable strict mode to avoid interactive prompts
 });
