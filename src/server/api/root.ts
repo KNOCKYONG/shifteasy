@@ -1,5 +1,6 @@
-import { createTRPCRouter } from '@/server/trpc';
+import { createTRPCRouter } from '@/server/trpc-context';
 import { authRouter } from './routers/auth';
+import { tenantRouter } from './routers/tenant';
 import { scheduleRouter } from './routers/schedule';
 import { staffRouter } from './routers/staff';
 import { swapRouter } from './routers/swap';
@@ -9,6 +10,7 @@ import { notificationRouter } from './routers/notification';
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
+  tenant: tenantRouter,
   schedule: scheduleRouter,
   staff: staffRouter,
   swap: swapRouter,

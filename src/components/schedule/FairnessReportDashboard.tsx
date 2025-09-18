@@ -1,10 +1,10 @@
 "use client";
 import { useState, useMemo } from "react";
 import {
-  BarChart3, Scale, TrendingUp, Users, Calendar, Clock,
+  BarChart3, TrendingUp, Users, Calendar, Clock,
   AlertCircle, CheckCircle, Info, ChevronRight, Download,
-  Sun, Moon, Sunset, Coffee, Award, Target, Activity,
-  Eye, FileText, PieChart, TrendingDown, Heart, Brain, Shield
+  Sun, Moon, Coffee, Award, Activity,
+  Eye, FileText, Heart, Brain, Shield
 } from "lucide-react";
 import { type ScheduleAssignment, type Employee, type Shift, type ConstraintViolation, type ScheduleScore } from "@/lib/scheduler/types";
 
@@ -260,7 +260,7 @@ export function FairnessReportDashboard({
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold flex items-center gap-2">
-              <Scale className="w-6 h-6" />
+              <Activity className="w-6 h-6" />
               공정성 & 투명성 리포트
             </h2>
             <p className="text-blue-100 mt-1">
@@ -303,7 +303,7 @@ export function FairnessReportDashboard({
       <div className="border-b border-gray-200">
         <nav className="flex space-x-4 px-6" aria-label="Tabs">
           {[
-            { id: 'overview', label: '전체 개요', icon: PieChart },
+            { id: 'overview', label: '전체 개요', icon: BarChart3 },
             { id: 'individual', label: '개인별 분석', icon: Users },
             { id: 'comparison', label: '비교 분석', icon: BarChart3 },
             { id: 'decisions', label: 'AI 의사결정 근거', icon: Brain },
@@ -383,7 +383,7 @@ function OverviewTab({ employeeStats, averageStats, jainsFairnessIndex, score }:
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <h3 className="font-semibold text-blue-900">전체 공정성</h3>
-            <Scale className="w-5 h-5 text-blue-600" />
+            <Activity className="w-5 h-5 text-blue-600" />
           </div>
           <div className="text-3xl font-bold text-blue-600">
             {(jainsFairnessIndex * 100).toFixed(1)}%
@@ -459,7 +459,7 @@ function OverviewTab({ employeeStats, averageStats, jainsFairnessIndex, score }:
 
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 w-24">
-              <Sunset className="w-4 h-4 text-purple-500" />
+              <Moon className="w-4 h-4 text-purple-500" />
               <span className="text-sm">저녁</span>
             </div>
             <div className="flex-1 bg-gray-200 rounded-full h-8 relative">
@@ -820,9 +820,9 @@ function AIDecisionsTab({ schedule, employees, shifts, generateDecisionReasoning
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           {reason.type === 'constraint' && <Shield className="w-4 h-4 text-purple-600" />}
-                          {reason.type === 'fairness' && <Scale className="w-4 h-4 text-blue-600" />}
+                          {reason.type === 'fairness' && <Activity className="w-4 h-4 text-blue-600" />}
                           {reason.type === 'preference' && <Heart className="w-4 h-4 text-red-600" />}
-                          {reason.type === 'optimization' && <Target className="w-4 h-4 text-green-600" />}
+                          {reason.type === 'optimization' && <CheckCircle className="w-4 h-4 text-green-600" />}
                           <span className="font-medium text-sm">{reason.factor}</span>
                         </div>
                         <p className="text-sm text-gray-600 mt-1">{reason.description}</p>

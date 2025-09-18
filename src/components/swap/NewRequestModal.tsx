@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { X, Calendar, Clock, Users, Info, AlertTriangle, ArrowLeftRight, ChevronLeft, ChevronRight } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns';
+import { eachDayOfInterval } from 'date-fns/eachDayOfInterval';
 import { ko } from 'date-fns/locale';
 
 interface NewRequestModalProps {
@@ -324,7 +325,7 @@ export function NewRequestModal({
               <option value="">선택하세요</option>
               {confirmedSchedules.map((schedule, idx) => (
                 <option key={idx} value={`${schedule.date}|${schedule.shiftType}|${schedule.time}`}>
-                  {format(new Date(schedule.date), 'M월 d일 (E)', { locale: ko })} - {schedule.shiftType} ({schedule.time})
+                  {new Date(schedule.date).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })} - {schedule.shiftType} ({schedule.time})
                 </option>
               ))}
             </select>
@@ -359,7 +360,7 @@ export function NewRequestModal({
 
                 {targetDate && (
                   <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                    선택된 날짜: {format(new Date(targetDate), 'yyyy년 M월 d일 (E)', { locale: ko })}
+                    선택된 날짜: {new Date(targetDate).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })}
                   </p>
                 )}
               </div>

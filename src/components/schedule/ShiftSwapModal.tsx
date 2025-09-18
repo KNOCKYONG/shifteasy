@@ -80,7 +80,7 @@ export function ShiftSwapModal({
               <div className="font-medium mb-1">현재 근무</div>
               <div className="space-y-1 text-xs">
                 <div>직원: {currentStaffInfo?.name}</div>
-                <div>날짜: {format(currentDate, "M월 d일 (EEE)", { locale: ko })}</div>
+                <div>날짜: {currentDate.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}</div>
                 {currentShift && <div>근무: {currentShift === "D" ? "주간" : currentShift === "E" ? "저녁" : currentShift === "N" ? "야간" : "휴무"}</div>}
               </div>
             </div>

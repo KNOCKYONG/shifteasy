@@ -18,3 +18,5 @@ export function MainLayout({ children, className = '' }: MainLayoutProps) {
     </div>
   );
 }
+
+export default MainLayout;

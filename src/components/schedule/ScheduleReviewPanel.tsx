@@ -10,12 +10,9 @@ import {
   Info,
   Users,
   TrendingUp,
-  TrendingDown,
-  Undo2,
-  Redo2,
   Save,
   X,
-  RefreshCw,
+  RefreshCcw,
   Sparkles,
   UserCheck,
   AlertCircle,
@@ -228,7 +225,7 @@ export function ScheduleReviewPanel({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-              <RefreshCw className="w-5 h-5 text-blue-500" />
+              <RefreshCcw className="w-5 h-5 text-blue-500" />
               스케줄 검토 및 수정
             </h2>
 
@@ -284,14 +281,14 @@ export function ScheduleReviewPanel({
               disabled={historyIndex <= 0}
               className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Undo2 className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+              <ArrowLeftRight className="w-4 h-4 text-gray-600 dark:text-gray-400" />
             </button>
             <button
               onClick={handleRedo}
               disabled={historyIndex >= history.length - 1}
               className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Redo2 className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+              <ArrowLeftRight className="w-4 h-4 text-gray-600 dark:text-gray-400" />
             </button>
 
             <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />

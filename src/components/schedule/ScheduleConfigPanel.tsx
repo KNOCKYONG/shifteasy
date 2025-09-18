@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Settings, Users, Clock, Shield, Calendar, AlertCircle, ChevronRight, Save, RotateCcw, Zap, Brain, Heart, Scale, AlertTriangle } from "lucide-react";
+import { Settings, Users, Clock, Shield, Calendar, AlertCircle, ChevronRight, Save, RefreshCcw, Zap, Brain, Heart, AlertTriangle } from "lucide-react";
 import { type Constraint, type ShiftPattern, type Shift, type OptimizationGoal } from "@/lib/scheduler/types";
 
 interface ScheduleConfigPanelProps {
@@ -262,7 +262,7 @@ export function ScheduleConfigPanel({ onConfigChange, currentConfig }: ScheduleC
             { id: 'basic', label: '기본 설정', icon: Calendar },
             { id: 'shifts', label: '시프트 관리', icon: Clock },
             { id: 'constraints', label: '제약 조건', icon: Shield },
-            { id: 'fairness', label: '공정성', icon: Scale },
+            { id: 'fairness', label: '공정성', icon: Heart },
             { id: 'special', label: '특별 규칙', icon: AlertTriangle },
             { id: 'automation', label: '자동화', icon: Zap },
           ].map((tab) => (

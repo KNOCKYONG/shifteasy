@@ -3,8 +3,8 @@
 import { useState } from "react";
 import {
   X, Save, AlertCircle, User, Calendar, Users,
-  Baby, GraduationCap, Stethoscope, Car, Coffee, Moon, Sun,
-  Cloud, Shield, Clock, Activity, Sparkles, Award,
+  Coffee, Moon, Sun,
+  Shield, Clock, Activity, Sparkles, Award,
   AlertTriangle, CheckCircle, Heart
 } from "lucide-react";
 
@@ -502,7 +502,7 @@ export function MyPreferencesPanel({
               }))}
               className="rounded text-blue-600"
             />
-            <Baby className="w-4 h-4 text-gray-500" />
+            <Heart className="w-4 h-4 text-gray-500" />
             <span className="text-sm">미취학 자녀가 있습니다</span>
           </label>
 
@@ -563,7 +563,7 @@ export function MyPreferencesPanel({
               }))}
               className="rounded text-blue-600"
             />
-            <GraduationCap className="w-4 h-4 text-gray-500" />
+            <Award className="w-4 h-4 text-gray-500" />
             <span className="text-sm">학업을 병행하고 있습니다</span>
           </label>
 
@@ -626,7 +626,7 @@ export function MyPreferencesPanel({
               }))}
               className="rounded text-blue-600"
             />
-            <Stethoscope className="w-4 h-4 text-gray-500" />
+            <Activity className="w-4 h-4 text-gray-500" />
             <span className="text-sm">만성질환이 있습니다</span>
           </label>
 
@@ -737,7 +737,7 @@ export function MyPreferencesPanel({
               }))}
               className="rounded text-blue-600"
             />
-            <Car className="w-4 h-4 text-gray-500" />
+            <Users className="w-4 h-4 text-gray-500" />
             <span className="text-sm">카풀에 관심있습니다</span>
           </label>
         </div>

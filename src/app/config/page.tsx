@@ -5,12 +5,15 @@ import { Settings, Save, AlertCircle, Clock, Users, Calendar, Shield, ChevronRig
 import { useTranslation } from "react-i18next";
 import { type ShiftRule, type ShiftPattern } from "@/lib/types";
 import { MainLayout } from "@/components/layout/MainLayout";
+<<<<<<< HEAD
 import { getCacheStats, clearAllCache, clearCachePattern } from "@/hooks/useApiCache";
 import { ShiftTypesTab } from "./ShiftTypesTab";
 import { DepartmentsTab } from "./DepartmentsTab";
 import { ContractTypesTab } from "./ContractTypesTab";
 import { EmployeeStatusTab } from "./EmployeeStatusTab";
 import { PositionGroupsTab } from "./PositionGroupsTab";
+=======
+>>>>>>> 9bee70e8d80f3df6deecffaf442e7e1e80dea34b
 
 interface ConfigData {
   patterns: ShiftPattern[];
@@ -70,6 +73,7 @@ export default function ConfigPage() {
       default: return '';
     }
   };
+<<<<<<< HEAD
   const [activeTab, setActiveTab] = useState<"patterns" | "rules" | "preferences" | "positions" | "positionGroups" | "shifts" | "departments" | "contracts" | "statuses">("patterns");
   const [cacheStats, setCacheStats] = useState<any>(null);
   const [positions, setPositions] = useState<{value: string; label: string; level: number}[]>([]);
@@ -282,6 +286,9 @@ export default function ConfigPage() {
     const stats = getCacheStats();
     setCacheStats(stats);
   };
+=======
+  const [activeTab, setActiveTab] = useState<"patterns" | "rules" | "preferences">("patterns");
+>>>>>>> 9bee70e8d80f3df6deecffaf442e7e1e80dea34b
   const [config, setConfig] = useState<ConfigData>({
     patterns: DEFAULT_PATTERNS,
     rules: DEFAULT_RULES,
@@ -363,6 +370,7 @@ export default function ConfigPage() {
             >
               {t('tabs.preferences', { ns: 'config' })}
             </button>
+<<<<<<< HEAD
             <button
               onClick={() => setActiveTab("positions")}
               className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
@@ -423,6 +431,8 @@ export default function ConfigPage() {
             >
               {t('tabs.statuses', { ns: 'config', defaultValue: '직원 상태' })}
             </button>
+=======
+>>>>>>> 9bee70e8d80f3df6deecffaf442e7e1e80dea34b
           </nav>
         </div>
 
@@ -634,6 +644,7 @@ export default function ConfigPage() {
             </div>
           </div>
         )}
+<<<<<<< HEAD
 
         {/* Positions Tab */}
         {activeTab === "positions" && (
@@ -982,6 +993,9 @@ export default function ConfigPage() {
             {t('actions.saveAndGenerate', { ns: 'config' })}
           </button>
         </div>
+=======
+>>>>>>> 9bee70e8d80f3df6deecffaf442e7e1e80dea34b
     </MainLayout>
   );
 }
+

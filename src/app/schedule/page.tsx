@@ -1,11 +1,11 @@
 "use client";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { format, startOfWeek, addWeeks, subWeeks, addDays } from "date-fns";
 import { ko } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCcw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { mockTeamMembers } from "@/lib/mock/team-members";
 import { Scheduler, type SchedulingRequest, type SchedulingResult } from "@/lib/scheduler/core";
+import { api } from "@/lib/trpc/client";
 import { type Employee, type Shift, type Constraint, type ScheduleAssignment } from "@/lib/scheduler/types";
 import { EmployeeAdapter } from "@/lib/adapters/employee-adapter";
 import type { ComprehensivePreferences } from "@/components/team/MyPreferencesPanel";
@@ -115,10 +115,41 @@ export default function SchedulePage() {
     { id: 'dept-ward', name: '일반병동' },
   ];
 
-  // 선택된 부서의 직원들만 필터링
-  const filteredMembers = selectedDepartment === 'all'
-    ? mockTeamMembers.filter(m => m.status === 'active')
-    : mockTeamMembers.filter(m => m.status === 'active' && m.departmentId === selectedDepartment);
+  // Fetch users from database
+  const { data: usersData } = api.tenant.users.list.useQuery({
+    limit: 100,
+    offset: 0,
+    status: 'active',
+    departmentId: selectedDepartment !== 'all' ? selectedDepartment : undefined,
+  });
+
+  // Transform users data to match expected format
+  const filteredMembers = React.useMemo(() => {
+    if (!usersData?.items) return [];
+
+    return usersData.items.map(item => ({
+      id: item.id,
+      employeeId: item.employeeId || '',
+      name: item.name,
+      email: item.email,
+      role: item.role as 'admin' | 'manager' | 'staff',
+      departmentId: item.departmentId || '',
+      departmentName: item.department?.name || '',
+      status: item.status as 'active' | 'inactive' | 'on_leave',
+      position: item.position || '',
+      joinedAt: item.createdAt?.toISOString() || new Date().toISOString(),
+      avatar: '',
+      phone: item.profile?.phone || '',
+      skills: item.profile?.skills || [],
+      workSchedule: item.profile?.preferences || {
+        preferredShifts: [],
+        maxHoursPerWeek: 40,
+        minHoursPerWeek: 30,
+        availableDays: [1, 2, 3, 4, 5],
+        unavailableDates: []
+      }
+    }));
+  }, [usersData]);
 
   const handlePreviousWeek = () => {
     setCurrentWeek(prev => subWeeks(prev, 1));
@@ -728,7 +759,7 @@ export default function SchedulePage() {
               >
                 {isGenerating ? (
                   <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <RefreshCcw className="w-4 h-4 animate-spin" />
                     생성 중...
                   </>
                 ) : (
@@ -949,13 +980,13 @@ export default function SchedulePage() {
 
                     <div className="space-y-2 text-sm">
                       {/* 선호 시프트 */}
-                      {member.preferredShifts && member.preferredShifts.length > 0 && (
+                      {member.workSchedule?.preferredShifts && member.workSchedule.preferredShifts.length > 0 && (
                         <div className="flex items-start gap-2">
                           <span className="text-green-500 dark:text-green-400">✓</span>
                           <div>
                             <span className="text-gray-600 dark:text-gray-400">선호:</span>
                             <span className="ml-1 text-gray-900 dark:text-gray-100">
-                              {member.preferredShifts.map(shift =>
+                              {member.workSchedule.preferredShifts.map((shift: string) =>
                                 shift === 'day' ? '주간' : shift === 'evening' ? '저녁' : shift === 'night' ? '야간' : shift
                               ).join(', ')}
                             </span>
@@ -964,13 +995,13 @@ export default function SchedulePage() {
                       )}
 
                       {/* 회피 시프트 */}
-                      {member.avoidShifts && member.avoidShifts.length > 0 && (
+                      {(member as any).avoidShifts && (member as any).avoidShifts.length > 0 && (
                         <div className="flex items-start gap-2">
                           <span className="text-red-500 dark:text-red-400">✗</span>
                           <div>
                             <span className="text-gray-600 dark:text-gray-400">회피:</span>
                             <span className="ml-1 text-gray-900 dark:text-gray-100">
-                              {member.avoidShifts.map(shift =>
+                              {(member as any).avoidShifts.map((shift: string) =>
                                 shift === 'day' ? '주간' : shift === 'evening' ? '저녁' : shift === 'night' ? '야간' : shift
                               ).join(', ')}
                             </span>
@@ -984,18 +1015,18 @@ export default function SchedulePage() {
                         <div>
                           <span className="text-gray-600 dark:text-gray-400">주당:</span>
                           <span className="ml-1 text-gray-900 dark:text-gray-100">
-                            {member.minHoursPerWeek}-{member.maxHoursPerWeek}시간
+                            {member.workSchedule?.minHoursPerWeek || 30}-{member.workSchedule?.maxHoursPerWeek || 40}시간
                           </span>
                         </div>
                       </div>
 
                       {/* 특별 요구사항 */}
-                      {(member.status === 'on-leave' || member.skills?.includes('신입')) && (
+                      {(member.status === 'on_leave' || member.skills?.includes('신입')) && (
                         <div className="flex items-start gap-2">
                           <AlertCircle className="w-3.5 h-3.5 text-amber-500 mt-0.5" />
                           <div>
                             <span className="text-amber-600 dark:text-amber-400">
-                              {member.status === 'on-leave' ? '휴직 중' : member.skills?.includes('신입') ? '신입 교육 중' : ''}
+                              {member.status === 'on_leave' ? '휴직 중' : member.skills?.includes('신입') ? '신입 교육 중' : ''}
                             </span>
                           </div>
                         </div>
@@ -1122,7 +1153,7 @@ export default function SchedulePage() {
             <div className="flex items-center gap-2">
               <Calendar className="w-5 h-5 text-gray-400 dark:text-gray-500" />
               <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                {format(currentWeek, "yyyy년 M월 d일", { locale: ko })} 주
+                {format(currentWeek, "yyyy년 M월 d일")} 주
               </h2>
             </div>
           </div>
@@ -1197,7 +1228,7 @@ export default function SchedulePage() {
               return (
                 <div key={i} className="p-4 bg-gray-50 dark:bg-gray-800 text-center border-l border-gray-200 dark:border-gray-700">
                   <div className="font-medium text-sm text-gray-700 dark:text-gray-300">
-                    {format(date, 'EEE', { locale: ko })}
+                    {format(date, 'EEE')}
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">
                     {format(date, 'M/d')}
@@ -1432,7 +1463,7 @@ export default function SchedulePage() {
                   >
                     {isImporting ? (
                       <>
-                        <RefreshCw className="w-4 h-4 animate-spin inline mr-2" />
+                        <RefreshCcw className="w-4 h-4 animate-spin inline mr-2" />
                         가져오는 중...
                       </>
                     ) : (
@@ -1763,7 +1794,7 @@ export default function SchedulePage() {
                     계산 시간: {generationResult.computationTime}ms
                   </div>
                   <div className="flex items-center gap-2">
-                    <RefreshCw className="w-3 h-3" />
+                    <RefreshCcw className="w-3 h-3" />
                     반복 횟수: {generationResult.iterations}회
                   </div>
                 </div>
@@ -1978,7 +2009,7 @@ export default function SchedulePage() {
                 >
                   {isConfirming ? (
                     <>
-                      <RefreshCw className="w-4 h-4 animate-spin inline mr-2" />
+                      <RefreshCcw className="w-4 h-4 animate-spin inline mr-2" />
                       확정 중...
                     </>
                   ) : (

@@ -3,7 +3,9 @@
  * 제약조건을 만족하면서 직원 선호도와 공정성을 고려한 스케줄 생성
  */
 
-import { format, parseISO, eachDayOfInterval, isWeekend } from 'date-fns'
+import { format, parseISO } from 'date-fns'
+import { eachDayOfInterval } from 'date-fns/eachDayOfInterval'
+import { isWeekend } from 'date-fns/isWeekend'
 import type { 
   Staff, 
   ShiftType, 

@@ -1,13 +1,35 @@
 "use client";
 import { useState } from "react";
 import { X, User, Mail, Phone, Building, Briefcase, Calendar, Clock, Star } from "lucide-react";
+<<<<<<< HEAD
 import { type MockTeamMember, type ExperienceLevel } from "@/lib/mock/team-members";
 import { useEffect } from "react";
+=======
+
+// Type definition for team member
+interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  departmentId: string;
+  position: string;
+  role: "admin" | "manager" | "employee" | "staff";
+  contractType: "full-time" | "part-time" | "contract";
+  status: "active" | "inactive" | "on-leave";
+  joinDate: string;
+  maxHoursPerWeek: number;
+  preferredShifts: ("day" | "evening" | "night")[];
+  skills: string[];
+  availability: Record<string, boolean>;
+  avatar?: string;
+}
+>>>>>>> 9bee70e8d80f3df6deecffaf442e7e1e80dea34b
 
 interface AddTeamMemberModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (member: Omit<MockTeamMember, "id">) => void;
+  onAdd: (member: Omit<TeamMember, "id">) => void;
   departments: Array<{ id: string; name: string }>;
 }
 
@@ -86,11 +108,10 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments }: AddT
     const selectedPosition = customPositions.find(p => p.value === formData.position);
 
     // Create new member object
-    const newMember: Omit<MockTeamMember, "id"> = {
+    const newMember: Omit<TeamMember, "id"> = {
       name: formData.name,
       email: formData.email,
       phone: formData.phone,
-      department: departments.find(d => d.id === formData.departmentId)?.name || '',
       departmentId: formData.departmentId,
       position: formData.position as any,
       positionLabel: selectedPosition?.label || formData.position,
@@ -100,13 +121,15 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments }: AddT
       status: formData.status,
       joinDate: formData.joinDate,
       maxHoursPerWeek: formData.maxHoursPerWeek,
-      minHoursPerWeek: Math.floor(formData.maxHoursPerWeek * 0.8),
       preferredShifts: formData.preferredShifts,
-      avoidShifts: [],
       skills: formData.skills,
+<<<<<<< HEAD
       experienceYears: formData.experienceYears,
       experienceLevel: experienceLevel,
       seniorityLevel: experienceLevel.toLowerCase() as any,
+=======
+      availability: formData.availability,
+>>>>>>> 9bee70e8d80f3df6deecffaf442e7e1e80dea34b
     };
 
     onAdd(newMember);

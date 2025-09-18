@@ -1,5 +1,6 @@
 import { type Staff, type Assignment, type ShiftType, type WeekSchedule } from '@/lib/types';
-import { addDays, differenceInHours, startOfWeek, format } from 'date-fns';
+import { addDays, startOfWeek, format } from 'date-fns';
+import { differenceInHours } from 'date-fns/differenceInHours';
 
 export interface ValidationResult {
   isValid: boolean;

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { User, Heart, Calendar, Clock, Users, Shield, X, Save, AlertCircle, Star, UserCheck, UserX } from "lucide-react";
+import { User, Heart, Calendar, Clock, Users, Shield, X, Save, AlertCircle, Star, UserCheck, UserMinus } from "lucide-react";
 import { type Employee, type EmployeePreferences, type ShiftType } from "@/lib/scheduler/types";
 
 interface EmployeePreferencesModalProps {
@@ -381,7 +381,7 @@ export function EmployeePreferencesModal({
               {/* 회피 동료 */}
               <div>
                 <h3 className="font-semibold mb-3 flex items-center gap-2">
-                  <UserX className="w-5 h-5 text-red-600" />
+                  <UserMinus className="w-5 h-5 text-red-600" />
                   같이 일하기 어려운 동료
                 </h3>
                 <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3">

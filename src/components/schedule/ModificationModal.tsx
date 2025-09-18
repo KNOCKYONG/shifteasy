@@ -2,7 +2,6 @@
 
 import React, { useState, useMemo } from "react";
 import { format } from "date-fns";
-import { ko } from "date-fns/locale";
 import {
   X,
   User,
@@ -10,7 +9,6 @@ import {
   Heart,
   AlertTriangle,
   TrendingUp,
-  TrendingDown,
   CheckCircle,
   Info,
   ArrowRight,
@@ -208,7 +206,7 @@ export function ModificationModal({
                 직원 교체
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                {format(selectedCell.date, "M월 d일 (EEE)", { locale: ko })} · {currentEmployee?.name} → ?
+                {selectedCell.date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })} · {currentEmployee?.name} → ?
               </p>
             </div>
             <button
