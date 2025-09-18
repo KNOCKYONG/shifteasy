@@ -77,4 +77,7 @@ declare module 'lucide-react' {
   export const EyeOff: Icon;
   export const ArrowLeftRight: Icon;
   export const Sparkles: Icon;
+  export const Edit2: Icon;
+  export const Star: Icon;
+  export const MessageSquare: Icon;
 }

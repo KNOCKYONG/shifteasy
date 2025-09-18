@@ -442,7 +442,7 @@ export default function SwapPage() {
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
               <Calendar className="w-3 h-3" />
-              {format(new Date(request.requesterShift.date), 'MM/dd (EEE)', { locale: ko })}
+              {format(new Date(request.requesterShift.date), 'MM/dd (EEE)')}
             </div>
             <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
               <Clock className="w-3 h-3" />
@@ -466,7 +466,7 @@ export default function SwapPage() {
               <div className="space-y-1">
                 <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
                   <Calendar className="w-3 h-3" />
-                  {format(new Date(request.targetShift.date), 'MM/dd (EEE)', { locale: ko })}
+                  {format(new Date(request.targetShift.date), 'MM/dd (EEE)')}
                 </div>
                 <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
                   <Clock className="w-3 h-3" />
