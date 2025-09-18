@@ -2,6 +2,8 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { type ShiftType } from "@/lib/types";
+import { getShiftOptions } from "@/lib/config/shiftTypes";
+import { useState, useEffect } from "react";
 
 interface ShiftCellProps {
   id: string;
@@ -10,30 +12,24 @@ interface ShiftCellProps {
   onShiftChange?: (shift: ShiftType | null) => void;
 }
 
-const SHIFT_OPTIONS: { value: ShiftType; label: string; colors: { bg: string; border: string; text: string } }[] = [
-  {
-    value: "D",
-    label: "주간",
-    colors: { bg: "bg-blue-50 dark:bg-blue-900/10", border: "border-blue-200 dark:border-blue-900/30", text: "text-blue-700 dark:text-blue-300" }
-  },
-  {
-    value: "E",
-    label: "저녁",
-    colors: { bg: "bg-amber-50 dark:bg-amber-900/10", border: "border-amber-200 dark:border-amber-900/30", text: "text-amber-700 dark:text-amber-300" }
-  },
-  {
-    value: "N",
-    label: "야간",
-    colors: { bg: "bg-indigo-50 dark:bg-indigo-900/10", border: "border-indigo-200 dark:border-indigo-900/30", text: "text-indigo-700 dark:text-indigo-300" }
-  },
-  {
-    value: "O",
-    label: "휴무",
-    colors: { bg: "bg-gray-50 dark:bg-gray-900/10", border: "border-gray-200 dark:border-gray-700", text: "text-gray-500 dark:text-gray-400" }
-  },
-];
-
 export function ShiftCell({ id, shift, isDisabled, onShiftChange }: ShiftCellProps) {
+  const [shiftOptions, setShiftOptions] = useState(getShiftOptions());
+
+  useEffect(() => {
+    // Reload shift options when component mounts or localStorage changes
+    const loadOptions = () => setShiftOptions(getShiftOptions());
+    loadOptions();
+
+    // Listen for storage changes
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'customShiftTypes') {
+        loadOptions();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
   const {
     attributes,
     listeners,
@@ -55,8 +51,9 @@ export function ShiftCell({ id, shift, isDisabled, onShiftChange }: ShiftCellPro
   const handleClick = () => {
     if (isDisabled || !onShiftChange) return;
 
-    // Cycle through shifts: null -> D -> E -> N -> O -> null
-    const shiftOrder: (ShiftType | null)[] = [null, "D", "E", "N", "O"];
+    // Cycle through shifts dynamically based on configured shift types
+    const shiftCodes = shiftOptions.map(opt => opt.value as ShiftType);
+    const shiftOrder: (ShiftType | null)[] = [null, ...shiftCodes];
     const currentIndex = shift ? shiftOrder.indexOf(shift) : 0;
     const nextIndex = (currentIndex + 1) % shiftOrder.length;
     onShiftChange(shiftOrder[nextIndex]);
@@ -78,7 +75,7 @@ export function ShiftCell({ id, shift, isDisabled, onShiftChange }: ShiftCellPro
     );
   }
 
-  const shiftConfig = SHIFT_OPTIONS.find(s => s.value === shift) || SHIFT_OPTIONS[0];
+  const shiftConfig = shiftOptions.find(s => s.value === shift) || shiftOptions[0];
 
   return (
     <div className="flex items-center justify-center h-full">

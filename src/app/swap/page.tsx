@@ -596,7 +596,10 @@ export default function SwapPage() {
                         requesterSeniority: request.requesterSeniority || 'intermediate',
                         openApplications: request.openApplications || []
                       }}
-                      currentUser={currentUser}
+                      currentUser={{
+                        ...currentUser,
+                        seniorityLevel: currentUser.seniorityLevel || 'intermediate'
+                      }}
                       isOwner={request.requesterId === currentUser.id}
                       onApply={(requestId, message) => {
                         // 오픈 요청 지원 로직
@@ -606,7 +609,7 @@ export default function SwapPage() {
                               employeeId: currentUser.id,
                               employeeName: currentUser.name,
                               experienceYears: currentUser.experienceYears,
-                              seniorityLevel: currentUser.seniorityLevel,
+                              seniorityLevel: currentUser.seniorityLevel || 'intermediate',
                               shift: {
                                 date: confirmedSchedules[0].date,
                                 type: confirmedSchedules[0].shiftType,
@@ -734,7 +737,7 @@ export default function SwapPage() {
               requesterId: currentUser.id,
               requesterName: currentUser.name,
               requesterExperience: currentUser.experienceYears,
-              requesterSeniority: currentUser.seniorityLevel,
+              requesterSeniority: currentUser.seniorityLevel || 'intermediate',
               requesterShift: {
                 date: requestData.selectedDate,
                 type: requestData.shiftType,
@@ -766,7 +769,7 @@ export default function SwapPage() {
             id: currentUser.id,
             name: currentUser.name,
             position: currentUser.position,
-            seniorityLevel: currentUser.seniorityLevel,
+            seniorityLevel: currentUser.seniorityLevel || 'intermediate',
           }}
           confirmedSchedules={confirmedSchedules}
         />

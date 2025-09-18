@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
 import { X, User, Mail, Phone, Building, Briefcase, Calendar, Clock, Star } from "lucide-react";
-import { type MockTeamMember } from "@/lib/mock/team-members";
+import { type MockTeamMember, type ExperienceLevel } from "@/lib/mock/team-members";
+import { useEffect } from "react";
 
 interface AddTeamMemberModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments }: AddT
     phone: "",
     departmentId: "",
     position: "",
+    experienceYears: 0,
     role: "employee" as "admin" | "manager" | "employee",
     contractType: "full-time" as "full-time" | "part-time" | "contract",
     status: "active" as "active" | "inactive" | "on-leave",
@@ -36,6 +38,30 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments }: AddT
   });
 
   const [skillInput, setSkillInput] = useState("");
+  const [customPositions, setCustomPositions] = useState<{value: string; label: string; level: number}[]>([]);
+
+  // Load custom positions from localStorage
+  useEffect(() => {
+    const savedPositions = localStorage.getItem('customPositions');
+    if (savedPositions) {
+      const parsed = JSON.parse(savedPositions);
+      // Ensure all positions have levels
+      const positionsWithLevels = parsed.map((p: any) => ({
+        ...p,
+        level: p.level || 1
+      }));
+      setCustomPositions(positionsWithLevels);
+    } else {
+      // Default positions if none saved
+      setCustomPositions([
+        { value: 'HN', label: '수석간호사', level: 9 },
+        { value: 'SN', label: '전문간호사', level: 7 },
+        { value: 'CN', label: '책임간호사', level: 5 },
+        { value: 'RN', label: '정규간호사', level: 3 },
+        { value: 'NA', label: '간호조무사', level: 1 },
+      ]);
+    }
+  }, [isOpen]); // Re-load when modal opens to get latest positions
 
   if (!isOpen) return null;
 
@@ -48,6 +74,17 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments }: AddT
       return;
     }
 
+    // Calculate experience level based on years
+    const getExperienceLevel = (years: number): ExperienceLevel => {
+      if (years >= 10) return 'EXPERT';
+      if (years >= 5) return 'SENIOR';
+      if (years >= 2) return 'INTERMEDIATE';
+      return 'JUNIOR';
+    };
+
+    const experienceLevel = getExperienceLevel(formData.experienceYears);
+    const selectedPosition = customPositions.find(p => p.value === formData.position);
+
     // Create new member object
     const newMember: Omit<MockTeamMember, "id"> = {
       name: formData.name,
@@ -55,7 +92,9 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments }: AddT
       phone: formData.phone,
       department: departments.find(d => d.id === formData.departmentId)?.name || '',
       departmentId: formData.departmentId,
-      position: formData.position,
+      position: formData.position as any,
+      positionLabel: selectedPosition?.label || formData.position,
+      positionLevel: selectedPosition?.level || 1,
       role: formData.role === 'employee' ? 'staff' : formData.role as 'staff' | 'admin' | 'manager',
       contractType: formData.contractType,
       status: formData.status,
@@ -65,8 +104,9 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments }: AddT
       preferredShifts: formData.preferredShifts,
       avoidShifts: [],
       skills: formData.skills,
-      experienceYears: 0,
-      seniorityLevel: "junior",
+      experienceYears: formData.experienceYears,
+      experienceLevel: experienceLevel,
+      seniorityLevel: experienceLevel.toLowerCase() as any,
     };
 
     onAdd(newMember);
@@ -78,6 +118,7 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments }: AddT
       phone: "",
       departmentId: "",
       position: "",
+      experienceYears: 0,
       role: "employee",
       contractType: "full-time",
       status: "active",
@@ -231,13 +272,35 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments }: AddT
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   직책 <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
+                <select
                   value={formData.position}
                   onChange={(e) => setFormData({ ...formData, position: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="수간호사"
                   required
+                >
+                  <option value="">직책 선택</option>
+                  {customPositions
+                    .sort((a, b) => b.level - a.level) // Sort by level, highest first
+                    .map((position) => (
+                    <option key={position.value} value={position.value}>
+                      {position.label} (Level {position.level})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  경력 (년)
+                </label>
+                <input
+                  type="number"
+                  value={formData.experienceYears}
+                  onChange={(e) => setFormData({ ...formData, experienceYears: parseInt(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  min="0"
+                  max="50"
+                  placeholder="예: 5"
                 />
               </div>
 

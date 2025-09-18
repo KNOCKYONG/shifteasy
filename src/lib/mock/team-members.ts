@@ -3,14 +3,19 @@
  * 나중에 Supabase 연동 시 제거 예정
  */
 
+import type { Role } from '@/lib/types';
+
 export type SeniorityLevel = 'junior' | 'intermediate' | 'senior' | 'expert';
+export type ExperienceLevel = 'JUNIOR' | 'INTERMEDIATE' | 'SENIOR' | 'EXPERT';
 
 export interface MockTeamMember {
   id: string;
   name: string;
   email: string;
   role: 'admin' | 'manager' | 'staff';
-  position: string;
+  position: Role; // Changed to use Role type from types.ts
+  positionLabel?: string; // Optional label for display
+  positionLevel?: number; // Position hierarchy level (1-10, higher is more senior)
   department: string;
   departmentId: string;
   contractType: 'full-time' | 'part-time' | 'contract';
@@ -24,7 +29,8 @@ export interface MockTeamMember {
   status: 'active' | 'on-leave' | 'inactive';
   skills: string[];
   experienceYears: number; // 경력 연차
-  seniorityLevel: SeniorityLevel; // 연차 레벨
+  experienceLevel: ExperienceLevel; // Changed to match Staff type
+  seniorityLevel?: SeniorityLevel; // Made optional for backward compatibility
 }
 
 export const mockTeamMembers: MockTeamMember[] = [
@@ -33,7 +39,9 @@ export const mockTeamMembers: MockTeamMember[] = [
     name: '김수연',
     email: 'suyeon.kim@hospital.com',
     role: 'manager',
-    position: '수간호사',
+    position: 'CN' as Role,
+    positionLabel: '책임간호사',
+    positionLevel: 5,
     department: '응급실',
     departmentId: 'dept-er',
     contractType: 'full-time',
@@ -46,6 +54,7 @@ export const mockTeamMembers: MockTeamMember[] = [
     status: 'active',
     skills: ['리더십', '응급처치', '중환자관리'],
     experienceYears: 12,
+    experienceLevel: 'EXPERT' as ExperienceLevel,
     seniorityLevel: 'expert',
   },
   {
@@ -53,7 +62,9 @@ export const mockTeamMembers: MockTeamMember[] = [
     name: '박정호',
     email: 'jungho.park@hospital.com',
     role: 'staff',
-    position: '간호사',
+    position: 'RN' as Role,
+    positionLabel: '정규간호사',
+    positionLevel: 3,
     department: '응급실',
     departmentId: 'dept-er',
     contractType: 'full-time',
@@ -66,6 +77,7 @@ export const mockTeamMembers: MockTeamMember[] = [
     status: 'active',
     skills: ['응급처치', '소아간호', '외상처치'],
     experienceYears: 3,
+    experienceLevel: 'INTERMEDIATE' as ExperienceLevel,
     seniorityLevel: 'intermediate',
   },
   {
@@ -73,7 +85,9 @@ export const mockTeamMembers: MockTeamMember[] = [
     name: '이민지',
     email: 'minji.lee@hospital.com',
     role: 'staff',
-    position: '간호사',
+    position: 'RN' as Role,
+    positionLabel: '정규간호사',
+    positionLevel: 3,
     department: '중환자실',
     departmentId: 'dept-icu',
     contractType: 'full-time',
@@ -86,6 +100,7 @@ export const mockTeamMembers: MockTeamMember[] = [
     status: 'active',
     skills: ['중환자관리', '인공호흡기', '투석'],
     experienceYears: 2,
+    experienceLevel: 'JUNIOR' as ExperienceLevel,
     seniorityLevel: 'junior',
   },
   {
@@ -93,7 +108,9 @@ export const mockTeamMembers: MockTeamMember[] = [
     name: '최서준',
     email: 'seojun.choi@hospital.com',
     role: 'staff',
-    position: '간호사',
+    position: 'RN' as Role,
+    positionLabel: '정규간호사',
+    positionLevel: 3,
     department: '수술실',
     departmentId: 'dept-or',
     contractType: 'full-time',
@@ -106,6 +123,7 @@ export const mockTeamMembers: MockTeamMember[] = [
     status: 'active',
     skills: ['수술보조', '마취관리', '무균술'],
     experienceYears: 3,
+    experienceLevel: 'INTERMEDIATE' as ExperienceLevel,
     seniorityLevel: 'intermediate',
   },
   {
@@ -113,7 +131,9 @@ export const mockTeamMembers: MockTeamMember[] = [
     name: '정하윤',
     email: 'hayoon.jung@hospital.com',
     role: 'staff',
-    position: '간호사',
+    position: 'RN' as Role,
+    positionLabel: '정규간호사',
+    positionLevel: 3,
     department: '일반병동',
     departmentId: 'dept-ward',
     contractType: 'part-time',
@@ -126,6 +146,7 @@ export const mockTeamMembers: MockTeamMember[] = [
     status: 'active',
     skills: ['일반간호', '환자교육', '투약관리'],
     experienceYears: 1,
+    experienceLevel: 'JUNIOR' as ExperienceLevel,
     seniorityLevel: 'junior',
   },
   {
@@ -133,7 +154,9 @@ export const mockTeamMembers: MockTeamMember[] = [
     name: '강지훈',
     email: 'jihoon.kang@hospital.com',
     role: 'staff',
-    position: '간호사',
+    position: 'RN' as Role,
+    positionLabel: '정규간호사',
+    positionLevel: 3,
     department: '응급실',
     departmentId: 'dept-er',
     contractType: 'full-time',
@@ -146,6 +169,7 @@ export const mockTeamMembers: MockTeamMember[] = [
     status: 'active',
     skills: ['응급처치', '심폐소생술', '외상처치'],
     experienceYears: 4,
+    experienceLevel: 'INTERMEDIATE' as ExperienceLevel,
     seniorityLevel: 'intermediate',
   },
   {
@@ -153,7 +177,9 @@ export const mockTeamMembers: MockTeamMember[] = [
     name: '윤서영',
     email: 'seoyoung.yoon@hospital.com',
     role: 'manager',
-    position: '수간호사',
+    position: 'CN' as Role,
+    positionLabel: '책임간호사',
+    positionLevel: 5,
     department: '중환자실',
     departmentId: 'dept-icu',
     contractType: 'full-time',
@@ -166,6 +192,7 @@ export const mockTeamMembers: MockTeamMember[] = [
     status: 'active',
     skills: ['리더십', '중환자관리', '교육'],
     experienceYears: 15,
+    experienceLevel: 'EXPERT' as ExperienceLevel,
     seniorityLevel: 'expert',
   },
   {
@@ -173,7 +200,9 @@ export const mockTeamMembers: MockTeamMember[] = [
     name: '임도현',
     email: 'dohyun.lim@hospital.com',
     role: 'staff',
-    position: '간호사',
+    position: 'RN' as Role,
+    positionLabel: '정규간호사',
+    positionLevel: 3,
     department: '수술실',
     departmentId: 'dept-or',
     contractType: 'full-time',
@@ -186,6 +215,7 @@ export const mockTeamMembers: MockTeamMember[] = [
     status: 'active',
     skills: ['수술보조', '기구관리', '감염관리'],
     experienceYears: 2,
+    experienceLevel: 'JUNIOR' as ExperienceLevel,
     seniorityLevel: 'junior',
   },
   {
@@ -193,7 +223,9 @@ export const mockTeamMembers: MockTeamMember[] = [
     name: '송예은',
     email: 'yeeun.song@hospital.com',
     role: 'staff',
-    position: '간호사',
+    position: 'RN' as Role,
+    positionLabel: '정규간호사',
+    positionLevel: 3,
     department: '일반병동',
     departmentId: 'dept-ward',
     contractType: 'full-time',
@@ -206,6 +238,7 @@ export const mockTeamMembers: MockTeamMember[] = [
     status: 'on-leave',
     skills: ['일반간호', '노인간호', '재활간호'],
     experienceYears: 3,
+    experienceLevel: 'INTERMEDIATE' as ExperienceLevel,
     seniorityLevel: 'intermediate',
   },
   {
@@ -213,7 +246,9 @@ export const mockTeamMembers: MockTeamMember[] = [
     name: '한준서',
     email: 'junseo.han@hospital.com',
     role: 'staff',
-    position: '간호사',
+    position: 'RN' as Role,
+    positionLabel: '정규간호사',
+    positionLevel: 3,
     department: '응급실',
     departmentId: 'dept-er',
     contractType: 'full-time',
@@ -226,6 +261,7 @@ export const mockTeamMembers: MockTeamMember[] = [
     status: 'active',
     skills: ['응급처치', '트리아지', '약물관리'],
     experienceYears: 1,
+    experienceLevel: 'JUNIOR' as ExperienceLevel,
     seniorityLevel: 'junior',
   },
   {
@@ -233,7 +269,9 @@ export const mockTeamMembers: MockTeamMember[] = [
     name: '오지민',
     email: 'jimin.oh@hospital.com',
     role: 'staff',
-    position: '간호사',
+    position: 'RN' as Role,
+    positionLabel: '정규간호사',
+    positionLevel: 3,
     department: '중환자실',
     departmentId: 'dept-icu',
     contractType: 'full-time',
@@ -246,6 +284,7 @@ export const mockTeamMembers: MockTeamMember[] = [
     status: 'active',
     skills: ['중환자관리', '심전도', '혈액투석'],
     experienceYears: 4,
+    experienceLevel: 'INTERMEDIATE' as ExperienceLevel,
     seniorityLevel: 'intermediate',
   },
   {
@@ -253,7 +292,9 @@ export const mockTeamMembers: MockTeamMember[] = [
     name: '배소현',
     email: 'sohyun.bae@hospital.com',
     role: 'staff',
-    position: '간호사',
+    position: 'RN' as Role,
+    positionLabel: '정규간호사',
+    positionLevel: 3,
     department: '수술실',
     departmentId: 'dept-or',
     contractType: 'part-time',
@@ -266,6 +307,7 @@ export const mockTeamMembers: MockTeamMember[] = [
     status: 'active',
     skills: ['수술보조', '소독관리', '장비관리'],
     experienceYears: 2,
+    experienceLevel: 'JUNIOR' as ExperienceLevel,
     seniorityLevel: 'junior',
   },
   {
@@ -273,7 +315,9 @@ export const mockTeamMembers: MockTeamMember[] = [
     name: '유승민',
     email: 'seungmin.yoo@hospital.com',
     role: 'staff',
-    position: '간호사',
+    position: 'RN' as Role,
+    positionLabel: '정규간호사',
+    positionLevel: 3,
     department: '일반병동',
     departmentId: 'dept-ward',
     contractType: 'full-time',
@@ -286,6 +330,7 @@ export const mockTeamMembers: MockTeamMember[] = [
     status: 'active',
     skills: ['일반간호', '상처관리', '정맥주사'],
     experienceYears: 5,
+    experienceLevel: 'SENIOR' as ExperienceLevel,
     seniorityLevel: 'senior',
   },
   {
@@ -293,7 +338,9 @@ export const mockTeamMembers: MockTeamMember[] = [
     name: '남지우',
     email: 'jiwoo.nam@hospital.com',
     role: 'staff',
-    position: '간호사',
+    position: 'RN' as Role,
+    positionLabel: '정규간호사',
+    positionLevel: 3,
     department: '응급실',
     departmentId: 'dept-er',
     contractType: 'full-time',
@@ -306,6 +353,7 @@ export const mockTeamMembers: MockTeamMember[] = [
     status: 'active',
     skills: ['응급처치', '소아응급', '독극물처치'],
     experienceYears: 6,
+    experienceLevel: 'SENIOR' as ExperienceLevel,
     seniorityLevel: 'senior',
   },
   {
@@ -313,7 +361,9 @@ export const mockTeamMembers: MockTeamMember[] = [
     name: '문채원',
     email: 'chaewon.moon@hospital.com',
     role: 'manager',
-    position: '수간호사',
+    position: 'CN' as Role,
+    positionLabel: '책임간호사',
+    positionLevel: 5,
     department: '수술실',
     departmentId: 'dept-or',
     contractType: 'full-time',
@@ -326,6 +376,7 @@ export const mockTeamMembers: MockTeamMember[] = [
     status: 'active',
     skills: ['리더십', '수술계획', '품질관리'],
     experienceYears: 10,
+    experienceLevel: 'EXPERT' as ExperienceLevel,
     seniorityLevel: 'expert',
   },
   {
@@ -333,7 +384,9 @@ export const mockTeamMembers: MockTeamMember[] = [
     name: '서민준',
     email: 'minjun.seo@hospital.com',
     role: 'staff',
-    position: '간호사',
+    position: 'RN' as Role,
+    positionLabel: '정규간호사',
+    positionLevel: 3,
     department: '중환자실',
     departmentId: 'dept-icu',
     contractType: 'full-time',
@@ -346,6 +399,7 @@ export const mockTeamMembers: MockTeamMember[] = [
     status: 'active',
     skills: ['중환자관리', 'ECMO', '기계환기'],
     experienceYears: 3,
+    experienceLevel: 'INTERMEDIATE' as ExperienceLevel,
     seniorityLevel: 'intermediate',
   },
   {
@@ -353,7 +407,9 @@ export const mockTeamMembers: MockTeamMember[] = [
     name: '황수진',
     email: 'sujin.hwang@hospital.com',
     role: 'staff',
-    position: '간호사',
+    position: 'RN' as Role,
+    positionLabel: '정규간호사',
+    positionLevel: 3,
     department: '일반병동',
     departmentId: 'dept-ward',
     contractType: 'contract',
@@ -366,6 +422,7 @@ export const mockTeamMembers: MockTeamMember[] = [
     status: 'active',
     skills: ['일반간호', '감염관리', '문서작성'],
     experienceYears: 1,
+    experienceLevel: 'JUNIOR' as ExperienceLevel,
     seniorityLevel: 'junior',
   },
   {
@@ -373,7 +430,9 @@ export const mockTeamMembers: MockTeamMember[] = [
     name: '조현우',
     email: 'hyunwoo.jo@hospital.com',
     role: 'staff',
-    position: '간호사',
+    position: 'RN' as Role,
+    positionLabel: '정규간호사',
+    positionLevel: 3,
     department: '응급실',
     departmentId: 'dept-er',
     contractType: 'full-time',
@@ -386,6 +445,7 @@ export const mockTeamMembers: MockTeamMember[] = [
     status: 'active',
     skills: ['응급처치', '중증외상', '재난의료'],
     experienceYears: 4,
+    experienceLevel: 'INTERMEDIATE' as ExperienceLevel,
     seniorityLevel: 'intermediate',
   },
   {
@@ -393,7 +453,9 @@ export const mockTeamMembers: MockTeamMember[] = [
     name: '신예지',
     email: 'yeji.shin@hospital.com',
     role: 'staff',
-    position: '간호사',
+    position: 'RN' as Role,
+    positionLabel: '정규간호사',
+    positionLevel: 3,
     department: '중환자실',
     departmentId: 'dept-icu',
     contractType: 'full-time',
@@ -406,6 +468,7 @@ export const mockTeamMembers: MockTeamMember[] = [
     status: 'active',
     skills: ['중환자관리', '신경계간호', '순환기간호'],
     experienceYears: 1,
+    experienceLevel: 'JUNIOR' as ExperienceLevel,
     seniorityLevel: 'junior',
   },
   {
@@ -413,7 +476,8 @@ export const mockTeamMembers: MockTeamMember[] = [
     name: '권태현',
     email: 'taehyun.kwon@hospital.com',
     role: 'admin',
-    position: '간호부장',
+    position: 'CN' as Role,
+    positionLabel: '간호부장',
     department: '간호부',
     departmentId: 'dept-nursing',
     contractType: 'full-time',
@@ -426,6 +490,7 @@ export const mockTeamMembers: MockTeamMember[] = [
     status: 'active',
     skills: ['경영관리', '정책수립', '인사관리'],
     experienceYears: 20,
+    experienceLevel: 'EXPERT' as ExperienceLevel,
     seniorityLevel: 'expert',
   },
   // 파트타임 직원 추가
@@ -434,7 +499,9 @@ export const mockTeamMembers: MockTeamMember[] = [
     name: '김하늘',
     email: 'haneul.kim@hospital.com',
     role: 'staff',
-    position: '간호사',
+    position: 'RN' as Role,
+    positionLabel: '정규간호사',
+    positionLevel: 3,
     department: '일반병동',
     departmentId: 'dept-ward',
     contractType: 'part-time',
@@ -447,6 +514,7 @@ export const mockTeamMembers: MockTeamMember[] = [
     status: 'active',
     skills: ['일반간호', '환자교육'],
     experienceYears: 1,
+    experienceLevel: 'JUNIOR' as ExperienceLevel,
     seniorityLevel: 'junior',
   },
   {
@@ -454,7 +522,9 @@ export const mockTeamMembers: MockTeamMember[] = [
     name: '이소영',
     email: 'soyoung.lee@hospital.com',
     role: 'staff',
-    position: '간호사',
+    position: 'RN' as Role,
+    positionLabel: '정규간호사',
+    positionLevel: 3,
     department: '응급실',
     departmentId: 'dept-er',
     contractType: 'part-time',
@@ -467,6 +537,7 @@ export const mockTeamMembers: MockTeamMember[] = [
     status: 'active',
     skills: ['응급처치', '야간간호'],
     experienceYears: 1,
+    experienceLevel: 'JUNIOR' as ExperienceLevel,
     seniorityLevel: 'junior',
   },
   {
@@ -474,7 +545,9 @@ export const mockTeamMembers: MockTeamMember[] = [
     name: '박미래',
     email: 'mirae.park@hospital.com',
     role: 'staff',
-    position: '간호사',
+    position: 'RN' as Role,
+    positionLabel: '정규간호사',
+    positionLevel: 3,
     department: '중환자실',
     departmentId: 'dept-icu',
     contractType: 'part-time',
@@ -487,6 +560,7 @@ export const mockTeamMembers: MockTeamMember[] = [
     status: 'active',
     skills: ['중환자관리', '모니터링'],
     experienceYears: 2,
+    experienceLevel: 'JUNIOR' as ExperienceLevel,
     seniorityLevel: 'junior',
   },
   {
@@ -494,7 +568,9 @@ export const mockTeamMembers: MockTeamMember[] = [
     name: '정유진',
     email: 'yujin.jung@hospital.com',
     role: 'staff',
-    position: '간호사',
+    position: 'RN' as Role,
+    positionLabel: '정규간호사',
+    positionLevel: 3,
     department: '수술실',
     departmentId: 'dept-or',
     contractType: 'part-time',
@@ -507,6 +583,7 @@ export const mockTeamMembers: MockTeamMember[] = [
     status: 'active',
     skills: ['수술보조', '기구관리'],
     experienceYears: 1,
+    experienceLevel: 'JUNIOR' as ExperienceLevel,
     seniorityLevel: 'junior',
   },
   {
@@ -514,7 +591,9 @@ export const mockTeamMembers: MockTeamMember[] = [
     name: '최은서',
     email: 'eunseo.choi@hospital.com',
     role: 'staff',
-    position: '간호사',
+    position: 'RN' as Role,
+    positionLabel: '정규간호사',
+    positionLevel: 3,
     department: '일반병동',
     departmentId: 'dept-ward',
     contractType: 'part-time',
@@ -527,6 +606,7 @@ export const mockTeamMembers: MockTeamMember[] = [
     status: 'active',
     skills: ['일반간호', '노인간호'],
     experienceYears: 2,
+    experienceLevel: 'JUNIOR' as ExperienceLevel,
     seniorityLevel: 'junior',
   },
 ];

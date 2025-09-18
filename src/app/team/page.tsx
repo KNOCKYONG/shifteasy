@@ -7,6 +7,8 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { AddTeamMemberModal } from "@/components/AddTeamMemberModal";
 import { MyPreferencesPanel, type ComprehensivePreferences } from "@/components/team/MyPreferencesPanel";
 import { SpecialRequestModal, type SpecialRequest } from "@/components/team/SpecialRequestModal";
+import { STAFF_ROLES, EXPERIENCE_LEVELS } from "@/lib/constants/staff";
+import { type Role } from "@/lib/types";
 
 export default function TeamManagementPage() {
   const router = useRouter();
@@ -20,6 +22,16 @@ export default function TeamManagementPage() {
   const [currentUserName] = useState("김간호"); // 실제로는 로그인한 사용자 이름
   const [specialRequests, setSpecialRequests] = useState<SpecialRequest[]>([]);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'on-leave' | 'manager' | 'part-time'>('all');
+  const [customPositions, setCustomPositions] = useState<{value: string; label: string; level: number}[]>([]);
+
+  // Load custom positions from localStorage
+  useEffect(() => {
+    const savedPositions = localStorage.getItem('customPositions');
+    if (savedPositions) {
+      const parsed = JSON.parse(savedPositions);
+      setCustomPositions(parsed);
+    }
+  }, []);
 
   // 부서별 필터링
   const departments = [
@@ -34,9 +46,10 @@ export default function TeamManagementPage() {
   // 필터링된 멤버 목록
   const filteredMembers = teamMembers.filter(member => {
     const matchesDepartment = selectedDepartment === 'all' || member.departmentId === selectedDepartment;
+    const positionLabel = member.positionLabel || STAFF_ROLES[member.position as Role]?.label || member.position;
     const matchesSearch = member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           member.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          member.position.toLowerCase().includes(searchQuery.toLowerCase());
+                          positionLabel.toLowerCase().includes(searchQuery.toLowerCase());
 
     // 상태 필터링
     let matchesStatus = true;
@@ -356,7 +369,16 @@ export default function TeamManagementPage() {
                   </div>
                   <div>
                     <h3 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">{member.name}</h3>
-                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{member.position}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                        {member.positionLabel || STAFF_ROLES[member.position as Role]?.label || member.position}
+                      </p>
+                      {(member.positionLevel || customPositions.find(p => p.value === member.position)?.level) && (
+                        <span className="px-1.5 py-0.5 text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 rounded">
+                          Lv.{member.positionLevel || customPositions.find(p => p.value === member.position)?.level}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex gap-1">
@@ -403,6 +425,11 @@ export default function TeamManagementPage() {
                 <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
                   {getContractTypeBadge(member.contractType)}
                 </span>
+                {member.experienceLevel && (
+                  <span className={`px-2 py-1 text-xs font-medium rounded-full bg-${EXPERIENCE_LEVELS[member.experienceLevel]?.color || 'gray'}-100 dark:bg-${EXPERIENCE_LEVELS[member.experienceLevel]?.color || 'gray'}-950/30 text-${EXPERIENCE_LEVELS[member.experienceLevel]?.color || 'gray'}-700 dark:text-${EXPERIENCE_LEVELS[member.experienceLevel]?.color || 'gray'}-400`}>
+                    {EXPERIENCE_LEVELS[member.experienceLevel]?.label || member.experienceLevel}
+                  </span>
+                )}
               </div>
 
               <div className="pt-3 sm:pt-4 border-t border-gray-100 dark:border-gray-800">

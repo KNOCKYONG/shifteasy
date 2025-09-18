@@ -1,11 +1,16 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Settings, Save, AlertCircle, Clock, Users, Calendar, Shield, ChevronRight, Info, Database, Trash2, Activity } from "lucide-react";
+import { Settings, Save, AlertCircle, Clock, Users, Calendar, Shield, ChevronRight, Info, Database, Trash2, Activity, Plus, Edit2, Briefcase, Building, FileText, UserCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { type ShiftRule, type ShiftPattern } from "@/lib/types";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { getCacheStats, clearAllCache, clearCachePattern } from "@/hooks/useApiCache";
+import { ShiftTypesTab } from "./ShiftTypesTab";
+import { DepartmentsTab } from "./DepartmentsTab";
+import { ContractTypesTab } from "./ContractTypesTab";
+import { EmployeeStatusTab } from "./EmployeeStatusTab";
+import { PositionGroupsTab } from "./PositionGroupsTab";
 
 interface ConfigData {
   patterns: ShiftPattern[];
@@ -65,13 +70,204 @@ export default function ConfigPage() {
       default: return '';
     }
   };
-  const [activeTab, setActiveTab] = useState<"patterns" | "rules" | "preferences" | "performance">("patterns");
+  const [activeTab, setActiveTab] = useState<"patterns" | "rules" | "preferences" | "positions" | "positionGroups" | "shifts" | "departments" | "contracts" | "statuses">("patterns");
   const [cacheStats, setCacheStats] = useState<any>(null);
+  const [positions, setPositions] = useState<{value: string; label: string; level: number}[]>([]);
+  const [newPosition, setNewPosition] = useState({ value: '', label: '', level: 1 });
+  const [editingPosition, setEditingPosition] = useState<string | null>(null);
+
+  // Shift types state
+  const [shiftTypes, setShiftTypes] = useState<{
+    code: string;
+    name: string;
+    startTime: string;
+    endTime: string;
+    color: string;
+    allowOvertime: boolean;
+  }[]>([]);
+  const [newShiftType, setNewShiftType] = useState({
+    code: '',
+    name: '',
+    startTime: '09:00',
+    endTime: '17:00',
+    color: 'blue',
+    allowOvertime: false
+  });
+  const [editingShiftType, setEditingShiftType] = useState<string | null>(null);
+
+  // Departments state
+  const [departments, setDepartments] = useState<{
+    id: string;
+    name: string;
+    code: string;
+    requiresSpecialSkills: boolean;
+  }[]>([]);
+  const [newDepartment, setNewDepartment] = useState({
+    id: '',
+    name: '',
+    code: '',
+    requiresSpecialSkills: false
+  });
+  const [editingDepartment, setEditingDepartment] = useState<string | null>(null);
+
+  // Contract types state
+  const [contractTypes, setContractTypes] = useState<{
+    code: string;
+    name: string;
+    description: string;
+    maxHoursPerWeek?: number;
+    minHoursPerWeek?: number;
+    isPrimary: boolean;
+  }[]>([]);
+  const [newContractType, setNewContractType] = useState({
+    code: '',
+    name: '',
+    description: '',
+    maxHoursPerWeek: undefined,
+    minHoursPerWeek: undefined,
+    isPrimary: false,
+  });
+  const [editingContractType, setEditingContractType] = useState<string | null>(null);
+
+  // Employee status state
+  const [employeeStatuses, setEmployeeStatuses] = useState<{
+    code: string;
+    name: string;
+    description: string;
+    isActive: boolean;
+    allowScheduling: boolean;
+    color: string;
+  }[]>([]);
+  const [newEmployeeStatus, setNewEmployeeStatus] = useState({
+    code: '',
+    name: '',
+    description: '',
+    isActive: true,
+    allowScheduling: true,
+    color: 'green',
+  });
+  const [editingEmployeeStatus, setEditingEmployeeStatus] = useState<string | null>(null);
+
+  // Position groups state
+  const [positionGroups, setPositionGroups] = useState<{
+    id: string;
+    name: string;
+    description: string;
+    positionCodes: string[];
+    color: string;
+  }[]>([]);
 
   useEffect(() => {
     // 캐시 통계 가져오기
     const stats = getCacheStats();
     setCacheStats(stats);
+
+    // Load positions from localStorage
+    const savedPositions = localStorage.getItem('customPositions');
+    if (savedPositions) {
+      const parsed = JSON.parse(savedPositions);
+      // Migrate old positions without level to have appropriate levels
+      const migratedPositions = parsed.map((p: any) => {
+        if (!p.level) {
+          // Assign default levels based on position code
+          switch(p.value) {
+            case 'HN': return { ...p, level: 9 };
+            case 'SN': return { ...p, level: 7 };
+            case 'CN': return { ...p, level: 5 };
+            case 'RN': return { ...p, level: 3 };
+            case 'NA': return { ...p, level: 1 };
+            default: return { ...p, level: 1 };
+          }
+        }
+        return p;
+      });
+      setPositions(migratedPositions);
+      // Save migrated positions back if changed
+      if (JSON.stringify(parsed) !== JSON.stringify(migratedPositions)) {
+        localStorage.setItem('customPositions', JSON.stringify(migratedPositions));
+      }
+    } else {
+      // Default positions if none saved
+      const defaultPositions = [
+        { value: 'HN', label: '수석간호사', level: 9 },
+        { value: 'SN', label: '전문간호사', level: 7 },
+        { value: 'CN', label: '책임간호사', level: 5 },
+        { value: 'RN', label: '정규간호사', level: 3 },
+        { value: 'NA', label: '간호조무사', level: 1 },
+      ];
+      setPositions(defaultPositions);
+      localStorage.setItem('customPositions', JSON.stringify(defaultPositions));
+    }
+
+    // Load shift types from localStorage
+    const savedShiftTypes = localStorage.getItem('customShiftTypes');
+    if (savedShiftTypes) {
+      setShiftTypes(JSON.parse(savedShiftTypes));
+    } else {
+      // Default shift types
+      const defaultShiftTypes = [
+        { code: 'D', name: '주간 근무', startTime: '07:00', endTime: '15:00', color: 'blue', allowOvertime: false },
+        { code: 'E', name: '저녁 근무', startTime: '15:00', endTime: '23:00', color: 'amber', allowOvertime: false },
+        { code: 'N', name: '야간 근무', startTime: '23:00', endTime: '07:00', color: 'indigo', allowOvertime: true },
+        { code: 'O', name: '휴무', startTime: '00:00', endTime: '00:00', color: 'gray', allowOvertime: false },
+      ];
+      setShiftTypes(defaultShiftTypes);
+      localStorage.setItem('customShiftTypes', JSON.stringify(defaultShiftTypes));
+    }
+
+    // Load departments from localStorage
+    const savedDepartments = localStorage.getItem('customDepartments');
+    if (savedDepartments) {
+      setDepartments(JSON.parse(savedDepartments));
+    } else {
+      // Default departments
+      const defaultDepartments = [
+        { id: 'dept-er', name: '응급실', code: 'ER', requiresSpecialSkills: true },
+        { id: 'dept-icu', name: '중환자실', code: 'ICU', requiresSpecialSkills: true },
+        { id: 'dept-or', name: '수술실', code: 'OR', requiresSpecialSkills: true },
+        { id: 'dept-ward', name: '일반병동', code: 'WARD', requiresSpecialSkills: false },
+      ];
+      setDepartments(defaultDepartments);
+      localStorage.setItem('customDepartments', JSON.stringify(defaultDepartments));
+    }
+
+    // Load contract types from localStorage
+    const savedContractTypes = localStorage.getItem('customContractTypes');
+    if (savedContractTypes) {
+      setContractTypes(JSON.parse(savedContractTypes));
+    } else {
+      // Default contract types
+      const defaultContractTypes = [
+        { code: 'FT', name: '정규직', description: '정규 고용 계약', isPrimary: true },
+        { code: 'PT', name: '파트타임', description: '시간제 계약', maxHoursPerWeek: 30, isPrimary: false },
+        { code: 'CT', name: '계약직', description: '기간 계약직', isPrimary: false },
+        { code: 'IN', name: '인턴', description: '인턴십 프로그램', maxHoursPerWeek: 40, isPrimary: false },
+      ];
+      setContractTypes(defaultContractTypes);
+      localStorage.setItem('customContractTypes', JSON.stringify(defaultContractTypes));
+    }
+
+    // Load employee statuses from localStorage
+    const savedEmployeeStatuses = localStorage.getItem('customEmployeeStatuses');
+    if (savedEmployeeStatuses) {
+      setEmployeeStatuses(JSON.parse(savedEmployeeStatuses));
+    } else {
+      // Default employee statuses
+      const defaultStatuses = [
+        { code: 'ACTIVE', name: '활성', description: '정상 근무', isActive: true, allowScheduling: true, color: 'green' },
+        { code: 'LEAVE', name: '휴가', description: '휴가 중', isActive: false, allowScheduling: false, color: 'amber' },
+        { code: 'SICK', name: '병가', description: '병가 중', isActive: false, allowScheduling: false, color: 'red' },
+        { code: 'TRAINING', name: '교육', description: '교육 참여 중', isActive: true, allowScheduling: false, color: 'blue' },
+      ];
+      setEmployeeStatuses(defaultStatuses);
+      localStorage.setItem('customEmployeeStatuses', JSON.stringify(defaultStatuses));
+    }
+
+    // Load position groups from localStorage
+    const savedPositionGroups = localStorage.getItem('customPositionGroups');
+    if (savedPositionGroups) {
+      setPositionGroups(JSON.parse(savedPositionGroups));
+    }
   }, []);
 
   const handleClearCache = (type: 'all' | 'analytics' | 'schedule') => {
@@ -168,14 +364,64 @@ export default function ConfigPage() {
               {t('tabs.preferences', { ns: 'config' })}
             </button>
             <button
-              onClick={() => setActiveTab("performance")}
+              onClick={() => setActiveTab("positions")}
               className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === "performance"
+                activeTab === "positions"
                   ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
                   : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
               }`}
             >
-              {t('tabs.performance', { ns: 'config', defaultValue: '성능' })}
+              {t('tabs.positions', { ns: 'config', defaultValue: '직책 관리' })}
+            </button>
+            <button
+              onClick={() => setActiveTab("positionGroups")}
+              className={`pb-3 px-1 text-sm border-b-2 transition-colors ${
+                activeTab === "positionGroups"
+                  ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
+                  : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
+              }`}
+            >
+              {t('tabs.positionGroups', { ns: 'config', defaultValue: '직책 그룹' })}
+            </button>
+            <button
+              onClick={() => setActiveTab("shifts")}
+              className={`pb-3 px-1 text-sm border-b-2 transition-colors ${
+                activeTab === "shifts"
+                  ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
+                  : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
+              }`}
+            >
+              {t('tabs.shifts', { ns: 'config', defaultValue: '근무 타입' })}
+            </button>
+            <button
+              onClick={() => setActiveTab("departments")}
+              className={`pb-3 px-1 text-sm border-b-2 transition-colors ${
+                activeTab === "departments"
+                  ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
+                  : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
+              }`}
+            >
+              {t('tabs.departments', { ns: 'config', defaultValue: '부서/병동' })}
+            </button>
+            <button
+              onClick={() => setActiveTab("contracts")}
+              className={`pb-3 px-1 text-sm border-b-2 transition-colors ${
+                activeTab === "contracts"
+                  ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
+                  : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
+              }`}
+            >
+              {t('tabs.contracts', { ns: 'config', defaultValue: '계약 유형' })}
+            </button>
+            <button
+              onClick={() => setActiveTab("statuses")}
+              className={`pb-3 px-1 text-sm border-b-2 transition-colors ${
+                activeTab === "statuses"
+                  ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
+                  : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
+              }`}
+            >
+              {t('tabs.statuses', { ns: 'config', defaultValue: '직원 상태' })}
             </button>
           </nav>
         </div>
@@ -389,8 +635,222 @@ export default function ConfigPage() {
           </div>
         )}
 
-        {/* Performance Tab */}
-        {activeTab === "performance" && (
+        {/* Positions Tab */}
+        {activeTab === "positions" && (
+          <div className="space-y-6">
+            <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-xl p-4 flex items-start gap-3">
+              <Briefcase className="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm text-purple-900 dark:text-purple-300 font-medium">
+                  {t('positions.title', { ns: 'config', defaultValue: '직책 설정' })}
+                </p>
+                <p className="text-sm text-purple-700 dark:text-purple-400 mt-1">
+                  {t('positions.description', { ns: 'config', defaultValue: '병원 또는 팀에 맞는 직책을 추가하거나 수정할 수 있습니다.' })}
+                </p>
+                <p className="text-sm text-purple-600 dark:text-purple-500 mt-1 font-medium">
+                  💡 레벨이 높을수록 상급자입니다. (1: 초급, 10: 최고급)
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6">
+                {t('positions.list', { ns: 'config', defaultValue: '직책 목록' })}
+              </h3>
+
+              {/* Add new position form */}
+              <div className="mb-6 flex gap-3">
+                <input
+                  type="text"
+                  placeholder="직책 코드 (예: HN)"
+                  value={newPosition.value}
+                  onChange={(e) => setNewPosition({ ...newPosition, value: e.target.value.toUpperCase() })}
+                  className="w-32 px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                />
+                <input
+                  type="text"
+                  placeholder="직책명 (예: 수후간호사)"
+                  value={newPosition.label}
+                  onChange={(e) => setNewPosition({ ...newPosition, label: e.target.value })}
+                  className="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                />
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">레벨:</label>
+                  <input
+                    type="number"
+                    placeholder="레벨"
+                    value={newPosition.level}
+                    onChange={(e) => setNewPosition({ ...newPosition, level: parseInt(e.target.value) || 1 })}
+                    min="1"
+                    max="10"
+                    className="w-20 px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                  />
+                </div>
+                <button
+                  onClick={() => {
+                    if (newPosition.value && newPosition.label && newPosition.level > 0) {
+                      const updatedPositions = [...positions, newPosition];
+                      setPositions(updatedPositions);
+                      localStorage.setItem('customPositions', JSON.stringify(updatedPositions));
+                      setNewPosition({ value: '', label: '', level: 1 });
+                    }
+                  }}
+                  className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  추가
+                </button>
+              </div>
+
+              {/* Positions list */}
+              <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                {positions.map((position) => (
+                  <div key={position.value} className="py-4 flex items-center justify-between">
+                    {editingPosition === position.value ? (
+                      <div className="flex gap-3 flex-1">
+                        <input
+                          type="text"
+                          value={position.value}
+                          disabled
+                          className="w-32 px-3 py-2 border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-lg"
+                        />
+                        <input
+                          type="text"
+                          defaultValue={position.label}
+                          onBlur={(e) => {
+                            const updatedPositions = positions.map(p =>
+                              p.value === position.value ? { ...p, label: e.target.value } : p
+                            );
+                            setPositions(updatedPositions);
+                            localStorage.setItem('customPositions', JSON.stringify(updatedPositions));
+                          }}
+                          className="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                        />
+                        <div className="flex items-center gap-2">
+                          <label className="text-sm text-gray-600 dark:text-gray-400">레벨:</label>
+                          <input
+                            type="number"
+                            defaultValue={position.level}
+                            onBlur={(e) => {
+                              const updatedPositions = positions.map(p =>
+                                p.value === position.value ? { ...p, level: parseInt(e.target.value) || 1 } : p
+                              );
+                              setPositions(updatedPositions);
+                              localStorage.setItem('customPositions', JSON.stringify(updatedPositions));
+                              setEditingPosition(null);
+                            }}
+                            min="1"
+                            max="10"
+                            className="w-20 px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-4">
+                        <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md font-mono text-sm">
+                          {position.value}
+                        </span>
+                        <span className="text-gray-900 dark:text-gray-100 font-medium">
+                          {position.label}
+                        </span>
+                        <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-md text-sm font-medium">
+                          Level {position.level}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setEditingPosition(position.value)}
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                      >
+                        <Edit2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(`"${position.label}" 직책을 삭제하시겠습니까?`)) {
+                            const updatedPositions = positions.filter(p => p.value !== position.value);
+                            setPositions(updatedPositions);
+                            localStorage.setItem('customPositions', JSON.stringify(updatedPositions));
+                          }
+                        }}
+                        className="p-2 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-500 dark:text-red-400" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {positions.length === 0 && (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  아직 등록된 직책이 없습니다.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Position Groups Tab */}
+        {activeTab === "positionGroups" && (
+          <PositionGroupsTab
+            positionGroups={positionGroups}
+            setPositionGroups={setPositionGroups}
+            positions={positions}
+          />
+        )}
+
+        {/* Shifts Tab */}
+        {activeTab === "shifts" && (
+          <ShiftTypesTab
+            shiftTypes={shiftTypes}
+            setShiftTypes={setShiftTypes}
+            newShiftType={newShiftType}
+            setNewShiftType={setNewShiftType}
+            editingShiftType={editingShiftType}
+            setEditingShiftType={setEditingShiftType}
+          />
+        )}
+
+        {/* Departments Tab */}
+        {activeTab === "departments" && (
+          <DepartmentsTab
+            departments={departments}
+            setDepartments={setDepartments}
+            newDepartment={newDepartment}
+            setNewDepartment={setNewDepartment}
+            editingDepartment={editingDepartment}
+            setEditingDepartment={setEditingDepartment}
+          />
+        )}
+
+        {/* Contracts Tab */}
+        {activeTab === "contracts" && (
+          <ContractTypesTab
+            contractTypes={contractTypes}
+            setContractTypes={setContractTypes}
+            newContractType={newContractType}
+            setNewContractType={setNewContractType}
+            editingContractType={editingContractType}
+            setEditingContractType={setEditingContractType}
+          />
+        )}
+
+        {/* Statuses Tab */}
+        {activeTab === "statuses" && (
+          <EmployeeStatusTab
+            employeeStatuses={employeeStatuses}
+            setEmployeeStatuses={setEmployeeStatuses}
+            newEmployeeStatus={newEmployeeStatus}
+            setNewEmployeeStatus={setNewEmployeeStatus}
+            editingEmployeeStatus={editingEmployeeStatus}
+            setEditingEmployeeStatus={setEditingEmployeeStatus}
+          />
+        )}
+
+        {/* Performance Tab - Removed */}
+        {false && (
           <div className="space-y-6">
             {/* 캐시 관리 */}
             <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
