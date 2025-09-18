@@ -376,7 +376,7 @@ export function NotificationCenter({ userId }: NotificationCenterProps) {
                             {notification.message}
                           </p>
                           <p className="text-xs text-gray-400 mt-1">
-                            {format(notification.timestamp, "M월 d일 HH:mm", { locale: ko })}
+                            {format(notification.timestamp, "M월 d일 HH:mm")}
                           </p>
 
                           {/* 액션 버튼 */}
