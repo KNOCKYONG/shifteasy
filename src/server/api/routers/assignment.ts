@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createTRPCRouter, protectedProcedure, adminProcedure } from '@/server/trpc';
+import { createTRPCRouter, protectedProcedure, adminProcedure } from '../trpc';
 import { createAuditLog } from '@/lib/db-helpers';
 import { db } from '@/db';
 import { assignments } from '@/db/schema';

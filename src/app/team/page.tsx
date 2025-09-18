@@ -6,12 +6,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { AddTeamMemberModal } from "@/components/AddTeamMemberModal";
 import { MyPreferencesPanel, type ComprehensivePreferences } from "@/components/team/MyPreferencesPanel";
 import { SpecialRequestModal, type SpecialRequest } from "@/components/team/SpecialRequestModal";
-<<<<<<< HEAD
-import { STAFF_ROLES, EXPERIENCE_LEVELS } from "@/lib/constants/staff";
-import { type Role } from "@/lib/types";
-=======
 import { api } from "@/lib/trpc/client";
->>>>>>> 9bee70e8d80f3df6deecffaf442e7e1e80dea34b
 
 export default function TeamManagementPage() {
   const router = useRouter();
@@ -24,21 +19,8 @@ export default function TeamManagementPage() {
   const [currentUserName] = useState("김간호"); // TODO: Get from auth context
   const [specialRequests, setSpecialRequests] = useState<SpecialRequest[]>([]);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'on-leave' | 'manager' | 'part-time'>('all');
-<<<<<<< HEAD
-  const [customPositions, setCustomPositions] = useState<{value: string; label: string; level: number}[]>([]);
-
-  // Load custom positions from localStorage
-  useEffect(() => {
-    const savedPositions = localStorage.getItem('customPositions');
-    if (savedPositions) {
-      const parsed = JSON.parse(savedPositions);
-      setCustomPositions(parsed);
-    }
-  }, []);
-=======
   const [roleFilter, setRoleFilter] = useState<string | undefined>();
-  const [statusFilterForApi, setStatusFilterForApi] = useState<'active' | 'inactive' | 'on_leave' | undefined>();
->>>>>>> 9bee70e8d80f3df6deecffaf442e7e1e80dea34b
+  const [statusFilterForApi, setStatusFilterForApi] = useState<'active' | 'on_leave' | undefined>();
 
   // Fetch users from TRPC
   const { data: usersData, isLoading: isLoadingUsers, refetch: refetchUsers } = api.tenant.users.list.useQuery({
@@ -57,7 +39,7 @@ export default function TeamManagementPage() {
   });
 
   // Fetch tenant stats
-  const { data: statsData } = api.tenant.getStats.useQuery();
+  const { data: statsData } = api.tenant.stats.summary.useQuery();
 
   // Mutations
   const inviteUserMutation = api.tenant.users.invite.useMutation({
@@ -76,27 +58,14 @@ export default function TeamManagementPage() {
   // Process departments for UI
   const departments = [
     { id: 'all', name: '전체' },
-    ...(departmentsData?.items.map(dept => ({
+    ...((departmentsData?.items as any[] || []).map((dept: any) => ({
       id: dept.id,
       name: dept.name,
     })) || []),
   ];
 
-<<<<<<< HEAD
-  // 필터링된 멤버 목록
-  const filteredMembers = teamMembers.filter(member => {
-    const matchesDepartment = selectedDepartment === 'all' || member.departmentId === selectedDepartment;
-    const positionLabel = member.positionLabel || STAFF_ROLES[member.position as Role]?.label || member.position;
-    const matchesSearch = member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          member.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          positionLabel.toLowerCase().includes(searchQuery.toLowerCase());
-
-    // 상태 필터링
-    let matchesStatus = true;
-=======
   // Update status filter effect
   useEffect(() => {
->>>>>>> 9bee70e8d80f3df6deecffaf442e7e1e80dea34b
     if (statusFilter === 'active') {
       setStatusFilterForApi('active');
       setRoleFilter(undefined);
@@ -113,14 +82,14 @@ export default function TeamManagementPage() {
   }, [statusFilter]);
 
   // Process users data
-  const teamMembers = usersData?.items || [];
+  const teamMembers = (usersData?.items || []) as any[];
 
   // 통계 계산
   const stats = {
     total: statsData?.users || 0,
-    active: teamMembers.filter(m => m.status === 'active').length,
-    onLeave: teamMembers.filter(m => m.status === 'on_leave').length,
-    managers: teamMembers.filter(m => m.role === 'manager' || m.role === 'admin').length,
+    active: teamMembers.filter((m: any) => m.status === 'active').length,
+    onLeave: teamMembers.filter((m: any) => m.status === 'on_leave').length,
+    managers: teamMembers.filter((m: any) => m.role === 'manager' || m.role === 'admin').length,
     partTime: 0, // TODO: Add contract type to schema
   };
 
@@ -428,20 +397,7 @@ export default function TeamManagementPage() {
                   </div>
                   <div>
                     <h3 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">{member.name}</h3>
-<<<<<<< HEAD
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                        {member.positionLabel || STAFF_ROLES[member.position as Role]?.label || member.position}
-                      </p>
-                      {(member.positionLevel || customPositions.find(p => p.value === member.position)?.level) && (
-                        <span className="px-1.5 py-0.5 text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 rounded">
-                          Lv.{member.positionLevel || customPositions.find(p => p.value === member.position)?.level}
-                        </span>
-                      )}
-                    </div>
-=======
                     <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{member.position || '팀원'}</p>
->>>>>>> 9bee70e8d80f3df6deecffaf442e7e1e80dea34b
                   </div>
                 </div>
                 <div className="flex gap-1">
@@ -487,11 +443,6 @@ export default function TeamManagementPage() {
                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusBadgeColor(member.status === 'on_leave' ? 'on-leave' : member.status)}`}>
                   {member.status === 'active' ? '근무중' : member.status === 'on_leave' ? '휴직' : '비활성'}
                 </span>
-                {member.experienceLevel && (
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full bg-${EXPERIENCE_LEVELS[member.experienceLevel]?.color || 'gray'}-100 dark:bg-${EXPERIENCE_LEVELS[member.experienceLevel]?.color || 'gray'}-950/30 text-${EXPERIENCE_LEVELS[member.experienceLevel]?.color || 'gray'}-700 dark:text-${EXPERIENCE_LEVELS[member.experienceLevel]?.color || 'gray'}-400`}>
-                    {EXPERIENCE_LEVELS[member.experienceLevel]?.label || member.experienceLevel}
-                  </span>
-                )}
               </div>
 
               <div className="pt-3 sm:pt-4 border-t border-gray-100 dark:border-gray-800">

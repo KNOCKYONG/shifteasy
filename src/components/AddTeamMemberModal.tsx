@@ -1,10 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, User, Mail, Phone, Building, Briefcase, Calendar, Clock, Star } from "lucide-react";
-<<<<<<< HEAD
-import { type MockTeamMember, type ExperienceLevel } from "@/lib/mock/team-members";
-import { useEffect } from "react";
-=======
 
 // Type definition for team member
 interface TeamMember {
@@ -24,7 +20,6 @@ interface TeamMember {
   availability: Record<string, boolean>;
   avatar?: string;
 }
->>>>>>> 9bee70e8d80f3df6deecffaf442e7e1e80dea34b
 
 interface AddTeamMemberModalProps {
   isOpen: boolean;
@@ -96,15 +91,6 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments }: AddT
       return;
     }
 
-    // Calculate experience level based on years
-    const getExperienceLevel = (years: number): ExperienceLevel => {
-      if (years >= 10) return 'EXPERT';
-      if (years >= 5) return 'SENIOR';
-      if (years >= 2) return 'INTERMEDIATE';
-      return 'JUNIOR';
-    };
-
-    const experienceLevel = getExperienceLevel(formData.experienceYears);
     const selectedPosition = customPositions.find(p => p.value === formData.position);
 
     // Create new member object
@@ -114,8 +100,6 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments }: AddT
       phone: formData.phone,
       departmentId: formData.departmentId,
       position: formData.position as any,
-      positionLabel: selectedPosition?.label || formData.position,
-      positionLevel: selectedPosition?.level || 1,
       role: formData.role === 'employee' ? 'staff' : formData.role as 'staff' | 'admin' | 'manager',
       contractType: formData.contractType,
       status: formData.status,
@@ -123,13 +107,7 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments }: AddT
       maxHoursPerWeek: formData.maxHoursPerWeek,
       preferredShifts: formData.preferredShifts,
       skills: formData.skills,
-<<<<<<< HEAD
-      experienceYears: formData.experienceYears,
-      experienceLevel: experienceLevel,
-      seniorityLevel: experienceLevel.toLowerCase() as any,
-=======
       availability: formData.availability,
->>>>>>> 9bee70e8d80f3df6deecffaf442e7e1e80dea34b
     };
 
     onAdd(newMember);

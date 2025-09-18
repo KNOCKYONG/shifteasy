@@ -216,7 +216,7 @@ export default function SwapPage() {
   // Get the first user as current user (temporary - should be from auth)
   const currentUser = React.useMemo(() => {
     if (!usersData?.items?.[0]) return null;
-    const item = usersData.items[0];
+    const item = usersData.items[0] as any;
     return {
       id: item.id,
       employeeId: item.employeeId || '',
@@ -628,13 +628,6 @@ export default function SwapPage() {
                         requesterSeniority: request.requesterSeniority || 'intermediate',
                         openApplications: request.openApplications || []
                       }}
-<<<<<<< HEAD
-                      currentUser={{
-                        ...currentUser,
-                        seniorityLevel: currentUser.seniorityLevel || 'intermediate'
-                      }}
-                      isOwner={request.requesterId === currentUser.id}
-=======
                       currentUser={currentUser ? {
                         id: currentUser.id,
                         name: currentUser.name,
@@ -642,23 +635,15 @@ export default function SwapPage() {
                         seniorityLevel: (currentUser as any).seniorityLevel || 'junior' as const
                       } : undefined}
                       isOwner={request.requesterId === currentUser?.id}
->>>>>>> 9bee70e8d80f3df6deecffaf442e7e1e80dea34b
                       onApply={(requestId, message) => {
                         // 오픈 요청 지원 로직
                         const updatedRequests = swapRequests.map(r => {
                           if (r.id === requestId) {
                             const newApplication = {
-<<<<<<< HEAD
-                              employeeId: currentUser.id,
-                              employeeName: currentUser.name,
-                              experienceYears: currentUser.experienceYears,
-                              seniorityLevel: currentUser.seniorityLevel || 'intermediate',
-=======
                               employeeId: currentUser?.id || '',
                               employeeName: currentUser?.name || '',
                               experienceYears: (currentUser as any)?.experienceYears || 0,
                               seniorityLevel: (currentUser as any)?.seniorityLevel || 'junior' as const,
->>>>>>> 9bee70e8d80f3df6deecffaf442e7e1e80dea34b
                               shift: {
                                 date: confirmedSchedules[0].date,
                                 type: confirmedSchedules[0].shiftType,
@@ -783,17 +768,10 @@ export default function SwapPage() {
             const newRequest: SwapRequest = {
               id: `swap-${Date.now()}`,
               type: requestData.type,
-<<<<<<< HEAD
-              requesterId: currentUser.id,
-              requesterName: currentUser.name,
-              requesterExperience: currentUser.experienceYears,
-              requesterSeniority: currentUser.seniorityLevel || 'intermediate',
-=======
               requesterId: currentUser?.id || '',
               requesterName: currentUser?.name || '',
               requesterExperience: (currentUser as any)?.experienceYears || 0,
               requesterSeniority: (currentUser as any)?.seniorityLevel || 'junior' as const,
->>>>>>> 9bee70e8d80f3df6deecffaf442e7e1e80dea34b
               requesterShift: {
                 date: requestData.selectedDate,
                 type: requestData.shiftType,
@@ -822,17 +800,10 @@ export default function SwapPage() {
             }
           }}
           currentUser={{
-<<<<<<< HEAD
-            id: currentUser.id,
-            name: currentUser.name,
-            position: currentUser.position,
-            seniorityLevel: currentUser.seniorityLevel || 'intermediate',
-=======
             id: currentUser?.id || '',
             name: currentUser?.name || '',
             position: currentUser?.position || '',
             seniorityLevel: (currentUser as any)?.seniorityLevel || 'junior',
->>>>>>> 9bee70e8d80f3df6deecffaf442e7e1e80dea34b
           }}
           confirmedSchedules={confirmedSchedules}
         />

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createTRPCRouter, publicProcedure, protectedProcedure } from '@/server/trpc';
+import { createTRPCRouter, publicProcedure, protectedProcedure } from '../trpc';
 import { scopedDb } from '@/lib/db-helpers';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';

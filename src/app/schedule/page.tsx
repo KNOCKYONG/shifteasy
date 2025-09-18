@@ -127,7 +127,7 @@ export default function SchedulePage() {
   const filteredMembers = React.useMemo(() => {
     if (!usersData?.items) return [];
 
-    return usersData.items.map(item => ({
+    return (usersData.items as any[]).map((item: any) => ({
       id: item.id,
       employeeId: item.employeeId || '',
       name: item.name,

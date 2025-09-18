@@ -11,6 +11,15 @@ import { ContractTypesTab } from "./ContractTypesTab";
 import { EmployeeStatusTab } from "./EmployeeStatusTab";
 import { PositionGroupsTab } from "./PositionGroupsTab";
 
+interface ContractType {
+  code: string;
+  name: string;
+  description: string;
+  maxHoursPerWeek?: number;
+  minHoursPerWeek?: number;
+  isPrimary: boolean;
+}
+
 interface ConfigData {
   patterns: ShiftPattern[];
   rules: ShiftRule[];
@@ -118,7 +127,7 @@ export default function ConfigPage() {
     minHoursPerWeek?: number;
     isPrimary: boolean;
   }[]>([]);
-  const [newContractType, setNewContractType] = useState({
+  const [newContractType, setNewContractType] = useState<ContractType>({
     code: '',
     name: '',
     description: '',

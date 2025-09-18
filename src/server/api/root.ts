@@ -1,4 +1,4 @@
-import { createTRPCRouter } from '@/server/trpc-context';
+import { createTRPCRouter } from './trpc';
 import { authRouter } from './routers/auth';
 import { tenantRouter } from './routers/tenant';
 import { scheduleRouter } from './routers/schedule';

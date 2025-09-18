@@ -4,10 +4,7 @@ import { appRouter } from '@/server/api/root';
 import { createTRPCContext } from '@/server/trpc-context';
 
 const createContext = async (req: NextRequest) => {
-  return createTRPCContext({
-    req: req,
-    headers: req.headers,
-  });
+  return createTRPCContext();
 };
 
 const handler = (req: NextRequest) =>
