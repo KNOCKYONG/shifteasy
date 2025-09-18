@@ -5,9 +5,9 @@ import { db } from '@/db';
 import { eq, and, isNull } from 'drizzle-orm';
 import { users } from '@/db/schema';
 // import { syncClerkUser } from '@/lib/auth';  // Clerk 인증 임시 비활성화
-import { hasPermission, type Permission } from '@/lib/permissions';
-import { rateLimitMiddleware } from '@/lib/rate-limit';
-import { auditApiOperation } from '@/lib/audit-log';
+// import { hasPermission, type Permission } from '@/lib/permissions';
+// import { rateLimitMiddleware } from '@/lib/rate-limit';
+// import { auditApiOperation } from '@/lib/audit-log';
 
 export const createTRPCContext = async (opts: { req: Request; headers?: Headers }) => {
   const { req } = opts;
@@ -123,7 +123,8 @@ const hasRole = (allowedRoles: string[]) =>
     });
   });
 
-// Permission-based middleware
+// Permission-based middleware - 임시 비활성화
+/*
 const requirePermission = (permission: Permission) =>
   t.middleware(async ({ ctx, next }) => {
     if (!ctx.user) {
@@ -163,8 +164,10 @@ const requirePermission = (permission: Permission) =>
       },
     });
   });
+*/
 
-// Rate limiting middleware
+// Rate limiting middleware - 임시 비활성화
+/*
 const withRateLimit = (type: 'api' | 'auth' | 'schedule' | 'swap' | 'report' | 'notification' | 'upload' = 'api') =>
   t.middleware(async ({ ctx, next }) => {
     if (ctx.user && ctx.tenantId) {
@@ -177,12 +180,14 @@ const withRateLimit = (type: 'api' | 'auth' | 'schedule' | 'swap' | 'report' | '
 
     return next();
   });
+*/
 
 export const protectedProcedure = t.procedure.use(isAuthed);
 export const adminProcedure = t.procedure.use(hasRole(['admin', 'owner']));
 export const ownerProcedure = t.procedure.use(hasRole(['owner']));
 
-// Permission-based procedures
+// Permission-based procedures - 임시 비활성화
+/*
 export const createScheduleProcedure = t.procedure
   .use(isAuthed)
   .use(requirePermission('schedule.create'))
@@ -197,3 +202,4 @@ export const approveSwapProcedure = t.procedure
   .use(isAuthed)
   .use(requirePermission('swap.approve'))
   .use(withRateLimit('swap'));
+*/
