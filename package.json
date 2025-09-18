@@ -18,7 +18,8 @@
 		"db:check:users": "tsx src/db/utils.ts users",
 		"db:check:clerk": "tsx src/db/utils.ts clerk",
 		"db:check:summary": "tsx src/db/utils.ts summary",
-		"db:seed": "tsx scripts/seed-test-data.ts"
+		"db:seed": "tsx scripts/seed-test-data.ts",
+		"db:update-staff": "tsx src/db/seed/update-staff-data.ts"
 	},
 	"dependencies": {
 		"@bull-board/api": "^6.12.7",
