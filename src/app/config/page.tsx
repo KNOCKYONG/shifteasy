@@ -5,15 +5,11 @@ import { Settings, Save, AlertCircle, Clock, Users, Calendar, Shield, ChevronRig
 import { useTranslation } from "react-i18next";
 import { type ShiftRule, type ShiftPattern } from "@/lib/types";
 import { MainLayout } from "@/components/layout/MainLayout";
-<<<<<<< HEAD
-import { getCacheStats, clearAllCache, clearCachePattern } from "@/hooks/useApiCache";
 import { ShiftTypesTab } from "./ShiftTypesTab";
 import { DepartmentsTab } from "./DepartmentsTab";
 import { ContractTypesTab } from "./ContractTypesTab";
 import { EmployeeStatusTab } from "./EmployeeStatusTab";
 import { PositionGroupsTab } from "./PositionGroupsTab";
-=======
->>>>>>> 9bee70e8d80f3df6deecffaf442e7e1e80dea34b
 
 interface ConfigData {
   patterns: ShiftPattern[];
@@ -73,9 +69,8 @@ export default function ConfigPage() {
       default: return '';
     }
   };
-<<<<<<< HEAD
+
   const [activeTab, setActiveTab] = useState<"patterns" | "rules" | "preferences" | "positions" | "positionGroups" | "shifts" | "departments" | "contracts" | "statuses">("patterns");
-  const [cacheStats, setCacheStats] = useState<any>(null);
   const [positions, setPositions] = useState<{value: string; label: string; level: number}[]>([]);
   const [newPosition, setNewPosition] = useState({ value: '', label: '', level: 1 });
   const [editingPosition, setEditingPosition] = useState<string | null>(null);
@@ -162,10 +157,6 @@ export default function ConfigPage() {
   }[]>([]);
 
   useEffect(() => {
-    // 캐시 통계 가져오기
-    const stats = getCacheStats();
-    setCacheStats(stats);
-
     // Load positions from localStorage
     const savedPositions = localStorage.getItem('customPositions');
     if (savedPositions) {
@@ -274,21 +265,6 @@ export default function ConfigPage() {
     }
   }, []);
 
-  const handleClearCache = (type: 'all' | 'analytics' | 'schedule') => {
-    if (type === 'all') {
-      clearAllCache();
-      alert(t('alerts.cacheCleared', { ns: 'config', defaultValue: '모든 캐시가 삭제되었습니다.' }));
-    } else {
-      clearCachePattern(type);
-      alert(t('alerts.cacheCleared', { ns: 'config', defaultValue: `${type} 캐시가 삭제되었습니다.` }));
-    }
-    // 통계 업데이트
-    const stats = getCacheStats();
-    setCacheStats(stats);
-  };
-=======
-  const [activeTab, setActiveTab] = useState<"patterns" | "rules" | "preferences">("patterns");
->>>>>>> 9bee70e8d80f3df6deecffaf442e7e1e80dea34b
   const [config, setConfig] = useState<ConfigData>({
     patterns: DEFAULT_PATTERNS,
     rules: DEFAULT_RULES,
@@ -370,7 +346,6 @@ export default function ConfigPage() {
             >
               {t('tabs.preferences', { ns: 'config' })}
             </button>
-<<<<<<< HEAD
             <button
               onClick={() => setActiveTab("positions")}
               className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
@@ -431,8 +406,6 @@ export default function ConfigPage() {
             >
               {t('tabs.statuses', { ns: 'config', defaultValue: '직원 상태' })}
             </button>
-=======
->>>>>>> 9bee70e8d80f3df6deecffaf442e7e1e80dea34b
           </nav>
         </div>
 
@@ -644,7 +617,6 @@ export default function ConfigPage() {
             </div>
           </div>
         )}
-<<<<<<< HEAD
 
         {/* Positions Tab */}
         {activeTab === "positions" && (
@@ -860,123 +832,6 @@ export default function ConfigPage() {
           />
         )}
 
-        {/* Performance Tab - Removed */}
-        {false && (
-          <div className="space-y-6">
-            {/* 캐시 관리 */}
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                  <Database className="w-5 h-5 text-blue-500" />
-                  {t('performance.cacheManagement', { ns: 'config', defaultValue: '캐시 관리' })}
-                </h3>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  {t('performance.cacheDesc', { ns: 'config', defaultValue: '성능 향상을 위한 캐시 설정 및 관리' })}
-                </p>
-              </div>
-
-              <div className="p-6 space-y-6">
-                {/* 캐시 통계 */}
-                {cacheStats && (
-                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                      {t('performance.cacheStats', { ns: 'config', defaultValue: '캐시 통계' })}
-                    </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div>
-                        <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                          {cacheStats.totalEntries}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {t('performance.totalEntries', { ns: 'config', defaultValue: '전체 항목' })}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                          {cacheStats.activeEntries}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {t('performance.activeEntries', { ns: 'config', defaultValue: '활성 항목' })}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                          {cacheStats.expiredEntries}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {t('performance.expiredEntries', { ns: 'config', defaultValue: '만료 항목' })}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                          {cacheStats.estimatedSizeKB}KB
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {t('performance.estimatedSize', { ns: 'config', defaultValue: '예상 크기' })}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* 캐시 삭제 버튼 */}
-                <div className="space-y-3">
-                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t('performance.clearCache', { ns: 'config', defaultValue: '캐시 삭제' })}
-                  </h4>
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      onClick={() => handleClearCache('analytics')}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      {t('performance.clearAnalytics', { ns: 'config', defaultValue: '분석 캐시 삭제' })}
-                    </button>
-                    <button
-                      onClick={() => handleClearCache('schedule')}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      {t('performance.clearSchedule', { ns: 'config', defaultValue: '스케줄 캐시 삭제' })}
-                    </button>
-                    <button
-                      onClick={() => handleClearCache('all')}
-                      className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 rounded-lg flex items-center gap-2"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      {t('performance.clearAll', { ns: 'config', defaultValue: '모든 캐시 삭제' })}
-                    </button>
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {t('performance.clearNote', { ns: 'config', defaultValue: '캐시를 삭제하면 다음 API 호출 시 데이터를 다시 가져옵니다.' })}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* API 성능 모니터링 */}
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-green-500" />
-                  {t('performance.apiMonitoring', { ns: 'config', defaultValue: 'API 성능 모니터링' })}
-                </h3>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  {t('performance.apiDesc', { ns: 'config', defaultValue: '실시간 API 응답 시간 및 성능 지표' })}
-                </p>
-              </div>
-
-              <div className="p-6">
-                <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4">
-                  <p className="text-sm text-blue-700 dark:text-blue-400">
-                    {t('performance.cacheEnabled', { ns: 'config', defaultValue: '현재 캐싱 시스템이 활성화되어 API 응답 속도가 향상되었습니다. 평균 응답 시간이 50-70% 감소했습니다.' })}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Action Buttons */}
         <div className="mt-8 flex justify-between">
           <button
@@ -993,9 +848,6 @@ export default function ConfigPage() {
             {t('actions.saveAndGenerate', { ns: 'config' })}
           </button>
         </div>
-=======
->>>>>>> 9bee70e8d80f3df6deecffaf442e7e1e80dea34b
     </MainLayout>
   );
 }
-
