@@ -67,7 +67,12 @@ export class QueueFactory {
   /**
    * Get or create a queue
    */
-  static getQueue(name: QueueName): BullQueue {
+  static getQueue(name: QueueName): BullQueue | null {
+    // Bull 큐를 임시로 비활성화 (Upstash Redis와 호환 문제)
+    if (process.env.NODE_ENV === 'production' || !process.env.REDIS_HOST) {
+      return null as any;
+    }
+
     if (!this.queues.has(name)) {
       const queue = this.createQueue(name);
       this.queues.set(name, queue);
@@ -155,6 +160,24 @@ export class QueueFactory {
    */
   static async getStatistics(queueName: QueueName): Promise<any> {
     const queue = this.getQueue(queueName);
+
+    // Bull 큐가 비활성화된 경우
+    if (!queue) {
+      return {
+        name: queueName,
+        counts: {
+          waiting: 0,
+          active: 0,
+          completed: 0,
+          failed: 0,
+          delayed: 0,
+        },
+        status: {
+          paused: false,
+          isRedisAvailable: false,
+        },
+      };
+    }
 
     const [
       waiting,

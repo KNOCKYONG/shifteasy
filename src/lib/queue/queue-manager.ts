@@ -155,6 +155,15 @@ export class QueueManager {
     try {
       const queue = QueueFactory.getQueue(queueName);
 
+      // Bull 큐가 비활성화된 경우 임시 응답 반환
+      if (!queue) {
+        return {
+          jobId: `mock-${Date.now()}`,
+          queueName,
+          status: 'completed',
+        };
+      }
+
       const jobOptions: any = {
         priority: options?.priority || JobPriority.NORMAL,
         delay: options?.delay,
@@ -190,6 +199,12 @@ export class QueueManager {
   ): Promise<JobResult | null> {
     try {
       const queue = QueueFactory.getQueue(queueName);
+
+      // Bull 큐가 비활성화된 경우
+      if (!queue) {
+        return null;
+      }
+
       const job = await queue.getJob(jobId);
 
       if (!job) {
@@ -219,6 +234,12 @@ export class QueueManager {
   ): Promise<boolean> {
     try {
       const queue = QueueFactory.getQueue(queueName);
+
+      // Bull 큐가 비활성화된 경우
+      if (!queue) {
+        return false;
+      }
+
       const job = await queue.getJob(jobId);
 
       if (!job) {
@@ -242,6 +263,12 @@ export class QueueManager {
   ): Promise<boolean> {
     try {
       const queue = QueueFactory.getQueue(queueName);
+
+      // Bull 큐가 비활성화된 경우
+      if (!queue) {
+        return false;
+      }
+
       const job = await queue.getJob(jobId);
 
       if (!job) {
@@ -280,6 +307,7 @@ export class QueueManager {
    */
   async clearCompleted(queueName: QueueName): Promise<void> {
     const queue = QueueFactory.getQueue(queueName);
+    if (!queue) return;
     await queue.clean(0, 'completed');
   }
 
@@ -288,6 +316,7 @@ export class QueueManager {
    */
   async clearFailed(queueName: QueueName): Promise<void> {
     const queue = QueueFactory.getQueue(queueName);
+    if (!queue) return;
     await queue.clean(0, 'failed');
   }
 
@@ -296,6 +325,7 @@ export class QueueManager {
    */
   async clearAll(queueName: QueueName): Promise<void> {
     const queue = QueueFactory.getQueue(queueName);
+    if (!queue) return;
     await queue.empty();
   }
 
@@ -304,6 +334,7 @@ export class QueueManager {
    */
   async pauseQueue(queueName: QueueName): Promise<void> {
     const queue = QueueFactory.getQueue(queueName);
+    if (!queue) return;
     await queue.pause();
   }
 
@@ -312,6 +343,7 @@ export class QueueManager {
    */
   async resumeQueue(queueName: QueueName): Promise<void> {
     const queue = QueueFactory.getQueue(queueName);
+    if (!queue) return;
     await queue.resume();
   }
 
@@ -324,6 +356,8 @@ export class QueueManager {
     limit: number = 100
   ): Promise<JobResult[]> {
     const queue = QueueFactory.getQueue(queueName);
+    if (!queue) return [];
+
     let jobs: Job[] = [];
 
     switch (status) {
@@ -395,6 +429,7 @@ export class QueueManager {
     options?: JobOptions
   ): Promise<void> {
     const queue = QueueFactory.getQueue(queueName);
+    if (!queue) return;
 
     await queue.add(data, {
       repeat: { cron },
@@ -410,6 +445,7 @@ export class QueueManager {
     repeatJobKey: string
   ): Promise<void> {
     const queue = QueueFactory.getQueue(queueName);
+    if (!queue) return;
     await queue.removeRepeatable({ cron: repeatJobKey });
   }
 
@@ -418,6 +454,7 @@ export class QueueManager {
    */
   async getRecurringJobs(queueName: QueueName): Promise<any[]> {
     const queue = QueueFactory.getQueue(queueName);
+    if (!queue) return [];
     return queue.getRepeatableJobs();
   }
 

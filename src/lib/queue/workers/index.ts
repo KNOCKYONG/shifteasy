@@ -32,53 +32,75 @@ import { exportProcessor } from './export-processor';
 export function initializeWorkers(): void {
   console.log('Initializing queue workers...');
 
+  // Bull 큐가 비활성화된 경우 (프로덕션 또는 Redis 미설정)
+  if (process.env.NODE_ENV === 'production' || !process.env.REDIS_HOST) {
+    console.log('Queue workers disabled (no local Redis available)');
+    return;
+  }
+
   // Email worker
   const emailQueue = QueueFactory.getQueue(QueueName.EMAIL);
-  emailQueue.process(5, async (job: Job<EmailJobData>) => {
-    return emailProcessor(job);
-  });
+  if (emailQueue) {
+    emailQueue.process(5, async (job: Job<EmailJobData>) => {
+      return emailProcessor(job);
+    });
+  }
 
   // Report worker
   const reportQueue = QueueFactory.getQueue(QueueName.REPORT);
-  reportQueue.process(3, async (job: Job<ReportJobData>) => {
-    return reportProcessor(job);
-  });
+  if (reportQueue) {
+    reportQueue.process(3, async (job: Job<ReportJobData>) => {
+      return reportProcessor(job);
+    });
+  }
 
   // Schedule worker
   const scheduleQueue = QueueFactory.getQueue(QueueName.SCHEDULE);
-  scheduleQueue.process(2, async (job: Job<ScheduleJobData>) => {
-    return scheduleProcessor(job);
-  });
+  if (scheduleQueue) {
+    scheduleQueue.process(2, async (job: Job<ScheduleJobData>) => {
+      return scheduleProcessor(job);
+    });
+  }
 
   // Notification worker
   const notificationQueue = QueueFactory.getQueue(QueueName.NOTIFICATION);
-  notificationQueue.process(10, async (job: Job<NotificationJobData>) => {
-    return notificationProcessor(job);
-  });
+  if (notificationQueue) {
+    notificationQueue.process(10, async (job: Job<NotificationJobData>) => {
+      return notificationProcessor(job);
+    });
+  }
 
   // Analytics worker
   const analyticsQueue = QueueFactory.getQueue(QueueName.ANALYTICS);
-  analyticsQueue.process(3, async (job: Job<AnalyticsJobData>) => {
-    return analyticsProcessor(job);
-  });
+  if (analyticsQueue) {
+    analyticsQueue.process(3, async (job: Job<AnalyticsJobData>) => {
+      return analyticsProcessor(job);
+    });
+  }
 
   // Backup worker
   const backupQueue = QueueFactory.getQueue(QueueName.BACKUP);
-  backupQueue.process(1, async (job: Job<BackupJobData>) => {
-    return backupProcessor(job);
-  });
+  if (backupQueue) {
+    backupQueue.process(1, async (job: Job<BackupJobData>) => {
+      return backupProcessor(job);
+    });
+  }
 
   // Import worker
   const importQueue = QueueFactory.getQueue(QueueName.IMPORT);
-  importQueue.process(2, async (job: Job<ImportJobData>) => {
-    return importProcessor(job);
-  });
+  if (importQueue) {
+    importQueue.process(2, async (job: Job<ImportJobData>) => {
+      return importProcessor(job);
+    });
+  }
 
   // Export worker
   const exportQueue = QueueFactory.getQueue(QueueName.EXPORT);
-  exportQueue.process(3, async (job: Job<ExportJobData>) => {
-    return exportProcessor(job);
-  });
+  if (exportQueue) {
+    exportQueue.process(3, async (job: Job<ExportJobData>) => {
+      return exportProcessor(job);
+    });
+  }
 
   console.log('Queue workers initialized successfully');
 }
