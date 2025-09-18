@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { format, startOfWeek, addWeeks, subWeeks, addDays } from "date-fns";
 import { ko } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCcw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Scheduler, type SchedulingRequest, type SchedulingResult } from "@/lib/scheduler/core";
 import { api } from "@/lib/trpc/client";
@@ -759,7 +759,7 @@ export default function SchedulePage() {
               >
                 {isGenerating ? (
                   <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <RefreshCcw className="w-4 h-4 animate-spin" />
                     생성 중...
                   </>
                 ) : (
@@ -1153,7 +1153,7 @@ export default function SchedulePage() {
             <div className="flex items-center gap-2">
               <Calendar className="w-5 h-5 text-gray-400 dark:text-gray-500" />
               <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                {format(currentWeek, "yyyy년 M월 d일", { locale: ko })} 주
+                {format(currentWeek, "yyyy년 M월 d일")} 주
               </h2>
             </div>
           </div>
@@ -1228,7 +1228,7 @@ export default function SchedulePage() {
               return (
                 <div key={i} className="p-4 bg-gray-50 dark:bg-gray-800 text-center border-l border-gray-200 dark:border-gray-700">
                   <div className="font-medium text-sm text-gray-700 dark:text-gray-300">
-                    {format(date, 'EEE', { locale: ko })}
+                    {format(date, 'EEE')}
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">
                     {format(date, 'M/d')}
@@ -1463,7 +1463,7 @@ export default function SchedulePage() {
                   >
                     {isImporting ? (
                       <>
-                        <RefreshCw className="w-4 h-4 animate-spin inline mr-2" />
+                        <RefreshCcw className="w-4 h-4 animate-spin inline mr-2" />
                         가져오는 중...
                       </>
                     ) : (
@@ -1794,7 +1794,7 @@ export default function SchedulePage() {
                     계산 시간: {generationResult.computationTime}ms
                   </div>
                   <div className="flex items-center gap-2">
-                    <RefreshCw className="w-3 h-3" />
+                    <RefreshCcw className="w-3 h-3" />
                     반복 횟수: {generationResult.iterations}회
                   </div>
                 </div>
@@ -2009,7 +2009,7 @@ export default function SchedulePage() {
                 >
                   {isConfirming ? (
                     <>
-                      <RefreshCw className="w-4 h-4 animate-spin inline mr-2" />
+                      <RefreshCcw className="w-4 h-4 animate-spin inline mr-2" />
                       확정 중...
                     </>
                   ) : (
