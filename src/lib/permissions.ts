@@ -69,6 +69,11 @@ export const PERMISSIONS = {
   'user.invite': 'Invite new users',
   'user.remove': 'Remove users',
   'user.role.change': 'Change user roles',
+
+  // Notification permissions
+  'notification.send': 'Send notifications',
+  'notification.view': 'View notifications',
+  'notification.manage': 'Manage notifications',
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;

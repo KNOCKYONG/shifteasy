@@ -1,13 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Calendar, Clock, Users, ArrowLeftRight, Check, X, AlertCircle, Plus, Filter, Sparkles } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { format, addDays } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { NewRequestModal, NewRequestData } from '@/components/swap/NewRequestModal';
 import { OpenRequestCard } from '@/components/swap/OpenRequestCard';
-import { mockTeamMembers } from '@/lib/mock/team-members';
+import { api } from '@/lib/trpc/client';
 
 // 스왑 요청 타입
 type SwapRequestType = 'swap' | 'cover' | 'auto-match' | 'open-request';
@@ -206,8 +206,40 @@ export default function SwapPage() {
   const [currentUserId] = useState('emp-001'); // 실제로는 로그인한 사용자 ID
   const [activeTab, setActiveTab] = useState<'regular' | 'open'>('regular');
 
-  // 현재 사용자 (실제로는 로그인 정보에서 가져와야 함)
-  const currentUser = mockTeamMembers[0]; // 김수연
+  // Fetch current user from database
+  const { data: usersData } = api.tenant.users.list.useQuery({
+    limit: 1,
+    offset: 0,
+    status: 'active',
+  });
+
+  // Get the first user as current user (temporary - should be from auth)
+  const currentUser = React.useMemo(() => {
+    if (!usersData?.items?.[0]) return null;
+    const item = usersData.items[0];
+    return {
+      id: item.id,
+      employeeId: item.employeeId || '',
+      name: item.name,
+      email: item.email,
+      role: item.role as 'admin' | 'manager' | 'staff',
+      departmentId: item.departmentId || '',
+      departmentName: item.department?.name || '',
+      status: item.status as 'active' | 'inactive' | 'on_leave',
+      position: item.position || '',
+      joinedAt: item.createdAt?.toISOString() || new Date().toISOString(),
+      avatar: '',
+      phone: item.profile?.phone || '',
+      skills: item.profile?.skills || [],
+      workSchedule: item.profile?.preferences || {
+        preferredShifts: [],
+        maxHoursPerWeek: 40,
+        minHoursPerWeek: 30,
+        availableDays: [1, 2, 3, 4, 5],
+        unavailableDates: []
+      }
+    };
+  }, [usersData]);
 
   // 확정된 스케줄 (실제로는 DB에서 가져와야 함)
   const confirmedSchedules = [
@@ -596,17 +628,22 @@ export default function SwapPage() {
                         requesterSeniority: request.requesterSeniority || 'intermediate',
                         openApplications: request.openApplications || []
                       }}
-                      currentUser={currentUser}
-                      isOwner={request.requesterId === currentUser.id}
+                      currentUser={currentUser ? {
+                        id: currentUser.id,
+                        name: currentUser.name,
+                        experienceYears: (currentUser as any).experienceYears || 0,
+                        seniorityLevel: (currentUser as any).seniorityLevel || 'junior' as const
+                      } : undefined}
+                      isOwner={request.requesterId === currentUser?.id}
                       onApply={(requestId, message) => {
                         // 오픈 요청 지원 로직
                         const updatedRequests = swapRequests.map(r => {
                           if (r.id === requestId) {
                             const newApplication = {
-                              employeeId: currentUser.id,
-                              employeeName: currentUser.name,
-                              experienceYears: currentUser.experienceYears,
-                              seniorityLevel: currentUser.seniorityLevel,
+                              employeeId: currentUser?.id || '',
+                              employeeName: currentUser?.name || '',
+                              experienceYears: (currentUser as any)?.experienceYears || 0,
+                              seniorityLevel: (currentUser as any)?.seniorityLevel || 'junior' as const,
                               shift: {
                                 date: confirmedSchedules[0].date,
                                 type: confirmedSchedules[0].shiftType,
@@ -731,10 +768,10 @@ export default function SwapPage() {
             const newRequest: SwapRequest = {
               id: `swap-${Date.now()}`,
               type: requestData.type,
-              requesterId: currentUser.id,
-              requesterName: currentUser.name,
-              requesterExperience: currentUser.experienceYears,
-              requesterSeniority: currentUser.seniorityLevel,
+              requesterId: currentUser?.id || '',
+              requesterName: currentUser?.name || '',
+              requesterExperience: (currentUser as any)?.experienceYears || 0,
+              requesterSeniority: (currentUser as any)?.seniorityLevel || 'junior' as const,
               requesterShift: {
                 date: requestData.selectedDate,
                 type: requestData.shiftType,
@@ -763,10 +800,10 @@ export default function SwapPage() {
             }
           }}
           currentUser={{
-            id: currentUser.id,
-            name: currentUser.name,
-            position: currentUser.position,
-            seniorityLevel: currentUser.seniorityLevel,
+            id: currentUser?.id || '',
+            name: currentUser?.name || '',
+            position: currentUser?.position || '',
+            seniorityLevel: (currentUser as any)?.seniorityLevel || 'junior',
           }}
           confirmedSchedules={confirmedSchedules}
         />

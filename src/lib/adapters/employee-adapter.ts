@@ -3,51 +3,74 @@
  */
 
 import type { Employee, EmployeePreferences, EmployeeAvailability } from '@/lib/scheduler/types';
-import type { MockTeamMember } from '@/lib/mock/team-members';
 import type { ComprehensivePreferences } from '@/components/team/MyPreferencesPanel';
 import type { UnifiedEmployee, EmployeeStatistics } from '@/lib/types/unified-employee';
+
+// Generic team member interface
+interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  position?: string;
+  department?: string;
+  departmentId?: string;
+  departmentName?: string;
+  role?: string;
+  status?: string;
+  skills?: string[];
+  joinedAt?: string;
+  avatar?: string;
+  workSchedule?: {
+    preferredShifts?: string[];
+    maxHoursPerWeek?: number;
+    minHoursPerWeek?: number;
+    availableDays?: number[];
+    unavailableDates?: string[];
+  };
+}
 
 /**
  * 다양한 Employee 형식 간 변환을 담당하는 어댑터
  */
 export class EmployeeAdapter {
   /**
-   * MockTeamMember를 UnifiedEmployee로 변환
+   * TeamMember를 UnifiedEmployee로 변환
    */
   static fromMockToUnified(
-    mock: MockTeamMember,
+    member: TeamMember,
     comprehensivePrefs?: ComprehensivePreferences,
     statistics?: EmployeeStatistics
   ): UnifiedEmployee {
     return {
       // 기본 정보
-      id: mock.id,
-      name: mock.name,
-      email: mock.email,
-      phone: mock.phone,
-      position: mock.position,
-      department: mock.department,
-      departmentId: mock.departmentId,
-      role: mock.role === 'admin' ? 'admin' : mock.role === 'manager' ? 'manager' : 'staff',
-      contractType: mock.contractType,
-      status: mock.status,
-      joinDate: mock.joinDate,
-      avatar: mock.avatar,
+      id: member.id,
+      name: member.name,
+      email: member.email,
+      phone: member.phone || '',
+      position: member.position || '',
+      department: member.departmentName || member.department || '',
+      departmentId: member.departmentId || '',
+      role: member.role === 'admin' ? 'admin' : member.role === 'manager' ? 'manager' : 'staff',
+      contractType: 'full-time' as any,
+      status: member.status as any || 'active',
+      joinDate: member.joinedAt || new Date().toISOString(),
+      avatar: member.avatar || '',
 
       // 근무 제한
-      maxHoursPerWeek: mock.maxHoursPerWeek,
-      minHoursPerWeek: mock.minHoursPerWeek,
+      maxHoursPerWeek: member.workSchedule?.maxHoursPerWeek || 40,
+      minHoursPerWeek: member.workSchedule?.minHoursPerWeek || 30,
 
       // 스킬
-      skills: mock.skills,
+      skills: member.skills || [],
 
       // 기본 선호도
       preferences: {
-        preferredShifts: mock.preferredShifts,
-        avoidShifts: mock.avoidShifts,
+        preferredShifts: (member.workSchedule?.preferredShifts || []) as any,
+        avoidShifts: [],
         preferredDaysOff: [0, 6], // 기본값: 주말
         maxConsecutiveDays: 5,
-        preferNightShift: mock.preferredShifts.includes('night')
+        preferNightShift: (member.workSchedule?.preferredShifts || []).includes('night')
       },
 
       // 가용성
@@ -351,7 +374,7 @@ export class EmployeeAdapter {
    * 일괄 변환 유틸리티
    */
   static batchConvert(
-    members: MockTeamMember[],
+    members: TeamMember[],
     preferencesMap?: Map<string, ComprehensivePreferences>
   ): UnifiedEmployee[] {
     return members.map(member => {

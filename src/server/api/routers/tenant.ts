@@ -172,25 +172,27 @@ export const tenantRouter = createTRPCRouter({
         })
       )
       .query(async ({ ctx, input }) => {
-        let query = ctx.db
-          .select()
-          .from(departments)
-          .where(and(
-            eq(departments.tenantId, ctx.tenantId),
-            isNull(departments.deletedAt)
-          ))
-          .orderBy(asc(departments.name))
-          .limit(input.limit)
-          .offset(input.offset);
+        const conditions = [
+          eq(departments.tenantId, ctx.tenantId),
+          isNull(departments.deletedAt)
+        ];
 
         if (input.search) {
-          query = query.where(
+          conditions.push(
             or(
               like(departments.name, `%${input.search}%`),
               like(departments.code, `%${input.search}%`)
-            )
+            ) as any
           );
         }
+
+        const query = ctx.db
+          .select()
+          .from(departments)
+          .where(and(...conditions))
+          .orderBy(asc(departments.name))
+          .limit(input.limit)
+          .offset(input.offset);
 
         const items = await query;
 
@@ -328,7 +330,17 @@ export const tenantRouter = createTRPCRouter({
           conditions.push(eq(users.status, input.status));
         }
 
-        let query = ctx.db
+        if (input.search) {
+          conditions.push(
+            or(
+              like(users.name, `%${input.search}%`),
+              like(users.email, `%${input.search}%`),
+              like(users.employeeId, `%${input.search}%`)
+            ) as any
+          );
+        }
+
+        const query = ctx.db
           .select({
             user: users,
             department: departments,
@@ -339,16 +351,6 @@ export const tenantRouter = createTRPCRouter({
           .orderBy(asc(users.name))
           .limit(input.limit)
           .offset(input.offset);
-
-        if (input.search) {
-          query = query.where(
-            or(
-              like(users.name, `%${input.search}%`),
-              like(users.email, `%${input.search}%`),
-              like(users.employeeId, `%${input.search}%`)
-            )
-          );
-        }
 
         const items = await query;
 

@@ -1,12 +1,30 @@
 "use client";
 import { useState } from "react";
 import { X, User, Mail, Phone, Building, Briefcase, Calendar, Clock, Star } from "lucide-react";
-import { type MockTeamMember } from "@/lib/mock/team-members";
+
+// Type definition for team member
+interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  departmentId: string;
+  position: string;
+  role: "admin" | "manager" | "employee" | "staff";
+  contractType: "full-time" | "part-time" | "contract";
+  status: "active" | "inactive" | "on-leave";
+  joinDate: string;
+  maxHoursPerWeek: number;
+  preferredShifts: ("day" | "evening" | "night")[];
+  skills: string[];
+  availability: Record<string, boolean>;
+  avatar?: string;
+}
 
 interface AddTeamMemberModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (member: Omit<MockTeamMember, "id">) => void;
+  onAdd: (member: Omit<TeamMember, "id">) => void;
   departments: Array<{ id: string; name: string }>;
 }
 
@@ -49,11 +67,10 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments }: AddT
     }
 
     // Create new member object
-    const newMember: Omit<MockTeamMember, "id"> = {
+    const newMember: Omit<TeamMember, "id"> = {
       name: formData.name,
       email: formData.email,
       phone: formData.phone,
-      department: departments.find(d => d.id === formData.departmentId)?.name || '',
       departmentId: formData.departmentId,
       position: formData.position,
       role: formData.role === 'employee' ? 'staff' : formData.role as 'staff' | 'admin' | 'manager',
@@ -61,12 +78,9 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments }: AddT
       status: formData.status,
       joinDate: formData.joinDate,
       maxHoursPerWeek: formData.maxHoursPerWeek,
-      minHoursPerWeek: Math.floor(formData.maxHoursPerWeek * 0.8),
       preferredShifts: formData.preferredShifts,
-      avoidShifts: [],
       skills: formData.skills,
-      experienceYears: 0,
-      seniorityLevel: "junior",
+      availability: formData.availability,
     };
 
     onAdd(newMember);
