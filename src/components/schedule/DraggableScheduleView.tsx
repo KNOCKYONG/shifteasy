@@ -394,7 +394,7 @@ export function DraggableScheduleView({
                 {weekDates.map((date, i) => (
                   <div key={i} className="p-4 text-center border-l border-gray-200 dark:border-gray-700">
                     <div className="font-medium text-sm text-gray-700 dark:text-gray-300">
-                      {format(date, 'EEE', { locale: ko })}
+                      {date.toLocaleDateString('ko-KR', { weekday: 'short' })}
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">
                       {format(date, 'M/d')}

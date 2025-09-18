@@ -7,7 +7,6 @@ import {
   ArrowRight,
   CheckCircle,
   AlertTriangle,
-  TrendingDown,
   Users,
   Heart,
   Shield,
@@ -16,8 +15,6 @@ import {
   Info,
   ChevronDown,
   ChevronUp,
-  Lightbulb,
-  Target,
 } from "lucide-react";
 import { type ScheduleAssignment } from "@/lib/scheduler/types";
 import { type Staff } from "@/lib/types";
@@ -331,7 +328,7 @@ export function SmartSuggestions({
               {/* 영향 요약 */}
               <div className="flex items-center gap-4 mb-3">
                 <div className="flex items-center gap-1.5">
-                  <TrendingDown className="w-4 h-4 text-green-500" />
+                  <AlertTriangle className="w-4 h-4 text-green-500" />
                   <span className="text-sm font-medium text-green-600 dark:text-green-400">
                     -{suggestion.impact.penaltyReduction} 페널티
                   </span>
@@ -343,7 +340,7 @@ export function SmartSuggestions({
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Target className="w-4 h-4 text-purple-500" />
+                  <Zap className="w-4 h-4 text-purple-500" />
                   <span className="text-sm text-gray-600 dark:text-gray-400">
                     신뢰도 {suggestion.confidence}%
                   </span>
@@ -447,7 +444,7 @@ export function SmartSuggestions({
 
         {filteredSuggestions.length === 0 && (
           <div className="text-center py-12">
-            <Lightbulb className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+            <Sparkles className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
             <p className="text-gray-500 dark:text-gray-400">
               현재 카테고리에 해당하는 제안이 없습니다
             </p>

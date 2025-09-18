@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import {
-  X, Send, Calendar, Clock, AlertCircle, MessageSquare,
-  Baby, Heart, GraduationCap, Plane, Home, Stethoscope,
+  X, Calendar, Clock, AlertCircle, MessageSquare,
+  Heart, Plane, Home,
   Users, AlertTriangle, CheckCircle, Info
 } from "lucide-react";
 
@@ -58,14 +58,14 @@ export function SpecialRequestModal({
   // 빠른 템플릿
   const quickTemplates = [
     {
-      icon: Baby,
+      icon: Heart,
       label: '육아 관련',
       category: 'family' as const,
       title: '육아로 인한 근무 조정 요청',
       description: '어린 자녀 육아로 인해 특정 시간대 근무가 어렵습니다.'
     },
     {
-      icon: GraduationCap,
+      icon: Users,
       label: '학업 병행',
       category: 'education' as const,
       title: '학업 일정에 따른 스케줄 조정',
@@ -79,7 +79,7 @@ export function SpecialRequestModal({
       description: '가족 간병이 필요하여 야간 근무가 어렵습니다.'
     },
     {
-      icon: Stethoscope,
+      icon: Heart,
       label: '건강 사유',
       category: 'health' as const,
       title: '건강상 이유로 근무 조정 필요',
@@ -434,7 +434,7 @@ export function SpecialRequestModal({
                     </>
                   ) : (
                     <>
-                      <Send className="w-4 h-4" />
+                      <MessageSquare className="w-4 h-4" />
                       요청 제출
                     </>
                   )}

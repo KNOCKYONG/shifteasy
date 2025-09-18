@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday, isSameMonth, startOfWeek, endOfWeek } from "date-fns";
+import { format, startOfMonth, endOfMonth, getDay, isToday, isSameMonth, startOfWeek, endOfWeek } from "date-fns";
+import { eachDayOfInterval } from "date-fns/eachDayOfInterval";
 import { ko } from "date-fns/locale";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { type Staff, type ShiftType, type WeekSchedule } from "@/lib/types";
@@ -63,7 +64,7 @@ export function MonthView({ staff, schedule, currentMonth, onMonthChange }: Mont
               <ChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             </button>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              {format(currentMonth, "yyyy년 M월", { locale: ko })}
+              {format(currentMonth, "yyyy'년' M'월'")}
             </h2>
             <button
               onClick={handleNextMonth}

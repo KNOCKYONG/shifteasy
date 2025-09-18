@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Calendar, Clock, User, Users, ChevronDown, ChevronUp, Send, AlertCircle, Award } from 'lucide-react';
+import { Calendar, Clock, User, Users, ChevronDown, ChevronUp, AlertCircle, Award } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
@@ -131,7 +131,7 @@ export function OpenRequestCard({
             </div>
           </div>
           <span className="text-xs text-gray-500">
-            {format(new Date(request.createdAt), 'M월 d일 HH:mm', { locale: ko })}
+            {format(new Date(request.createdAt), "M'월' d'일' HH:mm")}
           </span>
         </div>
 
@@ -140,7 +140,7 @@ export function OpenRequestCard({
           <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-1">
               <Calendar className="w-4 h-4 text-gray-500" />
-              <span>{format(new Date(request.requesterShift.date), 'M월 d일 (E)', { locale: ko })}</span>
+              <span>{new Date(request.requesterShift.date).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}</span>
             </div>
             <div className="flex items-center gap-1">
               <Clock className="w-4 h-4 text-gray-500" />
@@ -234,7 +234,7 @@ export function OpenRequestCard({
               onClick={() => setShowApplicationForm(true)}
               className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2"
             >
-              <Send className="w-4 h-4" />
+              <Award className="w-4 h-4" />
               지원하기
             </button>
           )}

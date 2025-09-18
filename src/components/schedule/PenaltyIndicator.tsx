@@ -7,8 +7,6 @@ import {
   Info,
   CheckCircle,
   TrendingUp,
-  TrendingDown,
-  Minus,
   ChevronRight,
 } from "lucide-react";
 
@@ -79,8 +77,8 @@ export function PenaltyIndicator({
     const iconSize = size === "sm" ? "w-3 h-3" : size === "md" ? "w-4 h-4" : "w-5 h-5";
 
     if (value > 0) return <TrendingUp className={iconSize} />;
-    if (value < 0) return <TrendingDown className={iconSize} />;
-    return <Minus className={iconSize} />;
+    if (value < 0) return <AlertCircle className={iconSize} />;
+    return <CheckCircle className={iconSize} />;
   };
 
   // 사이즈별 패딩
@@ -243,7 +241,7 @@ export function PenaltyDelta({
       {isIncrease ? (
         <TrendingUp className="w-4 h-4 text-red-500" />
       ) : (
-        <TrendingDown className="w-4 h-4 text-green-500" />
+        <AlertCircle className="w-4 h-4 text-green-500" />
       )}
       <span
         className={`text-sm font-medium ${
