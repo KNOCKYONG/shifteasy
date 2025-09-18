@@ -5,6 +5,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { I18nProvider } from "@/components/providers/I18nProvider";
+import { TRPCProvider } from "@/components/providers/trpc-provider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -30,19 +31,21 @@ export default function RootLayout({
     // >
       <html lang="ko" suppressHydrationWarning>
         <body className={inter.className}>
-          <I18nProvider>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="system"
-              enableSystem
-              disableTransitionOnChange={false}
-            >
-              <div className="fixed top-4 right-4 z-50">
-                <SettingsMenu />
-              </div>
-              {children}
-            </ThemeProvider>
-          </I18nProvider>
+          <TRPCProvider>
+            <I18nProvider>
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange={false}
+              >
+                <div className="fixed top-4 right-4 z-50">
+                  <SettingsMenu />
+                </div>
+                {children}
+              </ThemeProvider>
+            </I18nProvider>
+          </TRPCProvider>
         </body>
       </html>
     // </ClerkProvider>

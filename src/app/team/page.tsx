@@ -2,79 +2,112 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, Save, Upload, Download, Users, ChevronRight, Edit2, Mail, Phone, Calendar, Shield, Clock, Star, Settings, Heart, MessageSquare, AlertCircle } from "lucide-react";
-import { mockTeamMembers, type MockTeamMember } from "@/lib/mock/team-members";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { AddTeamMemberModal } from "@/components/AddTeamMemberModal";
 import { MyPreferencesPanel, type ComprehensivePreferences } from "@/components/team/MyPreferencesPanel";
 import { SpecialRequestModal, type SpecialRequest } from "@/components/team/SpecialRequestModal";
+import { api } from "@/lib/trpc/client";
 
 export default function TeamManagementPage() {
   const router = useRouter();
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [teamMembers, setTeamMembers] = useState<MockTeamMember[]>(mockTeamMembers);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showMyPreferences, setShowMyPreferences] = useState(false);
   const [showSpecialRequest, setShowSpecialRequest] = useState(false);
-  const [currentUserId] = useState("member-1"); // 실제로는 로그인한 사용자 ID를 사용
-  const [currentUserName] = useState("김간호"); // 실제로는 로그인한 사용자 이름
+  const [currentUserId] = useState("user-1"); // TODO: Get from auth context
+  const [currentUserName] = useState("김간호"); // TODO: Get from auth context
   const [specialRequests, setSpecialRequests] = useState<SpecialRequest[]>([]);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'on-leave' | 'manager' | 'part-time'>('all');
+  const [roleFilter, setRoleFilter] = useState<string | undefined>();
+  const [statusFilterForApi, setStatusFilterForApi] = useState<'active' | 'inactive' | 'on_leave' | undefined>();
 
-  // 부서별 필터링
+  // Fetch users from TRPC
+  const { data: usersData, isLoading: isLoadingUsers, refetch: refetchUsers } = api.tenant.users.list.useQuery({
+    limit: 100,
+    offset: 0,
+    search: searchQuery || undefined,
+    departmentId: selectedDepartment !== 'all' ? selectedDepartment : undefined,
+    role: roleFilter as any,
+    status: statusFilterForApi,
+  });
+
+  // Fetch departments from TRPC
+  const { data: departmentsData, isLoading: isLoadingDepartments } = api.tenant.departments.list.useQuery({
+    limit: 50,
+    offset: 0,
+  });
+
+  // Fetch tenant stats
+  const { data: statsData } = api.tenant.getStats.useQuery();
+
+  // Mutations
+  const inviteUserMutation = api.tenant.users.invite.useMutation({
+    onSuccess: () => {
+      refetchUsers();
+      setShowAddForm(false);
+    },
+  });
+
+  const deactivateUserMutation = api.tenant.users.deactivate.useMutation({
+    onSuccess: () => {
+      refetchUsers();
+    },
+  });
+
+  // Process departments for UI
   const departments = [
     { id: 'all', name: '전체' },
-    { id: 'dept-er', name: '응급실' },
-    { id: 'dept-icu', name: '중환자실' },
-    { id: 'dept-or', name: '수술실' },
-    { id: 'dept-ward', name: '일반병동' },
-    { id: 'dept-nursing', name: '간호부' },
+    ...(departmentsData?.items.map(dept => ({
+      id: dept.id,
+      name: dept.name,
+    })) || []),
   ];
 
-  // 필터링된 멤버 목록
-  const filteredMembers = teamMembers.filter(member => {
-    const matchesDepartment = selectedDepartment === 'all' || member.departmentId === selectedDepartment;
-    const matchesSearch = member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          member.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          member.position.toLowerCase().includes(searchQuery.toLowerCase());
-
-    // 상태 필터링
-    let matchesStatus = true;
+  // Update status filter effect
+  useEffect(() => {
     if (statusFilter === 'active') {
-      matchesStatus = member.status === 'active';
+      setStatusFilterForApi('active');
+      setRoleFilter(undefined);
     } else if (statusFilter === 'on-leave') {
-      matchesStatus = member.status === 'on-leave';
+      setStatusFilterForApi('on_leave');
+      setRoleFilter(undefined);
     } else if (statusFilter === 'manager') {
-      matchesStatus = member.role === 'manager' || member.role === 'admin';
-    } else if (statusFilter === 'part-time') {
-      matchesStatus = member.contractType === 'part-time';
+      setStatusFilterForApi(undefined);
+      setRoleFilter('manager');
+    } else {
+      setStatusFilterForApi(undefined);
+      setRoleFilter(undefined);
     }
+  }, [statusFilter]);
 
-    return matchesDepartment && matchesSearch && matchesStatus;
-  });
+  // Process users data
+  const teamMembers = usersData?.items || [];
 
   // 통계 계산
   const stats = {
-    total: teamMembers.length,
+    total: statsData?.users || 0,
     active: teamMembers.filter(m => m.status === 'active').length,
-    onLeave: teamMembers.filter(m => m.status === 'on-leave').length,
+    onLeave: teamMembers.filter(m => m.status === 'on_leave').length,
     managers: teamMembers.filter(m => m.role === 'manager' || m.role === 'admin').length,
-    partTime: teamMembers.filter(m => m.contractType === 'part-time').length,
+    partTime: 0, // TODO: Add contract type to schema
   };
 
-  const handleRemoveMember = (id: string) => {
-    if (confirm('정말로 이 팀원을 삭제하시겠습니까?')) {
-      setTeamMembers(teamMembers.filter(m => m.id !== id));
+  const handleRemoveMember = async (id: string) => {
+    if (confirm('정말로 이 팀원을 비활성화하시겠습니까?')) {
+      await deactivateUserMutation.mutateAsync({ userId: id });
     }
   };
 
-  const handleAddMember = (newMember: Omit<MockTeamMember, "id">) => {
-    const member: MockTeamMember = {
-      ...newMember,
-      id: `member-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    };
-    setTeamMembers([...teamMembers, member]);
-    setShowAddForm(false);
+  const handleAddMember = async (newMember: any) => {
+    await inviteUserMutation.mutateAsync({
+      email: newMember.email,
+      name: newMember.name,
+      role: newMember.role || 'member',
+      departmentId: newMember.departmentId !== 'all' ? newMember.departmentId : undefined,
+      employeeId: newMember.employeeId,
+      position: newMember.position,
+    });
   };
 
   const handleSavePreferences = async (preferences: ComprehensivePreferences) => {
@@ -333,15 +366,23 @@ export default function TeamManagementPage() {
           </div>
         </div>
 
+        {/* Loading State */}
+        {isLoadingUsers && (
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        )}
+
         {/* Team Members Grid - 모바일 최적화 */}
+        {!isLoadingUsers && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-          {filteredMembers.map((member) => (
+          {teamMembers.map((member) => (
             <div key={member.id} className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6 hover:shadow-md dark:hover:shadow-gray-900/50 transition-shadow">
               <div className="flex items-start justify-between mb-3 sm:mb-4">
                 <div className="flex items-center gap-2 sm:gap-3">
-                  {member.avatar ? (
+                  {(member.profile as any)?.avatar ? (
                     <img
-                      src={member.avatar}
+                      src={(member.profile as any)?.avatar}
                       alt={member.name}
                       className="w-12 h-12 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700"
                       onError={(e) => {
@@ -351,12 +392,12 @@ export default function TeamManagementPage() {
                       }}
                     />
                   ) : null}
-                  <div className={`w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center ${member.avatar ? 'hidden' : ''}`}>
+                  <div className={`w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center ${(member.profile as any)?.avatar ? 'hidden' : ''}`}>
                     <Users className="w-6 h-6 text-gray-400 dark:text-gray-600" />
                   </div>
                   <div>
                     <h3 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">{member.name}</h3>
-                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{member.position}</p>
+                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{member.position || '팀원'}</p>
                   </div>
                 </div>
                 <div className="flex gap-1">
@@ -381,13 +422,15 @@ export default function TeamManagementPage() {
                   <Mail className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-gray-400 dark:text-gray-500" />
                   <span className="truncate">{member.email}</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                  <Phone className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-gray-400 dark:text-gray-500" />
-                  <span>{member.phone}</span>
-                </div>
+                {(member.profile as any)?.phone && (
+                  <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                    <Phone className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-gray-400 dark:text-gray-500" />
+                    <span>{(member.profile as any).phone}</span>
+                  </div>
+                )}
                 <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   <Calendar className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-gray-400 dark:text-gray-500" />
-                  <span>입사일: {member.joinDate}</span>
+                  <span>가입일: {new Date(member.createdAt).toLocaleDateString('ko-KR')}</span>
                 </div>
               </div>
 
@@ -397,48 +440,29 @@ export default function TeamManagementPage() {
                     {member.role === 'admin' ? '관리자' : '매니저'}
                   </span>
                 )}
-                <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusBadgeColor(member.status)}`}>
-                  {member.status === 'active' ? '근무중' : member.status === 'on-leave' ? '휴직' : '비활성'}
-                </span>
-                <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
-                  {getContractTypeBadge(member.contractType)}
+                <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusBadgeColor(member.status === 'on_leave' ? 'on-leave' : member.status)}`}>
+                  {member.status === 'active' ? '근무중' : member.status === 'on_leave' ? '휴직' : '비활성'}
                 </span>
               </div>
 
               <div className="pt-3 sm:pt-4 border-t border-gray-100 dark:border-gray-800">
                 <div className="flex items-center justify-between text-xs sm:text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">주 근무</span>
-                  <span className="font-medium text-gray-900 dark:text-gray-100">{member.maxHoursPerWeek}시간</span>
+                  <span className="text-gray-500 dark:text-gray-400">부서</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">
+                    {member.department?.name || '미지정'}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between text-xs sm:text-sm mt-1">
-                  <span className="text-gray-500 dark:text-gray-400">선호</span>
-                  <div className="flex gap-0.5 sm:gap-1">
-                    {member.preferredShifts.map(shift => (
-                      <span key={shift} className="px-1.5 sm:px-2 py-0.5 text-xs bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 rounded">
-                        {shift === 'day' ? '주간' : shift === 'evening' ? '저녁' : '야간'}
-                      </span>
-                    ))}
-                  </div>
+                  <span className="text-gray-500 dark:text-gray-400">사원번호</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">
+                    {member.employeeId || '-'}
+                  </span>
                 </div>
-                {member.skills.length > 0 && (
-                  <div className="mt-2 sm:mt-3 flex flex-wrap gap-0.5 sm:gap-1">
-                    {member.skills.slice(0, 2).map(skill => (
-                      <span key={skill} className="px-1.5 sm:px-2 py-0.5 text-xs bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded">
-                        {skill}
-                      </span>
-                    ))}
-                    {member.skills.length > 2 && (
-                      <span className="px-1.5 sm:px-2 py-0.5 text-xs bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded">
-                        +{member.skills.length - 2}
-                      </span>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
           ))}
 
-          {filteredMembers.length === 0 && (
+          {teamMembers.length === 0 && (
             <div className="col-span-full text-center py-12">
               <Users className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
               <p className="text-gray-500 dark:text-gray-400">검색 결과가 없습니다</p>
@@ -446,6 +470,8 @@ export default function TeamManagementPage() {
             </div>
           )}
         </div>
+        )}
+
       {/* Add Team Member Modal */}
       <AddTeamMemberModal
         isOpen={showAddForm}
