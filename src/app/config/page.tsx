@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Settings, Save, AlertCircle, Clock, Users, Calendar, Shield, ChevronRight, Info, Database, Trash2, Activity, Plus, Edit2, Briefcase, Building, FileText, UserCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { type ShiftRule, type ShiftPattern } from "@/lib/types";
-import { MainLayout } from "@/components/layout/MainLayout";
+import { MainLayout } from "../../components/layout/MainLayout";
 import { ShiftTypesTab } from "./ShiftTypesTab";
 import { DepartmentsTab } from "./DepartmentsTab";
 import { ContractTypesTab } from "./ContractTypesTab";
