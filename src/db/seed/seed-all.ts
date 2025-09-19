@@ -111,13 +111,12 @@ async function seedAll() {
       const [newHospital] = await db.insert(hospitals).values({
         tenantId: testTenantId,
         name: '서울대학교병원',
-        code: 'SNUH',
+        // hospitals.settings type: { workHoursPerDay?, shiftPatterns?, holidaySettings?, overtimeRules? }
+        // Keep it minimal and within the allowed shape.
         settings: {
-          workingHours: { start: '07:00', end: '19:00' },
-          shiftTypes: ['D', 'E', 'N', 'DL', 'EL', '11D', 'OFF'],
-          requiresApproval: true
-        },
-        active: true
+          workHoursPerDay: 12,
+          shiftPatterns: { codes: ['D', 'E', 'N', 'DL', 'EL', '11D', 'OFF'] }
+        }
       }).returning();
 
       hospital = newHospital;
@@ -167,7 +166,7 @@ async function seedAll() {
 
     // 5. Insert new staff
     console.log('\n👥 새 직원 데이터 추가...');
-    const staffData = [];
+    const staffData: typeof staff.$inferInsert[] = [];
 
     // Unit Manager
     nurseData.managers.forEach((manager, index) => {

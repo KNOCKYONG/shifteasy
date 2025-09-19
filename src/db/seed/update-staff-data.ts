@@ -117,7 +117,7 @@ async function updateStaffData() {
     console.log('🗑️ 기존 직원 데이터 삭제 완료');
 
     // 3. 새 직원 데이터 준비
-    const staffData = [];
+    const staffData: typeof staff.$inferInsert[] = [];
 
     // Unit Manager 추가
     nurseData.managers.forEach((manager, index) => {
