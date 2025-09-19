@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { ConstraintValidator } from '@/lib/scheduler/constraints';
 import { swapStorage } from '@/lib/swap/storage';
 
+export const dynamic = 'force-dynamic';
+
 // Request validation schema
 const ApproveSwapSchema = z.object({
   swapRequestId: z.string(),

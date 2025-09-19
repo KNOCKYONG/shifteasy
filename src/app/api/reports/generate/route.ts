@@ -8,6 +8,8 @@ import { excelGenerator } from '@/lib/reports/excel-generator';
 import { createPDFReport } from '@/lib/reports/pdf-generator';
 import { batchProcessor } from '@/lib/batch/batch-processor';
 
+export const dynamic = 'force-dynamic';
+
 const reportGenerationSchema = z.object({
   reportType: z.enum(['schedule', 'kpi', 'employee', 'shift_pattern']),
   format: z.enum(['excel', 'pdf', 'both']),

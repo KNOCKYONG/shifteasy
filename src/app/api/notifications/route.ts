@@ -6,6 +6,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { notificationService } from '@/lib/notifications/notification-service';
 
+export const dynamic = 'force-dynamic';
+
 const sendNotificationSchema = z.object({
   type: z.enum([
     'schedule_published',

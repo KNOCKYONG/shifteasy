@@ -7,6 +7,8 @@ import { z } from 'zod';
 import { optimizedCacheManager } from '@/lib/cache/optimized-cache-manager';
 import { withRateLimit } from '@/lib/middleware/rate-limit-middleware';
 
+export const dynamic = 'force-dynamic';
+
 const cacheInvalidateSchema = z.object({
   pattern: z.string().optional(),
   type: z.enum(['schedule', 'session', 'computation', 'api', 'all']).optional(),

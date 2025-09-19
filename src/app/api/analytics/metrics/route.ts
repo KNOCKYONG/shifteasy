@@ -6,6 +6,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { analyticsEngine } from '@/lib/analytics/analytics-engine';
 
+export const dynamic = 'force-dynamic';
+
 const metricsRequestSchema = z.object({
   metrics: z.array(z.enum(['attendance', 'overtime', 'coverage', 'swaps', 'department'])),
   timeRange: z.object({

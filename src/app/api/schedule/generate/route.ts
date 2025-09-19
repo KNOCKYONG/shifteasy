@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Scheduler, type SchedulingRequest, type SchedulingResult } from '@/lib/scheduler/core';
 import { z } from 'zod';
 
+export const dynamic = 'force-dynamic';
+
 // Request validation schema
 const GenerateScheduleSchema = z.object({
   departmentId: z.string(),

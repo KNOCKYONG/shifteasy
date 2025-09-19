@@ -4,6 +4,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   // 임시로 성공 응답 반환
   return NextResponse.json({

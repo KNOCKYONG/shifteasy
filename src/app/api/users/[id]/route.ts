@@ -4,6 +4,8 @@ import { db } from '@/db';
 import { users } from '@/db/schema/tenants';
 import { eq, and } from 'drizzle-orm';
 
+export const dynamic = 'force-dynamic';
+
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

@@ -6,6 +6,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { performanceMonitor } from '@/lib/performance/performance-monitor';
 import { withRateLimit } from '@/lib/middleware/rate-limit-middleware';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   return withRateLimit(request, async () => {
     try {

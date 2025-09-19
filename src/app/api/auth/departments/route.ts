@@ -3,6 +3,8 @@ import { db } from '@/db';
 import { departments, tenants } from '@/db/schema/tenants';
 import { eq } from 'drizzle-orm';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   try {
     const searchParams = req.nextUrl.searchParams;

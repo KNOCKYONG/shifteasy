@@ -5,6 +5,8 @@ import { db } from '@/db';
 import { tenants, users } from '@/db/schema/tenants';
 import { eq, sql } from 'drizzle-orm';
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/admin/tenant - 테넌트 정보 조회
 export const GET = withAuth(
   async (req: AuthenticatedRequest) => {

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ConstraintValidator } from '@/lib/scheduler/constraints';
 import { z } from 'zod';
 
+export const dynamic = 'force-dynamic';
+
 // Request validation schema
 const ValidateScheduleSchema = z.object({
   schedule: z.object({

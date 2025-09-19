@@ -8,6 +8,8 @@ import { queueManager } from '@/lib/queue/queue-manager';
 import { QueueName, JobPriority } from '@/lib/queue/bull-config';
 import { withRateLimit } from '@/lib/middleware/rate-limit-middleware';
 
+export const dynamic = 'force-dynamic';
+
 // Request schemas
 const addJobSchema = z.object({
   queue: z.nativeEnum(QueueName),

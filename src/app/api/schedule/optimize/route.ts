@@ -3,6 +3,8 @@ import { ScheduleOptimizer } from '@/lib/scheduler/core';
 import { FairnessScorer } from '@/lib/scheduler/scoring';
 import { z } from 'zod';
 
+export const dynamic = 'force-dynamic';
+
 // Request validation schema
 const OptimizeScheduleSchema = z.object({
   schedule: z.object({

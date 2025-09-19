@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { swapManager } from '@/lib/swap/swapManager';
 import { loadCurrentTeam } from '@/lib/teamStorage';
 
+export const dynamic = 'force-dynamic';
+
 // 스왑 요청 생성
 export async function POST(req: NextRequest) {
   try {

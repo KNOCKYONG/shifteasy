@@ -5,6 +5,8 @@ import { eq, and } from 'drizzle-orm';
 import { validateSecretCode } from '@/lib/auth/secret-code';
 import { createClerkClient } from '@clerk/nextjs/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   try {
     const {

@@ -4,6 +4,8 @@ import { db } from '@/db';
 import { users, tenants } from '@/db/schema/tenants';
 import { eq } from 'drizzle-orm';
 
+export const dynamic = 'force-dynamic';
+
 // Generate a random secret code
 function generateSecretCode(): string {
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';

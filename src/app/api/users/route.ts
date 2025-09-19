@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { withAuth, type AuthenticatedRequest } from '@/lib/api/with-auth';
 import { Permission } from '@/lib/auth/rbac';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/users
  * 테넌트의 사용자 목록 조회 (테넌트 격리 적용)

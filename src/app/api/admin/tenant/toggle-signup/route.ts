@@ -3,6 +3,8 @@ import { withAuth, type AuthenticatedRequest } from '@/lib/api/with-auth';
 import { Permission } from '@/lib/auth/rbac';
 import { toggleSignupEnabled } from '@/lib/auth/secret-code';
 
+export const dynamic = 'force-dynamic';
+
 // POST /api/admin/tenant/toggle-signup - 가입 활성화/비활성화
 export const POST = withAuth(
   async (req: AuthenticatedRequest) => {

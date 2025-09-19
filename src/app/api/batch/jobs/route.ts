@@ -6,6 +6,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { batchProcessor } from '@/lib/batch/batch-processor';
 
+export const dynamic = 'force-dynamic';
+
 const createJobSchema = z.object({
   type: z.enum(['generate_report', 'calculate_analytics', 'export_data', 'bulk_update', 'optimize_schedule']),
   data: z.any(),

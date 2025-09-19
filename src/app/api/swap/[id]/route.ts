@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { swapManager } from '@/lib/swap/swapManager';
 
+export const dynamic = 'force-dynamic';
+
 // 스왑 요청 승인
 export async function PUT(
   req: NextRequest,

@@ -4,6 +4,8 @@ import { db } from '@/db';
 import { users, tenants, departments } from '@/db/schema/tenants';
 import { eq, and, sql } from 'drizzle-orm';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   try {
     const { userId } = await auth();

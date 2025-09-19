@@ -5,6 +5,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { batchProcessor } from '@/lib/batch/batch-processor';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ jobId: string }> }

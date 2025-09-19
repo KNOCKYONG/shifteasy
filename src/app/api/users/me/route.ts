@@ -5,6 +5,8 @@ import { db } from '@/db';
 import { users, departments } from '@/db/schema/tenants';
 import { eq } from 'drizzle-orm';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   try {
     // Clerk 대신 mock 사용자 반환

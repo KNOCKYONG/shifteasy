@@ -3,6 +3,8 @@ import { withAuth, type AuthenticatedRequest } from '@/lib/api/with-auth';
 import { Permission } from '@/lib/auth/rbac';
 import { regenerateSecretCode } from '@/lib/auth/secret-code';
 
+export const dynamic = 'force-dynamic';
+
 // POST /api/admin/tenant/regenerate-code - 시크릿 코드 재생성
 export const POST = withAuth(
   async (req: AuthenticatedRequest) => {

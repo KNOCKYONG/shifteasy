@@ -6,6 +6,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { pushSubscriptionManager } from '@/lib/push/subscription-manager';
 
+export const dynamic = 'force-dynamic';
+
 const subscribeSchema = z.object({
   subscription: z.object({
     endpoint: z.string().url(),

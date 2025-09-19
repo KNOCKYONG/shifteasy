@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import type { ComprehensivePreferences } from '@/components/team/MyPreferencesPanel';
 
+export const dynamic = 'force-dynamic';
+
 // 선호도 저장소 (실제로는 DB 사용)
 const preferencesStore = new Map<string, ComprehensivePreferences>();
 
