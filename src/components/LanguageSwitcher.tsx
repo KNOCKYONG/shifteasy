@@ -18,18 +18,22 @@ export function LanguageSwitcher() {
 
   useEffect(() => {
     // Get current language from localStorage or default to 'ko'
-    const savedLang = localStorage.getItem('i18nextLng') || 'ko'
-    setCurrentLang(savedLang)
+    if (typeof window !== 'undefined') {
+      const savedLang = localStorage.getItem('i18nextLng') || 'ko'
+      setCurrentLang(savedLang)
+    }
   }, [])
 
   const handleLanguageChange = (langCode: string) => {
     // Save to localStorage
-    localStorage.setItem('i18nextLng', langCode)
-    setCurrentLang(langCode)
-    setIsOpen(false)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('i18nextLng', langCode)
+      setCurrentLang(langCode)
+      setIsOpen(false)
 
-    // Reload the page to apply the language change
-    window.location.reload()
+      // Reload the page to apply the language change
+      window.location.reload()
+    }
   }
 
   const currentLanguage = languages.find(lang => lang.code === currentLang) || languages[0]

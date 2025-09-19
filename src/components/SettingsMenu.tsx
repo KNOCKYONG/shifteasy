@@ -20,15 +20,19 @@ export function SettingsMenu() {
 
   useEffect(() => {
     setMounted(true)
-    const savedLang = localStorage.getItem('i18nextLng') || 'ko'
-    setCurrentLang(savedLang)
+    if (typeof window !== 'undefined') {
+      const savedLang = localStorage.getItem('i18nextLng') || 'ko'
+      setCurrentLang(savedLang)
+    }
   }, [])
 
   const handleLanguageChange = (langCode: string) => {
-    localStorage.setItem('i18nextLng', langCode)
-    setCurrentLang(langCode)
-    i18n.changeLanguage(langCode)
-    window.location.reload()
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('i18nextLng', langCode)
+      setCurrentLang(langCode)
+      i18n.changeLanguage(langCode)
+      window.location.reload()
+    }
   }
 
   const toggleTheme = () => {
