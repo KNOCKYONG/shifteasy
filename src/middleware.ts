@@ -5,7 +5,7 @@ import type { NextRequest } from 'next/server';
 export default function middleware(req: NextRequest) {
   // 모든 요청에 대해 admin 권한을 가진 가상의 사용자 헤더 추가
   const requestHeaders = new Headers(req.headers);
-  requestHeaders.set('x-tenant-id', 'test-tenant');
+  requestHeaders.set('x-tenant-id', '3760b5ec-462f-443c-9a90-4a2b2e295e9d'); // DEV_TENANT_ID from .env
   requestHeaders.set('x-user-id', 'test-admin-user');
   requestHeaders.set('x-user-role', 'admin');
 

@@ -8,17 +8,17 @@ export const mockUser = {
   email: 'admin@shifteasy.com',
   name: 'Admin User',
   role: 'admin' as const,
-  tenantId: 'test-tenant',
+  tenantId: '3760b5ec-462f-443c-9a90-4a2b2e295e9d', // DEV_TENANT_ID from .env
   departmentId: 'dept-1',
   clerkUserId: 'mock-clerk-id',
 };
 
 export const mockTenant = {
-  id: 'test-tenant',
-  name: 'Test Hospital',
-  slug: 'test-hospital',
-  secretCode: 'TEST-1234',
-  plan: 'free' as const,
+  id: '3760b5ec-462f-443c-9a90-4a2b2e295e9d', // DEV_TENANT_ID from .env
+  name: '서울대학교병원',
+  slug: 'snuh',
+  secretCode: 'SNUH-2025',
+  plan: 'enterprise' as const,
   settings: {
     timezone: 'Asia/Seoul',
     locale: 'ko',

@@ -12,7 +12,7 @@ export const notificationRouter = createTRPCRouter({
       unreadOnly: z.boolean().default(false),
     }))
     .query(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || 'dev-org-id'));
+      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
 
       let conditions = [eq(notifications.userId, (ctx.user?.id || 'dev-user-id'))];
 
@@ -36,7 +36,7 @@ export const notificationRouter = createTRPCRouter({
       id: z.string(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || 'dev-org-id'));
+      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
 
       const [notification] = await db.query(notifications, eq(notifications.id, input.id));
 
@@ -59,7 +59,7 @@ export const notificationRouter = createTRPCRouter({
 
   markAllRead: protectedProcedure
     .mutation(async ({ ctx }) => {
-      const db = scopedDb((ctx.tenantId || 'dev-org-id'));
+      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
 
       const unreadNotifications = await db.query(
         notifications,
@@ -100,7 +100,7 @@ export const notificationRouter = createTRPCRouter({
       }).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || 'dev-org-id'));
+      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
 
       // Check if subscription already exists
       const [existing] = await db.query(
@@ -136,7 +136,7 @@ export const notificationRouter = createTRPCRouter({
       endpoint: z.string(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || 'dev-org-id'));
+      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
 
       const [subscription] = await db.query(
         pushSubscriptions,

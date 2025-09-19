@@ -56,7 +56,7 @@ export const assignmentRouter = createTRPCRouter({
         .returning();
 
       await createAuditLog({
-        tenantId: ctx.tenantId || 'dev-org-id',
+        tenantId: ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d',
         actorId: ctx.user?.id,
         action: 'assignment.updated',
         entityType: 'assignment',
@@ -78,7 +78,7 @@ export const assignmentRouter = createTRPCRouter({
         .returning();
 
       await createAuditLog({
-        tenantId: ctx.tenantId || 'dev-org-id',
+        tenantId: ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d',
         actorId: ctx.user?.id,
         action: 'assignment.deleted',
         entityType: 'assignment',
@@ -103,7 +103,7 @@ export const assignmentRouter = createTRPCRouter({
         .returning();
 
       await createAuditLog({
-        tenantId: ctx.tenantId || 'dev-org-id',
+        tenantId: ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d',
         actorId: ctx.user?.id,
         action: `assignment.${input.status}`,
         entityType: 'assignment',
@@ -138,7 +138,7 @@ export const assignmentRouter = createTRPCRouter({
         .returning();
 
       await createAuditLog({
-        tenantId: ctx.tenantId || 'dev-org-id',
+        tenantId: ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d',
         actorId: ctx.user?.id,
         action: 'assignments.bulk_created',
         entityType: 'schedule',

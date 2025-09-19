@@ -15,7 +15,7 @@ export const attendanceRouter = createTRPCRouter({
       }).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || 'dev-org-id'));
+      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
 
       // Check if already clocked in for today
       const today = new Date();
@@ -62,7 +62,7 @@ export const attendanceRouter = createTRPCRouter({
       }
 
       await createAuditLog({
-        tenantId: (ctx.tenantId || 'dev-org-id'),
+        tenantId: (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'),
         actorId: (ctx.user?.id || 'dev-user-id'),
         action: 'attendance.clock_in',
         entityType: 'attendance',
@@ -84,7 +84,7 @@ export const attendanceRouter = createTRPCRouter({
       notes: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || 'dev-org-id'));
+      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
 
       // Get today's attendance record
       const today = new Date();
@@ -128,7 +128,7 @@ export const attendanceRouter = createTRPCRouter({
       const result = updated[0];
 
       await createAuditLog({
-        tenantId: (ctx.tenantId || 'dev-org-id'),
+        tenantId: (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'),
         actorId: (ctx.user?.id || 'dev-user-id'),
         action: 'attendance.clock_out',
         entityType: 'attendance',
@@ -149,7 +149,7 @@ export const attendanceRouter = createTRPCRouter({
       userId: z.string().optional(),
     }))
     .query(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || 'dev-org-id'));
+      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
 
       // Get all attendance records in date range
       let conditions = [

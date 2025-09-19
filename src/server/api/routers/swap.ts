@@ -14,7 +14,7 @@ export const swapRouter = createTRPCRouter({
       offset: z.number().default(0),
     }))
     .query(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || 'dev-org-id'));
+      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
 
       let conditions = [];
       if (input.status) {
@@ -47,7 +47,7 @@ export const swapRouter = createTRPCRouter({
       requestMessage: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || 'dev-org-id'));
+      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
 
       const [swapRequest] = await db.insert(swapRequests, {
         requesterId: (ctx.user?.id || 'dev-user-id'),
@@ -56,7 +56,7 @@ export const swapRouter = createTRPCRouter({
       });
 
       await createAuditLog({
-        tenantId: (ctx.tenantId || 'dev-org-id'),
+        tenantId: (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'),
         actorId: (ctx.user?.id || 'dev-user-id'),
         action: 'swap.created',
         entityType: 'swapRequest',
@@ -85,7 +85,7 @@ export const swapRouter = createTRPCRouter({
       responseMessage: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || 'dev-org-id'));
+      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
 
       const [swapRequest] = await db.query(swapRequests, eq(swapRequests.id, input.id));
 
@@ -108,7 +108,7 @@ export const swapRouter = createTRPCRouter({
       );
 
       await createAuditLog({
-        tenantId: (ctx.tenantId || 'dev-org-id'),
+        tenantId: (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'),
         actorId: (ctx.user?.id || 'dev-user-id'),
         action: input.accept ? 'swap.accepted' : 'swap.rejected',
         entityType: 'swapRequest',
@@ -135,7 +135,7 @@ export const swapRouter = createTRPCRouter({
       approvalNotes: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || 'dev-org-id'));
+      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
 
       const [swapRequest] = await db.query(swapRequests, eq(swapRequests.id, input.id));
 
@@ -161,7 +161,7 @@ export const swapRouter = createTRPCRouter({
       // TODO: Actually swap the assignments
 
       await createAuditLog({
-        tenantId: (ctx.tenantId || 'dev-org-id'),
+        tenantId: (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'),
         actorId: (ctx.user?.id || 'dev-user-id'),
         action: 'swap.approved',
         entityType: 'swapRequest',
@@ -197,7 +197,7 @@ export const swapRouter = createTRPCRouter({
       approvalNotes: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || 'dev-org-id'));
+      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
 
       const [swapRequest] = await db.query(swapRequests, eq(swapRequests.id, input.id));
 
@@ -217,7 +217,7 @@ export const swapRouter = createTRPCRouter({
       );
 
       await createAuditLog({
-        tenantId: (ctx.tenantId || 'dev-org-id'),
+        tenantId: (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'),
         actorId: (ctx.user?.id || 'dev-user-id'),
         action: 'swap.rejected',
         entityType: 'swapRequest',
