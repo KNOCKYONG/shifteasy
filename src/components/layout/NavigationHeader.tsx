@@ -7,6 +7,8 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
 import { Menu, X } from 'lucide-react';
+import { api } from '@/lib/trpc/client';
+import { getNavigationForRole, type Role } from '@/lib/permissions';
 
 interface NavItem {
   href: string;
@@ -19,6 +21,7 @@ export function NavigationHeader() {
   const { t, ready } = useTranslation('common');
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { data: currentUser } = api.tenant.users.current.useQuery();
 
   useEffect(() => {
     setMounted(true);
@@ -29,13 +32,17 @@ export function NavigationHeader() {
     setMobileMenuOpen(false);
   }, [pathname]);
 
-  // 네비게이션 항목 정의 - 대시보드 탭 제외
-  const navItems: NavItem[] = [
-    { href: '/schedule', label: '스케줄', i18nKey: 'nav.schedule' },
-    { href: '/team', label: '팀 관리', i18nKey: 'nav.team' },
-    { href: '/swap', label: '스왑', i18nKey: 'nav.swap' },
-    { href: '/config', label: '설정', i18nKey: 'nav.config' },
-  ];
+  // Get role-based navigation items
+  const roleNavigation = getNavigationForRole(currentUser?.role as Role);
+
+  // Filter out dashboard from navigation (it's in the logo link)
+  const navItems: NavItem[] = roleNavigation
+    .filter(item => item.href !== '/dashboard')
+    .map(item => ({
+      href: item.href,
+      label: item.label,
+      i18nKey: `nav.${item.href.substring(1)}` // Convert /schedule to nav.schedule
+    }));
 
   // 인증이 필요없는 페이지들
   const publicPages = ['/sign-in', '/sign-up', '/join'];

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSignIn } from '@clerk/nextjs';
+import { useSignIn, useUser } from '@clerk/nextjs';
 import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
@@ -14,6 +14,14 @@ export default function SignInPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { isLoaded, signIn, setActive } = useSignIn();
+  const { isSignedIn } = useUser();
+
+  // 이미 로그인되어 있으면 대시보드로 리다이렉트
+  useEffect(() => {
+    if (isSignedIn) {
+      router.push('/dashboard');
+    }
+  }, [isSignedIn, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,13 +54,21 @@ export default function SignInPage() {
       // Clerk 에러 메시지를 한글로 변환
       if (err.errors?.[0]?.message) {
         const errorMessage = err.errors[0].message;
-        if (errorMessage.includes('password')) {
+        if (errorMessage.includes('already signed in')) {
+          // 이미 로그인된 경우 대시보드로 리다이렉트
+          router.push('/dashboard');
+          return;
+        } else if (errorMessage.includes('password')) {
           setError('비밀번호가 올바르지 않습니다.');
         } else if (errorMessage.includes('Identifier')) {
           setError('등록되지 않은 이메일입니다.');
         } else {
           setError('로그인에 실패했습니다. 다시 시도해주세요.');
         }
+      } else if (err.message && err.message.includes('already signed in')) {
+        // 이미 로그인된 경우 대시보드로 리다이렉트
+        router.push('/dashboard');
+        return;
       } else {
         setError('로그인에 실패했습니다. 다시 시도해주세요.');
       }

@@ -27,12 +27,29 @@ export const tenantRouter = createTRPCRouter({
           eq(users.tenantId, ctx.tenantId),
         ];
 
+        // Apply department-based filtering for managers
+        // Managers can only see members in their department
+        if (ctx.user?.role === 'manager' && ctx.user?.departmentId) {
+          conditions.push(eq(users.departmentId, ctx.user.departmentId));
+        } else if (input?.departmentId) {
+          // For admins and owners, filter by department if requested
+          conditions.push(eq(users.departmentId, input.departmentId));
+        }
+
+        // Members shouldn't see the team list at all
+        if (ctx.user?.role === 'member') {
+          return {
+            items: [],
+            total: 0,
+          };
+        }
+
         if (input?.status) {
           conditions.push(eq(users.status, input.status));
         }
 
-        if (input?.departmentId) {
-          conditions.push(eq(users.departmentId, input.departmentId));
+        if (input?.role) {
+          conditions.push(eq(users.role, input.role));
         }
 
         if (input?.search) {

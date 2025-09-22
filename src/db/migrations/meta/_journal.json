@@ -29,6 +29,13 @@
       "when": 1758616800000,
       "tag": "0003_drop_legacy_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1758548675483,
+      "tag": "0004_youthful_crusher_hogan",
+      "breakpoints": true
     }
   ]
 }

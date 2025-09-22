@@ -3,9 +3,14 @@
 import { useState, useEffect } from 'react';
 import { Calendar, Users, ArrowRightLeft, Settings } from 'lucide-react';
 import Link from 'next/link';
+import { api } from '@/lib/trpc/client';
+import { MemberDashboard } from '@/components/dashboard/MemberDashboard';
+import { ProfileDropdown } from '@/components/ProfileDropdown';
+import { type Role } from '@/lib/permissions';
 
 export default function DashboardClient() {
   const [mounted, setMounted] = useState(false);
+  const { data: currentUser } = api.tenant.users.current.useQuery();
 
   useEffect(() => {
     setMounted(true);
@@ -16,27 +21,56 @@ export default function DashboardClient() {
     return null;
   }
 
-  const dashboardCards = [
+  // Show simplified dashboard for members with header
+  if (currentUser?.role === 'member') {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+        {/* Header with logout */}
+        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+          <div className="container mx-auto px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">ShiftEasy</h1>
+              </div>
+              <ProfileDropdown />
+            </div>
+          </div>
+        </div>
+        {/* Member Dashboard Content */}
+        <div className="container mx-auto px-4 py-8">
+          <MemberDashboard />
+        </div>
+      </div>
+    );
+  }
+
+  // Filter dashboard cards based on user role
+  const allDashboardCards = [
     {
       title: '스케줄 관리',
       description: '팀원들의 근무 스케줄을 확인하고 관리합니다',
       icon: Calendar,
       href: '/schedule',
       color: 'bg-blue-500',
+      roles: ['owner', 'admin', 'manager'],
     },
     {
       title: '팀 관리',
-      description: '팀원 정보와 부서를 관리합니다',
+      description: currentUser?.role === 'manager'
+        ? '우리 팀 정보를 확인합니다'
+        : '팀원 정보와 부서를 관리합니다',
       icon: Users,
       href: '/team',
       color: 'bg-green-500',
+      roles: ['owner', 'admin', 'manager'],
     },
     {
       title: '근무 교대',
       description: '근무 교대 요청을 확인하고 승인합니다',
       icon: ArrowRightLeft,
-      href: '/swap',
+      href: '/requests',
       color: 'bg-purple-500',
+      roles: ['owner', 'admin', 'manager'],
     },
     {
       title: '설정',
@@ -44,19 +78,39 @@ export default function DashboardClient() {
       icon: Settings,
       href: '/config',
       color: 'bg-gray-500',
+      roles: ['owner', 'admin'],
     },
   ];
 
+  // Filter cards based on user role
+  const dashboardCards = allDashboardCards.filter(card =>
+    card.roles.includes(currentUser?.role || '')
+  );
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-          대시보드
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-2">
-          ShiftEasy 병원 근무 관리 시스템
-        </p>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      {/* Header with logout */}
+      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">ShiftEasy</h1>
+            </div>
+            <ProfileDropdown />
+          </div>
+        </div>
       </div>
+
+      {/* Dashboard Content */}
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+            대시보드
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">
+            ShiftEasy 병원 근무 관리 시스템
+          </p>
+        </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {dashboardCards.map((card) => {
@@ -83,22 +137,23 @@ export default function DashboardClient() {
         })}
       </div>
 
-      <div className="mt-12">
-        <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-          오늘의 현황
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">근무 중인 직원</p>
-            <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">12명</p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">대기 중인 교대 요청</p>
-            <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">3건</p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">이번 주 휴가자</p>
-            <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">2명</p>
+        <div className="mt-12">
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
+            오늘의 현황
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">근무 중인 직원</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">12명</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">대기 중인 교대 요청</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">3건</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">이번 주 휴가자</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">2명</p>
+            </div>
           </div>
         </div>
       </div>

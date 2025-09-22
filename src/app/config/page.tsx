@@ -5,6 +5,7 @@ import { Settings, Save, AlertCircle, Clock, Users, Calendar, Shield, ChevronRig
 import { useTranslation } from "react-i18next";
 import { type ShiftRule, type ShiftPattern } from "@/lib/types";
 import { MainLayout } from "../../components/layout/MainLayout";
+import { RoleGuard } from "@/components/auth/RoleGuard";
 import { ShiftTypesTab } from "./ShiftTypesTab";
 import { DepartmentsTab } from "./DepartmentsTab";
 import { ContractTypesTab } from "./ContractTypesTab";
@@ -312,7 +313,8 @@ export default function ConfigPage() {
   };
 
   return (
-    <MainLayout>
+    <RoleGuard>
+      <MainLayout>
         {/* Page Title */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-3">
@@ -858,5 +860,6 @@ export default function ConfigPage() {
           </button>
         </div>
     </MainLayout>
+    </RoleGuard>
   );
 }

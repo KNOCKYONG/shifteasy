@@ -8,6 +8,7 @@ import { MyPreferencesPanel, type ComprehensivePreferences } from "@/components/
 import { SpecialRequestModal, type SpecialRequest } from "@/components/team/SpecialRequestModal";
 import { api } from "@/lib/trpc/client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { RoleGuard } from "@/components/auth/RoleGuard";
 
 export default function TeamManagementPage() {
   const router = useRouter();
@@ -224,7 +225,8 @@ export default function TeamManagementPage() {
   };
 
   return (
-    <MainLayout>
+    <RoleGuard>
+      <MainLayout>
         {/* My Preferences Section - 현재 사용자용 */}
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 border border-blue-200 dark:border-blue-800">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -587,5 +589,6 @@ export default function TeamManagementPage() {
         existingRequests={specialRequests.filter(r => r.employeeId === currentUserId)}
       />
     </MainLayout>
+    </RoleGuard>
   );
 }

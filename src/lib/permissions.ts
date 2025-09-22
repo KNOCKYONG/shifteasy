@@ -270,3 +270,151 @@ export function isRoleSuperior(role1: Role, role2: Role): boolean {
 export function areRolesEqual(role1: Role, role2: Role): boolean {
   return getRoleLevel(role1) === getRoleLevel(role2);
 }
+
+/**
+ * Pages accessible by each role
+ */
+export const ROLE_PAGES: Record<Role, string[]> = {
+  [ROLES.OWNER]: [
+    '/dashboard',
+    '/schedule',
+    '/team',
+    '/config',
+    '/requests',
+    '/notifications',
+    '/analytics',
+    '/settings',
+  ],
+  [ROLES.ADMIN]: [
+    '/dashboard',
+    '/schedule',
+    '/team',
+    '/config',
+    '/requests',
+    '/notifications',
+    '/analytics',
+  ],
+  [ROLES.MANAGER]: [
+    '/dashboard',
+    '/schedule',
+    '/team',
+    '/requests',
+    '/notifications',
+  ],
+  [ROLES.MEMBER]: [
+    '/dashboard',
+    '/schedule',
+    '/notifications',
+  ],
+};
+
+/**
+ * Navigation items for each role
+ */
+export const ROLE_NAVIGATION: Record<Role, Array<{
+  href: string;
+  label: string;
+  icon?: string;
+}>> = {
+  [ROLES.OWNER]: [
+    { href: '/dashboard', label: '대시보드' },
+    { href: '/schedule', label: '스케줄' },
+    { href: '/team', label: '팀 관리' },
+    { href: '/config', label: '설정' },
+    { href: '/requests', label: '요청사항' },
+    { href: '/notifications', label: '알림' },
+    { href: '/analytics', label: '분석' },
+    { href: '/settings', label: '시스템 설정' },
+  ],
+  [ROLES.ADMIN]: [
+    { href: '/dashboard', label: '대시보드' },
+    { href: '/schedule', label: '스케줄' },
+    { href: '/team', label: '팀 관리' },
+    { href: '/config', label: '설정' },
+    { href: '/requests', label: '요청사항' },
+    { href: '/notifications', label: '알림' },
+    { href: '/analytics', label: '분석' },
+  ],
+  [ROLES.MANAGER]: [
+    { href: '/dashboard', label: '대시보드' },
+    { href: '/schedule', label: '스케줄' },
+    { href: '/team', label: '우리 팀' },
+    { href: '/requests', label: '요청사항' },
+    { href: '/notifications', label: '알림' },
+  ],
+  [ROLES.MEMBER]: [
+    { href: '/dashboard', label: '내 일정' },
+    { href: '/schedule', label: '전체 스케줄' },
+    { href: '/notifications', label: '알림' },
+  ],
+};
+
+/**
+ * Check if a role can access a specific page
+ */
+export function canAccessPage(role: Role | undefined | null, path: string): boolean {
+  if (!role) return false;
+
+  // Remove query params and hash for comparison
+  const cleanPath = path.split('?')[0].split('#')[0];
+
+  // Check if the path starts with any allowed page
+  const allowedPages = ROLE_PAGES[role] ?? [];
+  return allowedPages.some(page => cleanPath.startsWith(page));
+}
+
+/**
+ * Get navigation items for a role
+ */
+export function getNavigationForRole(role: Role | undefined | null) {
+  if (!role) return [];
+  return ROLE_NAVIGATION[role] ?? [];
+}
+
+/**
+ * Check if user can view a specific department
+ */
+export function canViewDepartment(
+  userRole: Role | undefined | null,
+  userDepartmentId: string | undefined | null,
+  targetDepartmentId: string
+): boolean {
+  if (!userRole) return false;
+
+  // Owners and admins can view all departments
+  if (userRole === ROLES.OWNER || userRole === ROLES.ADMIN) {
+    return true;
+  }
+
+  // Managers can only view their own department
+  if (userRole === ROLES.MANAGER) {
+    return userDepartmentId === targetDepartmentId;
+  }
+
+  // Members don't have department viewing permissions
+  return false;
+}
+
+/**
+ * Get filtered users based on role permissions
+ */
+export function filterUsersByPermission(
+  users: any[],
+  currentUserRole: Role | undefined | null,
+  currentUserDepartmentId: string | undefined | null
+): any[] {
+  if (!currentUserRole) return [];
+
+  // Owners and admins see all users
+  if (currentUserRole === ROLES.OWNER || currentUserRole === ROLES.ADMIN) {
+    return users;
+  }
+
+  // Managers see only their department members
+  if (currentUserRole === ROLES.MANAGER && currentUserDepartmentId) {
+    return users.filter(user => user.departmentId === currentUserDepartmentId);
+  }
+
+  // Members don't see user list
+  return [];
+}
