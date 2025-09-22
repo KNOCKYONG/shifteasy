@@ -1,24 +1,30 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 
-// 임시로 Clerk 인증을 비활성화하고 모든 요청을 통과시킴
-export default function middleware(req: NextRequest) {
-  // 모든 요청에 대해 admin 권한을 가진 가상의 사용자 헤더 추가
-  const requestHeaders = new Headers(req.headers);
-  requestHeaders.set('x-tenant-id', '3760b5ec-462f-443c-9a90-4a2b2e295e9d'); // DEV_TENANT_ID from .env
-  requestHeaders.set('x-user-id', 'test-admin-user');
-  requestHeaders.set('x-user-role', 'admin');
+const isPublicRoute = createRouteMatcher([
+  '/',
+  '/sign-in(.*)',
+  '/sign-up(.*)',
+  '/api/webhooks/(.*)',
+  '/api/auth/validate-secret-code',
+  '/api/auth/signup',
+]);
 
-  return NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
-  });
-}
+export default clerkMiddleware(async (auth, req) => {
+  if (!isPublicRoute(req)) {
+    const { userId } = await auth();
+    if (!userId && !isPublicRoute(req)) {
+      const signInUrl = new URL('/sign-in', req.url);
+      signInUrl.searchParams.set('redirect_url', req.url);
+      return Response.redirect(signInUrl);
+    }
+  }
+});
 
 export const config = {
   matcher: [
+    // Skip Next.js internals and all static files, unless found in search params
     '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    // Always run for API routes
     '/(api|trpc)(.*)',
   ],
 };

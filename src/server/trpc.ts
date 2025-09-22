@@ -1,10 +1,10 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import superjson from 'superjson';
-// import { auth, currentUser } from '@clerk/nextjs/server';  // Clerk 인증 임시 비활성화
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { db } from '@/db';
 import { eq, and, isNull } from 'drizzle-orm';
 import { users } from '@/db/schema';
-// import { syncClerkUser } from '@/lib/auth';  // Clerk 인증 임시 비활성화
+import { syncClerkUser } from '@/lib/auth';
 // import { hasPermission, type Permission } from '@/lib/permissions';
 // import { rateLimitMiddleware } from '@/lib/rate-limit';
 // import { auditApiOperation } from '@/lib/audit-log';
@@ -12,26 +12,40 @@ import { users } from '@/db/schema';
 export const createTRPCContext = async (opts: { req: Request; headers?: Headers }) => {
   const { req } = opts;
 
-  // Clerk 인증 임시 비활성화 - 개발용 기본값 사용
-  const clerkUserId = 'dev-user-id';
-  const orgId = '3760b5ec-462f-443c-9a90-4a2b2e295e9d'; // DEV_TENANT_ID from .env
+  // Get Clerk authentication info
+  const { userId: clerkUserId, orgId } = await auth();
 
-  // 개발용 임시 사용자 객체
-  const user = {
-    id: 'dev-user-id',
-    email: 'dev@example.com',
-    name: 'Dev User',
-    role: 'admin',
-    tenantId: '3760b5ec-462f-443c-9a90-4a2b2e295e9d', // DEV_TENANT_ID from .env
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+  let user = null;
+
+  if (clerkUserId && orgId) {
+    // Sync and get user from database
+    try {
+      user = await syncClerkUser(clerkUserId, orgId);
+    } catch (error) {
+      console.error('Error syncing Clerk user:', error);
+    }
+
+    // If user doesn't exist in database yet, get from database
+    if (!user) {
+      const [dbUser] = await db
+        .select()
+        .from(users)
+        .where(
+          and(
+            eq(users.clerkUserId, clerkUserId),
+            eq(users.tenantId, orgId),
+            isNull(users.deletedAt)
+          )
+        );
+      user = dbUser;
+    }
+  }
 
   return {
     db,
     user,
-    tenantId: orgId,
-    clerkUserId,
+    tenantId: orgId || null,
+    clerkUserId: clerkUserId || null,
     req: {
       url: req.url,
       method: req.method,

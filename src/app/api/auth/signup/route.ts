@@ -62,16 +62,25 @@ export async function POST(req: NextRequest) {
       // Clerk ID가 없거나 local_ 로 시작하는 경우만 새로 생성
       if (!clerkUserId || clerkUserId.startsWith('local_')) {
         try {
+          // 비밀번호가 없으면 오류 반환
+          if (!password) {
+            return NextResponse.json(
+              { error: '비밀번호를 입력해주세요.' },
+              { status: 400 }
+            );
+          }
+
           const clerkUser = await clerk.users.createUser({
-            emailAddress: email,
+            emailAddress: [email],
+            password: password,
             firstName: name.split(' ')[0] || name,
             lastName: name.split(' ').slice(1).join(' ') || '',
-            password: password || generateTempPassword(),
           });
           clerkUserId = clerkUser.id;
         } catch (clerkError: any) {
           console.log('Clerk user creation error:', clerkError);
           console.log('Clerk error details:', JSON.stringify(clerkError?.errors, null, 2));
+
           // Clerk 사용자가 이미 존재하는 경우
           if (clerkError?.errors?.[0]?.code === 'form_identifier_exists') {
             // 기존 사용자 정보로 로그인하도록 안내
@@ -86,8 +95,17 @@ export async function POST(req: NextRequest) {
               message: '이미 가입된 계정입니다. 기존 비밀번호로 로그인해주세요.',
             });
           }
+
+          // 비밀번호가 데이터 유출에서 발견된 경우
+          if (clerkError?.errors?.[0]?.code === 'form_password_pwned') {
+            return NextResponse.json(
+              { error: '이 비밀번호는 온라인 데이터 유출에서 발견되었습니다. 보안을 위해 다른 비밀번호를 사용해주세요.' },
+              { status: 400 }
+            );
+          }
+
           return NextResponse.json(
-            { error: '인증 계정 생성에 실패했습니다. 더 복잡한 비밀번호를 사용해주세요.' },
+            { error: clerkError?.errors?.[0]?.message || '인증 계정 생성에 실패했습니다. 더 복잡한 비밀번호를 사용해주세요.' },
             { status: 400 }
           );
         }
@@ -112,16 +130,25 @@ export async function POST(req: NextRequest) {
       // 새 사용자인 경우 - 기존 로직대로 생성
       let clerkUserId = '';
       try {
+        // 비밀번호가 없으면 오류 반환
+        if (!password) {
+          return NextResponse.json(
+            { error: '비밀번호를 입력해주세요.' },
+            { status: 400 }
+          );
+        }
+
         const clerkUser = await clerk.users.createUser({
-          emailAddress: email,
+          emailAddress: [email],
+          password: password,
           firstName: name.split(' ')[0] || name,
           lastName: name.split(' ').slice(1).join(' ') || '',
-          password: password || generateTempPassword(),
         });
         clerkUserId = clerkUser.id;
       } catch (clerkError: any) {
         console.log('Clerk user creation error:', clerkError);
         console.log('Clerk error details:', JSON.stringify(clerkError?.errors, null, 2));
+
         // Clerk 사용자가 이미 존재하는 경우
         if (clerkError?.errors?.[0]?.code === 'form_identifier_exists') {
           return NextResponse.json(
@@ -129,10 +156,27 @@ export async function POST(req: NextRequest) {
             { status: 400 }
           );
         }
+
+        // 비밀번호가 데이터 유출에서 발견된 경우
+        if (clerkError?.errors?.[0]?.code === 'form_password_pwned') {
+          return NextResponse.json(
+            { error: '이 비밀번호는 온라인 데이터 유출에서 발견되었습니다. 보안을 위해 다른 비밀번호를 사용해주세요.' },
+            { status: 400 }
+          );
+        }
+
+        // 비밀번호가 너무 짧은 경우
+        if (clerkError?.errors?.[0]?.code === 'form_password_length_too_short') {
+          return NextResponse.json(
+            { error: '비밀번호는 최소 8자 이상이어야 합니다.' },
+            { status: 400 }
+          );
+        }
+
         // 다른 오류의 경우 - 회원가입 실패
-        console.error('Clerk 사용자 생성 실패 - 비밀번호를 변경해주세요');
+        console.error('Clerk 사용자 생성 실패');
         return NextResponse.json(
-          { error: '회원가입에 실패했습니다. 더 복잡한 비밀번호를 사용해주세요.' },
+          { error: clerkError?.errors?.[0]?.message || '회원가입에 실패했습니다. 더 복잡한 비밀번호를 사용해주세요.' },
           { status: 400 }
         );
       }

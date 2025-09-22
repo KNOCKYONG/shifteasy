@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSignIn } from '@clerk/nextjs';
 import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
@@ -12,32 +13,68 @@ export default function SignInPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { isLoaded, signIn, setActive } = useSignIn();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    // 인증 없이 바로 대시보드로 이동 (개발/테스트 용도)
-    setTimeout(() => {
-      router.push('/dashboard');
-    }, 500);
+    if (!isLoaded) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Clerk를 사용하여 로그인
+      const result = await signIn.create({
+        identifier: email,
+        password: password,
+      });
+
+      if (result.status === 'complete') {
+        await setActive({ session: result.createdSessionId });
+        router.push('/team');
+      } else {
+        // 추가 인증이 필요한 경우 (2FA 등)
+        console.log('Additional auth required:', result);
+        setError('추가 인증이 필요합니다.');
+      }
+    } catch (err: any) {
+      console.error('Sign in error:', err);
+
+      // Clerk 에러 메시지를 한글로 변환
+      if (err.errors?.[0]?.message) {
+        const errorMessage = err.errors[0].message;
+        if (errorMessage.includes('password')) {
+          setError('비밀번호가 올바르지 않습니다.');
+        } else if (errorMessage.includes('Identifier')) {
+          setError('등록되지 않은 이메일입니다.');
+        } else {
+          setError('로그인에 실패했습니다. 다시 시도해주세요.');
+        }
+      } else {
+        setError('로그인에 실패했습니다. 다시 시도해주세요.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900">ShiftEasy</h1>
-          <p className="mt-2 text-lg text-gray-600">스마트한 근무 스케줄 관리 시스템</p>
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100">ShiftEasy</h1>
+          <p className="mt-2 text-lg text-gray-600 dark:text-gray-400">스마트한 근무 스케줄 관리 시스템</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-lg p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">로그인</h2>
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg p-8">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">로그인</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 <Mail className="w-4 h-4 inline mr-1" />
                 이메일
               </label>
@@ -47,13 +84,13 @@ export default function SignInPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
                 required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 placeholder-gray-400 bg-white"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
                 autoComplete="email"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 <Lock className="w-4 h-4 inline mr-1" />
                 비밀번호
               </label>
@@ -64,13 +101,13 @@ export default function SignInPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10 text-gray-900 placeholder-gray-400 bg-white"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
                   autoComplete="current-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                 >
                   {showPassword ? (
                     <EyeOff className="w-5 h-5" />
@@ -82,9 +119,9 @@ export default function SignInPage() {
             </div>
 
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-                <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
-                <p className="text-sm text-red-600">{error}</p>
+              <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-2">
+                <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />
+                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
               </div>
             )}
 
@@ -92,43 +129,55 @@ export default function SignInPage() {
               <label className="flex items-center">
                 <input
                   type="checkbox"
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                 />
-                <span className="ml-2 text-sm text-gray-600">로그인 상태 유지</span>
+                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">로그인 상태 유지</span>
               </label>
-              <a href="#" className="text-sm text-blue-600 hover:text-blue-700">
+              <a href="#" className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
                 비밀번호 찾기
               </a>
             </div>
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !isLoaded}
               className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? '로그인 중...' : '로그인'}
             </button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-center text-sm text-gray-600">
+          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <p className="text-center text-sm text-gray-600 dark:text-gray-400">
               아직 계정이 없으신가요?
             </p>
             <div className="mt-3 flex flex-col gap-2">
               <Link
-                href="/join"
-                className="w-full py-2 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors text-center"
+                href="/sign-up"
+                className="w-full py-2 px-4 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors text-center"
               >
-                시크릿 코드로 가입하기
+                회원가입
               </Link>
-              <p className="text-xs text-gray-500 text-center">
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
                 조직 관리자로부터 시크릿 코드를 받으셨나요?
               </p>
             </div>
           </div>
         </div>
 
-        <p className="mt-8 text-center text-sm text-gray-500">
+        <div className="mt-6 bg-white/50 dark:bg-gray-800/50 backdrop-blur rounded-xl p-4">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            테스트 계정:
+          </p>
+          <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+            <p>📧 admin@shifteasy.com (관리자)</p>
+            <p>📧 manager@shifteasy.com (매니저)</p>
+            <p>📧 nurse1@shifteasy.com (일반)</p>
+            <p className="pt-2 text-gray-500 dark:text-gray-500">비밀번호는 Clerk에서 설정한 비밀번호 사용</p>
+          </div>
+        </div>
+
+        <p className="mt-8 text-center text-sm text-gray-500 dark:text-gray-600">
           © 2025 ShiftEasy. All rights reserved.
         </p>
       </div>

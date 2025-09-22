@@ -1,15 +1,15 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-// import { useAuth, useClerk } from '@clerk/nextjs';
+import { useAuth, useClerk, useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { User, Settings, LogOut, ChevronDown } from 'lucide-react';
-import { mockUser } from '@/lib/auth/mock-auth';
 
 export function ProfileDropdown() {
-  // const { userId } = useAuth();
-  // const { signOut } = useClerk();
+  const { userId } = useAuth();
+  const { signOut } = useClerk();
+  const { user } = useUser();
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -17,28 +17,16 @@ export function ProfileDropdown() {
   const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null);
 
   useEffect(() => {
-    // Mock 사용자 데이터 설정
-    setCurrentUser({
-      name: mockUser.name,
-      email: mockUser.email,
-    });
-
-    /* 원래 코드 (Clerk 재활성화 시 사용)
-    const fetchUserData = async () => {
-      if (!userId) return;
-      try {
-        const response = await fetch('/api/users/me');
-        if (response.ok) {
-          const userData = await response.json();
-          setCurrentUser(userData);
-        }
-      } catch (error) {
-        console.error('Failed to fetch user data:', error);
-      }
-    };
-    fetchUserData();
-    */
-  }, []);
+    // Clerk 사용자 데이터 사용
+    if (user) {
+      setCurrentUser({
+        name: user.firstName && user.lastName
+          ? `${user.firstName} ${user.lastName}`.trim()
+          : user.primaryEmailAddress?.emailAddress || '사용자',
+        email: user.primaryEmailAddress?.emailAddress || '',
+      });
+    }
+  }, [user]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -51,9 +39,12 @@ export function ProfileDropdown() {
   }, []);
 
   const handleSignOut = async () => {
-    // await signOut();
-    // Clerk 비활성화 중에는 로그아웃 시 메인 페이지로
-    router.push('/');
+    try {
+      await signOut({ redirectUrl: '/sign-in' });
+    } catch (error) {
+      console.error('Sign out error:', error);
+      router.push('/sign-in');
+    }
   };
 
   return (

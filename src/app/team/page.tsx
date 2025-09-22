@@ -7,20 +7,25 @@ import { AddTeamMemberModal } from "@/components/AddTeamMemberModal";
 import { MyPreferencesPanel, type ComprehensivePreferences } from "@/components/team/MyPreferencesPanel";
 import { SpecialRequestModal, type SpecialRequest } from "@/components/team/SpecialRequestModal";
 import { api } from "@/lib/trpc/client";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 export default function TeamManagementPage() {
   const router = useRouter();
+  const currentUser = useCurrentUser();
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
   const [showMyPreferences, setShowMyPreferences] = useState(false);
   const [showSpecialRequest, setShowSpecialRequest] = useState(false);
-  const [currentUserId] = useState("user-1"); // TODO: Get from auth context
-  const [currentUserName] = useState("김간호"); // TODO: Get from auth context
+  const currentUserId = currentUser.userId || "user-1";
+  const currentUserName = currentUser.name || "사용자";
+  const currentUserRole = currentUser.role || "member";
   const [specialRequests, setSpecialRequests] = useState<SpecialRequest[]>([]);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'on-leave' | 'manager' | 'part-time'>('all');
   const [roleFilter, setRoleFilter] = useState<string | undefined>();
   const [statusFilterForApi, setStatusFilterForApi] = useState<'active' | 'on_leave' | undefined>();
+  const [editingPositionId, setEditingPositionId] = useState<string | null>(null);
+  const [editingPositionValue, setEditingPositionValue] = useState<string>("");
 
   // Fetch users from TRPC
   const { data: usersData, isLoading: isLoadingUsers, refetch: refetchUsers } = api.tenant.users.list.useQuery({
@@ -52,6 +57,17 @@ export default function TeamManagementPage() {
   const deactivateUserMutation = api.tenant.users.deactivate.useMutation({
     onSuccess: () => {
       refetchUsers();
+    },
+  });
+
+  const updatePositionMutation = api.tenant.users.updatePosition.useMutation({
+    onSuccess: () => {
+      refetchUsers();
+      setEditingPositionId(null);
+      setEditingPositionValue("");
+    },
+    onError: (error) => {
+      alert(error.message || '직급 변경 중 오류가 발생했습니다.');
     },
   });
 
@@ -97,6 +113,32 @@ export default function TeamManagementPage() {
     if (confirm('정말로 이 팀원을 비활성화하시겠습니까?')) {
       await deactivateUserMutation.mutateAsync({ userId: id });
     }
+  };
+
+  const handleEditPosition = (memberId: string, currentPosition: string) => {
+    setEditingPositionId(memberId);
+    setEditingPositionValue(currentPosition || '');
+  };
+
+  const handleSavePosition = async (memberId: string) => {
+    if (!editingPositionValue.trim()) {
+      alert('직급을 입력해주세요.');
+      return;
+    }
+
+    await updatePositionMutation.mutateAsync({
+      userId: memberId,
+      position: editingPositionValue.trim(),
+    });
+  };
+
+  const handleCancelEditPosition = () => {
+    setEditingPositionId(null);
+    setEditingPositionValue("");
+  };
+
+  const canEditPosition = () => {
+    return ['owner', 'admin', 'manager'].includes(currentUserRole);
   };
 
   const handleAddMember = async (newMember: any) => {
@@ -397,16 +439,63 @@ export default function TeamManagementPage() {
                   </div>
                   <div>
                     <h3 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">{member.name}</h3>
-                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{member.position || '팀원'}</p>
+                    {editingPositionId === member.id ? (
+                      <div className="flex items-center gap-1 mt-1">
+                        <input
+                          type="text"
+                          value={editingPositionValue}
+                          onChange={(e) => setEditingPositionValue(e.target.value)}
+                          className="px-2 py-1 text-xs sm:text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="직급 입력"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleSavePosition(member.id);
+                            } else if (e.key === 'Escape') {
+                              handleCancelEditPosition();
+                            }
+                          }}
+                        />
+                        <button
+                          onClick={() => handleSavePosition(member.id)}
+                          className="p-1 hover:bg-green-100 dark:hover:bg-green-900/30 rounded"
+                          title="저장"
+                        >
+                          <Save className="w-3 h-3 text-green-600 dark:text-green-400" />
+                        </button>
+                        <button
+                          onClick={handleCancelEditPosition}
+                          className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                          title="취소"
+                        >
+                          <span className="text-xs">✕</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 group">
+                        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{member.position || '팀원'}</p>
+                        {canEditPosition() && (
+                          <button
+                            onClick={() => handleEditPosition(member.id, member.position || '')}
+                            className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-opacity"
+                            title="직급 수정"
+                          >
+                            <Edit2 className="w-3 h-3 text-gray-400" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-1">
+                  {/* 상세 페이지는 아직 구현되지 않음
                   <button
                     onClick={() => router.push(`/team/${member.id}`)}
                     className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                   >
                     <Edit2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                   </button>
+                  */}
                   <button
                     onClick={() => handleRemoveMember(member.id)}
                     className="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors"
