@@ -40,9 +40,14 @@ export function ProfileDropdown() {
 
   const handleSignOut = async () => {
     try {
-      await signOut({ redirectUrl: '/sign-in' });
+      // Sign out and clear all sessions
+      await signOut(() => {
+        // After signing out, redirect to sign-in page
+        router.push('/sign-in');
+      });
     } catch (error) {
       console.error('Sign out error:', error);
+      // Force redirect even if there's an error
       router.push('/sign-in');
     }
   };

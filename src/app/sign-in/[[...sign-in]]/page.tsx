@@ -33,6 +33,13 @@ export default function SignInPage() {
       return;
     }
 
+    // If already signed in, just redirect
+    if (isSignedIn) {
+      router.push('/dashboard');
+      setLoading(false);
+      return;
+    }
+
     try {
       // Clerk를 사용하여 로그인
       const result = await signIn.create({
@@ -42,7 +49,7 @@ export default function SignInPage() {
 
       if (result.status === 'complete') {
         await setActive({ session: result.createdSessionId });
-        router.push('/team');
+        router.push('/dashboard');
       } else {
         // 추가 인증이 필요한 경우 (2FA 등)
         console.log('Additional auth required:', result);
