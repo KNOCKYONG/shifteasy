@@ -20,12 +20,18 @@ export function NavigationHeader() {
   const { t, ready } = useTranslation('common');
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
   const { data: currentUser } = api.tenant.users.current.useQuery();
 
-  // 읽지 않은 알림 개수 조회 (임시로 하드코딩, 나중에 API 연결)
-  const [unreadCount, setUnreadCount] = useState(0);
+  // 읽지 않은 알림 개수 조회 (임시 mock 데이터)
   // TODO: API로 실제 읽지 않은 알림 개수 가져오기
   // const { data: notifications } = api.notifications.getUnread.useQuery();
+  const mockNotifications = [
+    { id: '1', message: '새로운 근무 스케줄이 배정되었습니다.', time: '5분 전', isRead: false },
+    { id: '2', message: '김철수님의 휴가 신청이 승인되었습니다.', time: '1시간 전', isRead: false },
+    { id: '3', message: '이번 주 근무 일정이 변경되었습니다.', time: '3시간 전', isRead: false },
+  ];
+  const unreadCount = mockNotifications.filter(n => !n.isRead).length;
 
   useEffect(() => {
     setMounted(true);
@@ -35,6 +41,18 @@ export function NavigationHeader() {
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [pathname]);
+
+  // 외부 클릭 시 드롭다운 닫기
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.notification-dropdown')) {
+        setShowNotificationDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Get role-based navigation items
   const roleNavigation = getNavigationForRole(currentUser?.role as Role);
@@ -108,18 +126,59 @@ export function NavigationHeader() {
             <div className="flex items-center gap-2 sm:gap-4">
               <ProfileDropdown />
 
-              {/* Notification Bell */}
-              <Link
-                href="/notifications"
-                className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              >
-                <Bell className={`w-5 h-5 ${unreadCount > 0 ? 'text-yellow-500' : 'text-gray-600 dark:text-gray-400'}`} />
-                {unreadCount > 0 && (
-                  <span className="absolute top-0 right-0 w-5 h-5 bg-yellow-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
+              {/* Notification Dropdown */}
+              <div className="relative notification-dropdown">
+                <button
+                  onClick={() => setShowNotificationDropdown(!showNotificationDropdown)}
+                  className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <Bell className={`w-5 h-5 ${unreadCount > 0 ? 'text-yellow-500' : 'text-gray-600 dark:text-gray-400'}`} />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-0 right-0 w-5 h-5 bg-yellow-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Notification Dropdown Menu */}
+                {showNotificationDropdown && (
+                  <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg dark:shadow-gray-900/50 z-50">
+                    <div className="p-3 border-b border-gray-100 dark:border-gray-700">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">알림</h3>
+                    </div>
+
+                    {/* Notification List */}
+                    <div className="max-h-96 overflow-y-auto">
+                      {mockNotifications.length > 0 ? (
+                        mockNotifications.map((notification) => (
+                          <div
+                            key={notification.id}
+                            className="p-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                          >
+                            <p className="text-sm text-gray-900 dark:text-gray-100">{notification.message}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{notification.time}</p>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                          새로운 알림이 없습니다.
+                        </div>
+                      )}
+                    </div>
+
+                    {/* View All Button */}
+                    <div className="p-2 border-t border-gray-100 dark:border-gray-700">
+                      <Link
+                        href="/notifications"
+                        onClick={() => setShowNotificationDropdown(false)}
+                        className="block w-full text-center px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md transition-colors"
+                      >
+                        자세히 보기
+                      </Link>
+                    </div>
+                  </div>
                 )}
-              </Link>
+              </div>
 
               {/* Mobile Menu Button */}
               <button
