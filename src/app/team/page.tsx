@@ -18,9 +18,10 @@ export default function TeamManagementPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showMyPreferences, setShowMyPreferences] = useState(false);
   const [showSpecialRequest, setShowSpecialRequest] = useState(false);
-  const currentUserId = currentUser.userId || "user-1";
-  const currentUserName = currentUser.name || "사용자";
-  const currentUserRole = currentUser.role || "member";
+const currentUserId = currentUser.userId || "user-1";
+const currentUserName = currentUser.name || "사용자";
+const currentUserRole = currentUser.role || "member";
+const managerDepartmentId = currentUser.dbUser?.departmentId ?? null;
   const [specialRequests, setSpecialRequests] = useState<SpecialRequest[]>([]);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'on-leave' | 'manager' | 'part-time'>('all');
   const [roleFilter, setRoleFilter] = useState<string | undefined>();
@@ -29,14 +30,19 @@ export default function TeamManagementPage() {
   const [editingPositionValue, setEditingPositionValue] = useState<string>("");
 
   // Fetch users from TRPC
-  const { data: usersData, isLoading: isLoadingUsers, refetch: refetchUsers } = api.tenant.users.list.useQuery({
-    limit: 100,
-    offset: 0,
-    search: searchQuery || undefined,
-    departmentId: selectedDepartment !== 'all' ? selectedDepartment : undefined,
-    role: roleFilter as any,
-    status: statusFilterForApi,
-  });
+const { data: usersData, isLoading: isLoadingUsers, refetch: refetchUsers } = api.tenant.users.list.useQuery({
+  limit: 100,
+  offset: 0,
+  search: searchQuery || undefined,
+  departmentId:
+    currentUserRole === 'manager'
+      ? managerDepartmentId ?? undefined
+      : selectedDepartment !== 'all'
+        ? selectedDepartment
+        : undefined,
+  role: roleFilter as any,
+  status: statusFilterForApi,
+});
 
   // Fetch departments from TRPC
   const { data: departmentsData, isLoading: isLoadingDepartments } = api.tenant.departments.list.useQuery({
@@ -73,18 +79,39 @@ export default function TeamManagementPage() {
   });
 
   // Process departments for UI
-  const departments = [
-    { id: 'all', name: '전체' },
-    ...((departmentsData?.items as any[] || []).map((dept: any) => ({
-      id: dept.id,
-      name: dept.name,
-    })) || []),
-  ];
+const managerDepartmentName =
+  (departmentsData?.items as any[] || []).find(
+    (dept: any) => dept.id === managerDepartmentId
+  )?.name;
+
+const departments =
+  currentUserRole === 'manager'
+    ? managerDepartmentId
+      ? [
+          {
+            id: managerDepartmentId,
+            name: managerDepartmentName || '내 병동',
+          },
+        ]
+      : []
+    : [
+        { id: 'all', name: '전체' },
+        ...((departmentsData?.items as any[] || []).map((dept: any) => ({
+          id: dept.id,
+          name: dept.name,
+        })) || []),
+      ];
 
   // Update status filter effect
-  useEffect(() => {
-    if (statusFilter === 'active') {
-      setStatusFilterForApi('active');
+useEffect(() => {
+  if (currentUserRole === 'manager' && managerDepartmentId) {
+    setSelectedDepartment(managerDepartmentId);
+  }
+}, [currentUserRole, managerDepartmentId]);
+
+useEffect(() => {
+  if (statusFilter === 'active') {
+    setStatusFilterForApi('active');
       setRoleFilter(undefined);
     } else if (statusFilter === 'on-leave') {
       setStatusFilterForApi('on_leave');
@@ -374,6 +401,11 @@ export default function TeamManagementPage() {
 
         {/* Filters and Search - 모바일 최적화 */}
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6 mb-4 sm:mb-6">
+          {currentUserRole === 'manager' && managerDepartmentId && (
+            <div className="mb-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 px-3 py-2 text-xs sm:text-sm text-blue-800 dark:text-blue-300">
+              담당 병동에 속한 팀원만 조회 및 관리할 수 있습니다.
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row sm:items-end gap-4">
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 flex-1">
               <div className="flex-1 sm:flex-none">
@@ -381,7 +413,8 @@ export default function TeamManagementPage() {
                 <select
                   value={selectedDepartment}
                   onChange={(e) => setSelectedDepartment(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-gray-100"
+                  disabled={currentUserRole === 'manager'}
+                  className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-gray-100 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed disabled:dark:bg-gray-800 disabled:dark:text-gray-500"
                 >
                   {departments.map(dept => (
                     <option key={dept.id} value={dept.id}>{dept.name}</option>
