@@ -10,13 +10,9 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
+  // 공개 경로가 아니면 인증 필요
   if (!isPublicRoute(req)) {
-    const { userId } = await auth();
-    if (!userId && !isPublicRoute(req)) {
-      const signInUrl = new URL('/sign-in', req.url);
-      signInUrl.searchParams.set('redirect_url', req.url);
-      return Response.redirect(signInUrl);
-    }
+    await auth.protect();
   }
 });
 

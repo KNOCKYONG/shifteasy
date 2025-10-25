@@ -7,6 +7,7 @@ import { SettingsMenu } from "@/components/SettingsMenu";
 import { I18nProvider } from "@/components/providers/I18nProvider";
 import { TRPCProvider } from "@/components/providers/trpc-provider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { NavigationHeader } from "@/components/layout/NavigationHeader";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -43,6 +44,7 @@ export default function RootLayout({
                   <div className="fixed top-4 right-4 z-50">
                     <SettingsMenu />
                   </div>
+                  <NavigationHeader />
                   {children}
                 </ThemeProvider>
               </I18nProvider>

@@ -1,16 +1,42 @@
 import { type FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { db } from '@/db';
+import { users } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 
 export async function createTRPCContext(opts?: FetchCreateContextFnOptions) {
-  // Clerk 없이 테스트용 사용자 정보 설정
-  const mockUserId = 'test-user-1';
-  const mockOrgId = '3760b5ec-462f-443c-9a90-4a2b2e295e9d'; // 고정된 테넌트 ID
+  // Get Clerk user
+  const { userId: clerkUserId, orgId } = await auth();
+  const clerkUser = await currentUser();
+
+  // If not authenticated, return basic context
+  if (!clerkUserId || !clerkUser) {
+    return {
+      db,
+      userId: null,
+      tenantId: null,
+      user: null,
+      headers: opts?.req.headers,
+    };
+  }
+
+  // Get user from database with role information
+  const dbUser = await db
+    .select()
+    .from(users)
+    .where(eq(users.clerkUserId, clerkUserId))
+    .limit(1);
+
+  const user = dbUser[0] || null;
+
+  // Use organization ID as tenant ID, or use the user's tenant ID from database
+  const tenantId = orgId || user?.tenantId || null;
 
   return {
     db,
-    userId: mockUserId,
-    tenantId: mockOrgId,
-    user: { id: mockUserId, email: 'test@example.com' },
+    userId: clerkUserId,
+    tenantId,
+    user,
     headers: opts?.req.headers,
   };
 }

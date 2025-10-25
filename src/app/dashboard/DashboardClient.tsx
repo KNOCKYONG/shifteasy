@@ -5,8 +5,6 @@ import { Calendar, Users, ArrowRightLeft, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { api } from '@/lib/trpc/client';
 import { MemberDashboard } from '@/components/dashboard/MemberDashboard';
-import { ProfileDropdown } from '@/components/ProfileDropdown';
-import { type Role } from '@/lib/permissions';
 
 export default function DashboardClient() {
   const [mounted, setMounted] = useState(false);
@@ -21,22 +19,10 @@ export default function DashboardClient() {
     return null;
   }
 
-  // Show simplified dashboard for members with header
+  // Show simplified dashboard for members
   if (currentUser?.role === 'member') {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-        {/* Header with logout */}
-        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-          <div className="container mx-auto px-4 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">ShiftEasy</h1>
-              </div>
-              <ProfileDropdown />
-            </div>
-          </div>
-        </div>
-        {/* Member Dashboard Content */}
         <div className="container mx-auto px-4 py-8">
           <MemberDashboard />
         </div>
@@ -89,19 +75,6 @@ export default function DashboardClient() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      {/* Header with logout */}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">ShiftEasy</h1>
-            </div>
-            <ProfileDropdown />
-          </div>
-        </div>
-      </div>
-
-      {/* Dashboard Content */}
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
