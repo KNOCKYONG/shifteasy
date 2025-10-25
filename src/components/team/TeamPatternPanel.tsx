@@ -46,10 +46,17 @@ export function TeamPatternPanel({
 
   // Team Pattern 불러오기
   useEffect(() => {
-    fetchTeamPattern();
+    // departmentId가 유효할 때만 fetch
+    if (departmentId && departmentId !== 'all') {
+      fetchTeamPattern();
+    }
   }, [departmentId]);
 
   const fetchTeamPattern = async () => {
+    if (!departmentId || departmentId === 'all') {
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await fetch(`/api/team-patterns?departmentId=${departmentId}`);
