@@ -11,7 +11,7 @@ import { TRPCError } from '@trpc/server';
 export async function getCurrentUser() {
   const { userId, orgId } = await auth();
 
-  if (!userId || !orgId) {
+  if (!userId) {
     return null;
   }
 
@@ -21,17 +21,35 @@ export async function getCurrentUser() {
     return null;
   }
 
-  // Get user from database
-  const [dbUser] = await db
-    .select()
-    .from(users)
-    .where(
-      and(
-        eq(users.clerkUserId, userId),
-        eq(users.tenantId, orgId),
-        isNull(users.deletedAt)
-      )
-    );
+  // Get user from database - first try with orgId if available
+  let dbUser;
+  if (orgId) {
+    [dbUser] = await db
+      .select()
+      .from(users)
+      .where(
+        and(
+          eq(users.clerkUserId, userId),
+          eq(users.tenantId, orgId),
+          isNull(users.deletedAt)
+        )
+      );
+  } else {
+    // If no orgId, try to find user by clerkUserId only
+    [dbUser] = await db
+      .select()
+      .from(users)
+      .where(
+        and(
+          eq(users.clerkUserId, userId),
+          isNull(users.deletedAt)
+        )
+      );
+  }
+
+  if (!dbUser) {
+    return null;
+  }
 
   return {
     ...dbUser,
