@@ -23,7 +23,7 @@ export interface ExtendedEmployeePreferences extends EmployeePreferences {
   // 확장된 선호도
   workLoadPreference: 'light' | 'normal' | 'heavy'; // 업무량 선호
   flexibilityLevel: 'low' | 'medium' | 'high'; // 유연성 수준
-  preferredPattern?: string; // 선호하는 근무 패턴
+  preferredPatterns?: string[]; // 선호하는 근무 패턴들 (멀티 선택)
 
   // 팀 선호도
   preferredPartners: string[]; // 선호하는 동료 ID
@@ -94,10 +94,12 @@ export function EmployeePreferencesModal({
       publicTransportDependent: false,
     },
     preferredPattern: '',
+    preferredPatterns: [],
   } as any);
 
   const [activeTab, setActiveTab] = useState<'basic' | 'personal' | 'request'>('basic');
   const [showConstraintForm, setShowConstraintForm] = useState(false);
+  const [customPatternInput, setCustomPatternInput] = useState('');
 
   // Request 탭을 위한 state
   const [selectedMonth, setSelectedMonth] = useState(new Date());
@@ -181,6 +183,41 @@ export function EmployeePreferencesModal({
       personalConstraints: [...preferences.personalConstraints, newConstraint],
     });
     setShowConstraintForm(false);
+  };
+
+  const togglePatternPreference = (pattern: string) => {
+    const current = preferences.preferredPatterns || [];
+    if (current.includes(pattern)) {
+      setPreferences({
+        ...preferences,
+        preferredPatterns: current.filter(p => p !== pattern),
+      });
+    } else {
+      setPreferences({
+        ...preferences,
+        preferredPatterns: [...current, pattern],
+      });
+    }
+  };
+
+  const addCustomPattern = () => {
+    if (!customPatternInput.trim()) return;
+
+    const current = preferences.preferredPatterns || [];
+    if (!current.includes(customPatternInput.trim())) {
+      setPreferences({
+        ...preferences,
+        preferredPatterns: [...current, customPatternInput.trim()],
+      });
+    }
+    setCustomPatternInput('');
+  };
+
+  const removePattern = (pattern: string) => {
+    setPreferences({
+      ...preferences,
+      preferredPatterns: (preferences.preferredPatterns || []).filter(p => p !== pattern),
+    });
   };
 
   return (
@@ -279,8 +316,10 @@ export function EmployeePreferencesModal({
 
               {/* 선호 근무 패턴 */}
               <div>
-                <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">선호 근무 패턴</h3>
-                <div className="grid grid-cols-2 gap-3">
+                <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">선호 근무 패턴 (다중 선택 가능)</h3>
+
+                {/* 기본 패턴 선택 */}
+                <div className="grid grid-cols-2 gap-3 mb-4">
                   {[
                     { value: 'D-D-E-E-N-N-OFF', label: '교대 근무', description: '주간 → 저녁 → 야간 순환' },
                     { value: 'D-D-D-D-D-OFF-OFF', label: '5일 근무', description: '주간 5일 연속 근무' },
@@ -289,9 +328,9 @@ export function EmployeePreferencesModal({
                   ].map(option => (
                     <button
                       key={option.value}
-                      onClick={() => setPreferences({...preferences, preferredPattern: option.value})}
+                      onClick={() => togglePatternPreference(option.value)}
                       className={`p-3 rounded-lg border-2 transition-all text-left ${
-                        (preferences as any).preferredPattern === option.value
+                        (preferences.preferredPatterns || []).includes(option.value)
                           ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                           : 'border-gray-200 dark:border-slate-600 hover:border-gray-300 dark:hover:border-slate-500'
                       }`}
@@ -302,6 +341,54 @@ export function EmployeePreferencesModal({
                     </button>
                   ))}
                 </div>
+
+                {/* 직접 입력 */}
+                <div className="mb-3">
+                  <label className="block text-sm text-gray-600 dark:text-gray-400 mb-2">
+                    패턴 직접 입력 (예: D-D-E-E-OFF-OFF)
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={customPatternInput}
+                      onChange={(e) => setCustomPatternInput(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomPattern())}
+                      placeholder="D-D-E-E-OFF-OFF"
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
+                    />
+                    <button
+                      onClick={addCustomPattern}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      추가
+                    </button>
+                  </div>
+                </div>
+
+                {/* 선택된 패턴들 표시 */}
+                {(preferences.preferredPatterns || []).length > 0 && (
+                  <div>
+                    <label className="block text-sm text-gray-600 dark:text-gray-400 mb-2">
+                      선택된 패턴
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {(preferences.preferredPatterns || []).map((pattern) => (
+                        <span
+                          key={pattern}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-sm font-mono"
+                        >
+                          {pattern}
+                          <button
+                            onClick={() => removePattern(pattern)}
+                            className="hover:text-blue-900 dark:hover:text-blue-100"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
