@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Settings, Save, AlertCircle, Clock, Users, Calendar, Shield, ChevronRight, Info, Database, Trash2, Activity, Plus, Edit2, Briefcase, Building, FileText, UserCheck } from "lucide-react";
+import { Settings, Save, AlertCircle, Clock, Users, Shield, ChevronRight, Database, Trash2, Activity, Plus, Edit2, Briefcase, Building, FileText, UserCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { type ShiftRule, type ShiftPattern } from "@/lib/types";
 import { MainLayout } from "../../components/layout/MainLayout";
@@ -34,8 +34,6 @@ interface ConfigData {
 }
 
 const DEFAULT_PATTERNS: ShiftPattern[] = [
-  { id: "5-day", name: "5일 근무", description: "주 5일 근무, 2일 휴무", daysOn: 5, daysOff: 2 },
-  { id: "4-day", name: "4일 근무", description: "주 4일 근무, 3일 휴무", daysOn: 4, daysOff: 3 },
   { id: "3-shift", name: "3교대", description: "주간/저녁/야간 순환", daysOn: 5, daysOff: 2 },
 ];
 
@@ -50,25 +48,6 @@ export default function ConfigPage() {
   const router = useRouter();
   const { t, ready } = useTranslation(['config', 'common']);
 
-  // Get pattern translation by ID
-  const getPatternName = (id: string): string => {
-    switch (id) {
-      case '5-day': return t('patterns.5day.name', { ns: 'config' });
-      case '4-day': return t('patterns.4day.name', { ns: 'config' });
-      case '3-shift': return t('patterns.3shift.name', { ns: 'config' });
-      default: return '';
-    }
-  };
-
-  const getPatternDescription = (id: string): string => {
-    switch (id) {
-      case '5-day': return t('patterns.5day.description', { ns: 'config' });
-      case '4-day': return t('patterns.4day.description', { ns: 'config' });
-      case '3-shift': return t('patterns.3shift.description', { ns: 'config' });
-      default: return '';
-    }
-  };
-
   // Get rule translation by ID
   const getRuleName = (id: string): string => {
     switch (id) {
@@ -80,7 +59,7 @@ export default function ConfigPage() {
     }
   };
 
-  const [activeTab, setActiveTab] = useState<"patterns" | "rules" | "preferences" | "positions" | "positionGroups" | "shifts" | "departments" | "contracts" | "statuses">("patterns");
+  const [activeTab, setActiveTab] = useState<"rules" | "preferences" | "positions" | "positionGroups" | "shifts" | "departments" | "contracts" | "statuses">("rules");
   const [positions, setPositions] = useState<{value: string; label: string; level: number}[]>([]);
   const [newPosition, setNewPosition] = useState({ value: '', label: '', level: 1 });
   const [editingPosition, setEditingPosition] = useState<string | null>(null);
@@ -326,17 +305,10 @@ export default function ConfigPage() {
 
         {/* Tabs */}
         <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="mb-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-4 text-sm text-blue-800 dark:text-blue-300">
+            3교대(주간/저녁/야간) 패턴을 기준으로 스케줄이 생성되며, 근무 패턴은 변경할 수 없습니다.
+          </div>
           <nav className="flex gap-8">
-            <button
-              onClick={() => setActiveTab("patterns")}
-              className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === "patterns"
-                  ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
-                  : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
-              }`}
-            >
-              {t('tabs.patterns', { ns: 'config' })}
-            </button>
             <button
               onClick={() => setActiveTab("rules")}
               className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
@@ -421,45 +393,6 @@ export default function ConfigPage() {
         </div>
 
         {/* Tab Content */}
-        {activeTab === "patterns" && (
-          <div className="space-y-4">
-            <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-4 flex items-start gap-3">
-              <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm text-blue-900 dark:text-blue-300 font-medium">{t('patterns.title', { ns: 'config' })}</p>
-                <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
-                  {t('patterns.description', { ns: 'config' })}
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {config.patterns.map((pattern) => (
-                <div
-                  key={pattern.id}
-                  className="bg-white dark:bg-gray-900 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 transition-colors cursor-pointer p-6"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <Calendar className="w-8 h-8 text-gray-400 dark:text-gray-500" />
-                    <input
-                      type="radio"
-                      name="pattern"
-                      className="w-4 h-4 text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-400"
-                      defaultChecked={pattern.id === "5-day"}
-                    />
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">{getPatternName(pattern.id)}</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{getPatternDescription(pattern.id)}</p>
-                  <div className="flex items-center gap-4 text-sm">
-                    <span className="text-gray-500 dark:text-gray-400">{t('patterns.workDays', { ns: 'config' })}: {pattern.daysOn}{t('patterns.days', { ns: 'config' })}</span>
-                    <span className="text-gray-500 dark:text-gray-400">{t('patterns.offDays', { ns: 'config' })}: {pattern.daysOff}{t('patterns.days', { ns: 'config' })}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {activeTab === "rules" && (
           <div className="space-y-4">
             <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex items-start gap-3">
