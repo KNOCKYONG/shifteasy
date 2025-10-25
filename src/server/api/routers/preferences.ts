@@ -158,7 +158,7 @@ export const preferencesRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
 
-      const [deleted] = await db.delete(
+      const [deleted] = await db.hardDelete(
         nursePreferences,
         and(
           eq(nursePreferences.tenantId, (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d')),
