@@ -160,6 +160,20 @@ const departments =
     partTime: 0, // TODO: Add contract type to schema
   };
 
+  // Team Pattern용 필터링된 전체 인원 (매니저/관리자 제외)
+  // TODO: contractType 필드 추가 후 '상근'(full-time) 직원도 제외해야 함
+  const filteredTotalMembers = teamMembers.filter((m: any) => {
+    // 매니저와 관리자 제외
+    if (['manager', 'admin'].includes(m.role)) {
+      return false;
+    }
+    // TODO: contractType === 'full-time' 인 경우도 제외
+    // if (m.contractType === 'full-time') {
+    //   return false;
+    // }
+    return true;
+  }).length;
+
   const handleRemoveMember = async (id: string) => {
     if (confirm('정말로 이 팀원을 비활성화하시겠습니까?')) {
       await deactivateUserMutation.mutateAsync({ userId: id });
@@ -235,7 +249,7 @@ const departments =
         <div className="mb-6 sm:mb-8">
           <TeamPatternPanel
             departmentId={selectedDepartment !== 'all' ? selectedDepartment : ''}
-            totalMembers={stats.total}
+            totalMembers={filteredTotalMembers}
             canEdit={currentUserRole === 'admin' || currentUserRole === 'manager'}
           />
         </div>
