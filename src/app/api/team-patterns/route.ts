@@ -46,6 +46,8 @@ export async function GET(request: NextRequest) {
     }
 
     // 부서의 Team Pattern 조회
+    console.log('[GET] Querying team patterns for departmentId:', departmentId);
+
     const patterns = await db
       .select()
       .from(teamPatterns)
@@ -55,6 +57,8 @@ export async function GET(request: NextRequest) {
           eq(teamPatterns.isActive, 'true')
         )
       );
+
+    console.log('[GET] Found patterns:', patterns.length);
 
     if (patterns.length === 0) {
       // 기본값 반환
@@ -74,8 +78,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ pattern: patterns[0] });
   } catch (error) {
     console.error('Error fetching team pattern:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      departmentId,
+    });
     return NextResponse.json(
-      { error: 'Failed to fetch team pattern' },
+      {
+        error: 'Failed to fetch team pattern',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }
@@ -84,10 +96,14 @@ export async function GET(request: NextRequest) {
 // POST: Team Pattern 생성
 export async function POST(request: NextRequest) {
   try {
+    console.log('[POST] Creating team pattern...');
+
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    console.log('[POST] User role:', user.role);
 
     // 권한 체크 (관리자 또는 매니저만)
     if (!['admin', 'manager'].includes(user.role)) {
@@ -98,9 +114,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    console.log('[POST] Request body:', JSON.stringify(body, null, 2));
+
     const validationResult = CreateTeamPatternSchema.safeParse(body);
 
     if (!validationResult.success) {
+      console.log('[POST] Validation failed:', validationResult.error.issues);
       return NextResponse.json(
         { error: 'Invalid request data', details: validationResult.error.issues },
         { status: 400 }
@@ -108,6 +127,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data = validationResult.data;
+    console.log('[POST] Validated data:', JSON.stringify(data, null, 2));
 
     // 매니저는 자신의 부서만 수정 가능
     if (user.role === 'manager' && user.departmentId !== data.departmentId) {
@@ -127,13 +147,17 @@ export async function POST(request: NextRequest) {
     }
 
     // 기존 패턴이 있는지 확인
+    console.log('[POST] Checking existing patterns...');
     const existing = await db
       .select()
       .from(teamPatterns)
       .where(eq(teamPatterns.departmentId, data.departmentId));
 
+    console.log('[POST] Found existing patterns:', existing.length);
+
     if (existing.length > 0) {
       // 기존 패턴 비활성화
+      console.log('[POST] Deactivating existing patterns...');
       await db
         .update(teamPatterns)
         .set({ isActive: 'false', updatedAt: new Date() })
@@ -141,6 +165,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 새 패턴 생성
+    console.log('[POST] Inserting new pattern...');
     const newPattern = await db
       .insert(teamPatterns)
       .values({
@@ -149,11 +174,19 @@ export async function POST(request: NextRequest) {
       })
       .returning();
 
+    console.log('[POST] Pattern created successfully');
     return NextResponse.json({ pattern: newPattern[0] }, { status: 201 });
   } catch (error) {
     console.error('Error creating team pattern:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return NextResponse.json(
-      { error: 'Failed to create team pattern' },
+      {
+        error: 'Failed to create team pattern',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }
