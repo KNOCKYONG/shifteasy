@@ -9,34 +9,29 @@ import type { Employee, EmployeePreferences, EmployeeAvailability } from "@/lib/
  * Convert UnifiedEmployee to Employee type for use with EmployeePreferencesModal
  */
 export function unifiedEmployeeToEmployee(member: UnifiedEmployee): Employee {
-  // Extract preferences from member
-  const preferences: EmployeePreferences = {
-    preferredShifts: member.workSchedule?.preferredShifts || [],
-    avoidShifts: (member as any).avoidShifts || [],
-    preferredDaysOff: member.workSchedule?.preferredDaysOff || [],
-    maxConsecutiveDays: member.workSchedule?.maxConsecutiveDays || 5,
-    preferNightShift: member.workSchedule?.preferNightShift || false,
-  };
-
-  // Extract availability
-  const availability: EmployeeAvailability = {
-    availableDays: member.workSchedule?.availableDays || [true, true, true, true, true, true, true],
-    unavailableDates: member.workSchedule?.unavailableDates || [],
-    timeOffRequests: [],
-  };
-
+  // UnifiedEmployee already extends Employee, so we can use it directly
+  // Just ensure all required fields are present with defaults
   return {
     id: member.id,
     name: member.name,
     departmentId: member.departmentId || '',
     role: member.role || 'member',
-    contractType: member.employmentType === 'full_time' ? 'full-time' :
-                  member.employmentType === 'part_time' ? 'part-time' : 'contract',
-    maxHoursPerWeek: member.workSchedule?.maxHoursPerWeek || 40,
-    minHoursPerWeek: member.workSchedule?.minHoursPerWeek || 0,
+    contractType: member.contractType || 'full-time',
+    maxHoursPerWeek: member.maxHoursPerWeek || 40,
+    minHoursPerWeek: member.minHoursPerWeek || 0,
     skills: member.skills || [],
-    preferences,
-    availability,
+    preferences: member.preferences || {
+      preferredShifts: [],
+      avoidShifts: [],
+      preferredDaysOff: [],
+      maxConsecutiveDays: 5,
+      preferNightShift: false,
+    },
+    availability: member.availability || {
+      availableDays: [true, true, true, true, true, true, true],
+      unavailableDates: [],
+      timeOffRequests: [],
+    },
   };
 }
 
