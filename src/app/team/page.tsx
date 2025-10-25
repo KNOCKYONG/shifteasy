@@ -1,11 +1,9 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Save, Upload, Download, Users, ChevronRight, Edit2, Mail, Phone, Calendar, Shield, Clock, Star, Settings, Heart, MessageSquare, AlertCircle } from "lucide-react";
+import { Plus, Trash2, Save, Upload, Download, Users, ChevronRight, Edit2, Mail, Phone, Calendar, Shield, Clock, Star } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { AddTeamMemberModal } from "@/components/AddTeamMemberModal";
-import { MyPreferencesPanel, type ComprehensivePreferences } from "@/components/team/MyPreferencesPanel";
-import { SpecialRequestModal, type SpecialRequest } from "@/components/team/SpecialRequestModal";
 import { api } from "@/lib/trpc/client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { RoleGuard } from "@/components/auth/RoleGuard";
@@ -16,13 +14,8 @@ export default function TeamManagementPage() {
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
-  const [showMyPreferences, setShowMyPreferences] = useState(false);
-  const [showSpecialRequest, setShowSpecialRequest] = useState(false);
-const currentUserId = currentUser.userId || "user-1";
-const currentUserName = currentUser.name || "사용자";
-const currentUserRole = currentUser.role || "member";
-const managerDepartmentId = currentUser.dbUser?.departmentId ?? null;
-  const [specialRequests, setSpecialRequests] = useState<SpecialRequest[]>([]);
+  const currentUserRole = currentUser.role || "member";
+  const managerDepartmentId = currentUser.dbUser?.departmentId ?? null;
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'on-leave' | 'manager' | 'part-time'>('all');
   const [roleFilter, setRoleFilter] = useState<string | undefined>();
   const [statusFilterForApi, setStatusFilterForApi] = useState<'active' | 'on_leave' | undefined>();
@@ -30,19 +23,19 @@ const managerDepartmentId = currentUser.dbUser?.departmentId ?? null;
   const [editingPositionValue, setEditingPositionValue] = useState<string>("");
 
   // Fetch users from TRPC
-const { data: usersData, isLoading: isLoadingUsers, refetch: refetchUsers } = api.tenant.users.list.useQuery({
-  limit: 100,
-  offset: 0,
-  search: searchQuery || undefined,
-  departmentId:
-    currentUserRole === 'manager'
-      ? managerDepartmentId ?? undefined
-      : selectedDepartment !== 'all'
-        ? selectedDepartment
-        : undefined,
-  role: roleFilter as any,
-  status: statusFilterForApi,
-});
+  const { data: usersData, isLoading: isLoadingUsers, refetch: refetchUsers } = api.tenant.users.list.useQuery({
+    limit: 100,
+    offset: 0,
+    search: searchQuery || undefined,
+    departmentId:
+      currentUserRole === 'manager'
+        ? managerDepartmentId ?? undefined
+        : selectedDepartment !== 'all'
+          ? selectedDepartment
+          : undefined,
+    role: roleFilter as any,
+    status: statusFilterForApi,
+  });
 
   // Fetch departments from TRPC
   const { data: departmentsData, isLoading: isLoadingDepartments } = api.tenant.departments.list.useQuery({
@@ -103,15 +96,15 @@ const departments =
       ];
 
   // Update status filter effect
-useEffect(() => {
-  if (currentUserRole === 'manager' && managerDepartmentId) {
-    setSelectedDepartment(managerDepartmentId);
-  }
-}, [currentUserRole, managerDepartmentId]);
+  useEffect(() => {
+    if (currentUserRole === 'manager' && managerDepartmentId) {
+      setSelectedDepartment(managerDepartmentId);
+    }
+  }, [currentUserRole, managerDepartmentId]);
 
-useEffect(() => {
-  if (statusFilter === 'active') {
-    setStatusFilterForApi('active');
+  useEffect(() => {
+    if (statusFilter === 'active') {
+      setStatusFilterForApi('active');
       setRoleFilter(undefined);
     } else if (statusFilter === 'on-leave') {
       setStatusFilterForApi('on_leave');
@@ -126,14 +119,27 @@ useEffect(() => {
   }, [statusFilter]);
 
   // Process users data
-  const teamMembers = (usersData?.items || []) as any[];
+  const rawTeamMembers = (usersData?.items || []) as any[];
+
+  const teamMembers = useMemo(() => {
+    if (currentUserRole === 'manager') {
+      const myUserId = currentUser.dbUser?.id;
+      return rawTeamMembers.filter((member: any) => {
+        if (member.id === myUserId) {
+          return true;
+        }
+        return member.role === 'member';
+      });
+    }
+    return rawTeamMembers;
+  }, [rawTeamMembers, currentUserRole, currentUser.dbUser?.id]);
 
   // 통계 계산
   const stats = {
-    total: statsData?.users || 0,
+    total: teamMembers.length,
     active: teamMembers.filter((m: any) => m.status === 'active').length,
     onLeave: teamMembers.filter((m: any) => m.status === 'on_leave').length,
-    managers: teamMembers.filter((m: any) => m.role === 'manager' || m.role === 'admin').length,
+    managers: teamMembers.filter((m: any) => ['manager', 'admin'].includes(m.role)).length,
     partTime: 0, // TODO: Add contract type to schema
   };
 
@@ -180,52 +186,6 @@ useEffect(() => {
     });
   };
 
-  const handleSavePreferences = async (preferences: ComprehensivePreferences) => {
-    try {
-      // API를 통해 저장
-      const response = await fetch('/api/preferences', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          employeeId: currentUserId,
-          preferences,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save preferences');
-      }
-
-      const result = await response.json();
-      console.log('Preferences saved:', result);
-
-      // 성공 알림 (실제로는 토스트 사용 권장)
-      alert('선호도가 성공적으로 저장되었습니다!');
-    } catch (error) {
-      console.error('Error saving preferences:', error);
-      alert('선호도 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
-    }
-  };
-
-  const handleSubmitSpecialRequest = (request: Omit<SpecialRequest, 'id' | 'createdAt' | 'status'>) => {
-    const newRequest: SpecialRequest = {
-      ...request,
-      id: `req-${Date.now()}`,
-      createdAt: new Date(),
-      status: 'pending'
-    };
-
-    setSpecialRequests([...specialRequests, newRequest]);
-
-    // 실제로는 API를 통해 저장
-    console.log('Submitting special request:', newRequest);
-
-    // 성공 알림
-    alert('특별 요청이 성공적으로 제출되었습니다. 관리자가 곧 검토할 예정입니다.');
-  };
-
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'admin': return 'bg-purple-100 dark:bg-purple-950/30 text-purple-700 dark:text-purple-400';
@@ -254,63 +214,6 @@ useEffect(() => {
   return (
     <RoleGuard>
       <MainLayout>
-        {/* My Preferences Section - 현재 사용자용 */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 border border-blue-200 dark:border-blue-800">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="p-2 sm:p-3 bg-white dark:bg-gray-800 rounded-xl shadow-sm">
-                <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div className="flex-1">
-                <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">나의 근무 선호도</h2>
-                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-0.5 sm:mt-1 hidden sm:block">
-                  개인 상황과 선호도를 입력하면 AI가 최적의 스케줄을 생성합니다
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2 sm:gap-3">
-              <button
-                onClick={() => setShowMyPreferences(true)}
-                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
-              >
-                <Settings className="w-4 h-4" />
-                <span className="hidden sm:inline">선호도 설정</span>
-                <span className="sm:hidden">설정</span>
-              </button>
-              <button
-                onClick={() => setShowSpecialRequest(true)}
-                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                <MessageSquare className="w-4 h-4" />
-                <span className="hidden sm:inline">특별 요청</span>
-                <span className="sm:hidden">요청</span>
-              </button>
-            </div>
-          </div>
-
-          {/* 현재 설정된 선호도 요약 - 모바일에서는 2열 그리드 */}
-          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">선호 시프트</p>
-              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">주간</p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">주말 근무</p>
-              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">상관없음</p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">최대 연속</p>
-              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">5일</p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">특별 요청</p>
-              <p className="text-xs sm:text-sm font-medium text-amber-600 dark:text-amber-400">
-                {specialRequests.filter(r => r.employeeId === currentUserId && r.status === 'pending').length}건
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* Stats Cards - 모바일 스크롤 가능한 필터 카드들 */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4 mb-6 sm:mb-8">
           <button
@@ -406,6 +309,11 @@ useEffect(() => {
               담당 병동에 속한 팀원만 조회 및 관리할 수 있습니다.
             </div>
           )}
+          {currentUserRole === 'manager' && managerDepartmentId && (
+            <div className="mb-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 px-3 py-2 text-xs sm:text-sm text-blue-800 dark:text-blue-300">
+              담당 병동에 속한 팀원만 조회 및 관리할 수 있습니다.
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row sm:items-end gap-4">
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 flex-1">
               <div className="flex-1 sm:flex-none">
@@ -434,7 +342,12 @@ useEffect(() => {
             </div>
             <button
               onClick={() => setShowAddForm(true)}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 whitespace-nowrap"
+              disabled={currentUserRole === 'manager'}
+              className={`inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-colors ${
+                currentUserRole === 'manager'
+                  ? 'bg-gray-200 dark:bg-gray-800 text-gray-500 dark:text-gray-500 cursor-not-allowed'
+                  : 'text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600'
+              }`}
             >
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">팀원 추가</span>
@@ -604,23 +517,6 @@ useEffect(() => {
         departments={departments}
       />
 
-      {/* My Preferences Panel */}
-      <MyPreferencesPanel
-        isOpen={showMyPreferences}
-        onClose={() => setShowMyPreferences(false)}
-        currentUserId={currentUserId}
-        onSave={handleSavePreferences}
-      />
-
-      {/* Special Request Modal */}
-      <SpecialRequestModal
-        isOpen={showSpecialRequest}
-        onClose={() => setShowSpecialRequest(false)}
-        currentUserId={currentUserId}
-        currentUserName={currentUserName}
-        onSubmit={handleSubmitSpecialRequest}
-        existingRequests={specialRequests.filter(r => r.employeeId === currentUserId)}
-      />
     </MainLayout>
     </RoleGuard>
   );

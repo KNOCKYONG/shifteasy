@@ -2,18 +2,19 @@
 import React, { useState, useEffect } from "react";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval } from "date-fns";
 import { ko } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCcw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCcw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings, MessageSquare } from "lucide-react";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { Scheduler, type SchedulingRequest, type SchedulingResult } from "../../lib/scheduler/core";
 import { api } from "../../lib/trpc/client";
 import { type Employee, type Shift, type Constraint, type ScheduleAssignment } from "../../lib/scheduler/types";
 import { EmployeeAdapter } from "../../lib/adapters/employee-adapter";
-import type { ComprehensivePreferences } from "@/components/team/MyPreferencesPanel";
+import { MyPreferencesPanel, type ComprehensivePreferences } from "@/components/team/MyPreferencesPanel";
 import type { UnifiedEmployee } from "@/lib/types/unified-employee";
 import { validateSchedulingRequest, validateEmployee } from "@/lib/validation/schemas";
 import { ScheduleReviewPanel } from "@/components/schedule/ScheduleReviewPanel";
 import { EmployeePreferencesModal, type ExtendedEmployeePreferences } from "@/components/schedule/EmployeePreferencesModal";
 import { toEmployee } from "@/lib/utils/employee-converter";
+import { SpecialRequestModal, type SpecialRequest } from "@/components/team/SpecialRequestModal";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 // 기본 시프트 정의
@@ -96,10 +97,13 @@ const DEFAULT_CONSTRAINTS: Constraint[] = [
 
 export default function SchedulePage() {
   const currentUser = useCurrentUser();
-  const userRole = currentUser.dbUser?.role;
+  const userRole = (currentUser.dbUser?.role ?? currentUser.role) as string | undefined;
   const isMember = userRole === 'member';
   const memberDepartmentId = currentUser.dbUser?.departmentId ?? null;
-  const canManageSchedules = !!userRole && ['admin', 'manager', 'owner'].includes(userRole);
+  const canManageSchedules = userRole ? ['admin', 'manager', 'owner'].includes(userRole) : false;
+  const canViewStaffPreferences = canManageSchedules && !isMember;
+  const currentUserId = currentUser.userId || "user-1";
+  const currentUserName = currentUser.name || "사용자";
 
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()));
   const [schedule, setSchedule] = useState<ScheduleAssignment[]>([]);
@@ -114,6 +118,9 @@ export default function SchedulePage() {
   const [showReport, setShowReport] = useState(false); // 스케줄링 리포트 모달
   const [activeView, setActiveView] = useState<'preferences' | 'schedule' | 'review'>('preferences'); // 기본 뷰를 preferences로 설정
   const [isReviewMode, setIsReviewMode] = useState(false); // 리뷰 모드 상태
+  const [showMyPreferences, setShowMyPreferences] = useState(false);
+  const [showSpecialRequest, setShowSpecialRequest] = useState(false);
+  const [specialRequests, setSpecialRequests] = useState<SpecialRequest[]>([]);
 
   // Employee preferences modal state
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -178,10 +185,10 @@ export default function SchedulePage() {
   }, [isMember, memberDepartmentId]);
 
   useEffect(() => {
-    if (isMember && activeView !== 'schedule') {
+    if (!canViewStaffPreferences && activeView !== 'schedule') {
       setActiveView('schedule');
     }
-  }, [isMember, activeView]);
+  }, [canViewStaffPreferences, activeView]);
 
   // Fetch users from database
   const { data: usersData } = api.tenant.users.list.useQuery(
@@ -308,6 +315,45 @@ export default function SchedulePage() {
   const handleModalClose = () => {
     setIsPreferencesModalOpen(false);
     setSelectedEmployee(null);
+  };
+
+  const handleMyPreferencesSave = async (preferences: ComprehensivePreferences) => {
+    try {
+      const response = await fetch('/api/preferences', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          employeeId: currentUserId,
+          preferences,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save preferences');
+      }
+
+      const result = await response.json();
+      console.log('Preferences saved:', result);
+      alert('선호도가 성공적으로 저장되었습니다!');
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+      alert('선호도 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+    }
+  };
+
+  const handleMemberSpecialRequest = (request: Omit<SpecialRequest, 'id' | 'createdAt' | 'status'>) => {
+    const newRequest: SpecialRequest = {
+      ...request,
+      id: `req-${Date.now()}`,
+      createdAt: new Date(),
+      status: 'pending',
+    };
+
+    setSpecialRequests(prev => [...prev, newRequest]);
+    console.log('Submitting special request:', newRequest);
+    alert('특별 요청이 성공적으로 제출되었습니다. 관리자가 곧 검토할 예정입니다.');
   };
 
   // 시프트 타입 필터 토글
@@ -927,7 +973,7 @@ export default function SchedulePage() {
   };
 
   return (
-    <MainLayout>
+    <MainLayout className="overflow-x-hidden">
         {/* Simplified Schedule Action Toolbar */}
         <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
           <div className="flex items-center justify-between">
@@ -936,27 +982,29 @@ export default function SchedulePage() {
                 {/* Primary Actions - Only Essential Buttons */}
                 <div className="flex items-center gap-2">
                   {/* AI Generate Button - Primary Action */}
-                  <button
-                    onClick={handleGenerateSchedule}
-                    disabled={isGenerating}
-                    className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg ${
-                      isGenerating
-                        ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
-                        : "text-white bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
-                    }`}
-                  >
-                    {isGenerating ? (
-                      <>
-                        <RefreshCcw className="w-4 h-4 animate-spin" />
-                        생성 중...
-                      </>
-                    ) : (
-                      <>
-                        <Wand2 className="w-4 h-4" />
-                        AI 스케줄 생성
-                      </>
-                    )}
-                  </button>
+                  {!isMember && (
+                    <button
+                      onClick={handleGenerateSchedule}
+                      disabled={isGenerating}
+                      className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg ${
+                        isGenerating
+                          ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
+                          : "text-white bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
+                      }`}
+                    >
+                      {isGenerating ? (
+                        <>
+                          <RefreshCcw className="w-4 h-4 animate-spin" />
+                          생성 중...
+                        </>
+                      ) : (
+                        <>
+                          <Wand2 className="w-4 h-4" />
+                          AI 스케줄 생성
+                        </>
+                      )}
+                    </button>
+                  )}
 
                   {/* Quick Actions for existing schedule */}
                   {schedule.length > 0 && (
@@ -1105,13 +1153,70 @@ export default function SchedulePage() {
                 )}
               </div>
             )}
-          </div>
+        </div>
         </div>
 
+        {isMember && (
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl p-4 sm:p-6 mb-6 border border-blue-200 dark:border-blue-800">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="p-2 sm:p-3 bg-white dark:bg-gray-800 rounded-xl shadow-sm">
+                  <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">나의 근무 선호도</h2>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-0.5 sm:mt-1 hidden sm:block">
+                    개인 상황과 선호도를 입력하면 AI가 최적의 스케줄을 생성합니다
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2 sm:gap-3">
+                <button
+                  onClick={() => setShowMyPreferences(true)}
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
+                >
+                  <Settings className="w-4 h-4" />
+                  <span className="hidden sm:inline">선호도 설정</span>
+                  <span className="sm:hidden">설정</span>
+                </button>
+                <button
+                  onClick={() => setShowSpecialRequest(true)}
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span className="hidden sm:inline">특별 요청</span>
+                  <span className="sm:hidden">요청</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">선호 시프트</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">주간</p>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">주말 근무</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">상관없음</p>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">최대 연속</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">5일</p>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">특별 요청</p>
+                <p className="text-xs sm:text-sm font-medium text-amber-600 dark:text-amber-400">
+                  {specialRequests.filter(r => r.employeeId === currentUserId && r.status === 'pending').length}건
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* View Tabs */}
-        <div className="mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
-          <nav className="flex gap-2 sm:gap-4 md:gap-8 min-w-max">
-            {canManageSchedules && (
+        <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
+          <nav className="flex flex-wrap gap-2 sm:flex-nowrap sm:gap-4 md:gap-8">
+            {canViewStaffPreferences && (
               <button
                 onClick={() => {
                   setActiveView('preferences');
@@ -1161,7 +1266,7 @@ export default function SchedulePage() {
         </div>
 
         {/* Preferences View */}
-        {activeView === 'preferences' && (
+        {canViewStaffPreferences && activeView === 'preferences' && (
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-6">
             <div className="p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
@@ -2246,6 +2351,26 @@ export default function SchedulePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {isMember && (
+        <>
+          <MyPreferencesPanel
+            isOpen={showMyPreferences}
+            onClose={() => setShowMyPreferences(false)}
+            currentUserId={currentUserId}
+            onSave={handleMyPreferencesSave}
+          />
+
+          <SpecialRequestModal
+            isOpen={showSpecialRequest}
+            onClose={() => setShowSpecialRequest(false)}
+            currentUserId={currentUserId}
+            currentUserName={currentUserName}
+            onSubmit={handleMemberSpecialRequest}
+            existingRequests={specialRequests.filter(r => r.employeeId === currentUserId)}
+          />
+        </>
       )}
 
       {/* Employee Preferences Modal */}
