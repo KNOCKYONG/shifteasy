@@ -12,6 +12,7 @@ import type { ComprehensivePreferences } from "@/components/team/MyPreferencesPa
 import type { UnifiedEmployee } from "@/lib/types/unified-employee";
 import { validateSchedulingRequest, validateEmployee } from "@/lib/validation/schemas";
 import { ScheduleReviewPanel } from "@/components/schedule/ScheduleReviewPanel";
+import { EmployeePreferencesModal, type ExtendedEmployeePreferences } from "@/components/schedule/EmployeePreferencesModal";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 // 기본 시프트 정의
@@ -112,6 +113,10 @@ export default function SchedulePage() {
   const [showReport, setShowReport] = useState(false); // 스케줄링 리포트 모달
   const [activeView, setActiveView] = useState<'preferences' | 'schedule' | 'review'>('preferences'); // 기본 뷰를 preferences로 설정
   const [isReviewMode, setIsReviewMode] = useState(false); // 리뷰 모드 상태
+
+  // Employee preferences modal state
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [isPreferencesModalOpen, setIsPreferencesModalOpen] = useState(false);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -237,6 +242,70 @@ export default function SchedulePage() {
     setCurrentMonth(startOfMonth(new Date()));
     setSchedule([]);
     setGenerationResult(null);
+  };
+
+  // TRPC mutation for saving preferences
+  const savePreferences = api.preferences.upsert.useMutation({
+    onSuccess: () => {
+      console.log('Preferences saved successfully');
+      // TODO: Show success toast
+    },
+    onError: (error) => {
+      console.error('Failed to save preferences:', error);
+      // TODO: Show error toast
+    },
+  });
+
+  // Handle employee card click to open preferences modal
+  const handleEmployeeClick = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setIsPreferencesModalOpen(true);
+  };
+
+  // Handle preferences save
+  const handlePreferencesSave = async (preferences: ExtendedEmployeePreferences) => {
+    if (!selectedEmployee) return;
+
+    // Convert ExtendedEmployeePreferences to API format
+    const preferenceData = {
+      staffId: selectedEmployee.id,
+      preferredShiftTypes: {
+        D: preferences.preferredShifts.includes('day') ? 10 : 0,
+        E: preferences.preferredShifts.includes('evening') ? 10 : 0,
+        N: preferences.preferredShifts.includes('night') ? 10 : 0,
+      },
+      maxConsecutiveDaysPreferred: preferences.maxConsecutiveDays,
+      preferAlternatingWeekends: preferences.flexibilityLevel === 'high',
+      preferredColleagues: preferences.preferredPartners || [],
+      avoidColleagues: preferences.avoidPartners || [],
+      mentorshipPreference: preferences.mentorshipRole === 'none'
+        ? ("neither" as 'mentor' | 'mentee' | 'neither')
+        : preferences.mentorshipRole,
+      workLifeBalance: {
+        childcare: preferences.personalConstraints.some(c => c.type === 'childcare'),
+        eldercare: preferences.personalConstraints.some(c => c.type === 'eldercare'),
+        education: preferences.personalConstraints.some(c => c.type === 'education'),
+        secondJob: false,
+      },
+      commutePreferences: {
+        maxCommuteTime: preferences.commuteConsiderations.maxCommuteTime,
+        preferPublicTransport: preferences.commuteConsiderations.publicTransportDependent,
+        parkingRequired: preferences.commuteConsiderations.needsParking,
+      },
+    };
+
+    // Save via TRPC
+    await savePreferences.mutateAsync(preferenceData);
+
+    // Close modal
+    setIsPreferencesModalOpen(false);
+    setSelectedEmployee(null);
+  };
+
+  // Handle modal close
+  const handleModalClose = () => {
+    setIsPreferencesModalOpen(false);
+    setSelectedEmployee(null);
   };
 
   // 시프트 타입 필터 토글
@@ -1100,7 +1169,11 @@ export default function SchedulePage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredMembers.map(member => (
-                  <div key={member.id} className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                  <div
+                    key={member.id}
+                    className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    onClick={() => handleEmployeeClick(member as unknown as Employee)}
+                  >
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h4 className="font-medium text-gray-900 dark:text-gray-100">{member.name}</h4>
@@ -2171,6 +2244,16 @@ export default function SchedulePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Employee Preferences Modal */}
+      {isPreferencesModalOpen && selectedEmployee && (
+        <EmployeePreferencesModal
+          employee={selectedEmployee}
+          teamMembers={filteredMembers as unknown as Employee[]}
+          onSave={handlePreferencesSave}
+          onClose={handleModalClose}
+        />
       )}
     </MainLayout>
   );
