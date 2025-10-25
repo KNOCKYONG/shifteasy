@@ -32,12 +32,18 @@ export const tenantRouter = createTRPCRouter({
           eq(users.tenantId, tenantId),
         ];
 
-        // Apply department-based filtering for managers
-        // Managers can only see members in their department
+        // Apply department-based filtering
         if (ctx.user?.role === 'manager' && ctx.user?.departmentId) {
+          // Managers can only see members in their department
           conditions.push(eq(users.departmentId, ctx.user.departmentId));
+        } else if (ctx.user?.role === 'admin') {
+          // Admins can see all users in the tenant, optionally filter by department
+          if (input?.departmentId) {
+            conditions.push(eq(users.departmentId, input.departmentId));
+          }
+          // No department filter = see all users in tenant
         } else if (input?.departmentId) {
-          // For admins and owners, filter by department if requested
+          // For other roles, filter by department if requested
           conditions.push(eq(users.departmentId, input.departmentId));
         }
 
@@ -67,8 +73,29 @@ export const tenantRouter = createTRPCRouter({
         }
 
         const result = await ctx.db
-          .select()
+          .select({
+            id: users.id,
+            tenantId: users.tenantId,
+            departmentId: users.departmentId,
+            clerkUserId: users.clerkUserId,
+            email: users.email,
+            name: users.name,
+            role: users.role,
+            employeeId: users.employeeId,
+            position: users.position,
+            profile: users.profile,
+            status: users.status,
+            createdAt: users.createdAt,
+            updatedAt: users.updatedAt,
+            deletedAt: users.deletedAt,
+            department: {
+              id: departments.id,
+              name: departments.name,
+              code: departments.code,
+            },
+          })
           .from(users)
+          .leftJoin(departments, eq(users.departmentId, departments.id))
           .where(and(...conditions))
           .limit(input?.limit || 50)
           .offset(input?.offset || 0);

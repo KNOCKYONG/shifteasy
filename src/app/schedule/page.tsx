@@ -197,9 +197,11 @@ export default function SchedulePage() {
       offset: 0,
       status: 'active',
       departmentId:
-        selectedDepartment !== 'all' && selectedDepartment !== 'no-department'
-          ? selectedDepartment
-          : undefined,
+        userRole === 'manager'
+          ? memberDepartmentId ?? undefined
+          : selectedDepartment !== 'all' && selectedDepartment !== 'no-department'
+            ? selectedDepartment
+            : undefined,
     },
     {
       enabled: !isMember || !!memberDepartmentId,

@@ -123,7 +123,11 @@ const departments =
   const rawTeamMembers = (usersData?.items || []) as any[];
 
   const teamMembers = useMemo(() => {
-    if (currentUserRole === 'manager') {
+    if (currentUserRole === 'admin') {
+      // Admins can see all users in the tenant
+      return rawTeamMembers;
+    } else if (currentUserRole === 'manager') {
+      // Managers can only see themselves and members in their department
       const myUserId = currentUser.dbUser?.id;
       return rawTeamMembers.filter((member: any) => {
         if (member.id === myUserId) {
