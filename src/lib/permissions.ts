@@ -291,6 +291,7 @@ export const ROLE_PAGES: Record<Role, string[]> = {
     '/config',
     '/requests',
     '/notifications',
+    '/settings',
   ],
   [ROLES.MANAGER]: [
     '/dashboard',
@@ -299,11 +300,13 @@ export const ROLE_PAGES: Record<Role, string[]> = {
     '/config',
     '/requests',
     '/notifications',
+    '/settings',
   ],
   [ROLES.MEMBER]: [
     '/dashboard',
     '/schedule',
     '/notifications',
+    '/settings',
   ],
 };
 
