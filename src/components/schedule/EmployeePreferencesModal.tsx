@@ -91,7 +91,8 @@ export function EmployeePreferencesModal({
       needsParking: false,
       publicTransportDependent: false,
     },
-  });
+    preferredPattern: '',
+  } as any);
 
   const [activeTab, setActiveTab] = useState<'basic' | 'personal' | 'request'>('basic');
   const [showConstraintForm, setShowConstraintForm] = useState(false);
@@ -254,28 +255,6 @@ export function EmployeePreferencesModal({
                 </div>
               </div>
 
-              {/* 회피 시프트 */}
-              <div>
-                <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">피하고 싶은 근무 시간</h3>
-                <div className="flex gap-2">
-                  {shiftTypes.filter(s => s.value !== 'off').map(shift => (
-                    <button
-                      key={shift.value}
-                      onClick={() => toggleShiftPreference(shift.value, 'avoid')}
-                      className={`px-4 py-2 rounded-lg border-2 transition-all ${
-                        preferences.avoidShifts.includes(shift.value)
-                          ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
-                          : 'border-gray-200 dark:border-slate-600 hover:border-gray-300 dark:hover:border-slate-500'
-                      }`}
-                    >
-                      <span className={`px-2 py-1 rounded text-sm ${shift.color}`}>
-                        {shift.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* 선호 휴무일 */}
               <div>
                 <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">선호하는 휴무일</h3>
@@ -296,46 +275,30 @@ export function EmployeePreferencesModal({
                 </div>
               </div>
 
-              {/* 근무 강도 */}
+              {/* 선호 근무 패턴 */}
               <div>
-                <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">선호 근무 강도</h3>
-                <div className="grid grid-cols-3 gap-3">
+                <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">선호 근무 패턴</h3>
+                <div className="grid grid-cols-2 gap-3">
                   {[
-                    { value: 'light', label: '가벼운 업무', description: '여유있는 근무 선호' },
-                    { value: 'normal', label: '일반 업무', description: '표준 근무 강도' },
-                    { value: 'heavy', label: '집중 업무', description: '바쁜 근무 선호' },
+                    { value: 'D-D-E-E-N-N-OFF', label: '교대 근무', description: '주간 → 저녁 → 야간 순환' },
+                    { value: 'D-D-D-D-D-OFF-OFF', label: '5일 근무', description: '주간 5일 연속 근무' },
+                    { value: 'D-OFF-D-OFF-D-OFF-D', label: '격일 근무', description: '1일 근무, 1일 휴무' },
+                    { value: 'N-N-N-OFF-OFF-OFF-OFF', label: '야간 집중', description: '야간 3일, 4일 휴무' },
                   ].map(option => (
                     <button
                       key={option.value}
-                      onClick={() => setPreferences({...preferences, workLoadPreference: option.value as any})}
-                      className={`p-3 rounded-lg border-2 transition-all ${
-                        preferences.workLoadPreference === option.value
+                      onClick={() => setPreferences({...preferences, preferredPattern: option.value})}
+                      className={`p-3 rounded-lg border-2 transition-all text-left ${
+                        (preferences as any).preferredPattern === option.value
                           ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                           : 'border-gray-200 dark:border-slate-600 hover:border-gray-300 dark:hover:border-slate-500'
                       }`}
                     >
-                      <div className="font-medium">{option.label}</div>
-                      <div className="text-xs text-gray-500 mt-1">{option.description}</div>
+                      <div className="font-medium text-gray-900 dark:text-white">{option.label}</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{option.description}</div>
+                      <div className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-mono">{option.value}</div>
                     </button>
                   ))}
-                </div>
-              </div>
-
-              {/* 연속 근무 제한 */}
-              <div>
-                <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">최대 연속 근무일</h3>
-                <input
-                  type="range"
-                  min="3"
-                  max="7"
-                  value={preferences.maxConsecutiveDays}
-                  onChange={(e) => setPreferences({...preferences, maxConsecutiveDays: parseInt(e.target.value)})}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  <span>3일</span>
-                  <span className="font-medium text-blue-600">{preferences.maxConsecutiveDays}일</span>
-                  <span>7일</span>
                 </div>
               </div>
             </div>
