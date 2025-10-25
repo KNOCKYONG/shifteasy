@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, Save, Upload, Download, Users, ChevronRight, Edit2, Mail, Phone, Calendar, Shield, Clock, Star, Settings, Heart, MessageSquare, AlertCircle } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
@@ -17,33 +17,34 @@ export default function TeamManagementPage() {
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
-  const [showMyPreferences, setShowMyPreferences] = useState(false);
-  const [showSpecialRequest, setShowSpecialRequest] = useState(false);
-const currentUserId = currentUser.userId || "user-1";
-const currentUserName = currentUser.name || "사용자";
-const currentUserRole = currentUser.role || "member";
-const managerDepartmentId = currentUser.dbUser?.departmentId ?? null;
-  const [specialRequests, setSpecialRequests] = useState<SpecialRequest[]>([]);
+  const currentUserRole = currentUser.role || "member";
+  const managerDepartmentId = currentUser.dbUser?.departmentId ?? null;
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'on-leave' | 'manager' | 'part-time'>('all');
   const [roleFilter, setRoleFilter] = useState<string | undefined>();
   const [statusFilterForApi, setStatusFilterForApi] = useState<'active' | 'on_leave' | undefined>();
   const [editingPositionId, setEditingPositionId] = useState<string | null>(null);
   const [editingPositionValue, setEditingPositionValue] = useState<string>("");
+  const [showMyPreferences, setShowMyPreferences] = useState(false);
+  const [showSpecialRequest, setShowSpecialRequest] = useState(false);
+  const [specialRequests, setSpecialRequests] = useState<SpecialRequest[]>([]);
+
+const currentUserId = currentUser.userId || "user-1";
+const currentUserName = currentUser.name || "사용자";
 
   // Fetch users from TRPC
-const { data: usersData, isLoading: isLoadingUsers, refetch: refetchUsers } = api.tenant.users.list.useQuery({
-  limit: 100,
-  offset: 0,
-  search: searchQuery || undefined,
-  departmentId:
-    currentUserRole === 'manager'
-      ? managerDepartmentId ?? undefined
-      : selectedDepartment !== 'all'
-        ? selectedDepartment
-        : undefined,
-  role: roleFilter as any,
-  status: statusFilterForApi,
-});
+  const { data: usersData, isLoading: isLoadingUsers, refetch: refetchUsers } = api.tenant.users.list.useQuery({
+    limit: 100,
+    offset: 0,
+    search: searchQuery || undefined,
+    departmentId:
+      currentUserRole === 'manager'
+        ? managerDepartmentId ?? undefined
+        : selectedDepartment !== 'all'
+          ? selectedDepartment
+          : undefined,
+    role: roleFilter as any,
+    status: statusFilterForApi,
+  });
 
   // Fetch departments from TRPC
   const { data: departmentsData, isLoading: isLoadingDepartments } = api.tenant.departments.list.useQuery({
@@ -104,15 +105,15 @@ const departments =
       ];
 
   // Update status filter effect
-useEffect(() => {
-  if (currentUserRole === 'manager' && managerDepartmentId) {
-    setSelectedDepartment(managerDepartmentId);
-  }
-}, [currentUserRole, managerDepartmentId]);
+  useEffect(() => {
+    if (currentUserRole === 'manager' && managerDepartmentId) {
+      setSelectedDepartment(managerDepartmentId);
+    }
+  }, [currentUserRole, managerDepartmentId]);
 
-useEffect(() => {
-  if (statusFilter === 'active') {
-    setStatusFilterForApi('active');
+  useEffect(() => {
+    if (statusFilter === 'active') {
+      setStatusFilterForApi('active');
       setRoleFilter(undefined);
     } else if (statusFilter === 'on-leave') {
       setStatusFilterForApi('on_leave');
@@ -127,14 +128,27 @@ useEffect(() => {
   }, [statusFilter]);
 
   // Process users data
-  const teamMembers = (usersData?.items || []) as any[];
+  const rawTeamMembers = (usersData?.items || []) as any[];
+
+  const teamMembers = useMemo(() => {
+    if (currentUserRole === 'manager') {
+      const myUserId = currentUser.dbUser?.id;
+      return rawTeamMembers.filter((member: any) => {
+        if (member.id === myUserId) {
+          return true;
+        }
+        return member.role === 'member';
+      });
+    }
+    return rawTeamMembers;
+  }, [rawTeamMembers, currentUserRole, currentUser.dbUser?.id]);
 
   // 통계 계산
   const stats = {
-    total: statsData?.users || 0,
+    total: teamMembers.length,
     active: teamMembers.filter((m: any) => m.status === 'active').length,
     onLeave: teamMembers.filter((m: any) => m.status === 'on_leave').length,
-    managers: teamMembers.filter((m: any) => m.role === 'manager' || m.role === 'admin').length,
+    managers: teamMembers.filter((m: any) => ['manager', 'admin'].includes(m.role)).length,
     partTime: 0, // TODO: Add contract type to schema
   };
 
@@ -423,6 +437,11 @@ useEffect(() => {
               담당 병동에 속한 팀원만 조회 및 관리할 수 있습니다.
             </div>
           )}
+          {currentUserRole === 'manager' && managerDepartmentId && (
+            <div className="mb-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 px-3 py-2 text-xs sm:text-sm text-blue-800 dark:text-blue-300">
+              담당 병동에 속한 팀원만 조회 및 관리할 수 있습니다.
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row sm:items-end gap-4">
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 flex-1">
               <div className="flex-1 sm:flex-none">
@@ -451,7 +470,12 @@ useEffect(() => {
             </div>
             <button
               onClick={() => setShowAddForm(true)}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 whitespace-nowrap"
+              disabled={currentUserRole === 'manager'}
+              className={`inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-colors ${
+                currentUserRole === 'manager'
+                  ? 'bg-gray-200 dark:bg-gray-800 text-gray-500 dark:text-gray-500 cursor-not-allowed'
+                  : 'text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600'
+              }`}
             >
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">팀원 추가</span>
@@ -638,6 +662,7 @@ useEffect(() => {
         onSubmit={handleSubmitSpecialRequest}
         existingRequests={specialRequests.filter(r => r.employeeId === currentUserId)}
       />
+
     </MainLayout>
     </RoleGuard>
   );
