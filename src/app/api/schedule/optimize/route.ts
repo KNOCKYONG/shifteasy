@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ScheduleOptimizer } from '@/lib/scheduler/core';
 import { FairnessScorer } from '@/lib/scheduler/scoring';
 import { z } from 'zod';
+import { getCurrentUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,9 +34,21 @@ const OptimizeScheduleSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    // Get tenant ID from headers
-    const tenantId = request.headers.get('x-tenant-id') || 'test-tenant';
-    const userId = request.headers.get('x-user-id') || 'test-user';
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    if (user.role === 'member') {
+      return NextResponse.json(
+        { error: '권한이 없습니다. 스케줄 최적화는 관리자 또는 매니저만 가능합니다.' },
+        { status: 403 }
+      );
+    }
 
     // Parse and validate request body
     const body = await request.json();
@@ -52,6 +65,21 @@ export async function POST(request: NextRequest) {
     }
 
     const { schedule, employees, shifts, constraints, optimizationGoal, options } = validationResult.data;
+
+    if (user.role === 'manager' && user.departmentId && user.departmentId !== schedule.departmentId) {
+      return NextResponse.json(
+        { error: '다른 부서의 스케줄은 최적화할 수 없습니다.' },
+        { status: 403 }
+      );
+    }
+
+    const tenantId = user.tenantId;
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: '테넌트 정보가 존재하지 않습니다.' },
+        { status: 400 }
+      );
+    }
 
     // Convert data to required formats
     const employeeMap = new Map(employees.map((e: any) => [e.id, e]));
@@ -139,7 +167,7 @@ export async function POST(request: NextRequest) {
     const improvementMetrics = calculateImprovement(currentAssignments, bestAssignments, employeeMap, shiftMap);
 
     // Log optimization
-    console.log(`[${new Date().toISOString()}] Schedule optimized for tenant: ${tenantId}, user: ${userId}, score: ${bestScore}, iterations: ${iterations}`);
+    console.log(`[${new Date().toISOString()}] Schedule optimized for tenant: ${tenantId}, user: ${user.id}, score: ${bestScore}, iterations: ${iterations}`);
 
     const response = {
       success: true,
@@ -160,7 +188,7 @@ export async function POST(request: NextRequest) {
       },
       metadata: {
         optimizedAt: new Date().toISOString(),
-        optimizedBy: userId,
+        optimizedBy: user.id,
         tenantId,
         departmentId: schedule.departmentId,
       },

@@ -12,6 +12,7 @@ import type { ComprehensivePreferences } from "@/components/team/MyPreferencesPa
 import type { UnifiedEmployee } from "@/lib/types/unified-employee";
 import { validateSchedulingRequest, validateEmployee } from "@/lib/validation/schemas";
 import { ScheduleReviewPanel } from "@/components/schedule/ScheduleReviewPanel";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 // 기본 시프트 정의
 const DEFAULT_SHIFTS: Shift[] = [
@@ -92,6 +93,12 @@ const DEFAULT_CONSTRAINTS: Constraint[] = [
 ];
 
 export default function SchedulePage() {
+  const currentUser = useCurrentUser();
+  const userRole = currentUser.dbUser?.role;
+  const isMember = userRole === 'member';
+  const memberDepartmentId = currentUser.dbUser?.departmentId ?? null;
+  const canManageSchedules = !!userRole && ['admin', 'manager', 'owner'].includes(userRole);
+
   const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [schedule, setSchedule] = useState<ScheduleAssignment[]>([]);
   const [originalSchedule, setOriginalSchedule] = useState<ScheduleAssignment[]>([]); // 원본 스케줄 저장
@@ -106,22 +113,53 @@ export default function SchedulePage() {
   const [activeView, setActiveView] = useState<'preferences' | 'schedule' | 'review'>('preferences'); // 기본 뷰를 preferences로 설정
   const [isReviewMode, setIsReviewMode] = useState(false); // 리뷰 모드 상태
 
-  // 부서별 필터링
-  const departments = [
-    { id: 'all', name: '전체' },
-    { id: 'dept-er', name: '응급실' },
-    { id: 'dept-icu', name: '중환자실' },
-    { id: 'dept-or', name: '수술실' },
-    { id: 'dept-ward', name: '일반병동' },
-  ];
+  const departmentOptions = React.useMemo(() => {
+    if (isMember) {
+      if (memberDepartmentId) {
+        return [{ id: memberDepartmentId, name: '내 병동' }];
+      }
+      return [{ id: 'no-department', name: '배정된 병동이 없습니다' }];
+    }
+
+    return [
+      { id: 'all', name: '전체' },
+      { id: 'dept-er', name: '응급실' },
+      { id: 'dept-icu', name: '중환자실' },
+      { id: 'dept-or', name: '수술실' },
+      { id: 'dept-ward', name: '일반병동' },
+    ];
+  }, [isMember, memberDepartmentId]);
+
+  useEffect(() => {
+    if (!isMember) {
+      return;
+    }
+
+    const targetDepartment = memberDepartmentId ?? 'no-department';
+    setSelectedDepartment(prev => (prev === targetDepartment ? prev : targetDepartment));
+  }, [isMember, memberDepartmentId]);
+
+  useEffect(() => {
+    if (isMember && activeView !== 'schedule') {
+      setActiveView('schedule');
+    }
+  }, [isMember, activeView]);
 
   // Fetch users from database
-  const { data: usersData } = api.tenant.users.list.useQuery({
-    limit: 100,
-    offset: 0,
-    status: 'active',
-    departmentId: selectedDepartment !== 'all' ? selectedDepartment : undefined,
-  });
+  const { data: usersData } = api.tenant.users.list.useQuery(
+    {
+      limit: 100,
+      offset: 0,
+      status: 'active',
+      departmentId:
+        selectedDepartment !== 'all' && selectedDepartment !== 'no-department'
+          ? selectedDepartment
+          : undefined,
+    },
+    {
+      enabled: !isMember || !!memberDepartmentId,
+    }
+  );
 
   // Transform users data to match expected format
   const filteredMembers = React.useMemo(() => {
@@ -265,6 +303,11 @@ export default function SchedulePage() {
 
   // Validate current schedule
   const handleValidateSchedule = async () => {
+    if (!canManageSchedules) {
+      alert('스케줄 검증 권한이 없습니다.');
+      return;
+    }
+
     setIsValidating(true);
     setShowValidationResults(false);
 
@@ -315,6 +358,11 @@ export default function SchedulePage() {
 
   // Optimize current schedule
   const handleOptimizeSchedule = async () => {
+    if (!canManageSchedules) {
+      alert('스케줄 최적화 권한이 없습니다.');
+      return;
+    }
+
     setIsOptimizing(true);
 
     try {
@@ -368,6 +416,11 @@ export default function SchedulePage() {
 
   // Confirm and publish schedule
   const handleConfirmSchedule = async () => {
+    if (!canManageSchedules) {
+      alert('스케줄 확정 권한이 없습니다.');
+      return;
+    }
+
     setIsConfirming(true);
 
     try {
@@ -413,6 +466,11 @@ export default function SchedulePage() {
   };
 
   const handleGenerateSchedule = async () => {
+    if (!canManageSchedules) {
+      alert('스케줄 생성 권한이 없습니다.');
+      return;
+    }
+
     if (filteredMembers.length === 0) {
       alert('선택된 부서에 활성 직원이 없습니다.');
       return;
@@ -508,6 +566,11 @@ export default function SchedulePage() {
   };
 
   const handleConfirmToggle = () => {
+    if (!canManageSchedules) {
+      alert('스케줄 잠금 상태를 변경할 권한이 없습니다.');
+      return;
+    }
+
     if (!isConfirmed && schedule.length === 0) {
       alert('확정할 스케줄이 없습니다.');
       return;
@@ -542,7 +605,18 @@ export default function SchedulePage() {
     }
   }, [showMoreMenu]);
 
+  useEffect(() => {
+    if (!canManageSchedules && showMoreMenu) {
+      setShowMoreMenu(false);
+    }
+  }, [canManageSchedules, showMoreMenu]);
+
   const handleImport = async () => {
+    if (!canManageSchedules) {
+      alert('스케줄 가져오기 권한이 없습니다.');
+      return;
+    }
+
     if (!importFile) {
       alert('파일을 선택해주세요.');
       return;
@@ -633,6 +707,11 @@ export default function SchedulePage() {
   };
 
   const handleExport = async (exportFormat: 'excel' | 'pdf' | 'both') => {
+    if (!canManageSchedules) {
+      alert('스케줄 내보내기 권한이 없습니다.');
+      return;
+    }
+
     if (schedule.length === 0) {
       alert('내보낼 스케줄이 없습니다.');
       return;
@@ -745,180 +824,202 @@ export default function SchedulePage() {
         {/* Simplified Schedule Action Toolbar */}
         <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
           <div className="flex items-center justify-between">
-            {/* Primary Actions - Only Essential Buttons */}
-            <div className="flex items-center gap-2">
-              {/* AI Generate Button - Primary Action */}
-              <button
-                onClick={handleGenerateSchedule}
-                disabled={isGenerating}
-                className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg ${
-                  isGenerating
-                    ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
-                    : "text-white bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
-                }`}
-              >
-                {isGenerating ? (
-                  <>
-                    <RefreshCcw className="w-4 h-4 animate-spin" />
-                    생성 중...
-                  </>
-                ) : (
-                  <>
-                    <Wand2 className="w-4 h-4" />
-                    AI 스케줄 생성
-                  </>
-                )}
-              </button>
-
-              {/* Quick Actions for existing schedule */}
-              {schedule.length > 0 && (
-                <>
+            {canManageSchedules ? (
+              <>
+                {/* Primary Actions - Only Essential Buttons */}
+                <div className="flex items-center gap-2">
+                  {/* AI Generate Button - Primary Action */}
                   <button
-                    onClick={handleValidateSchedule}
-                    disabled={isValidating}
-                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
-                    title="스케줄 검증"
+                    onClick={handleGenerateSchedule}
+                    disabled={isGenerating}
+                    className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg ${
+                      isGenerating
+                        ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
+                        : "text-white bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
+                    }`}
                   >
-                    <CheckCircle className="w-4 h-4" />
-                    <span className="hidden sm:inline">검증</span>
-                  </button>
-
-                  <button
-                    onClick={() => setShowConfirmDialog(true)}
-                    disabled={scheduleStatus === 'confirmed'}
-                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
-                    title="스케줄 확정"
-                  >
-                    <Lock className="w-4 h-4" />
-                    <span className="hidden sm:inline">확정</span>
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* More Options Menu */}
-            <div className="flex items-center gap-2">
-              {/* Import/Export as icon buttons */}
-              <button
-                onClick={() => setShowImportModal(true)}
-                className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
-                title="가져오기"
-              >
-                <Upload className="w-4 h-4" />
-              </button>
-
-              {schedule.length > 0 && (
-                <button
-                  onClick={() => setShowExportModal(true)}
-                  className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
-                  title="내보내기"
-                >
-                  <Download className="w-4 h-4" />
-                </button>
-              )}
-
-              {/* Dropdown Menu for Additional Options */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowMoreMenu(!showMoreMenu)}
-                  className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
-                  title="더 보기"
-                >
-                  <MoreVertical className="w-4 h-4" />
-                </button>
-
-                {/* Dropdown Menu */}
-                {showMoreMenu && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
-                    {schedule.length > 0 && (
+                    {isGenerating ? (
                       <>
+                        <RefreshCcw className="w-4 h-4 animate-spin" />
+                        생성 중...
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="w-4 h-4" />
+                        AI 스케줄 생성
+                      </>
+                    )}
+                  </button>
+
+                  {/* Quick Actions for existing schedule */}
+                  {schedule.length > 0 && (
+                    <>
+                      <button
+                        onClick={handleValidateSchedule}
+                        disabled={isValidating}
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        title="스케줄 검증"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        <span className="hidden sm:inline">검증</span>
+                      </button>
+
+                      <button
+                        onClick={() => setShowConfirmDialog(true)}
+                        disabled={scheduleStatus === 'confirmed'}
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        title="스케줄 확정"
+                      >
+                        <Lock className="w-4 h-4" />
+                        <span className="hidden sm:inline">확정</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* More Options Menu */}
+                <div className="flex items-center gap-2">
+                  {/* Import/Export as icon buttons */}
+                  <button
+                    onClick={() => setShowImportModal(true)}
+                    className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                    title="가져오기"
+                  >
+                    <Upload className="w-4 h-4" />
+                  </button>
+
+                  {schedule.length > 0 && (
+                    <button
+                      onClick={() => setShowExportModal(true)}
+                      className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                      title="내보내기"
+                    >
+                      <Download className="w-4 h-4" />
+                    </button>
+                  )}
+
+                  {/* Dropdown Menu for Additional Options */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowMoreMenu(!showMoreMenu)}
+                      className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                      title="더 보기"
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+
+                    {/* Dropdown Menu */}
+                    {showMoreMenu && (
+                      <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
+                        {schedule.length > 0 && (
+                          <>
+                            <button
+                              onClick={() => {
+                                handleOptimizeSchedule();
+                                setShowMoreMenu(false);
+                              }}
+                              className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
+                            >
+                              <Zap className="w-4 h-4" />
+                              스케줄 최적화
+                            </button>
+
+                            {generationResult && (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setShowReport(true);
+                                    setShowMoreMenu(false);
+                                  }}
+                                  className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
+                                >
+                                  <FileText className="w-4 h-4" />
+                                  리포트 보기
+                                </button>
+
+                                <button
+                                  onClick={() => {
+                                    setIsReviewMode(!isReviewMode);
+                                    setActiveView(isReviewMode ? 'schedule' : 'review');
+                                    setShowMoreMenu(false);
+                                  }}
+                                  className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                  스케줄 검토
+                                </button>
+                              </>
+                            )}
+
+                            <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+                          </>
+                        )}
+
                         <button
                           onClick={() => {
-                            handleOptimizeSchedule();
+                            handleConfirmToggle();
                             setShowMoreMenu(false);
                           }}
                           className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
                         >
-                          <Zap className="w-4 h-4" />
-                          스케줄 최적화
+                          {isConfirmed ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                          {isConfirmed ? "스케줄 해제" : "스케줄 잠금"}
                         </button>
 
-                        {generationResult && (
-                          <>
-                            <button
-                              onClick={() => {
-                                setShowReport(true);
-                                setShowMoreMenu(false);
-                              }}
-                              className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
-                            >
-                              <FileText className="w-4 h-4" />
-                              리포트 보기
-                            </button>
-
-                            <button
-                              onClick={() => {
-                                setIsReviewMode(!isReviewMode);
-                                setActiveView(isReviewMode ? 'schedule' : 'review');
-                                setShowMoreMenu(false);
-                              }}
-                              className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
-                            >
-                              <Edit3 className="w-4 h-4" />
-                              스케줄 검토
-                            </button>
-                          </>
-                        )}
-
-                        <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
-                      </>
+                        <button
+                          onClick={() => {
+                            // Settings or preferences
+                            setShowMoreMenu(false);
+                          }}
+                          className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
+                        >
+                          <Settings className="w-4 h-4" />
+                          설정
+                        </button>
+                      </div>
                     )}
-
-                    <button
-                      onClick={() => {
-                        handleConfirmToggle();
-                        setShowMoreMenu(false);
-                      }}
-                      className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
-                    >
-                      {isConfirmed ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-                      {isConfirmed ? "스케줄 해제" : "스케줄 잠금"}
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        // Settings or preferences
-                        setShowMoreMenu(false);
-                      }}
-                      className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
-                    >
-                      <Settings className="w-4 h-4" />
-                      설정
-                    </button>
                   </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex w-full flex-col gap-2 text-sm text-gray-600 dark:text-gray-300 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                  <span>일반 권한은 스케줄 조회만 가능합니다.</span>
+                </div>
+                {memberDepartmentId ? (
+                  <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                    배정된 병동 스케줄만 표시됩니다.
+                  </span>
+                ) : (
+                  <span className="text-xs sm:text-sm text-red-500 dark:text-red-400">
+                    배정된 병동 정보가 없어 스케줄을 조회할 수 없습니다.
+                  </span>
                 )}
               </div>
-            </div>
+            )}
           </div>
         </div>
 
         {/* View Tabs */}
         <div className="mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
           <nav className="flex gap-2 sm:gap-4 md:gap-8 min-w-max">
-            <button
-              onClick={() => {
-                setActiveView('preferences');
-                setIsReviewMode(false);
-              }}
-              className={`pb-3 px-1 text-xs sm:text-sm font-medium border-b-2 transition-colors flex items-center gap-1 sm:gap-2 whitespace-nowrap ${
-                activeView === 'preferences'
-                  ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
-                  : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
-              }`}
-            >
-              <Heart className="w-4 h-4" />
-              <span className="hidden sm:inline">직원 </span>선호사항
-            </button>
+            {canManageSchedules && (
+              <button
+                onClick={() => {
+                  setActiveView('preferences');
+                  setIsReviewMode(false);
+                }}
+                className={`pb-3 px-1 text-xs sm:text-sm font-medium border-b-2 transition-colors flex items-center gap-1 sm:gap-2 whitespace-nowrap ${
+                  activeView === 'preferences'
+                    ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
+                    : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
+                }`}
+              >
+                <Heart className="w-4 h-4" />
+                <span className="hidden sm:inline">직원 </span>선호사항
+              </button>
+            )}
             <button
               onClick={() => {
                 setActiveView('schedule');
@@ -933,7 +1034,7 @@ export default function SchedulePage() {
               <Calendar className="w-4 h-4" />
               스케줄<span className="hidden sm:inline"> 보기</span>
             </button>
-            {generationResult && (
+            {canManageSchedules && generationResult && (
               <button
                 onClick={() => {
                   setActiveView('review');
@@ -1166,9 +1267,10 @@ export default function SchedulePage() {
                 setSchedule([]);
                 setGenerationResult(null);
               }}
-              className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-gray-100"
+              disabled={isMember}
+              className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-gray-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:dark:bg-gray-800 disabled:dark:text-gray-500"
             >
-              {departments.map(dept => (
+              {departmentOptions.map(dept => (
                 <option key={dept.id} value={dept.id}>{dept.name}</option>
               ))}
             </select>

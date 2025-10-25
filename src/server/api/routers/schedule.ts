@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, protectedProcedure, adminProcedure } from '../trpc';
 import { scopedDb, createAuditLog } from '@/lib/db-helpers';
 import { schedules, assignments, users, shiftTypes } from '@/db/schema';
@@ -15,10 +16,16 @@ export const scheduleRouter = createTRPCRouter({
       offset: z.number().default(0),
     }))
     .query(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const db = scopedDb(tenantId);
 
-      let conditions = [];
-      if (input.departmentId) {
+      const conditions = [];
+      if (ctx.user?.role === 'member') {
+        if (!ctx.user.departmentId) {
+          return [];
+        }
+        conditions.push(eq(schedules.departmentId, ctx.user.departmentId));
+      } else if (input.departmentId) {
         conditions.push(eq(schedules.departmentId, input.departmentId));
       }
       if (input.status) {
@@ -45,11 +52,21 @@ export const scheduleRouter = createTRPCRouter({
       id: z.string(),
     }))
     .query(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const db = scopedDb(tenantId);
       const [schedule] = await db.query(schedules, eq(schedules.id, input.id));
 
       if (!schedule) {
-        throw new Error('Schedule not found');
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Schedule not found' });
+      }
+
+      if (ctx.user?.role === 'member') {
+        if (!ctx.user.departmentId || schedule.departmentId !== ctx.user.departmentId) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: '본인 부서의 스케줄만 조회할 수 있습니다.',
+          });
+        }
       }
 
       return schedule;

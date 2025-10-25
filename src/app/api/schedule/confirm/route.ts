@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { getCurrentUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,15 +29,27 @@ const confirmedSchedules = new Map<string, any>();
 
 export async function POST(request: NextRequest) {
   try {
-    // Get tenant ID and user info from headers
-    const tenantId = request.headers.get('x-tenant-id') || 'test-tenant';
-    const userId = request.headers.get('x-user-id') || 'test-user';
-    const userRole = request.headers.get('x-user-role') || 'admin';
+    const user = await getCurrentUser();
 
-    // Check authorization
-    if (userRole !== 'admin' && userRole !== 'manager') {
+    if (!user) {
       return NextResponse.json(
-        { error: 'Unauthorized. Only admins and managers can confirm schedules.' },
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const tenantId = user.tenantId;
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: '테넌트 정보가 존재하지 않습니다.' },
+        { status: 400 }
+      );
+    }
+
+    const userRole = user.role;
+    if (!userRole || !['admin', 'manager', 'owner'].includes(userRole)) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Only admins or managers can confirm schedules.' },
         { status: 403 }
       );
     }
@@ -57,8 +70,16 @@ export async function POST(request: NextRequest) {
 
     const { scheduleId, schedule, validationScore, approverNotes, notifyEmployees } = validationResult.data;
 
+    if (userRole === 'manager' && user.departmentId && user.departmentId !== schedule.departmentId) {
+      return NextResponse.json(
+        { error: '다른 부서의 스케줄은 확정할 수 없습니다.' },
+        { status: 403 }
+      );
+    }
+
     // Check if schedule exists and is not already confirmed
-    const existingSchedule = confirmedSchedules.get(scheduleId);
+    const scheduleKey = `${tenantId}:${scheduleId}`;
+    const existingSchedule = confirmedSchedules.get(scheduleKey);
     if (existingSchedule && existingSchedule.status === 'published') {
       return NextResponse.json(
         { error: 'Schedule is already confirmed and published.' },
@@ -72,18 +93,18 @@ export async function POST(request: NextRequest) {
       ...schedule,
       status: 'published',
       publishedAt: new Date().toISOString(),
-      approvedBy: userId,
+      approvedBy: user.id,
       approverNotes,
       validationScore,
       metadata: {
         tenantId,
         confirmedAt: new Date().toISOString(),
-        confirmedBy: userId,
+        confirmedBy: user.id,
       },
     };
 
     // Store confirmed schedule (in production, this would be saved to Supabase)
-    confirmedSchedules.set(scheduleId, confirmedSchedule);
+    confirmedSchedules.set(scheduleKey, confirmedSchedule);
 
     // Send notifications if requested
     if (notifyEmployees) {
@@ -94,7 +115,7 @@ export async function POST(request: NextRequest) {
     const confirmationReport = generateConfirmationReport(confirmedSchedule, schedule.assignments);
 
     // Log confirmation
-    console.log(`[${new Date().toISOString()}] Schedule confirmed: ${scheduleId}, tenant: ${tenantId}, user: ${userId}`);
+    console.log(`[${new Date().toISOString()}] Schedule confirmed: ${scheduleId}, tenant: ${tenantId}, user: ${user.id}`);
 
     const response = {
       success: true,
@@ -106,7 +127,7 @@ export async function POST(request: NextRequest) {
       },
       metadata: {
         confirmedAt: new Date().toISOString(),
-        confirmedBy: userId,
+        confirmedBy: user.id,
         tenantId,
       },
     };
@@ -127,6 +148,23 @@ export async function POST(request: NextRequest) {
 // Get confirmed schedule
 export async function GET(request: NextRequest) {
   try {
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const tenantId = user.tenantId;
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: '테넌트 정보가 존재하지 않습니다.' },
+        { status: 400 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const scheduleId = searchParams.get('scheduleId');
 
@@ -137,12 +175,27 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const schedule = confirmedSchedules.get(scheduleId);
+    const scheduleKey = `${tenantId}:${scheduleId}`;
+    const schedule = confirmedSchedules.get(scheduleKey);
 
     if (!schedule) {
       return NextResponse.json(
         { error: 'Schedule not found' },
         { status: 404 }
+      );
+    }
+
+    if (user.role === 'member') {
+      if (!user.departmentId || schedule.departmentId !== user.departmentId) {
+        return NextResponse.json(
+          { error: '본인 부서의 스케줄만 조회할 수 있습니다.' },
+          { status: 403 }
+        );
+      }
+    } else if (user.role === 'manager' && user.departmentId && schedule.departmentId !== user.departmentId) {
+      return NextResponse.json(
+        { error: '다른 부서의 스케줄은 조회할 수 없습니다.' },
+        { status: 403 }
       );
     }
 
@@ -162,12 +215,28 @@ export async function GET(request: NextRequest) {
 // Revoke confirmed schedule (set back to draft)
 export async function DELETE(request: NextRequest) {
   try {
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const tenantId = user.tenantId;
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: '테넌트 정보가 존재하지 않습니다.' },
+        { status: 400 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const scheduleId = searchParams.get('scheduleId');
-    const userRole = request.headers.get('x-user-role') || 'admin';
 
     // Check authorization
-    if (userRole !== 'admin') {
+    if (!['admin', 'owner'].includes(user.role)) {
       return NextResponse.json(
         { error: 'Unauthorized. Only admins can revoke confirmed schedules.' },
         { status: 403 }
@@ -181,7 +250,8 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const schedule = confirmedSchedules.get(scheduleId);
+    const scheduleKey = `${tenantId}:${scheduleId}`;
+    const schedule = confirmedSchedules.get(scheduleKey);
 
     if (!schedule) {
       return NextResponse.json(
@@ -193,9 +263,9 @@ export async function DELETE(request: NextRequest) {
     // Update schedule status
     schedule.status = 'draft';
     schedule.revokedAt = new Date().toISOString();
-    schedule.revokedBy = request.headers.get('x-user-id') || 'test-user';
+    schedule.revokedBy = user.id;
 
-    confirmedSchedules.set(scheduleId, schedule);
+    confirmedSchedules.set(scheduleKey, schedule);
 
     return NextResponse.json(
       {

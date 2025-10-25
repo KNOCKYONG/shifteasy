@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Scheduler, type SchedulingRequest, type SchedulingResult } from '@/lib/scheduler/core';
 import { z } from 'zod';
+import { getCurrentUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,9 +20,21 @@ const GenerateScheduleSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    // Get tenant ID from headers (mock for now)
-    const tenantId = request.headers.get('x-tenant-id') || 'test-tenant';
-    const userId = request.headers.get('x-user-id') || 'test-user';
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    if (user.role === 'member') {
+      return NextResponse.json(
+        { error: '권한이 없습니다. 스케줄 생성은 관리자 또는 매니저만 가능합니다.' },
+        { status: 403 }
+      );
+    }
 
     // Parse and validate request body
     const body = await request.json();
@@ -43,19 +56,34 @@ export async function POST(request: NextRequest) {
       endDate: new Date(validationResult.data.endDate),
     };
 
+    if (user.role === 'manager' && user.departmentId && user.departmentId !== schedulingRequest.departmentId) {
+      return NextResponse.json(
+        { error: '다른 부서의 스케줄은 생성할 수 없습니다.' },
+        { status: 403 }
+      );
+    }
+
+    const tenantId = user.tenantId;
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: '테넌트 정보가 존재하지 않습니다.' },
+        { status: 400 }
+      );
+    }
+
     // Generate schedule using the scheduler
     const scheduler = new Scheduler();
     const result: SchedulingResult = await scheduler.createSchedule(schedulingRequest);
 
     // Log the generation for audit trail
-    console.log(`[${new Date().toISOString()}] Schedule generated for tenant: ${tenantId}, user: ${userId}, department: ${schedulingRequest.departmentId}`);
+    console.log(`[${new Date().toISOString()}] Schedule generated for tenant: ${tenantId}, user: ${user.id}, department: ${schedulingRequest.departmentId}`);
 
     // Add metadata to the result
     const response = {
       ...result,
       metadata: {
         generatedAt: new Date().toISOString(),
-        generatedBy: userId,
+        generatedBy: user.id,
         tenantId,
         departmentId: schedulingRequest.departmentId,
         period: {

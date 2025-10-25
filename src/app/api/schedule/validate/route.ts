@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ConstraintValidator } from '@/lib/scheduler/constraints';
 import { z } from 'zod';
+import { getCurrentUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,9 +37,21 @@ const ValidateScheduleSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    // Get tenant ID from headers
-    const tenantId = request.headers.get('x-tenant-id') || 'test-tenant';
-    const userId = request.headers.get('x-user-id') || 'test-user';
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    if (user.role === 'member') {
+      return NextResponse.json(
+        { error: '권한이 없습니다. 스케줄 검증은 관리자 또는 매니저만 가능합니다.' },
+        { status: 403 }
+      );
+    }
 
     // Parse and validate request body
     const body = await request.json();
@@ -55,6 +68,21 @@ export async function POST(request: NextRequest) {
     }
 
     const { schedule, employees, shifts, constraints } = validationResult.data;
+
+    if (user.role === 'manager' && user.departmentId && user.departmentId !== schedule.departmentId) {
+      return NextResponse.json(
+        { error: '다른 부서의 스케줄은 검증할 수 없습니다.' },
+        { status: 403 }
+      );
+    }
+
+    const tenantId = user.tenantId;
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: '테넌트 정보가 존재하지 않습니다.' },
+        { status: 400 }
+      );
+    }
 
     // Create validator with constraints
     const validator = new ConstraintValidator(constraints);
@@ -91,7 +119,7 @@ export async function POST(request: NextRequest) {
     const suggestions = generateSuggestions(violations, employeeMap, shiftMap);
 
     // Log validation
-    console.log(`[${new Date().toISOString()}] Schedule validated for tenant: ${tenantId}, user: ${userId}, violations: ${violations.length}`);
+    console.log(`[${new Date().toISOString()}] Schedule validated for tenant: ${tenantId}, user: ${user.id}, violations: ${violations.length}`);
 
     const response = {
       isValid: hardViolations.length === 0,
@@ -104,7 +132,7 @@ export async function POST(request: NextRequest) {
       suggestions,
       metadata: {
         validatedAt: new Date().toISOString(),
-        validatedBy: userId,
+        validatedBy: user.id,
         tenantId,
         departmentId: schedule.departmentId,
       },
