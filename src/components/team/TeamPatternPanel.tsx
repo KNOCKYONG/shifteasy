@@ -235,8 +235,15 @@ export function TeamPatternPanel({
               type="number"
               min="1"
               max={totalMembers}
-              value={pattern.requiredStaffDay || 0}
+              value={Number(pattern.requiredStaffDay || 0)}
               onChange={(e) => handleRequiredStaffChange('Day', e.target.value)}
+              onInput={(e) => {
+                const input = e.target as HTMLInputElement;
+                const value = input.value.replace(/^0+(?=\d)/, '');
+                if (input.value !== value) {
+                  input.value = value;
+                }
+              }}
               disabled={!canEdit}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
             />
@@ -249,8 +256,15 @@ export function TeamPatternPanel({
               type="number"
               min="1"
               max={totalMembers}
-              value={pattern.requiredStaffEvening || 0}
+              value={Number(pattern.requiredStaffEvening || 0)}
               onChange={(e) => handleRequiredStaffChange('Evening', e.target.value)}
+              onInput={(e) => {
+                const input = e.target as HTMLInputElement;
+                const value = input.value.replace(/^0+(?=\d)/, '');
+                if (input.value !== value) {
+                  input.value = value;
+                }
+              }}
               disabled={!canEdit}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
             />
@@ -263,8 +277,15 @@ export function TeamPatternPanel({
               type="number"
               min="1"
               max={totalMembers}
-              value={pattern.requiredStaffNight || 0}
+              value={Number(pattern.requiredStaffNight || 0)}
               onChange={(e) => handleRequiredStaffChange('Night', e.target.value)}
+              onInput={(e) => {
+                const input = e.target as HTMLInputElement;
+                const value = input.value.replace(/^0+(?=\d)/, '');
+                if (input.value !== value) {
+                  input.value = value;
+                }
+              }}
               disabled={!canEdit}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
             />
