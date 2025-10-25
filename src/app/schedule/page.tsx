@@ -13,6 +13,7 @@ import type { UnifiedEmployee } from "@/lib/types/unified-employee";
 import { validateSchedulingRequest, validateEmployee } from "@/lib/validation/schemas";
 import { ScheduleReviewPanel } from "@/components/schedule/ScheduleReviewPanel";
 import { EmployeePreferencesModal, type ExtendedEmployeePreferences } from "@/components/schedule/EmployeePreferencesModal";
+import { toEmployee } from "@/lib/utils/employee-converter";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 // 기본 시프트 정의
@@ -257,7 +258,8 @@ export default function SchedulePage() {
   });
 
   // Handle employee card click to open preferences modal
-  const handleEmployeeClick = (employee: Employee) => {
+  const handleEmployeeClick = (member: any) => {
+    const employee = toEmployee(member);
     setSelectedEmployee(employee);
     setIsPreferencesModalOpen(true);
   };
@@ -1172,7 +1174,7 @@ export default function SchedulePage() {
                   <div
                     key={member.id}
                     className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    onClick={() => handleEmployeeClick(member as unknown as Employee)}
+                    onClick={() => handleEmployeeClick(member)}
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div>
@@ -2250,7 +2252,7 @@ export default function SchedulePage() {
       {isPreferencesModalOpen && selectedEmployee && (
         <EmployeePreferencesModal
           employee={selectedEmployee}
-          teamMembers={filteredMembers as unknown as Employee[]}
+          teamMembers={filteredMembers.map(toEmployee)}
           onSave={handlePreferencesSave}
           onClose={handleModalClose}
         />
