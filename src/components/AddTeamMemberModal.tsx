@@ -26,9 +26,11 @@ interface AddTeamMemberModalProps {
   onClose: () => void;
   onAdd: (member: Omit<TeamMember, "id">) => void;
   departments: Array<{ id: string; name: string }>;
+  currentUserRole?: string;
+  managerDepartmentId?: string | null;
 }
 
-export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments }: AddTeamMemberModalProps) {
+export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments, currentUserRole, managerDepartmentId }: AddTeamMemberModalProps) {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -79,6 +81,17 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments }: AddT
       ]);
     }
   }, [isOpen]); // Re-load when modal opens to get latest positions
+
+  // Set defaults for managers
+  useEffect(() => {
+    if (isOpen && currentUserRole === 'manager' && managerDepartmentId) {
+      setFormData(prev => ({
+        ...prev,
+        role: 'employee',
+        departmentId: managerDepartmentId,
+      }));
+    }
+  }, [isOpen, currentUserRole, managerDepartmentId]);
 
   if (!isOpen) return null;
 
@@ -259,7 +272,8 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments }: AddT
                 <select
                   value={formData.departmentId}
                   onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  disabled={currentUserRole === 'manager'}
                   required
                 >
                   <option value="">부서 선택</option>
@@ -312,7 +326,8 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments }: AddT
                 <select
                   value={formData.role}
                   onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  disabled={currentUserRole === 'manager'}
                 >
                   <option value="employee">직원</option>
                   <option value="manager">매니저</option>

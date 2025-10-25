@@ -383,12 +383,7 @@ const departments =
             </div>
             <button
               onClick={() => setShowAddForm(true)}
-              disabled={currentUserRole === 'manager'}
-              className={`inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-colors ${
-                currentUserRole === 'manager'
-                  ? 'bg-gray-200 dark:bg-gray-800 text-gray-500 dark:text-gray-500 cursor-not-allowed'
-                  : 'text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600'
-              }`}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-colors text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600"
             >
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">팀원 추가</span>
@@ -556,6 +551,8 @@ const departments =
         onClose={() => setShowAddForm(false)}
         onAdd={handleAddMember}
         departments={departments}
+        currentUserRole={currentUserRole}
+        managerDepartmentId={currentUserRole === 'manager' ? managerDepartmentId : undefined}
       />
 
       {/* Department Select Modal */}

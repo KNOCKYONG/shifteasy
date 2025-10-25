@@ -122,8 +122,19 @@ export const tenantRouter = createTRPCRouter({
         position: z.string(),
       }))
       .mutation(async ({ ctx, input }) => {
+        // 매니저 권한 체크
         if (ctx.user?.role === 'manager') {
-          throw new Error('권한이 없습니다. 매니저는 팀원을 직접 추가할 수 없습니다.');
+          // 매니저는 member 역할만 추가 가능
+          if (input.role !== 'member') {
+            throw new Error('권한이 없습니다. 매니저는 일반 팀원만 추가할 수 있습니다.');
+          }
+          // 매니저는 자기 부서에만 팀원 추가 가능
+          if (!ctx.user.departmentId) {
+            throw new Error('부서 정보가 없습니다.');
+          }
+          if (!input.departmentId || input.departmentId !== ctx.user.departmentId) {
+            throw new Error('권한이 없습니다. 담당 부서에만 팀원을 추가할 수 있습니다.');
+          }
         }
         // Mock implementation
         return { success: true };
