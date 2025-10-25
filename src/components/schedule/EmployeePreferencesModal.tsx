@@ -486,19 +486,18 @@ export function EmployeePreferencesModal({
                             특수 패턴이 선택되어 있어 직접 입력이 비활성화되었습니다.
                           </div>
                         )}
+                        {patternError && (
+                          <div className="mt-2 flex items-center gap-1 text-sm text-red-600 dark:text-red-400">
+                            <AlertCircle className="w-4 h-4" />
+                            <span>{patternError}</span>
+                          </div>
+                        )}
+                        <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                          사용 가능한 키워드: <span className="font-semibold">D</span> (주간), <span className="font-semibold">E</span> (저녁), <span className="font-semibold">N</span> (야간), <span className="font-semibold">OFF</span> (휴무)
+                        </div>
                       </>
                     );
                   })()}
-                </div>
-                  {patternError && (
-                    <div className="mt-2 flex items-center gap-1 text-sm text-red-600 dark:text-red-400">
-                      <AlertCircle className="w-4 h-4" />
-                      <span>{patternError}</span>
-                    </div>
-                  )}
-                  <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    사용 가능한 키워드: <span className="font-semibold">D</span> (주간), <span className="font-semibold">E</span> (저녁), <span className="font-semibold">N</span> (야간), <span className="font-semibold">OFF</span> (휴무)
-                  </div>
                 </div>
 
                 {/* 선택된 패턴들 표시 */}
