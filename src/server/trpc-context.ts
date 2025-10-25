@@ -5,40 +5,52 @@ import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
 export async function createTRPCContext(opts?: FetchCreateContextFnOptions) {
-  // Get Clerk user
-  const { userId: clerkUserId, orgId } = await auth();
-  const clerkUser = await currentUser();
+  try {
+    // Get Clerk user
+    const { userId: clerkUserId, orgId } = await auth();
+    const clerkUser = await currentUser();
 
-  // If not authenticated, return basic context
-  if (!clerkUserId || !clerkUser) {
+    // If not authenticated, return basic context
+    if (!clerkUserId || !clerkUser) {
+      return {
+        db,
+        userId: null,
+        tenantId: null,
+        user: null,
+        headers: opts?.req.headers,
+      };
+    }
+
+    // Get user from database with role information
+    const dbUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.clerkUserId, clerkUserId))
+      .limit(1);
+
+    const user = dbUser[0] || null;
+
+    // Use organization ID as tenant ID, or use the user's tenant ID from database
+    const tenantId = orgId || user?.tenantId || null;
+
+    return {
+      db,
+      userId: clerkUserId,
+      tenantId,
+      user,
+      headers: opts?.req.headers,
+    };
+  } catch (error) {
+    console.error('Error creating TRPC context:', error);
+    // Return basic context on error
     return {
       db,
       userId: null,
       tenantId: null,
       user: null,
-      headers: opts?.req.headers,
+      headers: opts?.req?.headers,
     };
   }
-
-  // Get user from database with role information
-  const dbUser = await db
-    .select()
-    .from(users)
-    .where(eq(users.clerkUserId, clerkUserId))
-    .limit(1);
-
-  const user = dbUser[0] || null;
-
-  // Use organization ID as tenant ID, or use the user's tenant ID from database
-  const tenantId = orgId || user?.tenantId || null;
-
-  return {
-    db,
-    userId: clerkUserId,
-    tenantId,
-    user,
-    headers: opts?.req.headers,
-  };
 }
 
 export type Context = Awaited<ReturnType<typeof createTRPCContext>>;

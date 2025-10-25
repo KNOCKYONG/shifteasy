@@ -8,7 +8,21 @@ export const tenantRouter = createTRPCRouter({
     current: protectedProcedure
       .query(async ({ ctx }) => {
         if (!ctx.user) {
-          throw new Error('User not found');
+          // Return a basic user object if database user not found
+          return {
+            id: ctx.userId || '',
+            clerkUserId: ctx.userId || '',
+            tenantId: ctx.tenantId || '',
+            name: 'User',
+            email: '',
+            role: 'member' as const,
+            status: 'active' as const,
+            departmentId: null,
+            position: null,
+            employeeId: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
         }
         return ctx.user;
       }),
