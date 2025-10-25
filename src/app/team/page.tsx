@@ -216,15 +216,10 @@ const departments =
     <RoleGuard>
       <MainLayout>
         {/* Team Pattern Section - 팀 패턴 설정 */}
-        {(currentUserRole === 'admin' || currentUserRole === 'manager') &&
-         (currentUserRole === 'manager' ? managerDepartmentId : selectedDepartment !== 'all') && (
+        {selectedDepartment !== 'all' && (
           <div className="mb-6 sm:mb-8">
             <TeamPatternPanel
-              departmentId={
-                currentUserRole === 'manager'
-                  ? managerDepartmentId || ''
-                  : selectedDepartment !== 'all' ? selectedDepartment : ''
-              }
+              departmentId={selectedDepartment}
               totalMembers={stats.total}
               canEdit={currentUserRole === 'admin' || currentUserRole === 'manager'}
             />
