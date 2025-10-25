@@ -6,6 +6,7 @@ interface StaffCardProps {
   staff: Staff;
   compact?: boolean;
   onClick?: () => void;
+  preferredPatterns?: string[]; // 선호 근무 패턴
 }
 
 const ROLE_COLORS = {
@@ -17,9 +18,14 @@ const ROLE_COLORS = {
 
 // Experience labels are now translated via i18n
 
-export function StaffCard({ staff, compact = false, onClick }: StaffCardProps) {
+export function StaffCard({ staff, compact = false, onClick, preferredPatterns }: StaffCardProps) {
   const { t } = useTranslation(['components', 'team']);
   const roleColor = ROLE_COLORS[staff.role] || ROLE_COLORS.RN;
+
+  // 특수 패턴 확인
+  const specialPatterns = ['평일 근무', '나이트 집중 근무'];
+  const hasSpecialPattern = preferredPatterns?.some(p => specialPatterns.includes(p));
+  const displayPattern = preferredPatterns?.find(p => specialPatterns.includes(p));
 
   const getExperienceLabel = (level: string) => {
     return t(`experienceLevels.${level}`, { ns: 'team' });
@@ -42,7 +48,7 @@ export function StaffCard({ staff, compact = false, onClick }: StaffCardProps) {
           <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
             {staff.name || t('staffCard.unassigned', { ns: 'components' })}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className={`inline-flex px-1.5 py-0.5 text-xs font-medium rounded-md ${
               roleColor.bg
             } ${roleColor.text} ${roleColor.border} border`}>
@@ -51,6 +57,11 @@ export function StaffCard({ staff, compact = false, onClick }: StaffCardProps) {
             {staff.experienceLevel && (
               <span className="text-xs text-gray-500 dark:text-gray-400">
                 {getExperienceLabel(staff.experienceLevel)}
+              </span>
+            )}
+            {displayPattern && (
+              <span className="inline-flex px-1.5 py-0.5 text-xs font-medium rounded-md bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-900/30">
+                {displayPattern}
               </span>
             )}
           </div>
@@ -74,6 +85,11 @@ export function StaffCard({ staff, compact = false, onClick }: StaffCardProps) {
           <div>
             <h3 className="font-medium text-gray-900 dark:text-white">{staff.name || "미배정"}</h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">{staff.wardId}</p>
+            {displayPattern && (
+              <span className="inline-flex mt-1 px-2 py-0.5 text-xs font-medium rounded-md bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-900/30">
+                {displayPattern}
+              </span>
+            )}
           </div>
         </div>
         <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-lg ${

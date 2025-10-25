@@ -186,18 +186,36 @@ export function EmployeePreferencesModal({
     setShowConstraintForm(false);
   };
 
+  // 특수 패턴 정의 (상호 배타적)
+  const specialPatterns = ['평일 근무', '나이트 집중 근무'];
+
   const togglePatternPreference = (pattern: string) => {
     const current = preferences.preferredPatterns || [];
+
+    // 이미 선택된 경우 제거
     if (current.includes(pattern)) {
       setPreferences({
         ...preferences,
         preferredPatterns: current.filter(p => p !== pattern),
       });
-    } else {
+      return;
+    }
+
+    // 특수 패턴 선택 시, 다른 모든 패턴 제거
+    if (specialPatterns.includes(pattern)) {
       setPreferences({
         ...preferences,
-        preferredPatterns: [...current, pattern],
+        preferredPatterns: [pattern],
       });
+    } else {
+      // 일반 패턴 선택 시, 특수 패턴이 이미 있는지 확인
+      const hasSpecialPattern = current.some(p => specialPatterns.includes(p));
+      if (!hasSpecialPattern) {
+        setPreferences({
+          ...preferences,
+          preferredPatterns: [...current, pattern],
+        });
+      }
     }
   };
 
@@ -234,6 +252,14 @@ export function EmployeePreferencesModal({
     }
 
     const current = preferences.preferredPatterns || [];
+
+    // 특수 패턴이 이미 선택되어 있으면 커스텀 패턴 추가 불가
+    const hasSpecialPattern = current.some(p => specialPatterns.includes(p));
+    if (hasSpecialPattern) {
+      setPatternError('평일 근무 또는 나이트 집중 근무가 선택된 경우 다른 패턴을 추가할 수 없습니다.');
+      return;
+    }
+
     if (!current.includes(trimmedPattern)) {
       setPreferences({
         ...preferences,
@@ -351,28 +377,68 @@ export function EmployeePreferencesModal({
               <div>
                 <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">선호 근무 패턴 (다중 선택 가능)</h3>
 
+                {/* 특수 패턴 (상호 배타적) */}
+                <div className="mb-4">
+                  <label className="block text-sm text-gray-600 dark:text-gray-400 mb-2">
+                    특수 패턴 (하나만 선택 가능, 선택 시 다른 패턴 추가 불가)
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { value: '평일 근무', label: '평일 근무', description: '월~금 근무, 주말 휴무', pattern: 'A-A-A-A-A-OFF-OFF' },
+                      { value: '나이트 집중 근무', label: '나이트 집중 근무', description: '야간 근무 집중 배치' },
+                    ].map(option => (
+                      <button
+                        key={option.value}
+                        onClick={() => togglePatternPreference(option.value)}
+                        className={`p-3 rounded-lg border-2 transition-all text-left ${
+                          (preferences.preferredPatterns || []).includes(option.value)
+                            ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                            : 'border-gray-200 dark:border-slate-600 hover:border-gray-300 dark:hover:border-slate-500'
+                        }`}
+                      >
+                        <div className="font-medium text-gray-900 dark:text-white">{option.label}</div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{option.description}</div>
+                        {option.pattern && (
+                          <div className="text-xs text-purple-600 dark:text-purple-400 mt-1 font-mono">{option.pattern}</div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* 기본 패턴 선택 */}
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  {[
-                    { value: 'D-D-E-E-N-N-OFF', label: '교대 근무', description: '주간 → 저녁 → 야간 순환' },
-                    { value: 'D-D-D-D-D-OFF-OFF', label: '5일 근무', description: '주간 5일 연속 근무' },
-                    { value: 'D-OFF-D-OFF-D-OFF-D', label: '격일 근무', description: '1일 근무, 1일 휴무' },
-                    { value: 'N-N-N-OFF-OFF-OFF-OFF', label: '야간 집중', description: '야간 3일, 4일 휴무' },
-                  ].map(option => (
-                    <button
-                      key={option.value}
-                      onClick={() => togglePatternPreference(option.value)}
-                      className={`p-3 rounded-lg border-2 transition-all text-left ${
-                        (preferences.preferredPatterns || []).includes(option.value)
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                          : 'border-gray-200 dark:border-slate-600 hover:border-gray-300 dark:hover:border-slate-500'
-                      }`}
-                    >
-                      <div className="font-medium text-gray-900 dark:text-white">{option.label}</div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{option.description}</div>
-                      <div className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-mono">{option.value}</div>
-                    </button>
-                  ))}
+                <div className="mb-4">
+                  <label className="block text-sm text-gray-600 dark:text-gray-400 mb-2">
+                    일반 패턴 (다중 선택 가능)
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { value: 'D-D-E-E-N-N-OFF', label: '교대 근무', description: '주간 → 저녁 → 야간 순환' },
+                      { value: 'D-D-D-D-D-OFF-OFF', label: '5일 근무', description: '주간 5일 연속 근무' },
+                      { value: 'D-OFF-D-OFF-D-OFF-D', label: '격일 근무', description: '1일 근무, 1일 휴무' },
+                      { value: 'N-N-N-OFF-OFF-OFF-OFF', label: '야간 집중', description: '야간 3일, 4일 휴무' },
+                    ].map(option => {
+                      const hasSpecialPattern = (preferences.preferredPatterns || []).some(p => specialPatterns.includes(p));
+                      return (
+                        <button
+                          key={option.value}
+                          onClick={() => !hasSpecialPattern && togglePatternPreference(option.value)}
+                          disabled={hasSpecialPattern}
+                          className={`p-3 rounded-lg border-2 transition-all text-left ${
+                            (preferences.preferredPatterns || []).includes(option.value)
+                              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                              : hasSpecialPattern
+                              ? 'border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700/50 cursor-not-allowed opacity-50'
+                              : 'border-gray-200 dark:border-slate-600 hover:border-gray-300 dark:hover:border-slate-500'
+                          }`}
+                        >
+                          <div className="font-medium text-gray-900 dark:text-white">{option.label}</div>
+                          <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{option.description}</div>
+                          <div className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-mono">{option.value}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* 직접 입력 */}
@@ -380,29 +446,50 @@ export function EmployeePreferencesModal({
                   <label className="block text-sm text-gray-600 dark:text-gray-400 mb-2">
                     패턴 직접 입력 (예: D-D-E-E-OFF-OFF)
                   </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={customPatternInput}
-                      onChange={(e) => {
-                        setCustomPatternInput(e.target.value);
-                        setPatternError('');
-                      }}
-                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomPattern())}
-                      placeholder="D-D-E-E-OFF-OFF"
-                      className={`flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 bg-white dark:bg-slate-700 text-gray-900 dark:text-white ${
-                        patternError
-                          ? 'border-red-500 focus:ring-red-500'
-                          : 'border-gray-300 dark:border-slate-600 focus:ring-blue-500'
-                      }`}
-                    />
-                    <button
-                      onClick={addCustomPattern}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      추가
-                    </button>
-                  </div>
+                  {(() => {
+                    const hasSpecialPattern = (preferences.preferredPatterns || []).some(p => specialPatterns.includes(p));
+                    return (
+                      <>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={customPatternInput}
+                            onChange={(e) => {
+                              setCustomPatternInput(e.target.value);
+                              setPatternError('');
+                            }}
+                            onKeyPress={(e) => e.key === 'Enter' && !hasSpecialPattern && (e.preventDefault(), addCustomPattern())}
+                            placeholder="D-D-E-E-OFF-OFF"
+                            disabled={hasSpecialPattern}
+                            className={`flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 bg-white dark:bg-slate-700 text-gray-900 dark:text-white ${
+                              hasSpecialPattern
+                                ? 'bg-gray-100 dark:bg-slate-800 cursor-not-allowed opacity-50'
+                                : patternError
+                                ? 'border-red-500 focus:ring-red-500'
+                                : 'border-gray-300 dark:border-slate-600 focus:ring-blue-500'
+                            }`}
+                          />
+                          <button
+                            onClick={addCustomPattern}
+                            disabled={hasSpecialPattern}
+                            className={`px-4 py-2 rounded-lg transition-colors ${
+                              hasSpecialPattern
+                                ? 'bg-gray-400 cursor-not-allowed opacity-50'
+                                : 'bg-blue-600 text-white hover:bg-blue-700'
+                            }`}
+                          >
+                            추가
+                          </button>
+                        </div>
+                        {hasSpecialPattern && (
+                          <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                            특수 패턴이 선택되어 있어 직접 입력이 비활성화되었습니다.
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
                   {patternError && (
                     <div className="mt-2 flex items-center gap-1 text-sm text-red-600 dark:text-red-400">
                       <AlertCircle className="w-4 h-4" />
