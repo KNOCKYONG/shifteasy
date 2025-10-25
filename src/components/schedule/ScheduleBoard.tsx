@@ -154,7 +154,7 @@ export function ScheduleBoard({
       preferAlternatingWeekends: preferences.flexibilityLevel === 'high',
       preferredColleagues: preferences.preferredPartners || [],
       avoidColleagues: preferences.avoidPartners || [],
-      mentorshipPreference: preferences.mentorshipRole,
+      mentorshipPreference: preferences.mentorshipRole === 'none' ? 'neither' : preferences.mentorshipRole,
       workLifeBalance: {
         childcare: preferences.personalConstraints.some(c => c.type === 'childcare'),
         eldercare: preferences.personalConstraints.some(c => c.type === 'eldercare'),
