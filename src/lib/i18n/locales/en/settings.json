@@ -1,0 +1,29 @@
+{
+  "title": "Personal Settings",
+  "subtitle": "Manage your profile and account information",
+  "tabs": {
+    "profile": "Profile",
+    "security": "Security",
+    "notifications": "Notifications"
+  },
+  "profile": {
+    "title": "Profile Information",
+    "description": "Manage your name, email, profile picture, and more."
+  },
+  "security": {
+    "title": "Security Settings",
+    "description": "Manage your password and security options."
+  },
+  "notifications": {
+    "title": "Notification Settings",
+    "description": "Choose which notifications you want to receive.",
+    "scheduleChanges": "Schedule Changes",
+    "scheduleChangesDesc": "Receive notifications when your work schedule changes",
+    "swapRequests": "Shift Swap Requests",
+    "swapRequestsDesc": "Receive notifications for shift swap requests",
+    "announcements": "Announcements",
+    "announcementsDesc": "Receive important announcements",
+    "emailDigest": "Email Digest",
+    "emailDigestDesc": "Receive weekly activity summary via email"
+  }
+}

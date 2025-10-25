@@ -1,0 +1,29 @@
+{
+  "title": "個人設定",
+  "subtitle": "プロフィールとアカウント情報を管理します",
+  "tabs": {
+    "profile": "プロフィール",
+    "security": "セキュリティ",
+    "notifications": "通知"
+  },
+  "profile": {
+    "title": "プロフィール情報",
+    "description": "名前、メール、プロフィール写真などを管理できます。"
+  },
+  "security": {
+    "title": "セキュリティ設定",
+    "description": "パスワードとセキュリティオプションを管理します。"
+  },
+  "notifications": {
+    "title": "通知設定",
+    "description": "受信したい通知を選択してください。",
+    "scheduleChanges": "スケジュール変更通知",
+    "scheduleChangesDesc": "勤務スケジュールが変更されたときに通知を受け取ります",
+    "swapRequests": "シフト交換リクエスト",
+    "swapRequestsDesc": "シフト交換リクエストがあったときに通知を受け取ります",
+    "announcements": "お知らせ",
+    "announcementsDesc": "重要なお知らせを受け取ります",
+    "emailDigest": "メール要約",
+    "emailDigestDesc": "週間活動要約をメールで受け取ります"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "title": "개인 설정",
+  "subtitle": "프로필과 계정 정보를 관리하세요",
+  "tabs": {
+    "profile": "프로필",
+    "security": "보안",
+    "notifications": "알림"
+  },
+  "profile": {
+    "title": "프로필 정보",
+    "description": "이름, 이메일, 프로필 사진 등을 관리할 수 있습니다."
+  },
+  "security": {
+    "title": "보안 설정",
+    "description": "비밀번호와 보안 옵션을 관리하세요."
+  },
+  "notifications": {
+    "title": "알림 설정",
+    "description": "받고 싶은 알림을 선택하세요.",
+    "scheduleChanges": "스케줄 변경 알림",
+    "scheduleChangesDesc": "근무 스케줄이 변경될 때 알림을 받습니다",
+    "swapRequests": "근무 교환 요청",
+    "swapRequestsDesc": "근무 교환 요청이 있을 때 알림을 받습니다",
+    "announcements": "공지사항",
+    "announcementsDesc": "중요한 공지사항을 받습니다",
+    "emailDigest": "이메일 요약",
+    "emailDigestDesc": "주간 활동 요약을 이메일로 받습니다"
+  }
+}
