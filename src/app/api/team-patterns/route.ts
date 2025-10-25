@@ -24,7 +24,7 @@ const UpdateTeamPatternSchema = z.object({
   requiredStaffNight: z.number().min(1).optional(),
   defaultPatterns: z.array(z.array(z.string())).min(1).optional(),
   totalMembers: z.number().min(3).optional(),
-  isActive: z.boolean().optional(),
+  isActive: z.boolean().transform(val => val ? 'true' : 'false').optional(),
 });
 
 // GET: Team Pattern 조회
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
 
     if (!validationResult.success) {
       return NextResponse.json(
-        { error: 'Invalid request data', details: validationResult.error.errors },
+        { error: 'Invalid request data', details: validationResult.error.issues },
         { status: 400 }
       );
     }
@@ -190,7 +190,7 @@ export async function PUT(request: NextRequest) {
 
     if (!validationResult.success) {
       return NextResponse.json(
-        { error: 'Invalid request data', details: validationResult.error.errors },
+        { error: 'Invalid request data', details: validationResult.error.issues },
         { status: 400 }
       );
     }

@@ -6,7 +6,7 @@ export interface TeamPattern {
   requiredStaffNight: number;
   defaultPatterns: string[][];
   totalMembers: number;
-  isActive: boolean;
+  isActive: string;
   createdAt: Date | string;
   updatedAt: Date | string;
 }
@@ -26,7 +26,7 @@ export interface UpdateTeamPatternRequest {
   requiredStaffNight?: number;
   defaultPatterns?: string[][];
   totalMembers?: number;
-  isActive?: boolean;
+  isActive?: string;
 }
 
 export interface TeamPatternValidation {

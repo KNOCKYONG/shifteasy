@@ -22,6 +22,7 @@ export interface ExtendedEmployeePreferences extends EmployeePreferences {
   // 확장된 선호도
   workLoadPreference: 'light' | 'normal' | 'heavy'; // 업무량 선호
   flexibilityLevel: 'low' | 'medium' | 'high'; // 유연성 수준
+  preferredPattern?: string; // 선호하는 근무 패턴
 
   // 팀 선호도
   preferredPartners: string[]; // 선호하는 동료 ID

@@ -13,10 +13,8 @@ import type { UnifiedEmployee } from "@/lib/types/unified-employee";
 import { validateSchedulingRequest, validateEmployee } from "@/lib/validation/schemas";
 import { ScheduleReviewPanel } from "@/components/schedule/ScheduleReviewPanel";
 import { EmployeePreferencesModal, type ExtendedEmployeePreferences } from "@/components/schedule/EmployeePreferencesModal";
-import { MyPreferencesPanel } from "@/components/team/MyPreferencesPanel";
 import { SpecialRequestModal, type SpecialRequest } from "@/components/team/SpecialRequestModal";
 import { toEmployee } from "@/lib/utils/employee-converter";
-import { SpecialRequestModal, type SpecialRequest } from "@/components/team/SpecialRequestModal";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 // 기본 시프트 정의
@@ -127,14 +125,6 @@ export default function SchedulePage() {
   // Employee preferences modal state
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [isPreferencesModalOpen, setIsPreferencesModalOpen] = useState(false);
-
-  // My Preferences modal state
-  const [showMyPreferences, setShowMyPreferences] = useState(false);
-  const [showSpecialRequest, setShowSpecialRequest] = useState(false);
-  const [specialRequests, setSpecialRequests] = useState<SpecialRequest[]>([]);
-
-  const currentUserId = currentUser.userId || "user-1";
-  const currentUserName = currentUser.name || "사용자";
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -2432,7 +2422,7 @@ export default function SchedulePage() {
             isOpen={showMyPreferences}
             onClose={() => setShowMyPreferences(false)}
             currentUserId={currentUserId}
-            onSave={handleMyPreferencesSave}
+            onSave={handleSavePreferences}
           />
 
           <SpecialRequestModal
@@ -2440,7 +2430,7 @@ export default function SchedulePage() {
             onClose={() => setShowSpecialRequest(false)}
             currentUserId={currentUserId}
             currentUserName={currentUserName}
-            onSubmit={handleMemberSpecialRequest}
+            onSubmit={handleSubmitSpecialRequest}
             existingRequests={specialRequests.filter(r => r.employeeId === currentUserId)}
           />
         </>

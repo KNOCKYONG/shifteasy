@@ -282,7 +282,6 @@ export const ROLE_PAGES: Record<Role, string[]> = {
     '/config',
     '/requests',
     '/notifications',
-    '/analytics',
     '/settings',
   ],
   [ROLES.ADMIN]: [
@@ -292,7 +291,6 @@ export const ROLE_PAGES: Record<Role, string[]> = {
     '/config',
     '/requests',
     '/notifications',
-    '/analytics',
   ],
   [ROLES.MANAGER]: [
     '/dashboard',
@@ -322,7 +320,6 @@ export const ROLE_NAVIGATION: Record<Role, Array<{
     { href: '/team', label: '팀 관리' },
     { href: '/config', label: '설정' },
     { href: '/requests', label: '요청사항' },
-    { href: '/analytics', label: '분석' },
     { href: '/settings', label: '시스템 설정' },
   ],
   [ROLES.ADMIN]: [
@@ -331,7 +328,6 @@ export const ROLE_NAVIGATION: Record<Role, Array<{
     { href: '/team', label: '팀 관리' },
     { href: '/config', label: '설정' },
     { href: '/requests', label: '요청사항' },
-    { href: '/analytics', label: '분석' },
   ],
   [ROLES.MANAGER]: [
     { href: '/dashboard', label: '대시보드' },
