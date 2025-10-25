@@ -163,6 +163,25 @@ export function NavigationHeader() {
             <LanguageSwitcher />
           </div>
 
+          {/* Mobile Notification Link */}
+          <Link
+            href="/notifications"
+            onClick={() => setMobileMenuOpen(false)}
+            className={`px-4 py-3 rounded-md text-sm font-medium transition-colors flex items-center gap-3 ${
+              pathname === '/notifications'
+                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+            }`}
+          >
+            <Bell className={`w-5 h-5 ${unreadCount > 0 ? 'text-yellow-500' : ''}`} />
+            <span>알림</span>
+            {unreadCount > 0 && (
+              <span className="ml-auto w-6 h-6 bg-yellow-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </Link>
+
           {/* Mobile Navigation Items */}
           {navItems.map((item) => {
             const isActive = pathname === item.href ||
