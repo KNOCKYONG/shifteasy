@@ -216,15 +216,13 @@ const departments =
     <RoleGuard>
       <MainLayout>
         {/* Team Pattern Section - 팀 패턴 설정 */}
-        {selectedDepartment !== 'all' && (
-          <div className="mb-6 sm:mb-8">
-            <TeamPatternPanel
-              departmentId={selectedDepartment}
-              totalMembers={stats.total}
-              canEdit={currentUserRole === 'admin' || currentUserRole === 'manager'}
-            />
-          </div>
-        )}
+        <div className="mb-6 sm:mb-8">
+          <TeamPatternPanel
+            departmentId={selectedDepartment !== 'all' ? selectedDepartment : ''}
+            totalMembers={stats.total}
+            canEdit={currentUserRole === 'admin' || currentUserRole === 'manager'}
+          />
+        </div>
 
         {/* Stats Cards - 모바일 스크롤 가능한 필터 카드들 */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4 mb-6 sm:mb-8">
