@@ -203,7 +203,8 @@ export default function SchedulePage() {
             : undefined,
     },
     {
-      enabled: !isMember || !!memberDepartmentId,
+      // member는 자신의 정보를 가져오기 위해 항상 실행
+      enabled: true,
     }
   );
 

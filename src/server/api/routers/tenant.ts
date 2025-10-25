@@ -47,12 +47,9 @@ export const tenantRouter = createTRPCRouter({
           conditions.push(eq(users.departmentId, input.departmentId));
         }
 
-        // Members shouldn't see the team list at all
+        // Members can only see themselves (for preferences settings)
         if (ctx.user?.role === 'member') {
-          return {
-            items: [],
-            total: 0,
-          };
+          conditions.push(eq(users.id, ctx.user.id));
         }
 
         if (input?.status) {
