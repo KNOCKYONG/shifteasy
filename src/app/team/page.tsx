@@ -314,16 +314,6 @@ const departments =
 
         {/* Filters and Search - 모바일 최적화 */}
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6 mb-4 sm:mb-6">
-          {currentUserRole === 'manager' && managerDepartmentId && (
-            <div className="mb-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 px-3 py-2 text-xs sm:text-sm text-blue-800 dark:text-blue-300">
-              담당 병동에 속한 팀원만 조회 및 관리할 수 있습니다.
-            </div>
-          )}
-          {currentUserRole === 'manager' && managerDepartmentId && (
-            <div className="mb-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 px-3 py-2 text-xs sm:text-sm text-blue-800 dark:text-blue-300">
-              담당 병동에 속한 팀원만 조회 및 관리할 수 있습니다.
-            </div>
-          )}
           <div className="flex flex-col sm:flex-row sm:items-end gap-4">
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 flex-1">
               <div className="flex-1 sm:flex-none">
