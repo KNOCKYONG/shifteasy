@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval } from "date-fns";
 import { ko } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCcw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCcw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings, MessageSquare } from "lucide-react";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { Scheduler, type SchedulingRequest, type SchedulingResult } from "../../lib/scheduler/core";
 import { api } from "../../lib/trpc/client";
@@ -13,6 +13,8 @@ import type { UnifiedEmployee } from "@/lib/types/unified-employee";
 import { validateSchedulingRequest, validateEmployee } from "@/lib/validation/schemas";
 import { ScheduleReviewPanel } from "@/components/schedule/ScheduleReviewPanel";
 import { EmployeePreferencesModal, type ExtendedEmployeePreferences } from "@/components/schedule/EmployeePreferencesModal";
+import { MyPreferencesPanel } from "@/components/team/MyPreferencesPanel";
+import { SpecialRequestModal, type SpecialRequest } from "@/components/team/SpecialRequestModal";
 import { toEmployee } from "@/lib/utils/employee-converter";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
@@ -118,6 +120,14 @@ export default function SchedulePage() {
   // Employee preferences modal state
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [isPreferencesModalOpen, setIsPreferencesModalOpen] = useState(false);
+
+  // My Preferences modal state
+  const [showMyPreferences, setShowMyPreferences] = useState(false);
+  const [showSpecialRequest, setShowSpecialRequest] = useState(false);
+  const [specialRequests, setSpecialRequests] = useState<SpecialRequest[]>([]);
+
+  const currentUserId = currentUser.userId || "user-1";
+  const currentUserName = currentUser.name || "사용자";
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -308,6 +318,53 @@ export default function SchedulePage() {
   const handleModalClose = () => {
     setIsPreferencesModalOpen(false);
     setSelectedEmployee(null);
+  };
+
+  // My Preferences 핸들러 함수들
+  const handleSavePreferences = async (preferences: ComprehensivePreferences) => {
+    try {
+      // API를 통해 저장
+      const response = await fetch('/api/preferences', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          employeeId: currentUserId,
+          preferences,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save preferences');
+      }
+
+      const result = await response.json();
+      console.log('Preferences saved:', result);
+
+      // 성공 알림 (실제로는 토스트 사용 권장)
+      alert('선호도가 성공적으로 저장되었습니다!');
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+      alert('선호도 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+    }
+  };
+
+  const handleSubmitSpecialRequest = (request: Omit<SpecialRequest, 'id' | 'createdAt' | 'status'>) => {
+    const newRequest: SpecialRequest = {
+      ...request,
+      id: `req-${Date.now()}`,
+      createdAt: new Date(),
+      status: 'pending'
+    };
+
+    setSpecialRequests([...specialRequests, newRequest]);
+
+    // 실제로는 API를 통해 저장
+    console.log('Submitting special request:', newRequest);
+
+    // 성공 알림
+    alert('특별 요청이 성공적으로 제출되었습니다. 관리자가 곧 검토할 예정입니다.');
   };
 
   // 시프트 타입 필터 토글
@@ -928,6 +985,63 @@ export default function SchedulePage() {
 
   return (
     <MainLayout>
+        {/* My Preferences Section - 현재 사용자용 */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 border border-blue-200 dark:border-blue-800">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="p-2 sm:p-3 bg-white dark:bg-gray-800 rounded-xl shadow-sm">
+                <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">나의 근무 선호도</h2>
+                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-0.5 sm:mt-1 hidden sm:block">
+                  개인 상황과 선호도를 입력하면 AI가 최적의 스케줄을 생성합니다
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 sm:gap-3">
+              <button
+                onClick={() => setShowMyPreferences(true)}
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
+              >
+                <Settings className="w-4 h-4" />
+                <span className="hidden sm:inline">선호도 설정</span>
+                <span className="sm:hidden">설정</span>
+              </button>
+              <button
+                onClick={() => setShowSpecialRequest(true)}
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span className="hidden sm:inline">특별 요청</span>
+                <span className="sm:hidden">요청</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 현재 설정된 선호도 요약 - 모바일에서는 2열 그리드 */}
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">선호 시프트</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">주간</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">주말 근무</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">상관없음</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">최대 연속</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">5일</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">특별 요청</p>
+              <p className="text-xs sm:text-sm font-medium text-amber-600 dark:text-amber-400">
+                {specialRequests.filter(r => r.employeeId === currentUserId && r.status === 'pending').length}건
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Simplified Schedule Action Toolbar */}
         <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
           <div className="flex items-center justify-between">
@@ -2257,6 +2371,24 @@ export default function SchedulePage() {
           onClose={handleModalClose}
         />
       )}
+
+      {/* My Preferences Panel */}
+      <MyPreferencesPanel
+        isOpen={showMyPreferences}
+        onClose={() => setShowMyPreferences(false)}
+        currentUserId={currentUserId}
+        onSave={handleSavePreferences}
+      />
+
+      {/* Special Request Modal */}
+      <SpecialRequestModal
+        isOpen={showSpecialRequest}
+        onClose={() => setShowSpecialRequest(false)}
+        currentUserId={currentUserId}
+        currentUserName={currentUserName}
+        onSubmit={handleSubmitSpecialRequest}
+        existingRequests={specialRequests.filter(r => r.employeeId === currentUserId)}
+      />
     </MainLayout>
   );
 }

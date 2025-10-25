@@ -6,6 +6,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { AddTeamMemberModal } from "@/components/AddTeamMemberModal";
 import { MyPreferencesPanel, type ComprehensivePreferences } from "@/components/team/MyPreferencesPanel";
 import { SpecialRequestModal, type SpecialRequest } from "@/components/team/SpecialRequestModal";
+import { TeamPatternPanel } from "@/components/team/TeamPatternPanel";
 import { api } from "@/lib/trpc/client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { RoleGuard } from "@/components/auth/RoleGuard";
@@ -254,6 +255,22 @@ useEffect(() => {
   return (
     <RoleGuard>
       <MainLayout>
+        {/* Team Pattern Section - 팀 패턴 설정 */}
+        {(currentUserRole === 'admin' || currentUserRole === 'manager') &&
+         (currentUserRole === 'manager' ? managerDepartmentId : selectedDepartment !== 'all') && (
+          <div className="mb-6 sm:mb-8">
+            <TeamPatternPanel
+              departmentId={
+                currentUserRole === 'manager'
+                  ? managerDepartmentId || ''
+                  : selectedDepartment !== 'all' ? selectedDepartment : ''
+              }
+              totalMembers={stats.total}
+              canEdit={currentUserRole === 'admin' || currentUserRole === 'manager'}
+            />
+          </div>
+        )}
+
         {/* My Preferences Section - 현재 사용자용 */}
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 border border-blue-200 dark:border-blue-800">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

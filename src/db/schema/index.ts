@@ -6,6 +6,7 @@ export * from './system';
 export * from './shift-assignments';
 export * from './nurse-skills';
 export * from './nurse-preferences';
+export * from './team-patterns';
 
 // Alias for backward compatibility
 export { auditLog as auditLogs } from './system';
