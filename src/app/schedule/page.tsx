@@ -1358,13 +1358,12 @@ export default function SchedulePage() {
         )}
 
         {/* Schedule Grid */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-          <div className="overflow-x-auto">
-            <div className="min-w-full">
-              <div
-                className="grid border-b border-gray-200 dark:border-gray-700"
-                style={{ gridTemplateColumns: scheduleGridTemplate }}
-              >
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-x-auto">
+          <div className="min-w-max">
+            <div
+              className="grid border-b border-gray-200 dark:border-gray-700"
+              style={{ gridTemplateColumns: scheduleGridTemplate }}
+            >
                 <div className="p-4 bg-gray-50 dark:bg-gray-800 font-medium text-sm text-gray-700 dark:text-gray-300">
                   직원
                 </div>
@@ -1459,7 +1458,6 @@ export default function SchedulePage() {
                   </div>
                 )}
               </div>
-            </div>
           </div>
         </div>
 
