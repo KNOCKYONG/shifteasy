@@ -990,7 +990,6 @@ export default function SchedulePage() {
   };
 
   return (
-<<<<<<< HEAD
     <MainLayout>
         {/* My Preferences Section - 현재 사용자용 */}
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 border border-blue-200 dark:border-blue-800">

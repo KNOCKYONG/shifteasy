@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentUser } from '@/lib/auth';
-import { db } from '@/server/db';
+import { db } from '@/db';
 import { teamPatterns } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { validateTeamPattern } from '@/lib/types/team-pattern';

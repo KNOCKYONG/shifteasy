@@ -322,7 +322,6 @@ export const ROLE_NAVIGATION: Record<Role, Array<{
     { href: '/team', label: '팀 관리' },
     { href: '/config', label: '설정' },
     { href: '/requests', label: '요청사항' },
-    { href: '/notifications', label: '알림' },
     { href: '/analytics', label: '분석' },
     { href: '/settings', label: '시스템 설정' },
   ],
@@ -332,7 +331,6 @@ export const ROLE_NAVIGATION: Record<Role, Array<{
     { href: '/team', label: '팀 관리' },
     { href: '/config', label: '설정' },
     { href: '/requests', label: '요청사항' },
-    { href: '/notifications', label: '알림' },
     { href: '/analytics', label: '분석' },
   ],
   [ROLES.MANAGER]: [
@@ -340,12 +338,10 @@ export const ROLE_NAVIGATION: Record<Role, Array<{
     { href: '/schedule', label: '스케줄' },
     { href: '/team', label: '우리 팀' },
     { href: '/requests', label: '요청사항' },
-    { href: '/notifications', label: '알림' },
   ],
   [ROLES.MEMBER]: [
     { href: '/dashboard', label: '내 일정' },
     { href: '/schedule', label: '전체 스케줄' },
-    { href: '/notifications', label: '알림' },
   ],
 };
 

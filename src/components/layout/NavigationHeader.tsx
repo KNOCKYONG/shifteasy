@@ -6,7 +6,7 @@ import { ProfileDropdown } from '@/components/ProfileDropdown';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Bell } from 'lucide-react';
 import { api } from '@/lib/trpc/client';
 import { getNavigationForRole, type Role } from '@/lib/permissions';
 
@@ -22,6 +22,11 @@ export function NavigationHeader() {
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { data: currentUser } = api.tenant.users.current.useQuery();
+
+  // 읽지 않은 알림 개수 조회 (임시로 하드코딩, 나중에 API 연결)
+  const [unreadCount, setUnreadCount] = useState(0);
+  // TODO: API로 실제 읽지 않은 알림 개수 가져오기
+  // const { data: notifications } = api.notifications.getUnread.useQuery();
 
   useEffect(() => {
     setMounted(true);
@@ -100,11 +105,25 @@ export function NavigationHeader() {
               </nav>
             </div>
 
-            {/* Right side: Language Switcher, Profile and Mobile Menu Button */}
+            {/* Right side: Language Switcher, Notification Bell, Profile and Mobile Menu Button */}
             <div className="flex items-center gap-2 sm:gap-4">
               <div className="hidden sm:block">
                 <LanguageSwitcher />
               </div>
+
+              {/* Notification Bell */}
+              <Link
+                href="/notifications"
+                className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <Bell className={`w-5 h-5 ${unreadCount > 0 ? 'text-yellow-500' : 'text-gray-600 dark:text-gray-400'}`} />
+                {unreadCount > 0 && (
+                  <span className="absolute top-0 right-0 w-5 h-5 bg-yellow-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </Link>
+
               <ProfileDropdown />
 
               {/* Mobile Menu Button */}
