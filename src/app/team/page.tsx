@@ -5,6 +5,7 @@ import { Plus, Trash2, Save, Upload, Download, Users, ChevronRight, Edit2, Mail,
 import { MainLayout } from "@/components/layout/MainLayout";
 import { AddTeamMemberModal } from "@/components/AddTeamMemberModal";
 import { TeamPatternPanel } from "@/components/team/TeamPatternPanel";
+import { DepartmentSelectModal } from "@/components/team/DepartmentSelectModal";
 import { api } from "@/lib/trpc/client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { RoleGuard } from "@/components/auth/RoleGuard";
@@ -15,6 +16,7 @@ export default function TeamManagementPage() {
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showDepartmentModal, setShowDepartmentModal] = useState(false);
   const currentUserRole = currentUser.role || "member";
   const managerDepartmentId = currentUser.dbUser?.departmentId ?? null;
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'on-leave' | 'manager' | 'part-time'>('all');
@@ -95,6 +97,13 @@ const departments =
           name: dept.name,
         })) || []),
       ];
+
+  // 실제 부서 개수 계산 ('all' 제외)
+  const actualDepartmentCount = departments.filter(d => d.id !== 'all').length;
+  const shouldUseModal = actualDepartmentCount > 5;
+
+  // 선택된 부서 이름 가져오기
+  const selectedDepartmentName = departments.find(d => d.id === selectedDepartment)?.name || '전체';
 
   // Update status filter effect
   useEffect(() => {
@@ -325,16 +334,27 @@ const departments =
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 flex-1">
               <div className="flex-1 sm:flex-none">
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">부서</label>
-                <select
-                  value={selectedDepartment}
-                  onChange={(e) => setSelectedDepartment(e.target.value)}
-                  disabled={currentUserRole === 'manager'}
-                  className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-gray-100 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed disabled:dark:bg-gray-800 disabled:dark:text-gray-500"
-                >
-                  {departments.map(dept => (
-                    <option key={dept.id} value={dept.id}>{dept.name}</option>
-                  ))}
-                </select>
+                {shouldUseModal ? (
+                  <button
+                    onClick={() => setShowDepartmentModal(true)}
+                    disabled={currentUserRole === 'manager'}
+                    className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-gray-100 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed disabled:dark:bg-gray-800 disabled:dark:text-gray-500 text-left flex items-center justify-between"
+                  >
+                    <span>{selectedDepartmentName}</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <select
+                    value={selectedDepartment}
+                    onChange={(e) => setSelectedDepartment(e.target.value)}
+                    disabled={currentUserRole === 'manager'}
+                    className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-gray-100 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed disabled:dark:bg-gray-800 disabled:dark:text-gray-500"
+                  >
+                    {departments.map(dept => (
+                      <option key={dept.id} value={dept.id}>{dept.name}</option>
+                    ))}
+                  </select>
+                )}
               </div>
               <div className="flex-1">
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">검색</label>
@@ -522,6 +542,15 @@ const departments =
         onClose={() => setShowAddForm(false)}
         onAdd={handleAddMember}
         departments={departments}
+      />
+
+      {/* Department Select Modal */}
+      <DepartmentSelectModal
+        isOpen={showDepartmentModal}
+        onClose={() => setShowDepartmentModal(false)}
+        departments={departments}
+        selectedDepartmentId={selectedDepartment}
+        onSelect={setSelectedDepartment}
       />
 
     </MainLayout>
