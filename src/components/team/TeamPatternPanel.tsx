@@ -163,13 +163,35 @@ export function TeamPatternPanel({
     setErrors([]);
 
     try {
-      const response = await fetch('/api/team-patterns', {
+      // POST: 새 패턴 생성 - 필요한 필드만 전송
+      // PUT: 기존 패턴 수정 - id를 쿼리 파라미터로 전송
+      const url = pattern.id
+        ? `/api/team-patterns?id=${pattern.id}`
+        : '/api/team-patterns';
+
+      const body = pattern.id
+        ? {
+            // PUT: 수정 가능한 필드만
+            requiredStaffDay: pattern.requiredStaffDay,
+            requiredStaffEvening: pattern.requiredStaffEvening,
+            requiredStaffNight: pattern.requiredStaffNight,
+            defaultPatterns: pattern.defaultPatterns,
+            totalMembers: pattern.totalMembers,
+          }
+        : {
+            // POST: 생성에 필요한 필드만
+            departmentId,
+            requiredStaffDay: pattern.requiredStaffDay || 5,
+            requiredStaffEvening: pattern.requiredStaffEvening || 4,
+            requiredStaffNight: pattern.requiredStaffNight || 3,
+            defaultPatterns: pattern.defaultPatterns || [['D', 'D', 'D', 'OFF', 'OFF']],
+            totalMembers,
+          };
+
+      const response = await fetch(url, {
         method: pattern.id ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(pattern.id ?
-          { ...pattern } :
-          { ...pattern, departmentId, totalMembers }
-        ),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
