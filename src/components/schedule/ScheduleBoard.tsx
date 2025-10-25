@@ -25,7 +25,7 @@ import { type Employee } from "@/lib/scheduler/types";
 import { SHIFT_COLORS } from "@/lib/constants";
 import { DAYS_OF_WEEK } from "@/lib/constants";
 import { staffToEmployee } from "@/lib/utils/staff-converter";
-import { api } from "@/trpc/react";
+import { api } from "@/lib/trpc/client";
 
 const DAYS = DAYS_OF_WEEK.KO; // Use Korean days by default
 
