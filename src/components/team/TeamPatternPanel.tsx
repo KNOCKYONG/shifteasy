@@ -332,43 +332,42 @@ export function TeamPatternPanel({
             <div key={patternIndex} className="flex items-center gap-2">
               <div className="flex-1 flex items-center gap-1 flex-wrap">
                 {patternArray.map((shift, dayIndex) => (
-                  <select
-                    key={dayIndex}
-                    value={shift}
-                    onChange={(e) => updatePattern(patternIndex, dayIndex, e.target.value as ShiftType)}
-                    disabled={!canEdit}
-                    className={`px-2 py-1 border rounded text-sm font-medium ${
-                      shift === 'D' ? 'bg-blue-50 border-blue-300 text-blue-700' :
-                      shift === 'E' ? 'bg-purple-50 border-purple-300 text-purple-700' :
-                      shift === 'N' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' :
-                      'bg-gray-50 border-gray-300 text-gray-700'
-                    } disabled:opacity-50`}
-                  >
-                    <option value="D">D</option>
-                    <option value="E">E</option>
-                    <option value="N">N</option>
-                    <option value="OFF">OFF</option>
-                  </select>
-                ))}
-                {canEdit && (
-                  <>
-                    <button
-                      onClick={() => addDayToPattern(patternIndex)}
-                      className="p-1 text-blue-600 hover:text-blue-700"
-                      title="날짜 추가"
+                  <div key={dayIndex} className="inline-flex items-center gap-0.5 group">
+                    <select
+                      value={shift}
+                      onChange={(e) => updatePattern(patternIndex, dayIndex, e.target.value as ShiftType)}
+                      disabled={!canEdit}
+                      className={`px-2 py-1 border rounded text-sm font-medium ${
+                        shift === 'D' ? 'bg-blue-50 border-blue-300 text-blue-700' :
+                        shift === 'E' ? 'bg-purple-50 border-purple-300 text-purple-700' :
+                        shift === 'N' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' :
+                        'bg-gray-50 border-gray-300 text-gray-700'
+                      } disabled:opacity-50`}
                     >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                    {patternArray.length > 1 && (
+                      <option value="D">D</option>
+                      <option value="E">E</option>
+                      <option value="N">N</option>
+                      <option value="OFF">OFF</option>
+                    </select>
+                    {canEdit && patternArray.length > 1 && (
                       <button
-                        onClick={() => removeDayFromPattern(patternIndex, patternArray.length - 1)}
-                        className="p-1 text-red-600 hover:text-red-700"
-                        title="마지막 날짜 제거"
+                        onClick={() => removeDayFromPattern(patternIndex, dayIndex)}
+                        className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded transition-opacity"
+                        title="이 날짜 제거"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <span className="text-xs text-red-600">✕</span>
                       </button>
                     )}
-                  </>
+                  </div>
+                ))}
+                {canEdit && (
+                  <button
+                    onClick={() => addDayToPattern(patternIndex)}
+                    className="p-1 text-blue-600 hover:text-blue-700"
+                    title="날짜 추가"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
                 )}
               </div>
               {canEdit && pattern.defaultPatterns!.length > 1 && (
