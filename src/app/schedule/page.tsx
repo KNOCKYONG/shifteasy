@@ -8,7 +8,6 @@ import { Scheduler, type SchedulingRequest, type SchedulingResult } from "../../
 import { api } from "../../lib/trpc/client";
 import { type Employee, type Shift, type Constraint, type ScheduleAssignment } from "../../lib/scheduler/types";
 import { EmployeeAdapter } from "../../lib/adapters/employee-adapter";
-import { MyPreferencesPanel, type ComprehensivePreferences } from "@/components/team/MyPreferencesPanel";
 import type { UnifiedEmployee } from "@/lib/types/unified-employee";
 import { validateSchedulingRequest, validateEmployee } from "@/lib/validation/schemas";
 import { ScheduleReviewPanel } from "@/components/schedule/ScheduleReviewPanel";
@@ -983,7 +982,8 @@ export default function SchedulePage() {
 
   return (
     <MainLayout>
-        {/* My Preferences Section - 현재 사용자용 */}
+        {/* My Preferences Section - member 권한에서만 표시 */}
+        {isMember && (
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 border border-blue-200 dark:border-blue-800">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3 sm:gap-4">
@@ -999,7 +999,14 @@ export default function SchedulePage() {
             </div>
             <div className="flex gap-2 sm:gap-3">
               <button
-                onClick={() => setShowMyPreferences(true)}
+                onClick={() => {
+                  // member는 자신의 정보로 EmployeePreferencesModal 열기
+                  const currentEmployee = filteredMembers.find(m => m.id === currentUser.dbUser?.id);
+                  if (currentEmployee) {
+                    setSelectedEmployee(toEmployee(currentEmployee));
+                    setIsPreferencesModalOpen(true);
+                  }
+                }}
                 className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
               >
                 <Settings className="w-4 h-4" />
@@ -1039,6 +1046,7 @@ export default function SchedulePage() {
             </div>
           </div>
         </div>
+        )}
         {/* Simplified Schedule Action Toolbar */}
         <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
           <div className="flex items-center justify-between">
@@ -1220,63 +1228,6 @@ export default function SchedulePage() {
             )}
         </div>
         </div>
-
-        {isMember && (
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl p-4 sm:p-6 mb-6 border border-blue-200 dark:border-blue-800">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="p-2 sm:p-3 bg-white dark:bg-gray-800 rounded-xl shadow-sm">
-                  <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div className="flex-1">
-                  <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">나의 근무 선호도</h2>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-0.5 sm:mt-1 hidden sm:block">
-                    개인 상황과 선호도를 입력하면 AI가 최적의 스케줄을 생성합니다
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-2 sm:gap-3">
-                <button
-                  onClick={() => setShowMyPreferences(true)}
-                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
-                >
-                  <Settings className="w-4 h-4" />
-                  <span className="hidden sm:inline">선호도 설정</span>
-                  <span className="sm:hidden">설정</span>
-                </button>
-                <button
-                  onClick={() => setShowSpecialRequest(true)}
-                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  <span className="hidden sm:inline">특별 요청</span>
-                  <span className="sm:hidden">요청</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">선호 시프트</p>
-                <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">주간</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">주말 근무</p>
-                <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">상관없음</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">최대 연속</p>
-                <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">5일</p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">특별 요청</p>
-                <p className="text-xs sm:text-sm font-medium text-amber-600 dark:text-amber-400">
-                  {specialRequests.filter(r => r.employeeId === currentUserId && r.status === 'pending').length}건
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* View Tabs */}
         <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
@@ -2420,13 +2371,6 @@ export default function SchedulePage() {
 
       {isMember && (
         <>
-          <MyPreferencesPanel
-            isOpen={showMyPreferences}
-            onClose={() => setShowMyPreferences(false)}
-            currentUserId={currentUserId}
-            onSave={handleSavePreferences}
-          />
-
           <SpecialRequestModal
             isOpen={showSpecialRequest}
             onClose={() => setShowSpecialRequest(false)}
@@ -2448,23 +2392,6 @@ export default function SchedulePage() {
         />
       )}
 
-      {/* My Preferences Panel */}
-      <MyPreferencesPanel
-        isOpen={showMyPreferences}
-        onClose={() => setShowMyPreferences(false)}
-        currentUserId={currentUserId}
-        onSave={handleSavePreferences}
-      />
-
-      {/* Special Request Modal */}
-      <SpecialRequestModal
-        isOpen={showSpecialRequest}
-        onClose={() => setShowSpecialRequest(false)}
-        currentUserId={currentUserId}
-        currentUserName={currentUserName}
-        onSubmit={handleSubmitSpecialRequest}
-        existingRequests={specialRequests.filter(r => r.employeeId === currentUserId)}
-      />
     </MainLayout>
   );
 }
