@@ -7,6 +7,7 @@ import { swapRouter } from './routers/swap';
 import { assignmentRouter } from './routers/assignment';
 import { attendanceRouter } from './routers/attendance';
 import { notificationRouter } from './routers/notification';
+import { preferencesRouter } from './routers/preferences';
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -17,6 +18,7 @@ export const appRouter = createTRPCRouter({
   assignment: assignmentRouter,
   attendance: attendanceRouter,
   notification: notificationRouter,
+  preferences: preferencesRouter,
 });
 
 export type AppRouter = typeof appRouter;

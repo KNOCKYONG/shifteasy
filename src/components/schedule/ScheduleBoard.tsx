@@ -19,9 +19,13 @@ import {
 } from "@dnd-kit/sortable";
 import { StaffCard } from "./StaffCard";
 import { ShiftCell } from "./ShiftCell";
+import { EmployeePreferencesModal, type ExtendedEmployeePreferences } from "./EmployeePreferencesModal";
 import { type Staff, type ShiftType, type WeekSchedule } from "@/lib/types";
+import { type Employee } from "@/lib/scheduler/types";
 import { SHIFT_COLORS } from "@/lib/constants";
 import { DAYS_OF_WEEK } from "@/lib/constants";
+import { staffToEmployee } from "@/lib/utils/staff-converter";
+import { api } from "@/trpc/react";
 
 const DAYS = DAYS_OF_WEEK.KO; // Use Korean days by default
 
@@ -46,6 +50,22 @@ export function ScheduleBoard({
     day: number;
     shift: ShiftType;
   } | null>(null);
+
+  // Modal state for employee preferences
+  const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
+  const [isPreferencesModalOpen, setIsPreferencesModalOpen] = useState(false);
+
+  // TRPC mutation for saving preferences
+  const savePreferences = api.preferences.upsert.useMutation({
+    onSuccess: () => {
+      console.log('Preferences saved successfully');
+      // TODO: Show success toast
+    },
+    onError: (error) => {
+      console.error('Failed to save preferences:', error);
+      // TODO: Show error toast
+    },
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -112,6 +132,56 @@ export function ScheduleBoard({
     setDraggedShift(null);
   };
 
+  // Handle staff card click to open preferences modal
+  const handleStaffClick = (member: Staff) => {
+    setSelectedStaff(member);
+    setIsPreferencesModalOpen(true);
+  };
+
+  // Handle preferences save
+  const handlePreferencesSave = async (preferences: ExtendedEmployeePreferences) => {
+    if (!selectedStaff) return;
+
+    // Convert ExtendedEmployeePreferences to API format
+    const preferenceData = {
+      staffId: selectedStaff.id,
+      preferredShiftTypes: {
+        D: preferences.preferredShifts.includes('day') ? 10 : 0,
+        E: preferences.preferredShifts.includes('evening') ? 10 : 0,
+        N: preferences.preferredShifts.includes('night') ? 10 : 0,
+      },
+      maxConsecutiveDaysPreferred: preferences.maxConsecutiveDays,
+      preferAlternatingWeekends: preferences.flexibilityLevel === 'high',
+      preferredColleagues: preferences.preferredPartners || [],
+      avoidColleagues: preferences.avoidPartners || [],
+      mentorshipPreference: preferences.mentorshipRole,
+      workLifeBalance: {
+        childcare: preferences.personalConstraints.some(c => c.type === 'childcare'),
+        eldercare: preferences.personalConstraints.some(c => c.type === 'eldercare'),
+        education: preferences.personalConstraints.some(c => c.type === 'education'),
+        secondJob: false,
+      },
+      commutePreferences: {
+        maxCommuteTime: preferences.commuteConsiderations.maxCommuteTime,
+        preferPublicTransport: preferences.commuteConsiderations.publicTransportDependent,
+        parkingRequired: preferences.commuteConsiderations.needsParking,
+      },
+    };
+
+    // Save via TRPC
+    await savePreferences.mutateAsync(preferenceData);
+
+    // Close modal
+    setIsPreferencesModalOpen(false);
+    setSelectedStaff(null);
+  };
+
+  // Handle modal close
+  const handleModalClose = () => {
+    setIsPreferencesModalOpen(false);
+    setSelectedStaff(null);
+  };
+
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 0 });
   const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
@@ -167,7 +237,11 @@ export function ScheduleBoard({
               {staff.map((member) => (
                 <tr key={member.id} className="border-b border-gray-50 dark:border-slate-700/50 hover:bg-gray-50/50 dark:hover:bg-slate-700/30 transition-colors">
                   <td className="sticky left-0 bg-white dark:bg-slate-800 z-10 px-6 py-4">
-                    <StaffCard staff={member} compact />
+                    <StaffCard
+                      staff={member}
+                      compact
+                      onClick={() => handleStaffClick(member)}
+                    />
                   </td>
                   {weekDates.map((_, dayIndex) => {
                     const shift = schedule[member.id]?.[dayIndex];
@@ -232,6 +306,16 @@ export function ScheduleBoard({
           </button>
         </div>
       </div>
+
+      {/* Employee Preferences Modal */}
+      {isPreferencesModalOpen && selectedStaff && (
+        <EmployeePreferencesModal
+          employee={staffToEmployee(selectedStaff)}
+          teamMembers={staff.map(staffToEmployee)}
+          onSave={handlePreferencesSave}
+          onClose={handleModalClose}
+        />
+      )}
     </div>
   );
 }

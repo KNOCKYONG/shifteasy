@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 interface StaffCardProps {
   staff: Staff;
   compact?: boolean;
+  onClick?: () => void;
 }
 
 const ROLE_COLORS = {
@@ -16,7 +17,7 @@ const ROLE_COLORS = {
 
 // Experience labels are now translated via i18n
 
-export function StaffCard({ staff, compact = false }: StaffCardProps) {
+export function StaffCard({ staff, compact = false, onClick }: StaffCardProps) {
   const { t } = useTranslation(['components', 'team']);
   const roleColor = ROLE_COLORS[staff.role] || ROLE_COLORS.RN;
 
@@ -26,7 +27,10 @@ export function StaffCard({ staff, compact = false }: StaffCardProps) {
 
   if (compact) {
     return (
-      <div className="flex items-center gap-3">
+      <div
+        className={`flex items-center gap-3 ${onClick ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded-lg p-2 -m-2 transition-colors' : ''}`}
+        onClick={onClick}
+      >
         <div className="flex-shrink-0">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-slate-700 dark:to-slate-600 flex items-center justify-center">
             <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
@@ -56,7 +60,10 @@ export function StaffCard({ staff, compact = false }: StaffCardProps) {
   }
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 p-4 hover:shadow-md dark:hover:shadow-lg transition-shadow">
+    <div
+      className={`bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 p-4 hover:shadow-md dark:hover:shadow-lg transition-shadow ${onClick ? 'cursor-pointer' : ''}`}
+      onClick={onClick}
+    >
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-slate-700 dark:to-slate-600 flex items-center justify-center">
