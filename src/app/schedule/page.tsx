@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { format, startOfWeek, addWeeks, subWeeks, addDays } from "date-fns";
+import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval } from "date-fns";
 import { ko } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCcw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings } from "lucide-react";
 import { MainLayout } from "../../components/layout/MainLayout";
@@ -99,7 +99,7 @@ export default function SchedulePage() {
   const memberDepartmentId = currentUser.dbUser?.departmentId ?? null;
   const canManageSchedules = !!userRole && ['admin', 'manager', 'owner'].includes(userRole);
 
-  const [currentWeek, setCurrentWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()));
   const [schedule, setSchedule] = useState<ScheduleAssignment[]>([]);
   const [originalSchedule, setOriginalSchedule] = useState<ScheduleAssignment[]>([]); // 원본 스케줄 저장
   const [isConfirmed, setIsConfirmed] = useState(false);
@@ -112,6 +112,38 @@ export default function SchedulePage() {
   const [showReport, setShowReport] = useState(false); // 스케줄링 리포트 모달
   const [activeView, setActiveView] = useState<'preferences' | 'schedule' | 'review'>('preferences'); // 기본 뷰를 preferences로 설정
   const [isReviewMode, setIsReviewMode] = useState(false); // 리뷰 모드 상태
+
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(currentMonth);
+  const daysInMonth = React.useMemo(
+    () => eachDayOfInterval({ start: monthStart, end: monthEnd }),
+    [monthStart, monthEnd]
+  );
+  const monthlyOvertimeThreshold = React.useMemo(
+    () => 40 * (daysInMonth.length / 7),
+    [daysInMonth.length]
+  );
+  const scheduleGridTemplate = React.useMemo(
+    () => `200px repeat(${daysInMonth.length}, minmax(70px, 1fr))`,
+    [daysInMonth.length]
+  );
+
+  const normalizeDate = (value: Date | string) =>
+    value instanceof Date ? value : new Date(value);
+  const currentWeek = monthStart;
+  const buildSchedulePayload = () => ({
+    id: `schedule-${format(monthStart, 'yyyy-MM')}-${selectedDepartment}`,
+    departmentId: selectedDepartment === 'all' ? 'all-departments' : selectedDepartment,
+    startDate: monthStart.toISOString(),
+    endDate: monthEnd.toISOString(),
+    assignments: schedule.map(assignment => ({
+      employeeId: assignment.employeeId,
+      shiftId: assignment.shiftId,
+      date: normalizeDate(assignment.date).toISOString(),
+      isLocked: (assignment as any).isLocked ?? false,
+    })),
+    status: 'draft' as const,
+  });
 
   const departmentOptions = React.useMemo(() => {
     if (isMember) {
@@ -189,20 +221,20 @@ export default function SchedulePage() {
     }));
   }, [usersData]);
 
-  const handlePreviousWeek = () => {
-    setCurrentWeek(prev => subWeeks(prev, 1));
+  const handlePreviousMonth = () => {
+    setCurrentMonth(prev => subMonths(prev, 1));
     setSchedule([]);
     setGenerationResult(null);
   };
 
-  const handleNextWeek = () => {
-    setCurrentWeek(prev => addWeeks(prev, 1));
+  const handleNextMonth = () => {
+    setCurrentMonth(prev => addMonths(prev, 1));
     setSchedule([]);
     setGenerationResult(null);
   };
 
-  const handleToday = () => {
-    setCurrentWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const handleThisMonth = () => {
+    setCurrentMonth(startOfMonth(new Date()));
     setSchedule([]);
     setGenerationResult(null);
   };
@@ -219,10 +251,14 @@ export default function SchedulePage() {
   };
 
   // 직원별 주간 근무시간 계산
-  const calculateWeeklyHours = (employeeId: string) => {
+  const calculateMonthlyHours = (employeeId: string) => {
     let totalHours = 0;
     schedule.forEach(assignment => {
       if (assignment.employeeId === employeeId) {
+        const assignmentDate = normalizeDate(assignment.date);
+        if (assignmentDate < monthStart || assignmentDate > monthEnd) {
+          return;
+        }
         const shift = DEFAULT_SHIFTS.find(s => s.id === assignment.shiftId);
         if (shift) {
           totalHours += shift.time.hours;
@@ -286,9 +322,9 @@ export default function SchedulePage() {
       }
     }
 
-    // 초과근무 필터 (주 40시간 초과)
+    // 초과근무 필터 (월 기준 예상 초과)
     if (showOnlyOvertime) {
-      result = result.filter(member => calculateWeeklyHours(member.id) > 40);
+      result = result.filter(member => calculateMonthlyHours(member.id) > monthlyOvertimeThreshold);
     }
 
     // 제약 위반 필터
@@ -312,6 +348,8 @@ export default function SchedulePage() {
     setShowValidationResults(false);
 
     try {
+      const schedulePayload = buildSchedulePayload();
+
       const response = await fetch('/api/schedule/validate', {
         method: 'POST',
         headers: {
@@ -320,11 +358,7 @@ export default function SchedulePage() {
           'x-tenant-id': 'default-tenant',
         },
         body: JSON.stringify({
-          schedule: schedule.map(assignment => ({
-            employeeId: assignment.employeeId,
-            shiftId: assignment.shiftId,
-            date: assignment.date,
-          })),
+          schedule: schedulePayload,
           employees: filteredMembers,
           shifts: DEFAULT_SHIFTS,
           constraints: DEFAULT_CONSTRAINTS,
@@ -366,6 +400,8 @@ export default function SchedulePage() {
     setIsOptimizing(true);
 
     try {
+      const schedulePayload = buildSchedulePayload();
+
       const response = await fetch('/api/schedule/optimize', {
         method: 'POST',
         headers: {
@@ -374,11 +410,7 @@ export default function SchedulePage() {
           'x-tenant-id': 'default-tenant',
         },
         body: JSON.stringify({
-          schedule: schedule.map(assignment => ({
-            employeeId: assignment.employeeId,
-            shiftId: assignment.shiftId,
-            date: assignment.date,
-          })),
+          schedule: schedulePayload,
           employees: filteredMembers,
           shifts: DEFAULT_SHIFTS,
           constraints: DEFAULT_CONSTRAINTS,
@@ -424,6 +456,8 @@ export default function SchedulePage() {
     setIsConfirming(true);
 
     try {
+      const schedulePayload = buildSchedulePayload();
+
       const response = await fetch('/api/schedule/confirm', {
         method: 'POST',
         headers: {
@@ -432,12 +466,9 @@ export default function SchedulePage() {
           'x-tenant-id': 'default-tenant',
         },
         body: JSON.stringify({
-          schedule: schedule.map(assignment => ({
-            employeeId: assignment.employeeId,
-            shiftId: assignment.shiftId,
-            date: assignment.date,
-          })),
-          week: format(currentWeek, 'yyyy-MM-dd'),
+          scheduleId: schedulePayload.id,
+          schedule: schedulePayload,
+          month: format(monthStart, 'yyyy-MM-dd'),
           departmentId: selectedDepartment,
           notifyEmployees: true,
           metadata: {
@@ -522,8 +553,8 @@ export default function SchedulePage() {
       // 4. 스케줄링 요청 생성 (미사용 필드 활용)
       const request: SchedulingRequest = {
         departmentId: selectedDepartment === 'all' ? 'all-departments' : selectedDepartment,
-        startDate: currentWeek,
-        endDate: addDays(currentWeek, 6),
+        startDate: monthStart,
+        endDate: monthEnd,
         employees,
         shifts: DEFAULT_SHIFTS.map(shift => ({
           ...shift,
@@ -686,9 +717,11 @@ export default function SchedulePage() {
           setSelectedDepartment(importData.department);
         }
 
-        // 주차 정보가 있으면 적용
-        if (importData.week) {
-          setCurrentWeek(new Date(importData.week));
+        // 기간 정보가 있으면 적용
+        if (importData.month) {
+          setCurrentMonth(startOfMonth(new Date(importData.month)));
+        } else if (importData.week) {
+          setCurrentMonth(startOfMonth(new Date(importData.week)));
         }
 
         setActiveView('schedule');
@@ -719,8 +752,6 @@ export default function SchedulePage() {
 
     setIsExporting(true);
     try {
-      const endDate = addDays(currentWeek, 6);
-
       const response = await fetch('/api/report/generate', {
         method: 'POST',
         headers: {
@@ -732,8 +763,8 @@ export default function SchedulePage() {
           reportType: 'schedule',
           format: exportFormat,
           period: {
-            start: format(currentWeek, 'yyyy-MM-dd'),
-            end: format(endDate, 'yyyy-MM-dd'),
+            start: format(monthStart, 'yyyy-MM-dd'),
+            end: format(monthEnd, 'yyyy-MM-dd'),
           },
           async: false,
           options: {
@@ -802,9 +833,14 @@ export default function SchedulePage() {
 
   // 날짜별 스케줄 그룹화
   const getScheduleForDay = (date: Date) => {
-    return schedule.filter(assignment =>
-      format(assignment.date, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
-    );
+    return schedule.filter(assignment => {
+      const assignmentDate = normalizeDate(assignment.date);
+      return (
+        assignmentDate >= monthStart &&
+        assignmentDate <= monthEnd &&
+        format(assignmentDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+      );
+    });
   };
 
   // 시프트별 색상 가져오기
@@ -1233,19 +1269,19 @@ export default function SchedulePage() {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <button
-                onClick={handlePreviousWeek}
+                onClick={handlePreviousMonth}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
               >
                 <ChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               </button>
               <button
-                onClick={handleToday}
+                onClick={handleThisMonth}
                 className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
               >
-                오늘
+                이번 달
               </button>
               <button
-                onClick={handleNextWeek}
+                onClick={handleNextMonth}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
               >
                 <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-400" />
@@ -1254,7 +1290,7 @@ export default function SchedulePage() {
             <div className="flex items-center gap-2">
               <Calendar className="w-5 h-5 text-gray-400 dark:text-gray-500" />
               <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                {format(currentWeek, "yyyy년 M월 d일")} 주
+                {format(monthStart, "yyyy년 M월")}
               </h2>
             </div>
           </div>
@@ -1322,93 +1358,108 @@ export default function SchedulePage() {
         )}
 
         {/* Schedule Grid */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-          <div className="grid grid-cols-8 border-b border-gray-200 dark:border-gray-700">
-            <div className="p-4 bg-gray-50 dark:bg-gray-800 font-medium text-sm text-gray-700 dark:text-gray-300">직원</div>
-            {[...Array(7)].map((_, i) => {
-              const date = addDays(currentWeek, i);
-              return (
-                <div key={i} className="p-4 bg-gray-50 dark:bg-gray-800 text-center border-l border-gray-200 dark:border-gray-700">
-                  <div className="font-medium text-sm text-gray-700 dark:text-gray-300">
-                    {format(date, 'EEE')}
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    {format(date, 'M/d')}
-                  </div>
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+          <div className="overflow-x-auto">
+            <div className="min-w-full">
+              <div
+                className="grid border-b border-gray-200 dark:border-gray-700"
+                style={{ gridTemplateColumns: scheduleGridTemplate }}
+              >
+                <div className="p-4 bg-gray-50 dark:bg-gray-800 font-medium text-sm text-gray-700 dark:text-gray-300">
+                  직원
                 </div>
-              );
-            })}
-          </div>
-
-          <div className="max-h-[600px] overflow-y-auto">
-            {displayMembers.map(member => (
-              <div key={member.id} className="grid grid-cols-8 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                <div className="p-4 flex items-center gap-2">
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{member.name}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">{member.position}</div>
+                {daysInMonth.map((date) => (
+                  <div
+                    key={date.toISOString()}
+                    className="p-4 bg-gray-50 dark:bg-gray-800 text-center border-l border-gray-200 dark:border-gray-700"
+                  >
+                    <div className="font-medium text-sm text-gray-700 dark:text-gray-300">
+                      {format(date, 'EEE')}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {format(date, 'M/d')}
+                    </div>
                   </div>
-                  {schedule.length > 0 && (
-                    <div className="flex flex-col items-end gap-1">
-                      {(() => {
-                        const hours = calculateWeeklyHours(member.id);
-                        return hours > 0 && (
-                          <span
-                            className={`text-xs px-2 py-0.5 rounded ${
-                              hours > 40
-                                ? 'bg-orange-100 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400'
-                                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
-                            }`}
-                          >
-                            {hours}시간
-                          </span>
-                        );
-                      })()}
-                      {hasViolations(member.id) && (
-                        <span className="text-xs px-2 py-0.5 rounded bg-red-100 dark:bg-red-950/30 text-red-700 dark:text-red-400">
-                          위반
-                        </span>
+                ))}
+              </div>
+
+              <div className="max-h-[600px] overflow-y-auto">
+                {displayMembers.map(member => (
+                  <div
+                    key={member.id}
+                    className="grid border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                    style={{ gridTemplateColumns: scheduleGridTemplate }}
+                  >
+                    <div className="p-4 flex items-center gap-2 border-r border-gray-100 dark:border-gray-800">
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{member.name}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{member.position}</div>
+                      </div>
+                      {schedule.length > 0 && (
+                        <div className="flex flex-col items-end gap-1">
+                          {(() => {
+                            const hours = calculateMonthlyHours(member.id);
+                            return hours > 0 && (
+                              <span
+                                className={`text-xs px-2 py-0.5 rounded ${
+                                  hours > monthlyOvertimeThreshold
+                                    ? 'bg-orange-100 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400'
+                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                                }`}
+                              >
+                                {hours}시간
+                              </span>
+                            );
+                          })()}
+                          {hasViolations(member.id) && (
+                            <span className="text-xs px-2 py-0.5 rounded bg-red-100 dark:bg-red-950/30 text-red-700 dark:text-red-400">
+                              위반
+                            </span>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
-                </div>
 
-                {[...Array(7)].map((_, dayIndex) => {
-                  const date = addDays(currentWeek, dayIndex);
-                  const dayAssignments = getScheduleForDay(date).filter(a => a.employeeId === member.id);
+                    {daysInMonth.map((date) => {
+                      const dayAssignments = getScheduleForDay(date).filter(a => a.employeeId === member.id);
 
-                  return (
-                    <div key={dayIndex} className="p-2 border-l border-gray-100 dark:border-gray-800">
-                      {dayAssignments.map((assignment, i) => (
+                      return (
                         <div
-                          key={i}
-                          className="mb-1 px-2 py-1 rounded text-xs font-medium text-white text-center"
-                          style={{ backgroundColor: getShiftColor(assignment.shiftId) }}
+                          key={`${member.id}-${date.toISOString()}`}
+                          className="p-2 border-l border-gray-100 dark:border-gray-800"
                         >
-                          {getShiftName(assignment.shiftId)}
+                          {dayAssignments.map((assignment, i) => (
+                            <div
+                              key={i}
+                              className="mb-1 px-2 py-1 rounded text-xs font-medium text-white text-center"
+                              style={{ backgroundColor: getShiftColor(assignment.shiftId) }}
+                            >
+                              {getShiftName(assignment.shiftId)}
+                            </div>
+                          ))}
+                          {dayAssignments.length === 0 && (
+                            <div className="px-2 py-1 rounded text-xs text-gray-400 dark:text-gray-500 text-center bg-gray-50 dark:bg-gray-800">
+                              휴무
+                            </div>
+                          )}
                         </div>
-                      ))}
-                      {dayAssignments.length === 0 && (
-                        <div className="px-2 py-1 rounded text-xs text-gray-400 dark:text-gray-500 text-center bg-gray-50 dark:bg-gray-800">
-                          휴무
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
+                      );
+                    })}
+                  </div>
+                ))}
 
-            {displayMembers.length === 0 && (
-              <div className="p-12 text-center">
-                <Users className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                <p className="text-gray-500 dark:text-gray-400">
-                  {selectedShiftTypes.size > 0
-                    ? '선택된 시프트 타입에 해당하는 직원이 없습니다'
-                    : '선택된 부서에 활성 직원이 없습니다'}
-                </p>
+                {displayMembers.length === 0 && (
+                  <div className="p-12 text-center">
+                    <Users className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                    <p className="text-gray-500 dark:text-gray-400">
+                      {selectedShiftTypes.size > 0
+                        ? '선택된 시프트 타입에 해당하는 직원이 없습니다'
+                        : '선택된 부서에 활성 직원이 없습니다'}
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
 
