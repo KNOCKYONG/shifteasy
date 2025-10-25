@@ -18,6 +18,7 @@ export interface ExtendedEmployeePreferences extends EmployeePreferences {
   preferredDaysOff: number[];
   maxConsecutiveDays: number;
   preferNightShift: boolean;
+  preferredPattern?: string;
 
   // 확장된 선호도
   workLoadPreference: 'light' | 'normal' | 'heavy'; // 업무량 선호
