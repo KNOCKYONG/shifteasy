@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, protectedProcedure, adminProcedure } from '../trpc';
 import { scopedDb, createAuditLog } from '@/lib/db-helpers';
-import { schedules, assignments, users, shiftTypes } from '@/db/schema';
+import { schedules, users, shiftTypes } from '@/db/schema';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
 
 export const scheduleRouter = createTRPCRouter({

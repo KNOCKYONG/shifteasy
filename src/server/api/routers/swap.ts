@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure, adminProcedure } from '../trpc';
 import { scopedDb, createAuditLog } from '@/lib/db-helpers';
-import { swapRequests, assignments, notifications } from '@/db/schema';
-import { eq, and, or } from 'drizzle-orm';
+import { swapRequests, notifications } from '@/db/schema';
+import { eq, and } from 'drizzle-orm';
 
 export const swapRouter = createTRPCRouter({
   list: protectedProcedure

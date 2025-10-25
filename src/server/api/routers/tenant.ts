@@ -23,8 +23,13 @@ export const tenantRouter = createTRPCRouter({
         offset: z.number().min(0).default(0),
       }).optional())
       .query(async ({ ctx, input }) => {
+        const tenantId = ctx.tenantId;
+        if (!tenantId) {
+          throw new Error('Tenant not found');
+        }
+
         const conditions = [
-          eq(users.tenantId, ctx.tenantId),
+          eq(users.tenantId, tenantId),
         ];
 
         // Apply department-based filtering for managers
@@ -109,6 +114,11 @@ export const tenantRouter = createTRPCRouter({
           throw new Error('권한이 없습니다. 관리자 또는 매니저만 직급을 변경할 수 있습니다.');
         }
 
+        const tenantId = ctx.tenantId;
+        if (!tenantId) {
+          throw new Error('Tenant not found');
+        }
+
         // Update user position in database
         const result = await ctx.db
           .update(users)
@@ -119,7 +129,7 @@ export const tenantRouter = createTRPCRouter({
           .where(
             and(
               eq(users.id, input.userId),
-              eq(users.tenantId, ctx.tenantId)
+              eq(users.tenantId, tenantId)
             )
           )
           .returning();
@@ -142,10 +152,15 @@ export const tenantRouter = createTRPCRouter({
         offset: z.number().min(0).default(0),
       }).optional())
       .query(async ({ ctx, input }) => {
+        const tenantId = ctx.tenantId;
+        if (!tenantId) {
+          throw new Error('Tenant not found');
+        }
+
         const result = await ctx.db
           .select()
           .from(departments)
-          .where(eq(departments.tenantId, ctx.tenantId))
+          .where(eq(departments.tenantId, tenantId))
           .limit(input?.limit || 50)
           .offset(input?.offset || 0);
 
@@ -153,7 +168,7 @@ export const tenantRouter = createTRPCRouter({
         const countResult = await ctx.db
           .select({ count: departments.id })
           .from(departments)
-          .where(eq(departments.tenantId, ctx.tenantId));
+          .where(eq(departments.tenantId, tenantId));
 
         return {
           items: result,
@@ -165,11 +180,15 @@ export const tenantRouter = createTRPCRouter({
   stats: createTRPCRouter({
     summary: protectedProcedure
       .query(async ({ ctx }) => {
+        const tenantId = ctx.tenantId;
+        if (!tenantId) {
+          throw new Error('Tenant not found');
+        }
         // Get all users for the tenant
         const allUsers = await ctx.db
           .select()
           .from(users)
-          .where(eq(users.tenantId, ctx.tenantId));
+          .where(eq(users.tenantId, tenantId));
 
         // Count active users
         const activeUsers = allUsers.filter(user => user.status === 'active');

@@ -2,8 +2,10 @@ import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure, adminProcedure } from '../trpc';
 import { createAuditLog } from '@/lib/db-helpers';
 import { db } from '@/db';
-import { assignments } from '@/db/schema';
+import { wardAssignments } from '@/db/schema/assignments';
 import { eq, and, gte, lte } from 'drizzle-orm';
+
+const assignments = wardAssignments;
 
 export const assignmentRouter = createTRPCRouter({
   listByUser: protectedProcedure
