@@ -123,20 +123,23 @@ const departments =
   const rawTeamMembers = (usersData?.items || []) as any[];
 
   const teamMembers = useMemo(() => {
+    // 먼저 비활성 인원 제외
+    const activeMembers = rawTeamMembers.filter((member: any) => member.status !== 'inactive');
+
     if (currentUserRole === 'admin') {
       // Admins can see all users in the tenant
-      return rawTeamMembers;
+      return activeMembers;
     } else if (currentUserRole === 'manager') {
       // Managers can only see themselves and members in their department
       const myUserId = currentUser.dbUser?.id;
-      return rawTeamMembers.filter((member: any) => {
+      return activeMembers.filter((member: any) => {
         if (member.id === myUserId) {
           return true;
         }
         return member.role === 'member';
       });
     }
-    return rawTeamMembers;
+    return activeMembers;
   }, [rawTeamMembers, currentUserRole, currentUser.dbUser?.id]);
 
   // 통계 계산
