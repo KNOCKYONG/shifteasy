@@ -100,6 +100,7 @@ export function EmployeePreferencesModal({
   const [activeTab, setActiveTab] = useState<'basic' | 'personal' | 'request'>('basic');
   const [showConstraintForm, setShowConstraintForm] = useState(false);
   const [customPatternInput, setCustomPatternInput] = useState('');
+  const [patternError, setPatternError] = useState('');
 
   // Request 탭을 위한 state
   const [selectedMonth, setSelectedMonth] = useState(new Date());
@@ -200,17 +201,49 @@ export function EmployeePreferencesModal({
     }
   };
 
+  const validatePattern = (pattern: string): boolean => {
+    const validKeywords = ['D', 'E', 'N', 'OFF'];
+    const parts = pattern.split('-');
+
+    // 빈 패턴 체크
+    if (parts.length === 0 || parts.some(part => !part.trim())) {
+      setPatternError('패턴이 비어있습니다. 예: D-D-E-E-OFF-OFF');
+      return false;
+    }
+
+    // 각 부분이 유효한 키워드인지 확인
+    for (const part of parts) {
+      if (!validKeywords.includes(part.trim())) {
+        setPatternError(`'${part}'는 유효하지 않은 키워드입니다. 사용 가능: D, E, N, OFF`);
+        return false;
+      }
+    }
+
+    setPatternError('');
+    return true;
+  };
+
   const addCustomPattern = () => {
     if (!customPatternInput.trim()) return;
 
+    const trimmedPattern = customPatternInput.trim().toUpperCase();
+
+    // 패턴 검증
+    if (!validatePattern(trimmedPattern)) {
+      return;
+    }
+
     const current = preferences.preferredPatterns || [];
-    if (!current.includes(customPatternInput.trim())) {
+    if (!current.includes(trimmedPattern)) {
       setPreferences({
         ...preferences,
-        preferredPatterns: [...current, customPatternInput.trim()],
+        preferredPatterns: [...current, trimmedPattern],
       });
+      setCustomPatternInput('');
+      setPatternError('');
+    } else {
+      setPatternError('이미 추가된 패턴입니다.');
     }
-    setCustomPatternInput('');
   };
 
   const removePattern = (pattern: string) => {
@@ -351,10 +384,17 @@ export function EmployeePreferencesModal({
                     <input
                       type="text"
                       value={customPatternInput}
-                      onChange={(e) => setCustomPatternInput(e.target.value)}
+                      onChange={(e) => {
+                        setCustomPatternInput(e.target.value);
+                        setPatternError('');
+                      }}
                       onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomPattern())}
                       placeholder="D-D-E-E-OFF-OFF"
-                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
+                      className={`flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 bg-white dark:bg-slate-700 text-gray-900 dark:text-white ${
+                        patternError
+                          ? 'border-red-500 focus:ring-red-500'
+                          : 'border-gray-300 dark:border-slate-600 focus:ring-blue-500'
+                      }`}
                     />
                     <button
                       onClick={addCustomPattern}
@@ -362,6 +402,15 @@ export function EmployeePreferencesModal({
                     >
                       추가
                     </button>
+                  </div>
+                  {patternError && (
+                    <div className="mt-2 flex items-center gap-1 text-sm text-red-600 dark:text-red-400">
+                      <AlertCircle className="w-4 h-4" />
+                      <span>{patternError}</span>
+                    </div>
+                  )}
+                  <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    사용 가능한 키워드: <span className="font-semibold">D</span> (주간), <span className="font-semibold">E</span> (저녁), <span className="font-semibold">N</span> (야간), <span className="font-semibold">OFF</span> (휴무)
                   </div>
                 </div>
 
@@ -518,7 +567,7 @@ export function EmployeePreferencesModal({
                           <div className="text-right text-sm text-gray-700 dark:text-gray-300">{day}</div>
                           {currentRequest && (
                             <div className="absolute inset-0 flex items-center justify-center">
-                              <span className="text-xs font-bold text-blue-600 dark:text-blue-400">{currentRequest}</span>
+                              <span className="text-base font-bold text-blue-600 dark:text-blue-400">{currentRequest}</span>
                             </div>
                           )}
                         </div>
