@@ -2,7 +2,8 @@
 
 import { api } from '@/lib/trpc/client';
 import { Card } from '@/components/ui/card';
-import { Calendar, Clock, Bell, CheckCircle } from 'lucide-react';
+import { Calendar, Clock, Bell, CheckCircle, ChevronRight } from 'lucide-react';
+import Link from 'next/link';
 
 export function MemberDashboard() {
   const { data: currentUser } = api.tenant.users.current.useQuery();
@@ -94,28 +95,53 @@ export function MemberDashboard() {
 
       {/* This Week Schedule */}
       <Card className="p-6">
-        <h2 className="text-lg font-semibold mb-4">이번 주 일정</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">이번 주 일정</h2>
+          <Link
+            href="/schedule"
+            className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+          >
+            더보기
+            <ChevronRight className="w-4 h-4" />
+          </Link>
+        </div>
         <div className="grid grid-cols-7 gap-2 text-center">
-          {['월', '화', '수', '목', '금', '토', '일'].map((day, index) => (
-            <div key={day} className="space-y-2">
-              <p className="text-sm text-gray-500">{day}</p>
-              <div
-                className={`p-2 rounded-lg ${
-                  index === 0
-                    ? 'bg-blue-100 text-blue-700'
-                    : index === 3 || index === 4
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-gray-100 text-gray-500'
-                }`}
-              >
-                {index === 0
-                  ? '오전'
-                  : index === 3 || index === 4
-                  ? '오후'
-                  : '휴무'}
-              </div>
-            </div>
-          ))}
+          {(() => {
+            const today = new Date();
+            const currentDay = today.getDay(); // 0 (일요일) ~ 6 (토요일)
+            const monday = new Date(today);
+            monday.setDate(today.getDate() - (currentDay === 0 ? 6 : currentDay - 1));
+
+            const weekDays = ['월', '화', '수', '목', '금', '토', '일'];
+
+            return weekDays.map((day, index) => {
+              const date = new Date(monday);
+              date.setDate(monday.getDate() + index);
+              const month = date.getMonth() + 1;
+              const dateNum = date.getDate();
+
+              return (
+                <div key={day} className="space-y-2">
+                  <p className="text-sm text-gray-500">{`${month}/${dateNum}(${day})`}</p>
+                  <div
+                    className={`p-2 rounded-lg ${
+                      index === 0
+                        ? 'bg-blue-100 text-blue-700'
+                        : index === 3 || index === 4
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-gray-100 text-gray-500'
+                    }`}
+                  >
+                    {index === 0
+                      ? '오전'
+                      : index === 3 || index === 4
+                      ? '오후'
+                      : '휴무'}
+                  </div>
+                </div>
+              );
+            });
+          })()}
         </div>
       </Card>
 
