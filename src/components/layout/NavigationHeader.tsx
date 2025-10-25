@@ -3,7 +3,6 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { ProfileDropdown } from '@/components/ProfileDropdown';
-import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
 import { Menu, X, Bell } from 'lucide-react';
@@ -105,11 +104,9 @@ export function NavigationHeader() {
               </nav>
             </div>
 
-            {/* Right side: Language Switcher, Notification Bell, Profile and Mobile Menu Button */}
+            {/* Right side: Profile, Notification Bell, and Mobile Menu Button */}
             <div className="flex items-center gap-2 sm:gap-4">
-              <div className="hidden sm:block">
-                <LanguageSwitcher />
-              </div>
+              <ProfileDropdown />
 
               {/* Notification Bell */}
               <Link
@@ -123,8 +120,6 @@ export function NavigationHeader() {
                   </span>
                 )}
               </Link>
-
-              <ProfileDropdown />
 
               {/* Mobile Menu Button */}
               <button
@@ -158,11 +153,6 @@ export function NavigationHeader() {
         }`}
       >
         <nav className="flex flex-col p-4 space-y-2">
-          {/* Mobile Language Switcher */}
-          <div className="pb-4 mb-4 border-b border-gray-200 dark:border-gray-700 sm:hidden">
-            <LanguageSwitcher />
-          </div>
-
           {/* Mobile Notification Link */}
           <Link
             href="/notifications"
