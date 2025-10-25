@@ -31,17 +31,12 @@ export default function TeamManagementPage() {
 const currentUserId = currentUser.userId || "user-1";
 const currentUserName = currentUser.name || "사용자";
 
-  // Fetch users from TRPC
+  // Fetch users from TRPC - 전체 조회 (권한 필터링 제거)
   const { data: usersData, isLoading: isLoadingUsers, refetch: refetchUsers } = api.tenant.users.list.useQuery({
     limit: 100,
     offset: 0,
     search: searchQuery || undefined,
-    departmentId:
-      currentUserRole === 'manager'
-        ? managerDepartmentId ?? undefined
-        : selectedDepartment !== 'all'
-          ? selectedDepartment
-          : undefined,
+    departmentId: selectedDepartment !== 'all' ? selectedDepartment : undefined,
     role: roleFilter as any,
     status: statusFilterForApi,
   });
@@ -80,36 +75,16 @@ const currentUserName = currentUser.name || "사용자";
     },
   });
 
-  // Process departments for UI
-const managerDepartmentName =
-  (departmentsData?.items as any[] || []).find(
-    (dept: any) => dept.id === managerDepartmentId
-  )?.name;
+  // Process departments for UI - 전체 조회 (권한 필터링 제거)
+const departments = [
+  { id: 'all', name: '전체' },
+  ...((departmentsData?.items as any[] || []).map((dept: any) => ({
+    id: dept.id,
+    name: dept.name,
+  })) || []),
+];
 
-const departments =
-  currentUserRole === 'manager'
-    ? managerDepartmentId
-      ? [
-          {
-            id: managerDepartmentId,
-            name: managerDepartmentName || '내 병동',
-          },
-        ]
-      : []
-    : [
-        { id: 'all', name: '전체' },
-        ...((departmentsData?.items as any[] || []).map((dept: any) => ({
-          id: dept.id,
-          name: dept.name,
-        })) || []),
-      ];
-
-  // Update status filter effect
-  useEffect(() => {
-    if (currentUserRole === 'manager' && managerDepartmentId) {
-      setSelectedDepartment(managerDepartmentId);
-    }
-  }, [currentUserRole, managerDepartmentId]);
+  // Update status filter effect - 권한 필터링 제거
 
   useEffect(() => {
     if (statusFilter === 'active') {
@@ -127,21 +102,9 @@ const departments =
     }
   }, [statusFilter]);
 
-  // Process users data
+  // Process users data - 전체 조회 (권한 필터링 제거)
   const rawTeamMembers = (usersData?.items || []) as any[];
-
-  const teamMembers = useMemo(() => {
-    if (currentUserRole === 'manager') {
-      const myUserId = currentUser.dbUser?.id;
-      return rawTeamMembers.filter((member: any) => {
-        if (member.id === myUserId) {
-          return true;
-        }
-        return member.role === 'member';
-      });
-    }
-    return rawTeamMembers;
-  }, [rawTeamMembers, currentUserRole, currentUser.dbUser?.id]);
+  const teamMembers = rawTeamMembers;
 
   // 통계 계산
   const stats = {
@@ -269,18 +232,13 @@ const departments =
   return (
     <RoleGuard>
       <MainLayout>
-        {/* Team Pattern Section - 팀 패턴 설정 */}
-        {(currentUserRole === 'admin' || currentUserRole === 'manager') &&
-         (currentUserRole === 'manager' ? managerDepartmentId : selectedDepartment !== 'all') && (
+        {/* Team Pattern Section - 팀 패턴 설정 (권한 체크 제거) */}
+        {selectedDepartment !== 'all' && (
           <div className="mb-6 sm:mb-8">
             <TeamPatternPanel
-              departmentId={
-                currentUserRole === 'manager'
-                  ? managerDepartmentId || ''
-                  : selectedDepartment !== 'all' ? selectedDepartment : ''
-              }
+              departmentId={selectedDepartment}
               totalMembers={stats.total}
-              canEdit={currentUserRole === 'admin' || currentUserRole === 'manager'}
+              canEdit={true}
             />
           </div>
         )}
@@ -430,18 +388,8 @@ const departments =
           </button>
         </div>
 
-        {/* Filters and Search - 모바일 최적화 */}
+        {/* Filters and Search - 모바일 최적화 (권한 체크 제거) */}
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6 mb-4 sm:mb-6">
-          {currentUserRole === 'manager' && managerDepartmentId && (
-            <div className="mb-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 px-3 py-2 text-xs sm:text-sm text-blue-800 dark:text-blue-300">
-              담당 병동에 속한 팀원만 조회 및 관리할 수 있습니다.
-            </div>
-          )}
-          {currentUserRole === 'manager' && managerDepartmentId && (
-            <div className="mb-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 px-3 py-2 text-xs sm:text-sm text-blue-800 dark:text-blue-300">
-              담당 병동에 속한 팀원만 조회 및 관리할 수 있습니다.
-            </div>
-          )}
           <div className="flex flex-col sm:flex-row sm:items-end gap-4">
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 flex-1">
               <div className="flex-1 sm:flex-none">
@@ -449,8 +397,7 @@ const departments =
                 <select
                   value={selectedDepartment}
                   onChange={(e) => setSelectedDepartment(e.target.value)}
-                  disabled={currentUserRole === 'manager'}
-                  className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-gray-100 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed disabled:dark:bg-gray-800 disabled:dark:text-gray-500"
+                  className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-gray-100"
                 >
                   {departments.map(dept => (
                     <option key={dept.id} value={dept.id}>{dept.name}</option>
@@ -470,12 +417,7 @@ const departments =
             </div>
             <button
               onClick={() => setShowAddForm(true)}
-              disabled={currentUserRole === 'manager'}
-              className={`inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-colors ${
-                currentUserRole === 'manager'
-                  ? 'bg-gray-200 dark:bg-gray-800 text-gray-500 dark:text-gray-500 cursor-not-allowed'
-                  : 'text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600'
-              }`}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-colors text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600"
             >
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">팀원 추가</span>
