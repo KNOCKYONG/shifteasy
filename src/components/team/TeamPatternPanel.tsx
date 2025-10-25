@@ -68,7 +68,10 @@ export function TeamPatternPanel({
   };
 
   // 시프트별 필요 인원 변경
-  const handleRequiredStaffChange = (shift: 'Day' | 'Evening' | 'Night', value: number) => {
+  const handleRequiredStaffChange = (shift: 'Day' | 'Evening' | 'Night', inputValue: string) => {
+    // leading zero 제거 및 숫자 변환
+    const value = inputValue === '' ? 0 : parseInt(inputValue, 10) || 0;
+
     const newPattern = {
       ...pattern,
       [`requiredStaff${shift}`]: value,
@@ -233,7 +236,7 @@ export function TeamPatternPanel({
               min="1"
               max={totalMembers}
               value={pattern.requiredStaffDay || 0}
-              onChange={(e) => handleRequiredStaffChange('Day', parseInt(e.target.value) || 0)}
+              onChange={(e) => handleRequiredStaffChange('Day', e.target.value)}
               disabled={!canEdit}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
             />
@@ -247,7 +250,7 @@ export function TeamPatternPanel({
               min="1"
               max={totalMembers}
               value={pattern.requiredStaffEvening || 0}
-              onChange={(e) => handleRequiredStaffChange('Evening', parseInt(e.target.value) || 0)}
+              onChange={(e) => handleRequiredStaffChange('Evening', e.target.value)}
               disabled={!canEdit}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
             />
@@ -261,7 +264,7 @@ export function TeamPatternPanel({
               min="1"
               max={totalMembers}
               value={pattern.requiredStaffNight || 0}
-              onChange={(e) => handleRequiredStaffChange('Night', parseInt(e.target.value) || 0)}
+              onChange={(e) => handleRequiredStaffChange('Night', e.target.value)}
               disabled={!canEdit}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
             />
