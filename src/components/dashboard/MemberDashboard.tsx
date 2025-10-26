@@ -1,18 +1,14 @@
 'use client';
 
-import { api } from '@/lib/trpc/client';
 import { Card } from '@/components/ui/card';
 import { Calendar, Clock, Bell, CheckCircle, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
-import { useAuth } from '@clerk/nextjs';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 export function MemberDashboard() {
-  const { userId, orgId } = useAuth();
-  const { data: currentUser } = api.tenant.users.current.useQuery(undefined, {
-    enabled: !!userId && !!orgId,
-  });
+  const { dbUser, name } = useCurrentUser();
 
-  if (!currentUser) {
+  if (!dbUser) {
     return null;
   }
 
@@ -22,7 +18,7 @@ export function MemberDashboard() {
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg p-6">
         <h1 className="text-2xl font-bold mb-2">
-          안녕하세요, {currentUser.name}님! 👋
+          안녕하세요, {name}님! 👋
         </h1>
         <p className="opacity-90">
           오늘도 좋은 하루 되세요. 아래에서 오늘의 일정을 확인하세요.

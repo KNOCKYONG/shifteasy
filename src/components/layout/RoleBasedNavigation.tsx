@@ -4,8 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ROLE_NAVIGATION, type Role } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
-import { api } from '@/lib/trpc/client';
-import { useAuth } from '@clerk/nextjs';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import {
   Calendar,
   Users,
@@ -30,16 +29,13 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 
 export function RoleBasedNavigation() {
   const pathname = usePathname();
-  const { userId, orgId } = useAuth();
-  const { data: currentUser } = api.tenant.users.current.useQuery(undefined, {
-    enabled: !!userId && !!orgId,
-  });
+  const { dbUser, role } = useCurrentUser();
 
-  if (!currentUser) {
+  if (!dbUser) {
     return null;
   }
 
-  const navigation = ROLE_NAVIGATION[currentUser.role as Role] || [];
+  const navigation = ROLE_NAVIGATION[role as Role] || [];
 
   return (
     <nav className="space-y-1">
