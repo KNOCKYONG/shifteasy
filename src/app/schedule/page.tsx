@@ -765,6 +765,7 @@ export default function SchedulePage() {
 
     const preferenceData = {
       staffId: selectedEmployee.id,
+      workPatternType: preferences.workPatternType || 'three-shift',
       preferredShiftTypes: {
         D: preferences.preferredShifts.includes('day') ? 10 : 0,
         E: preferences.preferredShifts.includes('evening') ? 10 : 0,
