@@ -4,15 +4,22 @@
   "tabs": {
     "profile": "프로필",
     "security": "보안",
-    "notifications": "알림"
+    "notifications": "알림",
+    "department": "부서 코드"
   },
   "profile": {
     "title": "프로필 정보",
-    "description": "이름, 이메일, 프로필 사진 등을 관리할 수 있습니다."
+    "description": "이름, 이메일, 프로필 사진 등을 관리할 수 있습니다.",
+    "email": "이메일",
+    "emailNote": "이메일은 Clerk 계정 설정에서 변경할 수 있습니다.",
+    "name": "이름",
+    "nameNote": "이름은 Clerk 계정 설정에서 변경할 수 있습니다."
   },
   "security": {
     "title": "보안 설정",
-    "description": "비밀번호와 보안 옵션을 관리하세요."
+    "description": "비밀번호와 보안 옵션을 관리하세요.",
+    "clerkNote": "비밀번호 변경, 2단계 인증 설정 등은 Clerk 계정 관리 페이지에서 가능합니다.",
+    "goToClerk": "Clerk 계정 관리"
   },
   "notifications": {
     "title": "알림 설정",
@@ -25,5 +32,17 @@
     "announcementsDesc": "중요한 공지사항을 받습니다",
     "emailDigest": "이메일 요약",
     "emailDigestDesc": "주간 활동 요약을 이메일로 받습니다"
+  },
+  "department": {
+    "title": "부서 시크릿 코드",
+    "managerDescription": "새로운 팀원이 가입할 때 이 코드를 공유하세요.",
+    "adminDescription": "모든 부서의 시크릿 코드를 확인할 수 있습니다.",
+    "secretCode": "시크릿 코드",
+    "regenerate": "새 코드 생성",
+    "regenerating": "생성 중...",
+    "confirmRegenerate": "시크릿 코드를 재생성하시겠습니까? 기존 코드는 더 이상 사용할 수 없습니다.",
+    "regenerateSuccess": "시크릿 코드가 재생성되었습니다.",
+    "regenerateError": "시크릿 코드 재생성에 실패했습니다.",
+    "noDepartments": "등록된 부서가 없습니다."
   }
 }
