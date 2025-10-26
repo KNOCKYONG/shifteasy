@@ -1608,30 +1608,6 @@ export default function SchedulePage() {
             </div>
           </div>
 
-          {/* 나의 스케줄만 보기 토글 */}
-          <div className="mt-4 flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg p-3">
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">나의 스케줄만 보기</span>
-            </div>
-            <button
-              onClick={() => setShowMyScheduleOnly(!showMyScheduleOnly)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                showMyScheduleOnly ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  showMyScheduleOnly ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
-          </div>
-          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-            {showMyScheduleOnly
-              ? '현재 나의 스케줄만 표시됩니다.'
-              : '같은 부서의 모든 스케줄을 표시합니다.'}
-          </p>
         </div>
         )}
         {/* Simplified Schedule Action Toolbar */}
@@ -1976,6 +1952,35 @@ export default function SchedulePage() {
           )}
         </div>
 
+        {/* 나의 스케줄만 보기 토글 - member/manager만 표시 */}
+        {(isMember || isManager) && (
+          <div className="mb-4 bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">나의 스케줄만 보기</span>
+              </div>
+              <button
+                onClick={() => setShowMyScheduleOnly(!showMyScheduleOnly)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                  showMyScheduleOnly ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    showMyScheduleOnly ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              {showMyScheduleOnly
+                ? '현재 나의 스케줄만 표시됩니다.'
+                : '같은 부서의 모든 스케줄을 표시합니다.'}
+            </p>
+          </div>
+        )}
+
         {/* Week Navigation & Department Filter */}
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -2094,7 +2099,7 @@ export default function SchedulePage() {
                 ))}
               </div>
 
-              <div className="max-h-[600px] overflow-y-auto">
+              <div>
                 {displayMembers.map(member => (
                   <div
                     key={member.id}
