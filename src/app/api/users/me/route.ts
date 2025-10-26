@@ -2,22 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { db } from '@/db';
 import { users, departments } from '@/db/schema/tenants';
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const { userId, orgId } = await auth();
+    const { userId } = await auth();
 
-    if (!userId || !orgId) {
+    if (!userId) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    // Get user from database
+    // Get user from database (no orgId required)
     const [user] = await db
       .select({
         id: users.id,
@@ -32,12 +32,7 @@ export async function GET() {
       })
       .from(users)
       .leftJoin(departments, eq(users.departmentId, departments.id))
-      .where(
-        and(
-          eq(users.clerkUserId, userId),
-          eq(users.tenantId, orgId)
-        )
-      )
+      .where(eq(users.clerkUserId, userId))
       .limit(1);
 
     if (!user) {
@@ -63,9 +58,9 @@ export async function GET() {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const { userId, orgId } = await auth();
+    const { userId } = await auth();
 
-    if (!userId || !orgId) {
+    if (!userId) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -82,19 +77,14 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    // Update user in database
+    // Update user in database (no orgId required)
     const updatedUser = await db
       .update(users)
       .set({
         name,
         updatedAt: new Date(),
       })
-      .where(
-        and(
-          eq(users.clerkUserId, userId),
-          eq(users.tenantId, orgId)
-        )
-      )
+      .where(eq(users.clerkUserId, userId))
       .returning({
         id: users.id,
         name: users.name,

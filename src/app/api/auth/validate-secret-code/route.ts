@@ -26,7 +26,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       valid: true,
-      tenant: result.tenant
+      tenant: result.tenant,
+      department: result.department
     });
 
   } catch (error) {

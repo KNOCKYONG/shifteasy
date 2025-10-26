@@ -10,6 +10,7 @@ import { DepartmentsTab } from "./DepartmentsTab";
 import { ContractTypesTab } from "./ContractTypesTab";
 import { EmployeeStatusTab } from "./EmployeeStatusTab";
 import { PositionGroupsTab } from "./PositionGroupsTab";
+import { SecretCodeTab } from "./SecretCodeTab";
 
 interface ContractType {
   code: string;
@@ -30,7 +31,8 @@ export default function ConfigPage() {
   const router = useRouter();
   const { t, ready } = useTranslation(['config', 'common']);
 
-  const [activeTab, setActiveTab] = useState<"preferences" | "positions" | "positionGroups" | "shifts" | "departments" | "contracts" | "statuses">("preferences");
+  const [activeTab, setActiveTab] = useState<"preferences" | "positions" | "positionGroups" | "shifts" | "departments" | "contracts" | "statuses" | "secretCode">("preferences");
+  const [currentUser, setCurrentUser] = useState<{ role: string } | null>(null);
   const [positions, setPositions] = useState<{value: string; label: string; level: number}[]>([]);
   const [newPosition, setNewPosition] = useState({ value: '', label: '', level: 1 });
   const [editingPosition, setEditingPosition] = useState<string | null>(null);
@@ -115,6 +117,16 @@ export default function ConfigPage() {
     positionCodes: string[];
     color: string;
   }[]>([]);
+
+  useEffect(() => {
+    // Fetch current user role
+    fetch('/api/users/me')
+      .then(res => res.json())
+      .then(data => {
+        setCurrentUser({ role: data.role });
+      })
+      .catch(err => console.error('Error fetching user:', err));
+  }, []);
 
   useEffect(() => {
     // Load positions from localStorage
@@ -326,6 +338,18 @@ export default function ConfigPage() {
             >
               {t('tabs.statuses', { ns: 'config', defaultValue: '직원 상태' })}
             </button>
+            {currentUser && (currentUser.role === 'manager' || currentUser.role === 'admin' || currentUser.role === 'owner') && (
+              <button
+                onClick={() => setActiveTab("secretCode")}
+                className={`pb-3 px-1 text-sm border-b-2 transition-colors ${
+                  activeTab === "secretCode"
+                    ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
+                    : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
+                }`}
+              >
+                {t('tabs.secretCode', { ns: 'config', defaultValue: '시크릿 코드' })}
+              </button>
+            )}
           </nav>
         </div>
 
@@ -599,6 +623,11 @@ export default function ConfigPage() {
             editingEmployeeStatus={editingEmployeeStatus}
             setEditingEmployeeStatus={setEditingEmployeeStatus}
           />
+        )}
+
+        {/* Secret Code Tab */}
+        {activeTab === "secretCode" && currentUser && (
+          <SecretCodeTab currentUserRole={currentUser.role} />
         )}
 
         {/* Action Buttons */}

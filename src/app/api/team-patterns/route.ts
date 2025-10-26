@@ -29,14 +29,14 @@ const UpdateTeamPatternSchema = z.object({
 
 // GET: Team Pattern 조회
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const departmentId = searchParams.get('departmentId');
+
   try {
     const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const { searchParams } = new URL(request.url);
-    const departmentId = searchParams.get('departmentId');
 
     if (!departmentId) {
       return NextResponse.json(

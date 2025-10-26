@@ -1,5 +1,5 @@
 import { db } from '@/db';
-import { tenants } from '@/db/schema/tenants';
+import { tenants, departments } from '@/db/schema/tenants';
 import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 
@@ -48,7 +48,8 @@ export async function generateUniqueSecretCode(): Promise<string> {
 }
 
 /**
- * 시크릿 코드로 테넌트 검증
+ * 시크릿 코드로 테넌트/부서 검증
+ * 부서 시크릿 코드를 우선 체크하고, 없으면 테넌트 시크릿 코드를 체크
  */
 export async function validateSecretCode(secretCode: string): Promise<{
   valid: boolean;
@@ -58,13 +59,62 @@ export async function validateSecretCode(secretCode: string): Promise<{
     slug: string;
     signupEnabled: boolean;
   };
+  department?: {
+    id: string;
+    name: string;
+    code?: string;
+  };
   error?: string;
 }> {
   try {
     // 대소문자 구분 없이 검색
     const normalizedCode = secretCode.toUpperCase().trim();
 
-    const result = await db
+    // 1. 먼저 부서 시크릿 코드를 체크
+    const departmentResult = await db
+      .select({
+        departmentId: departments.id,
+        departmentName: departments.name,
+        departmentCode: departments.code,
+        tenantId: tenants.id,
+        tenantName: tenants.name,
+        tenantSlug: tenants.slug,
+        tenantSettings: tenants.settings,
+      })
+      .from(departments)
+      .innerJoin(tenants, eq(departments.tenantId, tenants.id))
+      .where(eq(departments.secretCode, normalizedCode))
+      .limit(1);
+
+    if (departmentResult.length > 0) {
+      const result = departmentResult[0];
+      const signupEnabled = result.tenantSettings?.signupEnabled !== false;
+
+      if (!signupEnabled) {
+        return {
+          valid: false,
+          error: '현재 이 조직은 신규 가입을 받지 않습니다.',
+        };
+      }
+
+      return {
+        valid: true,
+        tenant: {
+          id: result.tenantId,
+          name: result.tenantName,
+          slug: result.tenantSlug,
+          signupEnabled,
+        },
+        department: {
+          id: result.departmentId,
+          name: result.departmentName,
+          code: result.departmentCode || undefined,
+        },
+      };
+    }
+
+    // 2. 부서 코드가 없으면 테넌트 시크릿 코드 체크
+    const tenantResult = await db
       .select({
         id: tenants.id,
         name: tenants.name,
@@ -76,14 +126,14 @@ export async function validateSecretCode(secretCode: string): Promise<{
       .where(eq(tenants.secretCode, normalizedCode))
       .limit(1);
 
-    if (result.length === 0) {
+    if (tenantResult.length === 0) {
       return {
         valid: false,
         error: '유효하지 않은 시크릿 코드입니다.',
       };
     }
 
-    const tenant = result[0];
+    const tenant = tenantResult[0];
     const signupEnabled = tenant.settings?.signupEnabled !== false;
 
     if (!signupEnabled) {

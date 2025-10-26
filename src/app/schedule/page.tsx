@@ -426,6 +426,7 @@ export default function SchedulePage() {
   const [showMyPreferences, setShowMyPreferences] = useState(false);
   const [showSpecialRequest, setShowSpecialRequest] = useState(false);
   const [specialRequests, setSpecialRequests] = useState<SpecialRequest[]>([]);
+  const [showMyScheduleOnly, setShowMyScheduleOnly] = useState(false); // 나의 스케줄만 보기
 
   // Employee preferences modal state
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -501,15 +502,14 @@ export default function SchedulePage() {
       limit: 100,
       offset: 0,
       status: 'active',
+      // member와 manager는 백엔드에서 자동으로 자신의 department로 필터링됨
+      // admin/owner만 departmentId를 명시적으로 전달
       departmentId:
-        userRole === 'manager'
-          ? memberDepartmentId ?? undefined
-          : selectedDepartment !== 'all' && selectedDepartment !== 'no-department'
-            ? selectedDepartment
-            : undefined,
+        !isMember && userRole !== 'manager' && selectedDepartment !== 'all' && selectedDepartment !== 'no-department'
+          ? selectedDepartment
+          : undefined,
     },
     {
-      // member는 자신의 정보를 가져오기 위해 항상 실행
       enabled: true,
     }
   );
@@ -518,7 +518,7 @@ export default function SchedulePage() {
   const filteredMembers = React.useMemo(() => {
     if (!usersData?.items) return [];
 
-    return (usersData.items as any[]).map((item: any) => ({
+    let members = (usersData.items as any[]).map((item: any) => ({
       id: item.id,
       employeeId: item.employeeId || '',
       name: item.name,
@@ -540,7 +540,15 @@ export default function SchedulePage() {
         unavailableDates: []
       }
     }));
-  }, [usersData]);
+
+    // member가 "나의 스케줄만 보기"를 체크한 경우
+    if (isMember && showMyScheduleOnly && currentUser.dbUser?.id) {
+      members = members.filter(member => member.id === currentUser.dbUser?.id);
+    }
+    // member가 체크하지 않은 경우는 이미 백엔드 쿼리에서 department로 필터링됨
+
+    return members;
+  }, [usersData, isMember, showMyScheduleOnly, currentUser.dbUser?.id, memberDepartmentId]);
 
   const handlePreviousMonth = () => {
     setCurrentMonth(prev => subMonths(prev, 1));
@@ -1446,6 +1454,31 @@ export default function SchedulePage() {
               </p>
             </div>
           </div>
+
+          {/* 나의 스케줄만 보기 토글 */}
+          <div className="mt-4 flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg p-3">
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">나의 스케줄만 보기</span>
+            </div>
+            <button
+              onClick={() => setShowMyScheduleOnly(!showMyScheduleOnly)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                showMyScheduleOnly ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  showMyScheduleOnly ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            {showMyScheduleOnly
+              ? '현재 나의 스케줄만 표시됩니다.'
+              : '같은 부서의 모든 스케줄을 표시합니다.'}
+          </p>
         </div>
         )}
         {/* Simplified Schedule Action Toolbar */}

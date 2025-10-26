@@ -36,7 +36,10 @@ export default function SignUpPage() {
       const data = await response.json();
 
       if (data.valid) {
-        setTenantInfo(data.tenant);
+        setTenantInfo({
+          ...data.tenant,
+          department: data.department, // 부서 정보 저장
+        });
         setStep('signup');
       } else {
         setError('유효하지 않은 시크릿 코드입니다.');
@@ -140,10 +143,17 @@ export default function SignUpPage() {
             <>
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">회원가입</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  <Building2 className="w-4 h-4 inline mr-1" />
-                  {tenantInfo?.name}
-                </p>
+                <div className="text-sm text-gray-600 dark:text-gray-400 mt-1 space-y-1">
+                  <p>
+                    <Building2 className="w-4 h-4 inline mr-1" />
+                    {tenantInfo?.name}
+                  </p>
+                  {tenantInfo?.department && (
+                    <p className="pl-5 text-blue-600 dark:text-blue-400">
+                      부서: {tenantInfo.department.name}
+                    </p>
+                  )}
+                </div>
               </div>
 
               <form onSubmit={handleSignUpSubmit} className="space-y-4">

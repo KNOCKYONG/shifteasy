@@ -37,6 +37,7 @@ export const departments = pgTable('departments', {
   tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
   name: text('name').notNull(),
   code: text('code'),
+  secretCode: text('secret_code').unique(),
   description: text('description'),
   settings: jsonb('settings').$type<{
     minStaff?: number;
@@ -48,6 +49,7 @@ export const departments = pgTable('departments', {
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
 }, (table) => ({
   tenantIdx: index('departments_tenant_id_idx').on(table.tenantId),
+  secretCodeIdx: index('departments_secret_code_idx').on(table.secretCode),
 }));
 
 // Users table

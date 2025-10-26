@@ -35,6 +35,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 부서 시크릿 코드로 가입한 경우 해당 부서로 자동 배정
+    const assignedDepartmentId = validation.department?.id || departmentId;
+
     // Clerk 클라이언트 초기화
     const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
 
@@ -117,7 +120,7 @@ export async function POST(req: NextRequest) {
         .set({
           clerkUserId,
           name, // 입력받은 이름으로 업데이트
-          departmentId: departmentId || existingUser[0].departmentId, // 부서 업데이트
+          departmentId: assignedDepartmentId || existingUser[0].departmentId, // 부서 업데이트 (부서 코드 우선)
           updatedAt: new Date(),
         })
         .where(eq(users.id, existingUser[0].id))
@@ -190,7 +193,7 @@ export async function POST(req: NextRequest) {
           email,
           name,
           role: 'member', // 새 사용자는 기본 member 역할
-          departmentId, // 부서 설정
+          departmentId: assignedDepartmentId, // 부서 설정 (부서 코드 우선)
           status: 'active',
         })
         .returning();
