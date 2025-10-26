@@ -411,6 +411,7 @@ export default function SchedulePage() {
   const currentUser = useCurrentUser();
   const userRole = (currentUser.dbUser?.role ?? currentUser.role) as string | undefined;
   const isMember = userRole === 'member';
+  const isManager = userRole === 'manager';
   const memberDepartmentId = currentUser.dbUser?.departmentId ?? null;
   const canManageSchedules = userRole ? ['admin', 'manager', 'owner'].includes(userRole) : false;
   const canViewStaffPreferences = canManageSchedules && !isMember;
@@ -1399,7 +1400,7 @@ export default function SchedulePage() {
   return (
     <MainLayout>
         {/* My Preferences Section - member 권한에서만 표시 */}
-        {isMember && (
+        {(isMember || isManager)  && (
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 border border-blue-200 dark:border-blue-800">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3 sm:gap-4">
