@@ -19,6 +19,17 @@ import { ExportModal } from "@/components/schedule/modals/ExportModal";
 import { ValidationResultsModal } from "@/components/schedule/modals/ValidationResultsModal";
 import { ConfirmationDialog } from "@/components/schedule/modals/ConfirmationDialog";
 import { ReportModal } from "@/components/schedule/modals/ReportModal";
+import {
+  ViewTabs,
+  ShiftTypeFilters,
+  ViewToggles,
+  StaffPreferencesGrid,
+  MonthNavigation,
+  AIGenerationResult,
+  ScheduleGridView,
+  ScheduleCalendarView,
+  ScheduleStats
+} from "@/components/schedule/views";
 
 // 스케줄 페이지에서 사용하는 확장된 ScheduleAssignment 타입
 interface ExtendedScheduleAssignment extends ScheduleAssignment {
@@ -1982,635 +1993,109 @@ export default function SchedulePage() {
         </div>
 
         {/* View Tabs */}
-        <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
-          <nav className="flex flex-wrap gap-2 sm:flex-nowrap sm:gap-4 md:gap-8">
-            {canViewStaffPreferences && (
-              <button
-                onClick={() => {
-                  setActiveView('preferences');
-                }}
-                className={`pb-3 px-1 text-xs sm:text-sm font-medium border-b-2 transition-colors flex items-center gap-1 sm:gap-2 whitespace-nowrap ${
-                  activeView === 'preferences'
-                    ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
-                    : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
-                }`}
-              >
-                <Heart className="w-4 h-4" />
-                <span className="hidden sm:inline">직원 </span>선호사항
-              </button>
-            )}
-            <button
-              onClick={() => {
-                setActiveView('schedule');
-              }}
-              className={`pb-3 px-1 text-xs sm:text-sm font-medium border-b-2 transition-colors flex items-center gap-1 sm:gap-2 whitespace-nowrap ${
-                activeView === 'schedule'
-                  ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
-                  : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
-              }`}
-            >
-              <Calendar className="w-4 h-4" />
-              스케줄<span className="hidden sm:inline"> 보기</span>
-            </button>
-          </nav>
-        </div>
+        <ViewTabs
+          activeView={activeView}
+          canViewStaffPreferences={canViewStaffPreferences}
+          onViewChange={setActiveView}
+        />
 
         {/* Preferences View */}
         {canViewStaffPreferences && activeView === 'preferences' && (
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-6">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-                <ListChecks className="w-5 h-5 text-blue-500" />
-                이번 달 직원 요구사항 및 선호사항
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {allMembers.map(member => (
-                  <div
-                    key={member.id}
-                    className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    onClick={() => handleEmployeeClick(member)}
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h4 className="font-medium text-gray-900 dark:text-gray-100">{member.name}</h4>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{member.position}</p>
-                      </div>
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        member.status === 'active'
-                          ? 'bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                      }`}>
-                        {member.status === 'active' ? '근무중' : '휴직중'}
-                      </span>
-                    </div>
-
-                    <div className="space-y-2 text-sm">
-                      {/* 선호 시프트 */}
-                      {member.workSchedule?.preferredShifts && member.workSchedule.preferredShifts.length > 0 && (
-                        <div className="flex items-start gap-2">
-                          <span className="text-green-500 dark:text-green-400">✓</span>
-                          <div>
-                            <span className="text-gray-600 dark:text-gray-400">선호:</span>
-                            <span className="ml-1 text-gray-900 dark:text-gray-100">
-                              {member.workSchedule.preferredShifts.map((shift: string) =>
-                                shift === 'day' ? '주간' : shift === 'evening' ? '저녁' : shift === 'night' ? '야간' : shift
-                              ).join(', ')}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* 회피 시프트 */}
-                      {(member as any).avoidShifts && (member as any).avoidShifts.length > 0 && (
-                        <div className="flex items-start gap-2">
-                          <span className="text-red-500 dark:text-red-400">✗</span>
-                          <div>
-                            <span className="text-gray-600 dark:text-gray-400">회피:</span>
-                            <span className="ml-1 text-gray-900 dark:text-gray-100">
-                              {(member as any).avoidShifts.map((shift: string) =>
-                                shift === 'day' ? '주간' : shift === 'evening' ? '저녁' : shift === 'night' ? '야간' : shift
-                              ).join(', ')}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* 주당 근무시간 */}
-                      <div className="flex items-start gap-2">
-                        <Clock className="w-3.5 h-3.5 text-gray-400 mt-0.5" />
-                        <div>
-                          <span className="text-gray-600 dark:text-gray-400">주당:</span>
-                          <span className="ml-1 text-gray-900 dark:text-gray-100">
-                            {member.workSchedule?.minHoursPerWeek || 30}-{member.workSchedule?.maxHoursPerWeek || 40}시간
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* 특별 요구사항 */}
-                      {(member.status === 'on_leave' || member.skills?.includes('신입')) && (
-                        <div className="flex items-start gap-2">
-                          <AlertCircle className="w-3.5 h-3.5 text-amber-500 mt-0.5" />
-                          <div>
-                            <span className="text-amber-600 dark:text-amber-400">
-                              {member.status === 'on_leave' ? '휴직 중' : member.skills?.includes('신입') ? '신입 교육 중' : ''}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {allMembers.length === 0 && (
-                <div className="text-center py-12">
-                  <Users className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                  <p className="text-gray-500 dark:text-gray-400">선택된 부서에 직원이 없습니다</p>
-                </div>
-              )}
-            </div>
-          </div>
+          <StaffPreferencesGrid
+            allMembers={allMembers}
+            onEmployeeClick={handleEmployeeClick}
+          />
         )}
 
         {/* Schedule View */}
         {activeView === 'schedule' && (
           <>
         {/* 토글 버튼들 - 가로 한 줄 배치 */}
-        <div className="mb-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 divide-y md:divide-y-0 md:divide-x divide-gray-200 dark:divide-gray-700 flex flex-col md:flex-row">
-          {/* 나의 스케줄만 보기 토글 - member/manager만 표시 */}
-          {(isMember || isManager) && (
-            <div className={`flex-1 p-3 transition-opacity ${showSameSchedule ? 'opacity-50' : ''}`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Users className={`w-4 h-4 ${showSameSchedule ? 'text-gray-400 dark:text-gray-600' : 'text-blue-600 dark:text-blue-400'}`} />
-                  <span className={`text-sm font-medium ${showSameSchedule ? 'text-gray-500 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'}`}>
-                    나의 스케줄만 보기
-                  </span>
-                </div>
-                <button
-                  onClick={() => {
-                    if (!showSameSchedule) {
-                      const newValue = !showMyScheduleOnly;
-                      setShowMyScheduleOnly(newValue);
-                      if (newValue) {
-                        setShowSameSchedule(false);
-                      }
-                    }
-                  }}
-                  disabled={showSameSchedule}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                    showSameSchedule
-                      ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed'
-                      : showMyScheduleOnly
-                        ? 'bg-blue-600'
-                        : 'bg-gray-300 dark:bg-gray-600'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      showMyScheduleOnly ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                {showSameSchedule
-                  ? '※ 나와 같은 스케줄 보기가 활성화되어 있습니다.'
-                  : showMyScheduleOnly
-                    ? '현재 나의 스케줄만 표시됩니다.'
-                    : '같은 부서의 모든 스케줄을 표시합니다.'}
-              </p>
-            </div>
-          )}
-
-          {/* 나와 같은 스케줄 보기 토글 - member/manager만 표시 */}
-          {(isMember || isManager) && (
-            <div className={`flex-1 p-3 transition-opacity ${showMyScheduleOnly ? 'opacity-50' : ''}`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <ListChecks className={`w-4 h-4 ${showMyScheduleOnly ? 'text-gray-400 dark:text-gray-600' : 'text-green-600 dark:text-green-400'}`} />
-                  <span className={`text-sm font-medium ${showMyScheduleOnly ? 'text-gray-500 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'}`}>
-                    나와 같은 스케줄 보기
-                  </span>
-                </div>
-                <button
-                  onClick={() => {
-                    if (!showMyScheduleOnly) {
-                      const newValue = !showSameSchedule;
-                      setShowSameSchedule(newValue);
-                      if (newValue) {
-                        setShowMyScheduleOnly(false);
-                        setViewMode('calendar');
-                      }
-                    }
-                  }}
-                  disabled={showMyScheduleOnly}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
-                    showMyScheduleOnly
-                      ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed'
-                      : showSameSchedule
-                        ? 'bg-green-600'
-                        : 'bg-gray-300 dark:bg-gray-600'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      showSameSchedule ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                {showMyScheduleOnly
-                  ? '※ 나의 스케줄만 보기가 활성화되어 있습니다.'
-                  : showSameSchedule
-                    ? '나와 같은 날 근무하는 직원만 캘린더로 표시됩니다.'
-                    : '같은 부서의 모든 스케줄을 표시합니다.'}
-              </p>
-            </div>
-          )}
-
-          {/* 캘린더 형식으로 보기 토글 */}
-          <div className={`flex-1 p-3 transition-opacity ${showSameSchedule ? 'opacity-50' : ''}`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Calendar className={`w-4 h-4 ${showSameSchedule ? 'text-gray-400 dark:text-gray-600' : 'text-purple-600 dark:text-purple-400'}`} />
-                <span className={`text-sm font-medium ${showSameSchedule ? 'text-gray-500 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'}`}>
-                  캘린더 형식으로 보기
-                </span>
-              </div>
-              <button
-                onClick={() => {
-                  if (!showSameSchedule) {
-                    setViewMode(viewMode === 'grid' ? 'calendar' : 'grid');
-                  }
-                }}
-                disabled={showSameSchedule}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
-                  showSameSchedule
-                    ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed'
-                    : viewMode === 'calendar'
-                      ? 'bg-purple-600'
-                      : 'bg-gray-300 dark:bg-gray-600'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    viewMode === 'calendar' ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              {showSameSchedule
-                ? '※ 나와 같은 스케줄 보기가 활성화되어 있습니다.'
-                : viewMode === 'calendar'
-                  ? '캘린더 형식으로 표시됩니다.'
-                  : '그리드 형식으로 표시됩니다.'}
-            </p>
-          </div>
-        </div>
+        <ViewToggles
+          isMember={isMember}
+          isManager={isManager}
+          showMyScheduleOnly={showMyScheduleOnly}
+          showSameSchedule={showSameSchedule}
+          viewMode={viewMode}
+          onToggleMySchedule={(value) => {
+            setShowMyScheduleOnly(value);
+            if (value) {
+              setShowSameSchedule(false);
+            }
+          }}
+          onToggleSameSchedule={(value) => {
+            setShowSameSchedule(value);
+            if (value) {
+              setShowMyScheduleOnly(false);
+              setViewMode('calendar');
+            }
+          }}
+          onToggleViewMode={setViewMode}
+        />
 
         {/* Shift Type Filters - Now inside schedule view */}
-        <div className="mb-4 flex items-center gap-3 flex-wrap">
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">근무 필터:</span>
-          {customShiftTypes.map((shiftType) => {
-            const isSelected = selectedShiftTypes.has(shiftType.code);
-            const colorMap: Record<string, string> = {
-              'blue': isSelected ? 'bg-blue-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300',
-              'green': isSelected ? 'bg-green-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300',
-              'amber': isSelected ? 'bg-amber-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300',
-              'red': isSelected ? 'bg-red-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300',
-              'purple': isSelected ? 'bg-purple-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300',
-              'indigo': isSelected ? 'bg-indigo-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300',
-              'pink': isSelected ? 'bg-pink-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300',
-              'gray': isSelected ? 'bg-gray-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300',
-            };
-            const baseClass = !isSelected ? 'border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700' : '';
-
-            return (
-              <button
-                key={shiftType.code}
-                onClick={() => toggleShiftType(shiftType.code)}
-                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${colorMap[shiftType.color] || colorMap['blue']} ${baseClass}`}
-              >
-                {shiftType.name} ({shiftType.code})
-              </button>
-            );
-          })}
-          {selectedShiftTypes.size > 0 && (
-            <button
-              onClick={() => setSelectedShiftTypes(new Set())}
-              className="px-3 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors"
-            >
-              필터 초기화
-            </button>
-          )}
-        </div>
+        <ShiftTypeFilters
+          customShiftTypes={customShiftTypes}
+          selectedShiftTypes={selectedShiftTypes}
+          onToggleShiftType={toggleShiftType}
+          onClearFilters={() => setSelectedShiftTypes(new Set())}
+        />
 
         {/* Week Navigation & Department Filter */}
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handlePreviousMonth}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-              >
-                <ChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-              </button>
-              <button
-                onClick={handleThisMonth}
-                className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
-              >
-                이번 달
-              </button>
-              <button
-                onClick={handleNextMonth}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-              >
-                <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-              </button>
-            </div>
-            <div className="flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-gray-400 dark:text-gray-500" />
-              <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                {format(monthStart, "yyyy년 M월")}
-              </h2>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <select
-              value={selectedDepartment}
-              onChange={(e) => {
-                setSelectedDepartment(e.target.value);
-                setSchedule([]);
-                setGenerationResult(null);
-              }}
-              disabled={isMember}
-              className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-gray-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:dark:bg-gray-800 disabled:dark:text-gray-500"
-            >
-              {departmentOptions.map(dept => (
-                <option key={dept.id} value={dept.id}>{dept.name}</option>
-              ))}
-            </select>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              {displayMembers.length}명 {selectedShiftTypes.size > 0 && `(전체: ${filteredMembers.length}명)`}
-            </span>
-          </div>
-        </div>
+        <MonthNavigation
+          monthStart={monthStart}
+          departmentOptions={departmentOptions}
+          selectedDepartment={selectedDepartment}
+          displayMembersCount={displayMembers.length}
+          filteredMembersCount={filteredMembers.length}
+          selectedShiftTypesSize={selectedShiftTypes.size}
+          isMember={isMember}
+          onPreviousMonth={handlePreviousMonth}
+          onThisMonth={handleThisMonth}
+          onNextMonth={handleNextMonth}
+          onDepartmentChange={(deptId) => {
+            setSelectedDepartment(deptId);
+            setSchedule([]);
+            setGenerationResult(null);
+          }}
+        />
 
         {/* AI Generation Result */}
-        {generationResult && (
-          <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 rounded-xl border border-purple-100 dark:border-purple-800">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-                  <BarChart3 className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">AI 스케줄 생성 완료</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                    처리 시간: {generationResult.computationTime}ms |
-                    공정성 점수: {generationResult.score.fairness}점 |
-                    선호도 만족: {generationResult.score.preference}점 |
-                    제약 위반: {generationResult.violations.filter(v => v.type === 'hard').length}건
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setGenerationResult(null)}
-                className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {generationResult.violations.filter(v => v.type === 'hard').length > 0 && (
-              <div className="mt-3 p-2 bg-red-50 dark:bg-red-950/30 rounded-lg">
-                <p className="text-xs font-medium text-red-700 dark:text-red-400">경고: 하드 제약조건 위반이 있습니다</p>
-                {generationResult.violations
-                  .filter(v => v.type === 'hard')
-                  .slice(0, 3)
-                  .map((v, i) => (
-                    <p key={i} className="text-xs text-red-600 dark:text-red-400 mt-1">• {v.message}</p>
-                  ))
-                }
-              </div>
-            )}
-          </div>
-        )}
+        <AIGenerationResult
+          generationResult={generationResult}
+          onClose={() => setGenerationResult(null)}
+        />
 
         {/* Schedule View - Grid or Calendar */}
         {viewMode === 'grid' ? (
-          /* Grid View */
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-x-auto">
-            <div className="min-w-max">
-              <div
-                className="grid border-b border-gray-200 dark:border-gray-700"
-                style={{ gridTemplateColumns: scheduleGridTemplate }}
-              >
-                  <div className="p-2 bg-gray-50 dark:bg-gray-800 font-medium text-xs text-gray-700 dark:text-gray-300 flex items-center">
-                    직원
-                  </div>
-                  {daysInMonth.map((date) => {
-                    const dayOfWeek = date.getDay();
-                    const dateStr = format(date, 'yyyy-MM-dd');
-                    const isHoliday = holidayDates.has(dateStr);
-                    const isHolidayOrSunday = isHoliday || dayOfWeek === 0;
-
-                    return (
-                      <div
-                        key={date.toISOString()}
-                        className={`py-1 px-0.5 bg-gray-50 dark:bg-gray-800 text-center border-l border-gray-200 dark:border-gray-700 ${
-                          isHoliday ? 'bg-red-50/30 dark:bg-red-900/10' : ''
-                        }`}
-                      >
-                        <div className={`font-medium text-[10px] ${
-                          isHolidayOrSunday
-                            ? 'text-red-500 dark:text-red-400'
-                            : dayOfWeek === 6
-                              ? 'text-blue-500 dark:text-blue-400'
-                              : 'text-gray-700 dark:text-gray-300'
-                        }`}>
-                          {format(date, 'EEE', { locale: ko }).slice(0, 1)}
-                        </div>
-                        <div className={`text-[9px] ${
-                          isHolidayOrSunday
-                            ? 'text-red-500 dark:text-red-400'
-                            : dayOfWeek === 6
-                              ? 'text-blue-500 dark:text-blue-400'
-                              : 'text-gray-500 dark:text-gray-400'
-                        }`}>
-                          {format(date, 'd')}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div>
-                  {displayMembers.map(member => (
-                    <div
-                      key={member.id}
-                      className="grid border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                      style={{ gridTemplateColumns: scheduleGridTemplate }}
-                    >
-                      <div className="p-2 flex flex-col justify-center border-r border-gray-100 dark:border-gray-800">
-                        <div className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">{member.name}</div>
-                        <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{member.position}</div>
-                      </div>
-
-                      {daysInMonth.map((date) => {
-                        const dayAssignments = getScheduleForDay(date).filter(a => a.employeeId === member.id);
-
-                        return (
-                          <div
-                            key={`${member.id}-${date.toISOString()}`}
-                            className="p-0.5 border-l border-gray-100 dark:border-gray-800 flex items-center justify-center"
-                          >
-                            {dayAssignments.map((assignment, i) => (
-                              <div
-                                key={i}
-                                className="w-full px-0.5 py-1 rounded text-[9px] font-medium text-white text-center"
-                                style={{ backgroundColor: getShiftColor(assignment.shiftId) }}
-                                title={getShiftName(assignment.shiftId)}
-                              >
-                                {getShiftName(assignment.shiftId).charAt(0)}
-                              </div>
-                            ))}
-                            {dayAssignments.length === 0 && (
-                              <div className="w-full px-0.5 py-1 text-[9px] text-gray-300 dark:text-gray-600 text-center">
-                                -
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ))}
-
-                  {displayMembers.length === 0 && (
-                    <div className="p-12 text-center">
-                      <Users className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                      <p className="text-gray-500 dark:text-gray-400">
-                        {selectedShiftTypes.size > 0
-                          ? '선택된 시프트 타입에 해당하는 직원이 없습니다'
-                          : '선택된 부서에 활성 직원이 없습니다'}
-                      </p>
-                    </div>
-                  )}
-                </div>
-            </div>
-          </div>
+          <ScheduleGridView
+            daysInMonth={daysInMonth}
+            displayMembers={displayMembers}
+            selectedShiftTypesSize={selectedShiftTypes.size}
+            scheduleGridTemplate={scheduleGridTemplate}
+            holidayDates={holidayDates}
+            getScheduleForDay={getScheduleForDay}
+            getShiftColor={getShiftColor}
+            getShiftName={getShiftName}
+          />
         ) : (
-          /* Calendar View */
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
-            {/* Calendar Header - Days of Week */}
-            <div className="grid grid-cols-7 gap-2 mb-2">
-              {['일', '월', '화', '수', '목', '금', '토'].map((day, i) => (
-                <div key={i} className="text-center font-medium text-sm text-gray-700 dark:text-gray-300 py-2">
-                  {day}
-                </div>
-              ))}
-            </div>
-
-            {/* Calendar Grid */}
-            <div className="grid grid-cols-7 gap-2">
-              {(() => {
-                const monthStart = startOfMonth(currentMonth);
-                const monthEnd = endOfMonth(currentMonth);
-                const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 });
-                const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
-                const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
-
-                return calendarDays.map((date) => {
-                  const isCurrentMonth = date >= monthStart && date <= monthEnd;
-                  const dateStr = format(date, 'yyyy-MM-dd');
-                  const dayOfWeek = date.getDay();
-                  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-                  const isHoliday = holidayDates.has(dateStr);
-                  const isHolidayOrSunday = isHoliday || dayOfWeek === 0;
-
-                  // Get all assignments for this date
-                  const dayAssignments = getScheduleForDay(date);
-
-                  // Filter by showSameSchedule if enabled
-                  let filteredAssignments = dayAssignments;
-                  if (showSameSchedule && currentUser.dbUser?.id) {
-                    // Get current user's shift for this date
-                    const myShift = dayAssignments.find(a => a.employeeId === currentUser.dbUser?.id);
-                    if (myShift && myShift.shiftId !== 'shift-off') {
-                      // Show only people with the same shift
-                      filteredAssignments = dayAssignments.filter(a => a.shiftId === myShift.shiftId);
-                    } else {
-                      filteredAssignments = [];
-                    }
-                  }
-
-                  return (
-                    <div
-                      key={dateStr}
-                      className={`min-h-[100px] border rounded-lg p-2 ${
-                        isCurrentMonth
-                          ? 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                          : 'bg-gray-50 dark:bg-gray-900 border-gray-100 dark:border-gray-800'
-                      } ${isHoliday && isCurrentMonth ? 'bg-red-50/30 dark:bg-red-900/10' : ''}`}
-                    >
-                      <div className={`text-sm font-medium mb-1 ${
-                        !isCurrentMonth
-                          ? 'text-gray-400 dark:text-gray-600'
-                          : isHolidayOrSunday
-                            ? 'text-red-500 dark:text-red-400'
-                            : dayOfWeek === 6
-                              ? 'text-blue-500 dark:text-blue-400'
-                              : 'text-gray-900 dark:text-gray-100'
-                      }`}>
-                        {format(date, 'd')}
-                      </div>
-
-                      <div className="space-y-1">
-                        {filteredAssignments.map((assignment, i) => {
-                          const member = displayMembers.find(m => m.id === assignment.employeeId);
-                          if (!member) return null;
-
-                          return (
-                            <div
-                              key={i}
-                              className="text-[10px] px-1 py-0.5 rounded text-white truncate"
-                              style={{ backgroundColor: getShiftColor(assignment.shiftId) }}
-                              title={`${member.name} - ${getShiftName(assignment.shiftId)}`}
-                            >
-                              {member.name} {getShiftName(assignment.shiftId)}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                });
-              })()}
-            </div>
-          </div>
+          <ScheduleCalendarView
+            currentMonth={currentMonth}
+            displayMembers={displayMembers}
+            holidayDates={holidayDates}
+            showSameSchedule={showSameSchedule}
+            currentUser={currentUser}
+            getScheduleForDay={getScheduleForDay}
+            getShiftColor={getShiftColor}
+            getShiftName={getShiftName}
+          />
         )}
 
         {/* Stats */}
-        {schedule.length > 0 && (
-          <div className="mt-6 grid grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">총 배정</p>
-                  <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{schedule.length}</p>
-                </div>
-                <Calendar className="w-8 h-8 text-gray-300 dark:text-gray-600" />
-              </div>
-            </div>
-
-            {shifts.map(shift => {
-              const count = schedule.filter(a => a.shiftId === shift.id).length;
-              return (
-                <div key={shift.id} className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{shift.name}</p>
-                      <p className="text-2xl font-semibold" style={{ color: shift.color }}>
-                        {count}
-                      </p>
-                    </div>
-                    <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold"
-                      style={{ backgroundColor: shift.color }}
-                    >
-                      {shift.type[0].toUpperCase()}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        <ScheduleStats
+          schedule={schedule}
+          shifts={shifts}
+        />
           </>
         )}
 
