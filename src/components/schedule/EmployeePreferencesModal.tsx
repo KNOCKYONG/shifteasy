@@ -127,6 +127,9 @@ export function EmployeePreferencesModal({
   }
   const [customShiftTypes, setCustomShiftTypes] = useState<CustomShiftType[]>([]);
 
+  // tRPC mutation for creating special requests
+  const createSpecialRequest = api.specialRequests.create.useMutation();
+
   // Load custom shift types from localStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -198,7 +201,7 @@ export function EmployeePreferencesModal({
 
         // Save each request
         for (const request of requests) {
-          await api.specialRequests.create.mutate({
+          await createSpecialRequest.mutateAsync({
             employeeId: employee.id,
             requestType: 'shift_request', // Default type for shift requests
             shiftTypeCode: request.shiftTypeCode,
