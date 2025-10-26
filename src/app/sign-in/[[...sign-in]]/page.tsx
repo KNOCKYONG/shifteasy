@@ -194,6 +194,7 @@ export default function SignInPage() {
           </p>
           <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
             <p>📧 admin@shifteasy.com (관리자)</p>
+            <p>📧 guest@shifteasy.com (게스트 매니저)</p>
             <p>📧 manager@shifteasy.com (8명 매니저)</p>
             <p>📧 manager.a@shifteasy.com (15명 매니저)</p>
             <p>📧 manager.b@shifteasy.com (20명 매니저)</p>
