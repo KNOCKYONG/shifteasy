@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import type { ComprehensivePreferences } from '@/components/team/MyPreferencesPanel';
+import { db } from '@/db';
+import { tenantConfigs } from '@/db/schema/tenant-configs';
+import { eq, and } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
-// 선호도 저장소 (실제로는 DB 사용)
-const preferencesStore = new Map<string, ComprehensivePreferences>();
+// Default tenant ID (나중에 인증 시스템에서 가져와야 함)
+const DEFAULT_TENANT_ID = '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
 
 // 선호도 검증 스키마
 const PreferencesSchema = z.object({
@@ -113,25 +116,42 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const employeeId = searchParams.get('employeeId');
+    const tenantId = DEFAULT_TENANT_ID; // TODO: Get from auth
 
     if (!employeeId) {
       // 모든 직원의 선호도 반환
+      const allConfigs = await db.select()
+        .from(tenantConfigs)
+        .where(eq(tenantConfigs.tenantId, tenantId));
+
       const allPreferences: Record<string, ComprehensivePreferences> = {};
-      preferencesStore.forEach((value, key) => {
-        allPreferences[key] = value;
+
+      // 'preferences_' prefix로 시작하는 config만 필터링
+      allConfigs.forEach(config => {
+        if (config.configKey.startsWith('preferences_')) {
+          const empId = config.configKey.replace('preferences_', '');
+          allPreferences[empId] = config.configValue as ComprehensivePreferences;
+        }
       });
 
       return NextResponse.json({
         success: true,
         data: allPreferences,
-        count: preferencesStore.size,
+        count: Object.keys(allPreferences).length,
       });
     }
 
     // 특정 직원의 선호도 반환
-    const preferences = preferencesStore.get(employeeId);
+    const configKey = `preferences_${employeeId}`;
+    const result = await db.select()
+      .from(tenantConfigs)
+      .where(and(
+        eq(tenantConfigs.tenantId, tenantId),
+        eq(tenantConfigs.configKey, configKey)
+      ))
+      .limit(1);
 
-    if (!preferences) {
+    if (result.length === 0) {
       return NextResponse.json(
         {
           success: false,
@@ -143,7 +163,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: preferences,
+      data: result[0].configValue,
       employeeId,
     });
   } catch (error) {
@@ -162,6 +182,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const tenantId = DEFAULT_TENANT_ID; // TODO: Get from auth
 
     // 요청 검증
     const validationResult = PreferencesSchema.safeParse(body);
@@ -178,13 +199,37 @@ export async function POST(request: NextRequest) {
     }
 
     const { employeeId, preferences } = validationResult.data;
+    const configKey = `preferences_${employeeId}`;
 
-    // 선호도 저장
-    preferencesStore.set(employeeId, preferences);
+    // 기존 레코드 확인
+    const existing = await db.select()
+      .from(tenantConfigs)
+      .where(and(
+        eq(tenantConfigs.tenantId, tenantId),
+        eq(tenantConfigs.configKey, configKey)
+      ))
+      .limit(1);
 
-    // 실제로는 여기서 DB 저장 및 캐시 무효화
-    // await saveToDatabase(employeeId, preferences);
-    // await invalidateSchedulerCache(employeeId);
+    if (existing.length > 0) {
+      // Update
+      await db.update(tenantConfigs)
+        .set({
+          configValue: preferences,
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(tenantConfigs.tenantId, tenantId),
+          eq(tenantConfigs.configKey, configKey)
+        ));
+    } else {
+      // Insert
+      await db.insert(tenantConfigs)
+        .values({
+          tenantId,
+          configKey,
+          configValue: preferences,
+        });
+    }
 
     // 스케줄러에 변경 알림 (WebSocket 또는 SSE 사용 가능)
     notifySchedulerUpdate(employeeId);
@@ -216,6 +261,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const employeeId = searchParams.get('employeeId');
+    const tenantId = DEFAULT_TENANT_ID; // TODO: Get from auth
 
     if (!employeeId) {
       return NextResponse.json(
@@ -227,9 +273,18 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const existed = preferencesStore.has(employeeId);
+    const configKey = `preferences_${employeeId}`;
 
-    if (!existed) {
+    // 삭제 전 존재 여부 확인
+    const existing = await db.select()
+      .from(tenantConfigs)
+      .where(and(
+        eq(tenantConfigs.tenantId, tenantId),
+        eq(tenantConfigs.configKey, configKey)
+      ))
+      .limit(1);
+
+    if (existing.length === 0) {
       return NextResponse.json(
         {
           success: false,
@@ -239,7 +294,11 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    preferencesStore.delete(employeeId);
+    await db.delete(tenantConfigs)
+      .where(and(
+        eq(tenantConfigs.tenantId, tenantId),
+        eq(tenantConfigs.configKey, configKey)
+      ));
 
     return NextResponse.json({
       success: true,
@@ -272,6 +331,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
     const { employeeId, updates } = body;
+    const tenantId = DEFAULT_TENANT_ID; // TODO: Get from auth
 
     if (!employeeId) {
       return NextResponse.json(
@@ -283,9 +343,18 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const existing = preferencesStore.get(employeeId);
+    const configKey = `preferences_${employeeId}`;
 
-    if (!existing) {
+    // 기존 레코드 조회
+    const existing = await db.select()
+      .from(tenantConfigs)
+      .where(and(
+        eq(tenantConfigs.tenantId, tenantId),
+        eq(tenantConfigs.configKey, configKey)
+      ))
+      .limit(1);
+
+    if (existing.length === 0) {
       return NextResponse.json(
         {
           success: false,
@@ -296,8 +365,17 @@ export async function PATCH(request: NextRequest) {
     }
 
     // 깊은 병합
-    const merged = deepMerge(existing, updates);
-    preferencesStore.set(employeeId, merged);
+    const merged = deepMerge(existing[0].configValue, updates);
+
+    await db.update(tenantConfigs)
+      .set({
+        configValue: merged,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(tenantConfigs.tenantId, tenantId),
+        eq(tenantConfigs.configKey, configKey)
+      ));
 
     return NextResponse.json({
       success: true,

@@ -535,19 +535,35 @@ export default function SchedulePage() {
     }
   }, [canViewStaffPreferences, activeView]);
 
-  // Load custom shift types from localStorage
+  // Load custom shift types from tenant_configs API
+  const { data: shiftTypesConfig } = api.tenantConfigs.getByKey.useQuery({
+    configKey: 'customShiftTypes'
+  });
+
+  // Load shift config (나이트 집중 근무 유급 휴가 설정 등)
+  const { data: shiftConfigData } = api.tenantConfigs.getByKey.useQuery({
+    configKey: 'shiftConfig'
+  });
+
   useEffect(() => {
-    const savedShiftTypes = localStorage.getItem('customShiftTypes');
-    if (savedShiftTypes) {
-      try {
-        const parsed = JSON.parse(savedShiftTypes);
-        setCustomShiftTypes(parsed);
-        console.log('✅ Loaded custom shift types:', parsed);
-      } catch (error) {
-        console.error('Failed to load custom shift types:', error);
+    if (shiftTypesConfig) {
+      const shiftTypesData = shiftTypesConfig.configValue as any;
+      setCustomShiftTypes(shiftTypesData);
+      console.log('✅ Loaded custom shift types from DB:', shiftTypesData);
+    } else {
+      // Fallback to localStorage for backward compatibility
+      const savedShiftTypes = localStorage.getItem('customShiftTypes');
+      if (savedShiftTypes) {
+        try {
+          const parsed = JSON.parse(savedShiftTypes);
+          setCustomShiftTypes(parsed);
+          console.log('✅ Loaded custom shift types from localStorage (fallback):', parsed);
+        } catch (error) {
+          console.error('Failed to load custom shift types:', error);
+        }
       }
     }
-  }, []);
+  }, [shiftTypesConfig]);
 
   // Convert customShiftTypes to Shift[] format
   const shifts = React.useMemo(() => {
@@ -1155,11 +1171,18 @@ export default function SchedulePage() {
       // 0. Config 설정 불러오기 (나이트 집중 근무 유급 휴가 설정 포함)
       let nightIntensivePaidLeaveDays = 0;
       try {
-        const savedConfig = localStorage.getItem('shiftConfig');
-        if (savedConfig) {
-          const config = JSON.parse(savedConfig);
+        if (shiftConfigData) {
+          const config = shiftConfigData.configValue as any;
           nightIntensivePaidLeaveDays = config.preferences?.nightIntensivePaidLeaveDays || 0;
-          console.log(`⚙️ Config loaded: 나이트 집중 근무 유급 휴가 = ${nightIntensivePaidLeaveDays}일/월`);
+          console.log(`⚙️ Config loaded from DB: 나이트 집중 근무 유급 휴가 = ${nightIntensivePaidLeaveDays}일/월`);
+        } else {
+          // Fallback to localStorage
+          const savedConfig = localStorage.getItem('shiftConfig');
+          if (savedConfig) {
+            const config = JSON.parse(savedConfig);
+            nightIntensivePaidLeaveDays = config.preferences?.nightIntensivePaidLeaveDays || 0;
+            console.log(`⚙️ Config loaded from localStorage (fallback): 나이트 집중 근무 유급 휴가 = ${nightIntensivePaidLeaveDays}일/월`);
+          }
         }
       } catch (error) {
         console.warn('⚠️ Failed to load config, using default values:', error);
