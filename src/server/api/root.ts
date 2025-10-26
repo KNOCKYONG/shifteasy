@@ -10,6 +10,7 @@ import { notificationRouter } from './routers/notification';
 import { preferencesRouter } from './routers/preferences';
 import { holidaysRouter } from './routers/holidays';
 import { specialRequestsRouter } from './routers/special-requests';
+import { tenantConfigsRouter } from './routers/tenant-configs';
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -23,6 +24,7 @@ export const appRouter = createTRPCRouter({
   preferences: preferencesRouter,
   holidays: holidaysRouter,
   specialRequests: specialRequestsRouter,
+  tenantConfigs: tenantConfigsRouter,
 });
 
 export type AppRouter = typeof appRouter;

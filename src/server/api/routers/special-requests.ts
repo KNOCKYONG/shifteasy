@@ -53,7 +53,7 @@ export const specialRequestsRouter = createTRPCRouter({
       return result;
     }),
 
-  // Get approved requests for scheduling
+  // Get approved requests for scheduling (shift_request는 pending도 포함)
   getApprovedForScheduling: protectedProcedure
     .input(z.object({
       startDate: z.string(), // YYYY-MM-DD
@@ -66,7 +66,14 @@ export const specialRequestsRouter = createTRPCRouter({
         .from(specialRequests)
         .where(and(
           eq(specialRequests.tenantId, tenantId),
-          eq(specialRequests.status, 'approved'),
+          // shift_request는 pending도 포함 (직원 선호사항이므로 자동 승인)
+          or(
+            eq(specialRequests.status, 'approved'),
+            and(
+              eq(specialRequests.requestType, 'shift_request'),
+              eq(specialRequests.status, 'pending')
+            )
+          ),
           or(
             and(
               gte(specialRequests.startDate, input.startDate),

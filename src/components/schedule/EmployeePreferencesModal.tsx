@@ -4,6 +4,7 @@ import { User, Heart, Calendar, Clock, Users, Shield, X, Save, AlertCircle, Star
 import { type Employee, type EmployeePreferences, type ShiftType } from "@/lib/scheduler/types";
 import { validatePattern as validatePatternUtil, describePattern, EXAMPLE_PATTERNS, KEYWORD_DESCRIPTIONS, type ShiftToken } from "@/lib/utils/pattern-validator";
 import { api } from "@/lib/trpc/client";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 
 interface EmployeePreferencesModalProps {
   employee: Employee;
@@ -130,6 +131,14 @@ export function EmployeePreferencesModal({
   // tRPC mutation for creating special requests
   const createSpecialRequest = api.specialRequests.create.useMutation();
 
+  // Query to fetch existing special requests for the selected month
+  const { data: existingRequests } = api.specialRequests.getByDateRange.useQuery({
+    startDate: format(startOfMonth(selectedMonth), 'yyyy-MM-dd'),
+    endDate: format(endOfMonth(selectedMonth), 'yyyy-MM-dd'),
+    employeeId: employee.id,
+    status: 'pending',
+  });
+
   // Load custom shift types from localStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -144,6 +153,35 @@ export function EmployeePreferencesModal({
       }
     }
   }, []);
+
+  // Load existing shift requests when data is fetched
+  useEffect(() => {
+    if (existingRequests && existingRequests.length > 0) {
+      const requestsMap: Record<string, string> = {};
+
+      existingRequests.forEach(req => {
+        // Convert date strings to Date objects
+        const start = new Date(req.startDate);
+        const end = req.endDate ? new Date(req.endDate) : start;
+
+        // Get all dates in the range
+        const days = eachDayOfInterval({ start, end });
+
+        // Map each day to its shift type code
+        days.forEach(day => {
+          const dateKey = format(day, 'yyyy-MM-dd');
+          if (req.shiftTypeCode) {
+            requestsMap[dateKey] = req.shiftTypeCode;
+          }
+        });
+      });
+
+      setShiftRequests(requestsMap);
+    } else {
+      // Clear requests if no data
+      setShiftRequests({});
+    }
+  }, [existingRequests]);
 
   const daysOfWeek = ['일', '월', '화', '수', '목', '금', '토'];
   const shiftTypes: { value: ShiftType; label: string; color: string }[] = [

@@ -45,6 +45,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // 'no-department' or invalid UUID인 경우 기본값 반환
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (departmentId === 'no-department' || !uuidRegex.test(departmentId)) {
+      console.log('[GET] Invalid or no-department ID, returning default pattern');
+      return NextResponse.json({
+        pattern: null,
+        defaultPattern: {
+          departmentId,
+          requiredStaffDay: 5,
+          requiredStaffEvening: 4,
+          requiredStaffNight: 3,
+          defaultPatterns: [['D', 'D', 'D', 'OFF', 'OFF']],
+          totalMembers: 15,
+        }
+      });
+    }
+
     // 부서의 Team Pattern 조회
     console.log('[GET] Querying team patterns for departmentId:', departmentId);
 
