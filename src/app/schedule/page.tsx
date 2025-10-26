@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval } from "date-fns";
 import { ko } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCcw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings, MessageSquare } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCcw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings } from "lucide-react";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { Scheduler, type SchedulingRequest, type SchedulingResult } from "../../lib/scheduler/core";
 import { api } from "../../lib/trpc/client";
@@ -11,7 +11,6 @@ import { EmployeeAdapter } from "../../lib/adapters/employee-adapter";
 import type { UnifiedEmployee } from "@/lib/types/unified-employee";
 import { validateSchedulingRequest, validateEmployee } from "@/lib/validation/schemas";
 import { EmployeePreferencesModal, type ExtendedEmployeePreferences } from "@/components/schedule/EmployeePreferencesModal";
-import { SpecialRequestModal, type SpecialRequest } from "@/components/team/SpecialRequestModal";
 import { type ComprehensivePreferences } from "@/components/team/MyPreferencesPanel";
 import { toEmployee } from "@/lib/utils/employee-converter";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -440,8 +439,6 @@ export default function SchedulePage() {
   const [showReport, setShowReport] = useState(false); // 스케줄링 리포트 모달
   const [activeView, setActiveView] = useState<'preferences' | 'schedule'>('preferences'); // 기본 뷰를 preferences로 설정
   const [showMyPreferences, setShowMyPreferences] = useState(false);
-  const [showSpecialRequest, setShowSpecialRequest] = useState(false);
-  const [specialRequests, setSpecialRequests] = useState<SpecialRequest[]>([]);
   const [showMyScheduleOnly, setShowMyScheduleOnly] = useState(false); // 나의 스케줄만 보기
 
   // Employee preferences modal state
@@ -459,7 +456,7 @@ export default function SchedulePage() {
     [daysInMonth.length]
   );
   const scheduleGridTemplate = React.useMemo(
-    () => `200px repeat(${daysInMonth.length}, minmax(70px, 1fr))`,
+    () => `120px repeat(${daysInMonth.length}, minmax(35px, 40px))`,
     [daysInMonth.length]
   );
 
@@ -544,10 +541,11 @@ export default function SchedulePage() {
   );
 
   // Transform users data to match expected format
-  const filteredMembers = React.useMemo(() => {
+  // 전체 멤버 리스트 (필터링 없음 - 직원 선호사항 탭에서 사용)
+  const allMembers = React.useMemo(() => {
     if (!usersData?.items) return [];
 
-    let members = (usersData.items as any[]).map((item: any) => ({
+    return (usersData.items as any[]).map((item: any) => ({
       id: item.id,
       employeeId: item.employeeId || '',
       name: item.name,
@@ -569,15 +567,19 @@ export default function SchedulePage() {
         unavailableDates: []
       }
     }));
+  }, [usersData]);
+
+  // 필터링된 멤버 리스트 (나의 스케줄만 보기 적용 - 스케줄 보기 탭에서 사용)
+  const filteredMembers = React.useMemo(() => {
+    let members = [...allMembers];
 
     // member가 "나의 스케줄만 보기"를 체크한 경우
     if ((isMember || isManager) && showMyScheduleOnly && currentUser.dbUser?.id) {
       members = members.filter(member => member.id === currentUser.dbUser?.id);
     }
-    // member가 체크하지 않은 경우는 이미 백엔드 쿼리에서 department로 필터링됨
 
     return members;
-  }, [usersData, isMember, showMyScheduleOnly, currentUser.dbUser?.id, memberDepartmentId]);
+  }, [allMembers, isMember, isManager, showMyScheduleOnly, currentUser.dbUser?.id]);
 
   const handlePreviousMonth = () => {
     setCurrentMonth(prev => subMonths(prev, 1));
@@ -845,21 +847,6 @@ export default function SchedulePage() {
     }
   };
 
-  const handleSubmitSpecialRequest = (request: Omit<SpecialRequest, 'id' | 'createdAt' | 'status'>) => {
-    const newRequest: SpecialRequest = {
-      ...request,
-      id: `req-${Date.now()}`,
-      createdAt: new Date(),
-      status: 'pending'
-    };
-
-    setSpecialRequests([...specialRequests, newRequest]);
-
-    // 실제로는 API를 통해 저장
-    console.log('Submitting special request:', newRequest);
-
-    alert('특별 요청이 성공적으로 제출되었습니다. 관리자가 곧 검토할 예정입니다.');
-  };
 
   // 시프트 타입 필터 토글
   const toggleShiftType = (shiftType: string) => {
@@ -1560,34 +1547,24 @@ export default function SchedulePage() {
                 </p>
               </div>
             </div>
-            <div className="flex gap-2 sm:gap-3">
-              <button
-                onClick={async () => {
-                  // member는 자신의 정보로 EmployeePreferencesModal 열기
-                  const currentEmployee = filteredMembers.find(m => m.id === currentUser.dbUser?.id);
-                  if (currentEmployee) {
-                    await handleEmployeeClick(currentEmployee);
-                  }
-                }}
-                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
-              >
-                <Settings className="w-4 h-4" />
-                <span className="hidden sm:inline">선호도 설정</span>
-                <span className="sm:hidden">설정</span>
-              </button>
-              <button
-                onClick={() => setShowSpecialRequest(true)}
-                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                <MessageSquare className="w-4 h-4" />
-                <span className="hidden sm:inline">특별 요청</span>
-                <span className="sm:hidden">요청</span>
-              </button>
-            </div>
+            <button
+              onClick={async () => {
+                // member는 자신의 정보로 EmployeePreferencesModal 열기
+                const currentEmployee = allMembers.find(m => m.id === currentUser.dbUser?.id);
+                if (currentEmployee) {
+                  await handleEmployeeClick(currentEmployee);
+                }
+              }}
+              className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
+            >
+              <Settings className="w-4 h-4" />
+              <span className="hidden sm:inline">선호도 설정</span>
+              <span className="sm:hidden">설정</span>
+            </button>
           </div>
 
           {/* 현재 설정된 선호도 요약 - 모바일에서는 2열 그리드 */}
-          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4">
             <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">선호 시프트</p>
               <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">주간</p>
@@ -1599,12 +1576,6 @@ export default function SchedulePage() {
             <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">최대 연속</p>
               <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">5일</p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">특별 요청</p>
-              <p className="text-xs sm:text-sm font-medium text-amber-600 dark:text-amber-400">
-                {specialRequests.filter(r => r.employeeId === currentUserId && r.status === 'pending').length}건
-              </p>
             </div>
           </div>
 
@@ -1824,7 +1795,7 @@ export default function SchedulePage() {
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredMembers.map(member => (
+                {allMembers.map(member => (
                   <div
                     key={member.id}
                     className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -1902,7 +1873,7 @@ export default function SchedulePage() {
                 ))}
               </div>
 
-              {filteredMembers.length === 0 && (
+              {allMembers.length === 0 && (
                 <div className="text-center py-12">
                   <Users className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                   <p className="text-gray-500 dark:text-gray-400">선택된 부서에 직원이 없습니다</p>
@@ -2081,19 +2052,19 @@ export default function SchedulePage() {
               className="grid border-b border-gray-200 dark:border-gray-700"
               style={{ gridTemplateColumns: scheduleGridTemplate }}
             >
-                <div className="p-4 bg-gray-50 dark:bg-gray-800 font-medium text-sm text-gray-700 dark:text-gray-300">
+                <div className="p-2 bg-gray-50 dark:bg-gray-800 font-medium text-xs text-gray-700 dark:text-gray-300 flex items-center">
                   직원
                 </div>
                 {daysInMonth.map((date) => (
                   <div
                     key={date.toISOString()}
-                    className="p-4 bg-gray-50 dark:bg-gray-800 text-center border-l border-gray-200 dark:border-gray-700"
+                    className="py-1 px-0.5 bg-gray-50 dark:bg-gray-800 text-center border-l border-gray-200 dark:border-gray-700"
                   >
-                    <div className="font-medium text-sm text-gray-700 dark:text-gray-300">
-                      {format(date, 'EEE')}
+                    <div className="font-medium text-[10px] text-gray-700 dark:text-gray-300">
+                      {format(date, 'EEE', { locale: ko }).slice(0, 1)}
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {format(date, 'M/d')}
+                    <div className="text-[9px] text-gray-500 dark:text-gray-400">
+                      {format(date, 'd')}
                     </div>
                   </div>
                 ))}
@@ -2106,34 +2077,9 @@ export default function SchedulePage() {
                     className="grid border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50"
                     style={{ gridTemplateColumns: scheduleGridTemplate }}
                   >
-                    <div className="p-4 flex items-center gap-2 border-r border-gray-100 dark:border-gray-800">
-                      <div className="flex-1">
-                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{member.name}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">{member.position}</div>
-                      </div>
-                      {schedule.length > 0 && (
-                        <div className="flex flex-col items-end gap-1">
-                          {(() => {
-                            const hours = calculateMonthlyHours(member.id);
-                            return hours > 0 && (
-                              <span
-                                className={`text-xs px-2 py-0.5 rounded ${
-                                  hours > monthlyOvertimeThreshold
-                                    ? 'bg-orange-100 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400'
-                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
-                                }`}
-                              >
-                                {hours}시간
-                              </span>
-                            );
-                          })()}
-                          {hasViolations(member.id) && (
-                            <span className="text-xs px-2 py-0.5 rounded bg-red-100 dark:bg-red-950/30 text-red-700 dark:text-red-400">
-                              위반
-                            </span>
-                          )}
-                        </div>
-                      )}
+                    <div className="p-2 flex flex-col justify-center border-r border-gray-100 dark:border-gray-800">
+                      <div className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">{member.name}</div>
+                      <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{member.position}</div>
                     </div>
 
                     {daysInMonth.map((date) => {
@@ -2142,20 +2088,21 @@ export default function SchedulePage() {
                       return (
                         <div
                           key={`${member.id}-${date.toISOString()}`}
-                          className="p-2 border-l border-gray-100 dark:border-gray-800"
+                          className="p-0.5 border-l border-gray-100 dark:border-gray-800 flex items-center justify-center"
                         >
                           {dayAssignments.map((assignment, i) => (
                             <div
                               key={i}
-                              className="mb-1 px-2 py-1 rounded text-xs font-medium text-white text-center"
+                              className="w-full px-0.5 py-1 rounded text-[9px] font-medium text-white text-center"
                               style={{ backgroundColor: getShiftColor(assignment.shiftId) }}
+                              title={getShiftName(assignment.shiftId)}
                             >
-                              {getShiftName(assignment.shiftId)}
+                              {getShiftName(assignment.shiftId).charAt(0)}
                             </div>
                           ))}
                           {dayAssignments.length === 0 && (
-                            <div className="px-2 py-1 rounded text-xs text-gray-400 dark:text-gray-500 text-center bg-gray-50 dark:bg-gray-800">
-                              휴무
+                            <div className="w-full px-0.5 py-1 text-[9px] text-gray-300 dark:text-gray-600 text-center">
+                              -
                             </div>
                           )}
                         </div>
@@ -2865,19 +2812,6 @@ export default function SchedulePage() {
             </div>
           </div>
         </div>
-      )}
-
-      {isMember && (
-        <>
-          <SpecialRequestModal
-            isOpen={showSpecialRequest}
-            onClose={() => setShowSpecialRequest(false)}
-            currentUserId={currentUserId}
-            currentUserName={currentUserName}
-            onSubmit={handleSubmitSpecialRequest}
-            existingRequests={specialRequests.filter(r => r.employeeId === currentUserId)}
-          />
-        </>
       )}
 
       {/* Employee Preferences Modal */}
