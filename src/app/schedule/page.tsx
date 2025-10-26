@@ -32,6 +32,8 @@ import {
 } from "@/components/schedule/views";
 import { convertShiftTypesToShifts, type ShiftType } from "@/lib/utils/shift-utils";
 import { normalizeDate } from "@/lib/utils/date-utils";
+import { useScheduleModals } from "@/hooks/useScheduleModals";
+import { useScheduleFilters } from "@/hooks/useScheduleFilters";
 
 // 스케줄 페이지에서 사용하는 확장된 ScheduleAssignment 타입
 interface ExtendedScheduleAssignment extends ScheduleAssignment {
@@ -401,6 +403,11 @@ export default function SchedulePage() {
   const currentUserId = currentUser.userId || "user-1";
   const currentUserName = currentUser.name || "사용자";
 
+  // Custom hooks for state management
+  const filters = useScheduleFilters();
+  const modals = useScheduleModals();
+
+  // Core schedule state (not extracted to hooks due to complex interdependencies)
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()));
   const [schedule, setSchedule] = useState<ScheduleAssignment[]>([]);
   const [originalSchedule, setOriginalSchedule] = useState<ScheduleAssignment[]>([]); // 원본 스케줄 저장
@@ -408,18 +415,11 @@ export default function SchedulePage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationResult, setGenerationResult] = useState<SchedulingResult | null>(null);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
-  const [selectedShiftTypes, setSelectedShiftTypes] = useState<Set<string>>(new Set());
   const [customShiftTypes, setCustomShiftTypes] = useState<ShiftType[]>([]); // Config의 근무 타입 데이터
-  const [showReport, setShowReport] = useState(false); // 스케줄링 리포트 모달
-  const [activeView, setActiveView] = useState<'preferences' | 'schedule'>('preferences'); // 기본 뷰를 preferences로 설정
   const [showMyPreferences, setShowMyPreferences] = useState(false);
-  const [showMyScheduleOnly, setShowMyScheduleOnly] = useState(false); // 나의 스케줄만 보기
-  const [showSameSchedule, setShowSameSchedule] = useState(false); // 나와 같은 스케줄 보기
-  const [viewMode, setViewMode] = useState<'grid' | 'calendar'>('grid'); // 캘린더 형식 보기
 
   // Employee preferences modal state
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  const [isPreferencesModalOpen, setIsPreferencesModalOpen] = useState(false);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -492,10 +492,10 @@ export default function SchedulePage() {
   }, [isMember, memberDepartmentId]);
 
   useEffect(() => {
-    if (!canViewStaffPreferences && activeView !== 'schedule') {
-      setActiveView('schedule');
+    if (!canViewStaffPreferences && filters.activeView !== 'schedule') {
+      filters.setActiveView('schedule');
     }
-  }, [canViewStaffPreferences, activeView]);
+  }, [canViewStaffPreferences, filters.activeView, filters.setActiveView]);
 
   // Load custom shift types from tenant_configs API
   const { data: shiftTypesConfig } = api.tenantConfigs.getByKey.useQuery({
@@ -588,12 +588,12 @@ export default function SchedulePage() {
     let members = [...allMembers];
 
     // member가 "나의 스케줄만 보기"를 체크한 경우
-    if ((isMember || isManager) && showMyScheduleOnly && currentUser.dbUser?.id) {
+    if ((isMember || isManager) && filters.showMyScheduleOnly && currentUser.dbUser?.id) {
       members = members.filter(member => member.id === currentUser.dbUser?.id);
     }
 
     // "나와 같은 스케줄 보기"를 체크한 경우
-    if ((isMember || isManager) && showSameSchedule && currentUser.dbUser?.id && schedule.length > 0) {
+    if ((isMember || isManager) && filters.showSameSchedule && currentUser.dbUser?.id && schedule.length > 0) {
       // 현재 사용자가 근무하는 날짜들 추출
       const myWorkDates = new Set(
         schedule
@@ -617,7 +617,7 @@ export default function SchedulePage() {
     }
 
     return members;
-  }, [allMembers, isMember, isManager, showMyScheduleOnly, showSameSchedule, currentUser.dbUser?.id, schedule]);
+  }, [allMembers, isMember, isManager, filters.showMyScheduleOnly, filters.showSameSchedule, currentUser.dbUser?.id, schedule]);
 
   const handlePreviousMonth = () => {
     setCurrentMonth(prev => subMonths(prev, 1));
@@ -775,7 +775,7 @@ export default function SchedulePage() {
     }
 
     setSelectedEmployee(employee);
-    setIsPreferencesModalOpen(true);
+    modals.setIsPreferencesModalOpen(true);
   };
 
   // Handle preferences save
@@ -845,13 +845,13 @@ export default function SchedulePage() {
     await savePreferences.mutateAsync(preferenceData);
 
     // Close modal
-    setIsPreferencesModalOpen(false);
+    modals.setIsPreferencesModalOpen(false);
     setSelectedEmployee(null);
   };
 
   // Handle modal close
   const handleModalClose = () => {
-    setIsPreferencesModalOpen(false);
+    modals.setIsPreferencesModalOpen(false);
     setSelectedEmployee(null);
   };
 
@@ -886,17 +886,6 @@ export default function SchedulePage() {
   };
 
 
-  // 시프트 타입 필터 토글
-  const toggleShiftType = (shiftType: string) => {
-    const newSelection = new Set(selectedShiftTypes);
-    if (newSelection.has(shiftType)) {
-      newSelection.delete(shiftType);
-    } else {
-      newSelection.add(shiftType);
-    }
-    setSelectedShiftTypes(newSelection);
-  };
-
   // 직원별 주간 근무시간 계산
   const calculateMonthlyHours = (employeeId: string) => {
     let totalHours = 0;
@@ -929,10 +918,10 @@ export default function SchedulePage() {
     let result = filteredMembers;
 
     // 시프트 타입 필터
-    if (selectedShiftTypes.size > 0 && customShiftTypes.length > 0) {
+    if (filters.selectedShiftTypes.size > 0 && customShiftTypes.length > 0) {
       // 선택된 코드들의 근무명 추출
       const selectedShiftNames = new Set<string>();
-      selectedShiftTypes.forEach(code => {
+      filters.selectedShiftTypes.forEach(code => {
         const shiftType = customShiftTypes.find(st => st.code === code);
         if (shiftType) {
           selectedShiftNames.add(shiftType.name);
@@ -963,8 +952,8 @@ export default function SchedulePage() {
       return;
     }
 
-    setIsValidating(true);
-    setShowValidationResults(false);
+    modals.setIsValidating(true);
+    modals.setShowValidationResults(false);
 
     try {
       const schedulePayload = buildSchedulePayload();
@@ -987,9 +976,9 @@ export default function SchedulePage() {
       const result = await response.json();
 
       if (result.success) {
-        setValidationScore(result.data.score);
-        setValidationIssues(result.data.violations || []);
-        setShowValidationResults(true);
+        modals.setValidationScore(result.data.score);
+        modals.setValidationIssues(result.data.violations || []);
+        modals.setShowValidationResults(true);
 
         if (result.data.score === 100) {
           alert('스케줄이 모든 제약조건을 만족합니다!');
@@ -1005,7 +994,7 @@ export default function SchedulePage() {
       console.error('Validation error:', error);
       alert('스케줄 검증 중 오류가 발생했습니다.');
     } finally {
-      setIsValidating(false);
+      modals.setIsValidating(false);
     }
   };
 
@@ -1016,7 +1005,7 @@ export default function SchedulePage() {
       return;
     }
 
-    setIsOptimizing(true);
+    modals.setIsOptimizing(true);
 
     try {
       const schedulePayload = buildSchedulePayload();
@@ -1061,7 +1050,7 @@ export default function SchedulePage() {
       console.error('Optimization error:', error);
       alert('스케줄 최적화 중 오류가 발생했습니다.');
     } finally {
-      setIsOptimizing(false);
+      modals.setIsOptimizing(false);
     }
   };
 
@@ -1072,7 +1061,7 @@ export default function SchedulePage() {
       return;
     }
 
-    setIsConfirming(true);
+    modals.setIsConfirming(true);
 
     try {
       const schedulePayload = buildSchedulePayload();
@@ -1093,7 +1082,7 @@ export default function SchedulePage() {
           metadata: {
             createdBy: 'user-1', // 임시 사용자 ID
             createdAt: new Date().toISOString(),
-            validationScore: validationScore,
+            validationScore: modals.validationScore,
           },
         }),
       });
@@ -1102,7 +1091,7 @@ export default function SchedulePage() {
 
       if (result.success) {
         setScheduleStatus('confirmed');
-        setShowConfirmDialog(false);
+        modals.setShowConfirmDialog(false);
         alert('스케줄이 확정되었습니다!\n직원들에게 알림이 발송되었습니다.');
       } else {
         alert('스케줄 확정에 실패했습니다: ' + result.error);
@@ -1111,7 +1100,7 @@ export default function SchedulePage() {
       console.error('Confirmation error:', error);
       alert('스케줄 확정 중 오류가 발생했습니다.');
     } finally {
-      setIsConfirming(false);
+      modals.setIsConfirming(false);
     }
   };
 
@@ -1443,7 +1432,7 @@ export default function SchedulePage() {
       setSchedule(convertedAssignments);
       setOriginalSchedule(convertedAssignments); // 원본 저장
       setGenerationResult(null); // SimpleScheduler는 result 객체를 반환하지 않음
-      setActiveView('schedule'); // 스케줄 생성 후 스케줄 뷰로 전환
+      filters.setActiveView('schedule'); // 스케줄 생성 후 스케줄 뷰로 전환
 
       console.log('✅ Schedule generated successfully:', {
         assignments: convertedAssignments.length,
@@ -1471,21 +1460,7 @@ export default function SchedulePage() {
     setIsConfirmed(!isConfirmed);
   };
 
-  const [exportFormat, setExportFormat] = useState<'excel' | 'pdf' | 'both' | null>(null);
-  const [isExporting, setIsExporting] = useState(false);
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
-  const [importFile, setImportFile] = useState<File | null>(null);
-
-  // Schedule optimization and validation states
-  const [showValidationResults, setShowValidationResults] = useState(false);
-  const [validationScore, setValidationScore] = useState<number | null>(null);
-  const [validationIssues, setValidationIssues] = useState<any[]>([]);
-  const [isValidating, setIsValidating] = useState(false);
-  const [isOptimizing, setIsOptimizing] = useState(false);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [isConfirming, setIsConfirming] = useState(false);
+  // Additional local state not covered by hooks
   const [scheduleStatus, setScheduleStatus] = useState<'draft' | 'confirmed'>('draft');
   const [showMoreMenu, setShowMoreMenu] = useState(false);
 
@@ -1510,20 +1485,20 @@ export default function SchedulePage() {
       return;
     }
 
-    if (!importFile) {
+    if (!modals.importFile) {
       alert('파일을 선택해주세요.');
       return;
     }
 
-    setIsImporting(true);
+    modals.setIsImporting(true);
     try {
-      const fileContent = await importFile.text();
+      const fileContent = await modals.importFile.text();
       let importData;
 
-      if (importFile.type === 'application/json') {
+      if (modals.importFile.type === 'application/json') {
         // JSON 파일 처리
         importData = JSON.parse(fileContent);
-      } else if (importFile.type === 'text/csv') {
+      } else if (modals.importFile.type === 'text/csv') {
         // CSV 파일 처리 - 간단한 파싱
         const lines = fileContent.split('\n');
         const headers = lines[0].split(',');
@@ -1586,7 +1561,7 @@ export default function SchedulePage() {
           setCurrentMonth(startOfMonth(new Date(importData.week)));
         }
 
-        setActiveView('schedule');
+        filters.setActiveView('schedule');
         alert('스케줄을 성공적으로 가져왔습니다.');
       } else {
         throw new Error('올바른 스케줄 데이터가 없습니다.');
@@ -1595,9 +1570,9 @@ export default function SchedulePage() {
       console.error('Import error:', error);
       alert('파일 가져오기 중 오류가 발생했습니다. 파일 형식을 확인해주세요.');
     } finally {
-      setIsImporting(false);
-      setShowImportModal(false);
-      setImportFile(null);
+      modals.setIsImporting(false);
+      modals.setShowImportModal(false);
+      modals.setImportFile(null);
     }
   };
 
@@ -1612,7 +1587,7 @@ export default function SchedulePage() {
       return;
     }
 
-    setIsExporting(true);
+    modals.setIsExporting(true);
     try {
       const response = await fetch('/api/report/generate', {
         method: 'POST',
@@ -1688,8 +1663,8 @@ export default function SchedulePage() {
       console.error('Export error:', error);
       alert('내보내기 중 오류가 발생했습니다. 다시 시도해주세요.');
     } finally {
-      setIsExporting(false);
-      setShowExportModal(false);
+      modals.setIsExporting(false);
+      modals.setShowExportModal(false);
     }
   };
 
@@ -1805,7 +1780,7 @@ export default function SchedulePage() {
                     <>
                       <button
                         onClick={handleValidateSchedule}
-                        disabled={isValidating}
+                        disabled={modals.isValidating}
                         className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
                         title="스케줄 검증"
                       >
@@ -1814,7 +1789,7 @@ export default function SchedulePage() {
                       </button>
 
                       <button
-                        onClick={() => setShowConfirmDialog(true)}
+                        onClick={() => modals.setShowConfirmDialog(true)}
                         disabled={scheduleStatus === 'confirmed'}
                         className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
                         title="스케줄 확정"
@@ -1830,7 +1805,7 @@ export default function SchedulePage() {
                 <div className="flex items-center gap-2">
                   {/* Import/Export as icon buttons */}
                   <button
-                    onClick={() => setShowImportModal(true)}
+                    onClick={() => modals.setShowImportModal(true)}
                     className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
                     title="가져오기"
                   >
@@ -1839,7 +1814,7 @@ export default function SchedulePage() {
 
                   {schedule.length > 0 && (
                     <button
-                      onClick={() => setShowExportModal(true)}
+                      onClick={() => modals.setShowExportModal(true)}
                       className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
                       title="내보내기"
                     >
@@ -1877,7 +1852,7 @@ export default function SchedulePage() {
                               <>
                                 <button
                                   onClick={() => {
-                                    setShowReport(true);
+                                    modals.setShowReport(true);
                                     setShowMoreMenu(false);
                                   }}
                                   className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
@@ -1940,13 +1915,13 @@ export default function SchedulePage() {
 
         {/* View Tabs */}
         <ViewTabs
-          activeView={activeView}
+          activeView={filters.activeView}
           canViewStaffPreferences={canViewStaffPreferences}
-          onViewChange={setActiveView}
+          onViewChange={filters.setActiveView}
         />
 
         {/* Preferences View */}
-        {canViewStaffPreferences && activeView === 'preferences' && (
+        {canViewStaffPreferences && filters.activeView === 'preferences' && (
           <StaffPreferencesGrid
             allMembers={allMembers}
             onEmployeeClick={handleEmployeeClick}
@@ -1954,37 +1929,37 @@ export default function SchedulePage() {
         )}
 
         {/* Schedule View */}
-        {activeView === 'schedule' && (
+        {filters.activeView === 'schedule' && (
           <>
         {/* 토글 버튼들 - 가로 한 줄 배치 */}
         <ViewToggles
           isMember={isMember}
           isManager={isManager}
-          showMyScheduleOnly={showMyScheduleOnly}
-          showSameSchedule={showSameSchedule}
-          viewMode={viewMode}
+          showMyScheduleOnly={filters.showMyScheduleOnly}
+          showSameSchedule={filters.showSameSchedule}
+          viewMode={filters.viewMode}
           onToggleMySchedule={(value) => {
-            setShowMyScheduleOnly(value);
+            filters.setShowMyScheduleOnly(value);
             if (value) {
-              setShowSameSchedule(false);
+              filters.setShowSameSchedule(false);
             }
           }}
           onToggleSameSchedule={(value) => {
-            setShowSameSchedule(value);
+            filters.setShowSameSchedule(value);
             if (value) {
-              setShowMyScheduleOnly(false);
-              setViewMode('calendar');
+              filters.setShowMyScheduleOnly(false);
+              filters.setViewMode('calendar');
             }
           }}
-          onToggleViewMode={setViewMode}
+          onToggleViewMode={filters.setViewMode}
         />
 
         {/* Shift Type Filters - Now inside schedule view */}
         <ShiftTypeFilters
           customShiftTypes={customShiftTypes}
-          selectedShiftTypes={selectedShiftTypes}
-          onToggleShiftType={toggleShiftType}
-          onClearFilters={() => setSelectedShiftTypes(new Set())}
+          selectedShiftTypes={filters.selectedShiftTypes}
+          onToggleShiftType={filters.toggleShiftType}
+          onClearFilters={filters.clearShiftTypeFilters}
         />
 
         {/* Week Navigation & Department Filter */}
@@ -1994,7 +1969,7 @@ export default function SchedulePage() {
           selectedDepartment={selectedDepartment}
           displayMembersCount={displayMembers.length}
           filteredMembersCount={filteredMembers.length}
-          selectedShiftTypesSize={selectedShiftTypes.size}
+          selectedShiftTypesSize={filters.selectedShiftTypes.size}
           isMember={isMember}
           onPreviousMonth={handlePreviousMonth}
           onThisMonth={handleThisMonth}
@@ -2013,11 +1988,11 @@ export default function SchedulePage() {
         />
 
         {/* Schedule View - Grid or Calendar */}
-        {viewMode === 'grid' ? (
+        {filters.viewMode === 'grid' ? (
           <ScheduleGridView
             daysInMonth={daysInMonth}
             displayMembers={displayMembers}
-            selectedShiftTypesSize={selectedShiftTypes.size}
+            selectedShiftTypesSize={filters.selectedShiftTypes.size}
             scheduleGridTemplate={scheduleGridTemplate}
             holidayDates={holidayDates}
             getScheduleForDay={getScheduleForDay}
@@ -2029,7 +2004,7 @@ export default function SchedulePage() {
             currentMonth={currentMonth}
             displayMembers={displayMembers}
             holidayDates={holidayDates}
-            showSameSchedule={showSameSchedule}
+            showSameSchedule={filters.showSameSchedule}
             currentUser={currentUser}
             getScheduleForDay={getScheduleForDay}
             getShiftColor={getShiftColor}
@@ -2047,51 +2022,51 @@ export default function SchedulePage() {
 
       {/* 가져오기 모달 */}
       <ImportModal
-        isOpen={showImportModal}
-        onClose={() => setShowImportModal(false)}
-        importFile={importFile}
-        setImportFile={setImportFile}
+        isOpen={modals.showImportModal}
+        onClose={() => modals.setShowImportModal(false)}
+        importFile={modals.importFile}
+        setImportFile={modals.setImportFile}
         onImport={handleImport}
-        isImporting={isImporting}
+        isImporting={modals.isImporting}
       />
 
       {/* 내보내기 형식 선택 모달 */}
       <ExportModal
-        isOpen={showExportModal}
-        onClose={() => setShowExportModal(false)}
+        isOpen={modals.showExportModal}
+        onClose={() => modals.setShowExportModal(false)}
         onExport={handleExport}
-        isExporting={isExporting}
+        isExporting={modals.isExporting}
         generationResult={generationResult}
         isConfirmed={isConfirmed}
       />
 
       {/* 스케줄링 리포트 모달 */}
       <ReportModal
-        isOpen={showReport}
-        onClose={() => setShowReport(false)}
+        isOpen={modals.showReport}
+        onClose={() => modals.setShowReport(false)}
         generationResult={generationResult}
       />
 
       {/* Validation Results Modal */}
       <ValidationResultsModal
-        isOpen={showValidationResults}
-        onClose={() => setShowValidationResults(false)}
-        validationScore={validationScore}
-        validationIssues={validationIssues}
+        isOpen={modals.showValidationResults}
+        onClose={() => modals.setShowValidationResults(false)}
+        validationScore={modals.validationScore}
+        validationIssues={modals.validationIssues}
         onOptimize={handleOptimizeSchedule}
       />
 
       {/* Schedule Confirmation Dialog */}
       <ConfirmationDialog
-        isOpen={showConfirmDialog}
-        onClose={() => setShowConfirmDialog(false)}
+        isOpen={modals.showConfirmDialog}
+        onClose={() => modals.setShowConfirmDialog(false)}
         onConfirm={handleConfirmSchedule}
-        isConfirming={isConfirming}
-        validationScore={validationScore}
+        isConfirming={modals.isConfirming}
+        validationScore={modals.validationScore}
       />
 
       {/* Employee Preferences Modal */}
-      {isPreferencesModalOpen && selectedEmployee && (
+      {modals.isPreferencesModalOpen && selectedEmployee && (
         <EmployeePreferencesModal
           employee={selectedEmployee}
           teamMembers={filteredMembers.map(toEmployee)}
