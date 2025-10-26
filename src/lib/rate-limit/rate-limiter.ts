@@ -2,7 +2,11 @@
  * Rate Limiting System
  */
 
-import { RateLimiterMemory, RateLimiterRedis, RateLimiterAbstract } from 'rate-limiter-flexible';
+import {
+  InMemoryRateLimiter,
+  RateLimitExceededError,
+  RateLimiterOptions,
+} from './in-memory-rate-limiter';
 import { redisClient } from '../cache/redis-client';
 
 export interface RateLimitConfig {
@@ -27,7 +31,7 @@ export interface TenantQuota {
 
 export class RateLimiter {
   private static instance: RateLimiter;
-  private limiters: Map<string, RateLimiterAbstract> = new Map();
+  private limiters: Map<string, InMemoryRateLimiter> = new Map();
   private tenantQuotas: Map<string, TenantQuota> = new Map();
   private usageStats: Map<string, any> = new Map();
 
@@ -115,14 +119,14 @@ export class RateLimiter {
    * Create a rate limiter
    */
   private createLimiter(name: string, config: RateLimitConfig): void {
-    // Always use memory-based rate limiter for now
-    // Redis integration requires specific Redis client setup
-    this.limiters.set(name, new RateLimiterMemory({
+    const limiterConfig: RateLimiterOptions = {
       keyPrefix: config.keyPrefix || `rate_limit_${name}`,
       points: config.points,
       duration: config.duration,
       blockDuration: config.blockDuration,
-    }));
+    };
+
+    this.limiters.set(name, new InMemoryRateLimiter(limiterConfig));
   }
 
   /**
@@ -149,8 +153,8 @@ export class RateLimiter {
         remaining: result.remainingPoints,
         resetAt: new Date(Date.now() + result.msBeforeNext),
       };
-    } catch (error: any) {
-      if (error.remainingPoints !== undefined) {
+    } catch (error: unknown) {
+      if (error instanceof RateLimitExceededError) {
         return {
           allowed: false,
           remaining: error.remainingPoints,
@@ -346,8 +350,8 @@ export class RateLimiter {
     const limitersStatus = Array.from(this.limiters.entries()).map(([name, limiter]) => ({
       name,
       config: {
-        points: (limiter as any).points,
-        duration: (limiter as any).duration,
+        points: limiter.getPoints(),
+        duration: limiter.getDurationSeconds(),
       },
     }));
 
@@ -361,8 +365,7 @@ export class RateLimiter {
    * Clear all rate limits (for testing)
    */
   async clearAll(): Promise<void> {
-    // Clear any in-memory blocks if needed
-    // Note: rate-limiter-flexible doesn't expose deleteInMemoryBlockedAll on all limiter types
+    this.limiters.forEach((limiter) => limiter.clear());
     this.usageStats.clear();
   }
 }
