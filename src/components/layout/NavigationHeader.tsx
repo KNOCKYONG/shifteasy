@@ -21,7 +21,7 @@ export function NavigationHeader() {
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
-  const { dbUser, role } = useCurrentUser();
+  const currentUser = useCurrentUser();
 
   // 읽지 않은 알림 개수 조회 (임시 mock 데이터)
   // TODO: API로 실제 읽지 않은 알림 개수 가져오기
@@ -55,7 +55,7 @@ export function NavigationHeader() {
   }, []);
 
   // Get role-based navigation items
-  const roleNavigation = getNavigationForRole(role as Role);
+  const roleNavigation = getNavigationForRole(currentUser.role as Role);
 
   // Filter out dashboard from navigation (it's in the logo link)
   const navItems: NavItem[] = roleNavigation
