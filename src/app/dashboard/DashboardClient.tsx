@@ -5,10 +5,14 @@ import { Calendar, Users, ArrowRightLeft, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { api } from '@/lib/trpc/client';
 import { MemberDashboard } from '@/components/dashboard/MemberDashboard';
+import { useAuth } from '@clerk/nextjs';
 
 export default function DashboardClient() {
   const [mounted, setMounted] = useState(false);
-  const { data: currentUser } = api.tenant.users.current.useQuery();
+  const { userId, orgId } = useAuth();
+  const { data: currentUser } = api.tenant.users.current.useQuery(undefined, {
+    enabled: !!userId && !!orgId,
+  });
 
   useEffect(() => {
     setMounted(true);

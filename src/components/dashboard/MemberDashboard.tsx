@@ -4,9 +4,13 @@ import { api } from '@/lib/trpc/client';
 import { Card } from '@/components/ui/card';
 import { Calendar, Clock, Bell, CheckCircle, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
+import { useAuth } from '@clerk/nextjs';
 
 export function MemberDashboard() {
-  const { data: currentUser } = api.tenant.users.current.useQuery();
+  const { userId, orgId } = useAuth();
+  const { data: currentUser } = api.tenant.users.current.useQuery(undefined, {
+    enabled: !!userId && !!orgId,
+  });
 
   if (!currentUser) {
     return null;

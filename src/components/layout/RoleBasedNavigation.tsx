@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { ROLE_NAVIGATION, type Role } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/trpc/client';
+import { useAuth } from '@clerk/nextjs';
 import {
   Calendar,
   Users,
@@ -29,7 +30,10 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 
 export function RoleBasedNavigation() {
   const pathname = usePathname();
-  const { data: currentUser } = api.tenant.users.current.useQuery();
+  const { userId, orgId } = useAuth();
+  const { data: currentUser } = api.tenant.users.current.useQuery(undefined, {
+    enabled: !!userId && !!orgId,
+  });
 
   if (!currentUser) {
     return null;

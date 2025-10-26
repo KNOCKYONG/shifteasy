@@ -4,6 +4,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { canAccessPage, type Role } from '@/lib/permissions';
 import { api } from '@/lib/trpc/client';
+import { useAuth } from '@clerk/nextjs';
 
 interface RoleGuardProps {
   children: React.ReactNode;
@@ -13,7 +14,10 @@ interface RoleGuardProps {
 export function RoleGuard({ children, fallbackUrl = '/dashboard' }: RoleGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { data: currentUser, isLoading } = api.tenant.users.current.useQuery();
+  const { userId, orgId } = useAuth();
+  const { data: currentUser, isLoading } = api.tenant.users.current.useQuery(undefined, {
+    enabled: !!userId && !!orgId,
+  });
 
   useEffect(() => {
     if (!isLoading && currentUser) {

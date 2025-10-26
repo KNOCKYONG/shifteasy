@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { Menu, X, Bell } from 'lucide-react';
 import { api } from '@/lib/trpc/client';
 import { getNavigationForRole, type Role } from '@/lib/permissions';
+import { useAuth } from '@clerk/nextjs';
 
 interface NavItem {
   href: string;
@@ -21,7 +22,10 @@ export function NavigationHeader() {
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
-  const { data: currentUser } = api.tenant.users.current.useQuery();
+  const { userId, orgId } = useAuth();
+  const { data: currentUser } = api.tenant.users.current.useQuery(undefined, {
+    enabled: !!userId && !!orgId,
+  });
 
   // 읽지 않은 알림 개수 조회 (임시 mock 데이터)
   // TODO: API로 실제 읽지 않은 알림 개수 가져오기
