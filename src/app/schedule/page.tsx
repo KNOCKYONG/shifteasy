@@ -17,6 +17,11 @@ import { type ComprehensivePreferences } from "@/components/team/MyPreferencesPa
 import { toEmployee } from "@/lib/utils/employee-converter";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
+// 스케줄 페이지에서 사용하는 확장된 ScheduleAssignment 타입
+interface ExtendedScheduleAssignment extends ScheduleAssignment {
+  shiftType?: 'day' | 'evening' | 'night' | 'off' | 'leave' | 'custom';
+}
+
 // 기본 시프트 정의
 const DEFAULT_SHIFTS: Shift[] = [
   {
@@ -174,7 +179,7 @@ function calculateShiftDistribution(
  * @param paidLeaveDaysPerMonth 월별 유급 휴가 일수
  */
 function addNightIntensivePaidLeave(
-  schedule: ScheduleAssignment[],
+  schedule: ExtendedScheduleAssignment[],
   employees: UnifiedEmployee[],
   paidLeaveDaysPerMonth: number
 ): void {
@@ -345,57 +350,59 @@ function createDefaultPreferencesFromTeamPattern(
     healthConsiderations: {
       hasChronicCondition: false,
       needsFrequentBreaks: false,
-      physicalLimitations: [],
+      mobilityRestrictions: false,
+      visualImpairment: false,
+      hearingImpairment: false,
+      mentalHealthSupport: false,
       medicationSchedule: [],
-      fatigueLevel: 'normal',
     },
     commutePreferences: {
       commuteTime: 30,
-      publicTransportDependent: false,
+      transportMode: 'car' as const,
+      parkingRequired: false,
       nightTransportDifficulty: false,
-      needsParking: false,
-      flexibleCommuteOptions: true,
+      weatherSensitive: false,
+      needsTransportAssistance: false,
+      carpoolInterested: false,
     },
-    teamDynamics: {
+    teamPreferences: {
       preferredPartners: [],
       avoidPartners: [],
-      mentorshipRole: 'neither',
-      leadershipWillingness: 'sometimes',
-      conflictResolutionStyle: 'collaborative',
+      mentorshipRole: 'none',
+      languagePreferences: [],
+      communicationStyle: 'direct',
+      conflictResolution: 'immediate',
+    },
+    professionalDevelopment: {
+      specializations: [],
+      certifications: [],
+      trainingInterests: [],
+      careerGoals: '',
+      preferredDepartments: [],
+      avoidDepartments: [],
+      teachingInterest: false,
+      researchInterest: false,
+      administrativeInterest: false,
     },
     priorities: {
       workLifeBalance: 5,
-      income: 5,
-      careerDevelopment: 5,
+      careerGrowth: 5,
+      teamHarmony: 5,
+      incomeMaximization: 5,
+      healthWellbeing: 5,
       familyTime: 5,
-      personalHealth: 5,
     },
     specialRequests: {
-      recurringAppointments: [],
       religiousObservances: {
         needed: false,
-        details: '',
       },
-      educationCommitments: {
-        hasCommitments: false,
-        schedule: [],
+      culturalConsiderations: '',
+      emergencyContact: {
+        name: '',
+        relationship: '',
+        phone: '',
       },
-      secondJob: {
-        has: false,
-        schedule: [],
-      },
-    },
-    flexibilityIndicators: {
-      lastMinuteChanges: 'sometimes',
-      shiftSwaps: 'willing',
-      overtimeAvailability: 'sometimes',
-      crossTraining: 'interested',
-    },
-    communicationPreferences: {
-      notificationMethod: 'app',
-      scheduleChangeNotice: 'asap',
-      feedbackFrequency: 'monthly',
-      languagePreference: 'ko',
+      temporaryRequests: [],
     },
   };
 }
