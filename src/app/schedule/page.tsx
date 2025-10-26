@@ -571,7 +571,7 @@ export default function SchedulePage() {
     }));
 
     // member가 "나의 스케줄만 보기"를 체크한 경우
-    if (isMember && showMyScheduleOnly && currentUser.dbUser?.id) {
+    if ((isMember || isManager) && showMyScheduleOnly && currentUser.dbUser?.id) {
       members = members.filter(member => member.id === currentUser.dbUser?.id);
     }
     // member가 체크하지 않은 경우는 이미 백엔드 쿼리에서 department로 필터링됨
@@ -637,7 +637,12 @@ export default function SchedulePage() {
           workPatternType: savedPreferences.workPatternType as any || 'three-shift',
           workLoadPreference: 'normal' as const,
           flexibilityLevel: savedPreferences.preferAlternatingWeekends ? 'high' as const : 'medium' as const,
-          preferredPatterns: savedPreferences.preferredPatterns?.map((p: any) => p.pattern) || [],
+          preferredPatterns: (() => {
+            const patterns = savedPreferences.preferredPatterns?.map((p: any) => p.pattern) || [];
+            console.log('Loaded preferredPatterns from DB:', savedPreferences.preferredPatterns);
+            console.log('Converted to UI format:', patterns);
+            return patterns;
+          })(),
           preferredPartners: savedPreferences.preferredColleagues || [],
           avoidPartners: savedPreferences.avoidColleagues || [],
           personalConstraints: [],
@@ -669,6 +674,26 @@ export default function SchedulePage() {
           Object.entries(savedPreferences.preferredShiftTypes).forEach(([key, value]) => {
             if (value && value > 0 && shiftMapping[key]) {
               employee.preferences.preferredShifts.push(shiftMapping[key]);
+            }
+          });
+        }
+
+        // Convert weekdayPreferences to preferredDaysOff array
+        if (savedPreferences.weekdayPreferences) {
+          const dayMapping: { [key: string]: number } = {
+            sunday: 0,
+            monday: 1,
+            tuesday: 2,
+            wednesday: 3,
+            thursday: 4,
+            friday: 5,
+            saturday: 6,
+          };
+
+          Object.entries(savedPreferences.weekdayPreferences).forEach(([dayName, score]) => {
+            // Days with score >= 7 are considered preferred days off
+            if (score && score >= 7 && dayMapping[dayName] !== undefined) {
+              employee.preferences.preferredDaysOff.push(dayMapping[dayName]);
             }
           });
         }
@@ -718,6 +743,26 @@ export default function SchedulePage() {
     if (!selectedEmployee) return;
 
     // Convert ExtendedEmployeePreferences to API format
+    // Convert preferredDaysOff (0=Sun, 1=Mon, ..., 6=Sat) to weekdayPreferences
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
+    const weekdayPreferences = {
+      monday: 5,
+      tuesday: 5,
+      wednesday: 5,
+      thursday: 5,
+      friday: 5,
+      saturday: 5,
+      sunday: 5,
+    };
+
+    // Set preferred days to 10
+    (preferences.preferredDaysOff || []).forEach(dayNum => {
+      const dayName = dayNames[dayNum];
+      if (dayName) {
+        weekdayPreferences[dayName] = 10;
+      }
+    });
+
     const preferenceData = {
       staffId: selectedEmployee.id,
       preferredShiftTypes: {
@@ -725,10 +770,14 @@ export default function SchedulePage() {
         E: preferences.preferredShifts.includes('evening') ? 10 : 0,
         N: preferences.preferredShifts.includes('night') ? 10 : 0,
       },
-      preferredPatterns: (preferences.preferredPatterns || []).map(pattern => ({
-        pattern,
-        preference: 10, // Default preference value
-      })),
+      preferredPatterns: (preferences.preferredPatterns || []).map(pattern => {
+        console.log('Saving pattern:', pattern);
+        return {
+          pattern,
+          preference: 10, // Default preference value
+        };
+      }),
+      weekdayPreferences,
       maxConsecutiveDaysPreferred: preferences.maxConsecutiveDays,
       preferAlternatingWeekends: preferences.flexibilityLevel === 'high',
       preferredColleagues: preferences.preferredPartners || [],
