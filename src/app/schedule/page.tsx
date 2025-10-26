@@ -1,8 +1,8 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval } from "date-fns";
+import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek } from "date-fns";
 import { ko } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCcw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings, MessageSquare } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCcw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings } from "lucide-react";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { SimpleScheduler, type Employee as SimpleEmployee, type Holiday, type SpecialRequest as SimpleSpecialRequest, type ScheduleAssignment as SimpleAssignment } from "../../lib/scheduler/simple-scheduler";
 import { api } from "../../lib/trpc/client";
@@ -11,7 +11,6 @@ import { EmployeeAdapter } from "../../lib/adapters/employee-adapter";
 import type { UnifiedEmployee } from "@/lib/types/unified-employee";
 import { validateSchedulingRequest, validateEmployee } from "@/lib/validation/schemas";
 import { EmployeePreferencesModal, type ExtendedEmployeePreferences } from "@/components/schedule/EmployeePreferencesModal";
-import { SpecialRequestModal, type SpecialRequest } from "@/components/team/SpecialRequestModal";
 import { type ComprehensivePreferences } from "@/components/team/MyPreferencesPanel";
 import { toEmployee } from "@/lib/utils/employee-converter";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -108,119 +107,6 @@ const DEFAULT_CONSTRAINTS: Constraint[] = [
     active: true,
   },
 ];
-
-/**
- * DB nursePreferences를 ComprehensivePreferences로 변환
- */
-function convertDbPreferencesToComprehensive(dbPrefs: any): ComprehensivePreferences {
-  // preferredShiftTypes에서 가장 높은 점수의 시프트 추출
-  const preferredShifts: ('day' | 'evening' | 'night')[] = [];
-  if (dbPrefs.preferredShiftTypes) {
-    const shiftScores = [
-      { type: 'day' as const, score: dbPrefs.preferredShiftTypes.D || 0 },
-      { type: 'evening' as const, score: dbPrefs.preferredShiftTypes.E || 0 },
-      { type: 'night' as const, score: dbPrefs.preferredShiftTypes.N || 0 },
-    ].sort((a, b) => b.score - a.score);
-
-    // 점수가 5 이상인 시프트만 선호 시프트로 간주
-    preferredShifts.push(...shiftScores.filter(s => s.score >= 5).map(s => s.type));
-  }
-
-  // weekdayPreferences에서 선호 휴무일 추출 (점수가 낮은 요일)
-  const preferredDaysOff: number[] = [];
-  if (dbPrefs.weekdayPreferences) {
-    const dayScores = [
-      { day: 1, score: dbPrefs.weekdayPreferences.monday || 5 },      // 월요일
-      { day: 2, score: dbPrefs.weekdayPreferences.tuesday || 5 },     // 화요일
-      { day: 3, score: dbPrefs.weekdayPreferences.wednesday || 5 },   // 수요일
-      { day: 4, score: dbPrefs.weekdayPreferences.thursday || 5 },    // 목요일
-      { day: 5, score: dbPrefs.weekdayPreferences.friday || 5 },      // 금요일
-      { day: 6, score: dbPrefs.weekdayPreferences.saturday || 5 },    // 토요일
-      { day: 0, score: dbPrefs.weekdayPreferences.sunday || 5 },      // 일요일
-    ];
-
-    // 점수가 3 이하인 요일을 선호 휴무일로 간주
-    preferredDaysOff.push(...dayScores.filter(d => d.score <= 3).map(d => d.day));
-  }
-
-  return {
-    workPreferences: {
-      preferredShifts: preferredShifts.length > 0 ? preferredShifts : ['day'],
-      maxConsecutiveDays: dbPrefs.maxConsecutiveDaysPreferred || 5,
-      minRestDays: dbPrefs.preferConsecutiveDaysOff || 2,
-      preferredWorkload: 'moderate',
-      weekendPreference: dbPrefs.weekendPreference || 'neutral',
-      holidayPreference: dbPrefs.holidayPreference || 'neutral',
-      overtimeWillingness: 'sometimes',
-      offDayPattern: 'flexible',
-      preferredDaysOff, // DB에서 변환한 선호 휴무일 추가
-      workPatternType: dbPrefs.workPatternType || 'three-shift', // workPatternType 추가
-    },
-    personalCircumstances: {
-      hasYoungChildren: dbPrefs.hasCareResponsibilities || false,
-      childrenAges: [],
-      isSingleParent: false,
-      hasCaregivingResponsibilities: dbPrefs.hasCareResponsibilities || false,
-      isStudying: false,
-    },
-    healthConsiderations: {
-      hasChronicCondition: false,
-      needsFrequentBreaks: false,
-      mobilityRestrictions: false,
-      visualImpairment: false,
-      hearingImpairment: false,
-      mentalHealthSupport: false,
-    },
-    commutePreferences: {
-      commuteTime: 30,
-      transportMode: 'car',
-      parkingRequired: false,
-      nightTransportDifficulty: dbPrefs.hasTransportationIssues || false,
-      weatherSensitive: false,
-      needsTransportAssistance: false,
-      carpoolInterested: false,
-    },
-    teamPreferences: {
-      preferredPartners: dbPrefs.preferredColleagues || [],
-      avoidPartners: dbPrefs.avoidColleagues || [],
-      mentorshipRole: dbPrefs.mentorshipPreference || 'none',
-      languagePreferences: [],
-      communicationStyle: 'direct',
-      conflictResolution: 'planned',
-    },
-    professionalDevelopment: {
-      specializations: [],
-      certifications: [],
-      trainingInterests: [],
-      careerGoals: '',
-      preferredDepartments: [],
-      avoidDepartments: [],
-      teachingInterest: false,
-      researchInterest: false,
-      administrativeInterest: false,
-    },
-    specialRequests: {
-      religiousObservances: {
-        needed: false,
-      },
-      culturalConsiderations: '',
-      emergencyContact: {
-        name: '',
-        relationship: '',
-        phone: '',
-      },
-      temporaryRequests: [],
-    },
-    priorities: {
-      workLifeBalance: 7,
-      careerGrowth: 5,
-      teamHarmony: 6,
-      incomeMaximization: 5,
-      healthWellbeing: 7,
-      familyTime: 6,
-    },
-  } as ComprehensivePreferences;
-}
 
 /**
  * 선호 시프트와 휴무일을 기반으로 맞춤 패턴 생성
@@ -541,24 +427,6 @@ export default function SchedulePage() {
   const currentUserId = currentUser.userId || "user-1";
   const currentUserName = currentUser.name || "사용자";
 
-  // 로그 수집 함수
-  const addLog = (phase: string, level: 'info' | 'success' | 'warning' | 'error', message: string, details?: any) => {
-    const logEntry = {
-      timestamp: new Date(),
-      phase,
-      level,
-      message,
-      details
-    };
-
-    // Console에도 출력
-    const emoji = level === 'success' ? '✅' : level === 'error' ? '❌' : level === 'warning' ? '⚠️' : 'ℹ️';
-    console.log(`${emoji} [${phase}] ${message}`, details || '');
-
-    // State에 저장
-    setGenerationLogs(prev => [...prev, logEntry]);
-  };
-
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()));
   const [schedule, setSchedule] = useState<ScheduleAssignment[]>([]);
   const [originalSchedule, setOriginalSchedule] = useState<ScheduleAssignment[]>([]); // 원본 스케줄 저장
@@ -571,19 +439,9 @@ export default function SchedulePage() {
   const [showReport, setShowReport] = useState(false); // 스케줄링 리포트 모달
   const [activeView, setActiveView] = useState<'preferences' | 'schedule'>('preferences'); // 기본 뷰를 preferences로 설정
   const [showMyPreferences, setShowMyPreferences] = useState(false);
-  const [showSpecialRequest, setShowSpecialRequest] = useState(false);
-  const [specialRequests, setSpecialRequests] = useState<SpecialRequest[]>([]);
   const [showMyScheduleOnly, setShowMyScheduleOnly] = useState(false); // 나의 스케줄만 보기
-
-  // Generation logs state
-  const [generationLogs, setGenerationLogs] = useState<Array<{
-    timestamp: Date;
-    phase: string;
-    level: 'info' | 'success' | 'warning' | 'error';
-    message: string;
-    details?: any;
-  }>>([]);
-  const [showGenerationLogs, setShowGenerationLogs] = useState(false);
+  const [showSameSchedule, setShowSameSchedule] = useState(false); // 나와 같은 스케줄 보기
+  const [viewMode, setViewMode] = useState<'grid' | 'calendar'>('grid'); // 캘린더 형식 보기
 
   // Employee preferences modal state
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -600,7 +458,7 @@ export default function SchedulePage() {
     [daysInMonth.length]
   );
   const scheduleGridTemplate = React.useMemo(
-    () => `200px repeat(${daysInMonth.length}, minmax(70px, 1fr))`,
+    () => `120px repeat(${daysInMonth.length}, minmax(35px, 40px))`,
     [daysInMonth.length]
   );
 
@@ -685,10 +543,11 @@ export default function SchedulePage() {
   );
 
   // Transform users data to match expected format
-  const filteredMembers = React.useMemo(() => {
+  // 전체 멤버 리스트 (필터링 없음 - 직원 선호사항 탭에서 사용)
+  const allMembers = React.useMemo(() => {
     if (!usersData?.items) return [];
 
-    let members = (usersData.items as any[]).map((item: any) => ({
+    return (usersData.items as any[]).map((item: any) => ({
       id: item.id,
       employeeId: item.employeeId || '',
       name: item.name,
@@ -710,15 +569,43 @@ export default function SchedulePage() {
         unavailableDates: []
       }
     }));
+  }, [usersData]);
+
+  // 필터링된 멤버 리스트 (나의 스케줄만 보기 적용 - 스케줄 보기 탭에서 사용)
+  const filteredMembers = React.useMemo(() => {
+    let members = [...allMembers];
 
     // member가 "나의 스케줄만 보기"를 체크한 경우
     if ((isMember || isManager) && showMyScheduleOnly && currentUser.dbUser?.id) {
       members = members.filter(member => member.id === currentUser.dbUser?.id);
     }
-    // member가 체크하지 않은 경우는 이미 백엔드 쿼리에서 department로 필터링됨
+
+    // "나와 같은 스케줄 보기"를 체크한 경우
+    if ((isMember || isManager) && showSameSchedule && currentUser.dbUser?.id && schedule.length > 0) {
+      // 현재 사용자가 근무하는 날짜들 추출
+      const myWorkDates = new Set(
+        schedule
+          .filter(s => s.employeeId === currentUser.dbUser?.id && s.shiftId !== 'shift-off')
+          .map(s => format(new Date(s.date), 'yyyy-MM-dd'))
+      );
+
+      // 같은 날짜에 근무하는 직원들만 필터링
+      if (myWorkDates.size > 0) {
+        members = members.filter(member => {
+          if (member.id === currentUser.dbUser?.id) return true; // 본인은 항상 포함
+
+          // 해당 직원이 같은 날짜에 근무하는지 확인
+          return schedule.some(s =>
+            s.employeeId === member.id &&
+            s.shiftId !== 'shift-off' &&
+            myWorkDates.has(format(new Date(s.date), 'yyyy-MM-dd'))
+          );
+        });
+      }
+    }
 
     return members;
-  }, [usersData, isMember, showMyScheduleOnly, currentUser.dbUser?.id, memberDepartmentId]);
+  }, [allMembers, isMember, isManager, showMyScheduleOnly, showSameSchedule, currentUser.dbUser?.id, schedule]);
 
   const handlePreviousMonth = () => {
     setCurrentMonth(prev => subMonths(prev, 1));
@@ -906,6 +793,7 @@ export default function SchedulePage() {
 
     const preferenceData = {
       staffId: selectedEmployee.id,
+      workPatternType: preferences.workPatternType || 'three-shift',
       preferredShiftTypes: {
         D: preferences.preferredShifts.includes('day') ? 10 : 0,
         E: preferences.preferredShifts.includes('evening') ? 10 : 0,
@@ -985,21 +873,6 @@ export default function SchedulePage() {
     }
   };
 
-  const handleSubmitSpecialRequest = (request: Omit<SpecialRequest, 'id' | 'createdAt' | 'status'>) => {
-    const newRequest: SpecialRequest = {
-      ...request,
-      id: `req-${Date.now()}`,
-      createdAt: new Date(),
-      status: 'pending'
-    };
-
-    setSpecialRequests([...specialRequests, newRequest]);
-
-    // 실제로는 API를 통해 저장
-    console.log('Submitting special request:', newRequest);
-
-    alert('특별 요청이 성공적으로 제출되었습니다. 관리자가 곧 검토할 예정입니다.');
-  };
 
   // 시프트 타입 필터 토글
   const toggleShiftType = (shiftType: string) => {
@@ -1243,13 +1116,6 @@ export default function SchedulePage() {
 
     setIsGenerating(true);
     setGenerationResult(null);
-    setGenerationLogs([]); // 로그 초기화
-
-    addLog('초기화', 'info', '스케줄 생성 시작', {
-      부서: selectedDepartment,
-      직원수: filteredMembers.length,
-      기간: `${format(monthStart, 'yyyy-MM-dd')} ~ ${format(monthEnd, 'yyyy-MM-dd')}`
-    });
 
     try {
       // 0. Config 설정 불러오기 (나이트 집중 근무 유급 휴가 설정 포함)
@@ -1260,43 +1126,23 @@ export default function SchedulePage() {
           const config = JSON.parse(savedConfig);
           nightIntensivePaidLeaveDays = config.preferences?.nightIntensivePaidLeaveDays || 0;
           console.log(`⚙️ Config loaded: 나이트 집중 근무 유급 휴가 = ${nightIntensivePaidLeaveDays}일/월`);
-          addLog('설정 로드', 'success', 'Config 설정 불러오기 완료', {
-            나이트집중근무유급휴가: `${nightIntensivePaidLeaveDays}일/월`
-          });
         }
       } catch (error) {
         console.warn('⚠️ Failed to load config, using default values:', error);
-        addLog('설정 로드', 'warning', 'Config 설정 불러오기 실패, 기본값 사용', error);
       }
 
-      // 1. 모든 직원의 선호도 가져오기 (tRPC 사용)
-      console.log('📥 Loading employee preferences from database...');
-      addLog('선호도 로드', 'info', '직원 선호도 데이터베이스에서 불러오기 시작');
+      // 1. 모든 직원의 선호도 가져오기
+      const preferencesResponse = await fetch('/api/preferences');
+      const preferencesData = await preferencesResponse.json();
+      const preferencesMap = new Map<string, ComprehensivePreferences>();
 
-      const preferencesMap = new Map<string, any>();
-
-      // 각 직원의 선호도를 DB에서 조회
-      for (const member of filteredMembers) {
-        try {
-          const dbPreferences = await api.preferences.get.query({ staffId: member.id });
-          if (dbPreferences) {
-            preferencesMap.set(member.id, dbPreferences);
-            console.log(`✅ Loaded preferences for ${member.name} (ID: ${member.id})`);
-            addLog('선호도 로드', 'success', `${member.name} 선호도 로드 완료`, {
-              근무패턴: dbPreferences.workPatternType,
-              선호시프트: dbPreferences.preferredShiftTypes
-            });
-          }
-        } catch (error) {
-          console.warn(`⚠️ No preferences found for ${member.name} (ID: ${member.id})`);
-          addLog('선호도 로드', 'warning', `${member.name} 선호도 없음 - 기본값 사용`);
-        }
+      if (preferencesData.success && preferencesData.data) {
+        Object.entries(preferencesData.data).forEach(([employeeId, prefs]) => {
+          preferencesMap.set(employeeId, prefs as ComprehensivePreferences);
+        });
       }
 
-      console.log(`📊 Total preferences loaded: ${preferencesMap.size}/${filteredMembers.length} employees`);
-      addLog('선호도 로드', 'success', '선호도 로드 완료', {
-        로드된선호도: `${preferencesMap.size}/${filteredMembers.length}명`
-      });
+      console.log(`✅ Loaded preferences for ${preferencesMap.size} employees`);
 
       // 1.5. 부서별 team pattern 가져오기 (fallback용)
       let teamPattern: any = null;
@@ -1307,61 +1153,43 @@ export default function SchedulePage() {
           : selectedDepartment;
 
         if (targetDepartmentId) {
-          addLog('팀 패턴 로드', 'info', `부서 ${targetDepartmentId}의 팀 패턴 로드 시도`);
           const teamPatternResponse = await fetch(`/api/team-patterns?departmentId=${targetDepartmentId}`);
           const teamPatternData = await teamPatternResponse.json();
           teamPattern = teamPatternData.pattern || teamPatternData.defaultPattern;
           console.log(`✅ Loaded team pattern for department ${targetDepartmentId}:`, teamPattern);
-          addLog('팀 패턴 로드', 'success', '팀 패턴 로드 완료', { 패턴: teamPattern });
         }
       } catch (error) {
         console.warn('⚠️ Failed to load team pattern, will use default preferences:', error);
-        addLog('팀 패턴 로드', 'warning', '팀 패턴 로드 실패 - 기본 선호도 사용', error);
       }
 
       // 2. MockTeamMember를 UnifiedEmployee로 변환
-      addLog('직원 변환', 'info', 'MockTeamMember를 UnifiedEmployee로 변환 시작');
-
       let prefsFoundCount = 0;
       let teamPatternUsedCount = 0;
       let defaultUsedCount = 0;
 
       const unifiedEmployees: UnifiedEmployee[] = filteredMembers.map(member => {
-        const dbPrefs = preferencesMap.get(member.id);
-        let comprehensivePrefs: ComprehensivePreferences | undefined;
+        let comprehensivePrefs = preferencesMap.get(member.id);
 
-        // DB에서 가져온 선호도가 있으면 변환하여 사용
-        if (dbPrefs) {
-          comprehensivePrefs = convertDbPreferencesToComprehensive(dbPrefs);
+        // preferencesMap에 값이 있는지 확인
+        if (comprehensivePrefs) {
           prefsFoundCount++;
-          console.log(`✅ Converted DB preferences for ${member.name} (ID: ${member.id})`);
-          addLog('직원 변환', 'success', `${member.name} - DB 선호도 사용`);
         } else if (teamPattern) {
           // team pattern을 기반으로 기본 선호도 생성
           comprehensivePrefs = createDefaultPreferencesFromTeamPattern(member, teamPattern);
           teamPatternUsedCount++;
           console.log(`🔄 Using team pattern for ${member.name} (ID: ${member.id})`);
-          addLog('직원 변환', 'info', `${member.name} - 팀 패턴 사용`);
         } else {
           // team pattern도 없으면 완전 기본값 사용
           defaultUsedCount++;
           console.log(`⚠️ Using default preferences for ${member.name} (ID: ${member.id})`);
-          addLog('직원 변환', 'warning', `${member.name} - 기본값 사용`);
         }
 
         return EmployeeAdapter.fromMockToUnified(member, comprehensivePrefs);
       });
 
-      console.log(`📊 Preference sources: Personal DB=${prefsFoundCount}, TeamPattern=${teamPatternUsedCount}, Default=${defaultUsedCount}`);
-      addLog('직원 변환', 'success', '직원 변환 완료', {
-        'DB 선호도': `${prefsFoundCount}명`,
-        '팀 패턴': `${teamPatternUsedCount}명`,
-        '기본값': `${defaultUsedCount}명`
-      });
+      console.log(`📊 Preference sources: Personal=${prefsFoundCount}, TeamPattern=${teamPatternUsedCount}, Default=${defaultUsedCount}`);
 
       // 3. UnifiedEmployee를 스케줄러용 Employee로 변환 및 검증
-      addLog('직원 검증', 'info', 'UnifiedEmployee를 스케줄러용 Employee로 변환 및 검증 시작');
-
       const employees: Employee[] = [];
       const validationErrors: string[] = [];
 
@@ -1371,246 +1199,98 @@ export default function SchedulePage() {
 
         if (validation.success) {
           employees.push(employee);
-          addLog('직원 검증', 'success', `${unified.name} 검증 통과`);
         } else {
           validationErrors.push(`${unified.name}: ${validation.errors?.join(', ')}`);
-          addLog('직원 검증', 'error', `${unified.name} 검증 실패`, validation.errors);
         }
       }
 
       if (validationErrors.length > 0) {
         console.error('Employee validation errors:', validationErrors);
-        addLog('직원 검증', 'error', '일부 직원 검증 실패', validationErrors);
         alert(`일부 직원 데이터에 문제가 있습니다:\n${validationErrors.slice(0, 3).join('\n')}`);
-      } else {
-        addLog('직원 검증', 'success', '모든 직원 검증 완료', {
-          검증완료: `${employees.length}명`
-        });
       }
 
       // 3.5. 각 직원의 선호도 기반 맞춤 패턴 및 시프트 배분 계산
       console.log('\n📋 === 개인별 선호도 기반 패턴 및 시프트 배분 ===');
-      addLog('패턴 계산', 'info', '개인별 선호도 기반 패턴 및 시프트 배분 계산 시작');
-
       unifiedEmployees.forEach((unified) => {
         const prefs = unified.comprehensivePreferences;
         if (!prefs) return;
 
-        // 근무 패턴 타입
-        const workPatternType = (prefs.workPreferences as any)?.workPatternType || 'three-shift';
-
-        // 선호 시프트가 1개 이상인 경우 처리
+        // 선호 시프트가 1개인 경우에만 처리
         const preferredShift = prefs.workPreferences?.preferredShifts?.[0];
         if (!preferredShift) return;
 
-        // 선호 휴무일 (DB에서 변환된 실제 데이터 사용)
-        const preferredDaysOff: number[] = (prefs.workPreferences as any)?.preferredDaysOff || [0, 6];
-
-        // 평일 근무인 경우 주말 자동 휴무
-        const finalPreferredDaysOff = workPatternType === 'weekday-only' ? [0, 6] : preferredDaysOff;
+        // 선호 휴무일 (EmployeePreferencesModal의 preferredDaysOff 사용)
+        // 실제 ExtendedEmployeePreferences에서 가져와야 하지만, 여기서는 예시로 기본값 사용
+        const preferredDaysOff: number[] = [0, 6]; // 일요일, 토요일
 
         // 맞춤 패턴 생성
         const customPattern = generateCustomPatternFromPreferences(
           preferredShift,
-          finalPreferredDaysOff
+          preferredDaysOff
         );
 
         // 시프트 배분 계산 (22일 근무 가정)
         const totalWorkDays = 22;
         const distribution = calculateShiftDistribution(preferredShift, totalWorkDays);
 
-        const patternTypeKor = workPatternType === 'three-shift' ? '3교대 근무' : workPatternType === 'night-intensive' ? '나이트 집중' : '평일 근무';
-        const shiftKor = preferredShift === 'day' ? '주간' : preferredShift === 'evening' ? '저녁' : '야간';
-
         console.log(`\n👤 ${unified.name}:`);
-        console.log(`   - 근무 패턴: ${patternTypeKor}`);
-        console.log(`   - 선호 시프트: ${preferredShift} (${shiftKor})`);
-        console.log(`   - 선호 휴무일: ${finalPreferredDaysOff.map(d => ['일','월','화','수','목','금','토'][d]).join(', ')}`);
+        console.log(`   - 선호 시프트: ${preferredShift} (${preferredShift === 'day' ? '주간' : preferredShift === 'evening' ? '저녁' : '야간'})`);
+        console.log(`   - 선호 휴무일: ${preferredDaysOff.map(d => ['일','월','화','수','목','금','토'][d]).join(', ')}`);
         console.log(`   - 생성된 패턴: ${customPattern}`);
         console.log(`   - 시프트 배분 (22일): 주간 ${distribution.day}일, 저녁 ${distribution.evening}일, 야간 ${distribution.night}일`);
         console.log(`   - 선호 시프트 비중: ${preferredShift === 'day' ? distribution.day : preferredShift === 'evening' ? distribution.evening : distribution.night}일 (1.2배 적용)`);
-
-        addLog('패턴 계산', 'success', `${unified.name} 패턴 계산 완료`, {
-          근무패턴: patternTypeKor,
-          선호시프트: `${preferredShift}(${shiftKor})`,
-          선호휴무일: finalPreferredDaysOff.map(d => ['일','월','화','수','목','금','토'][d]).join(', '),
-          생성패턴: customPattern,
-          시프트배분: `주간 ${distribution.day}, 저녁 ${distribution.evening}, 야간 ${distribution.night}`
-        });
       });
       console.log('\n===========================================\n');
-      addLog('패턴 계산', 'success', '모든 직원 패턴 계산 완료');
 
-      // 4. 법정 공휴일 가져오기
-      addLog('공휴일 로드', 'info', '법정 공휴일 데이터베이스에서 불러오기 시작');
+      // 4. 스케줄링 요청 생성 (미사용 필드 활용)
+      const request: SchedulingRequest = {
+        departmentId: selectedDepartment === 'all' ? 'all-departments' : selectedDepartment,
+        startDate: monthStart,
+        endDate: monthEnd,
+        employees,
+        shifts: DEFAULT_SHIFTS.map(shift => ({
+          ...shift,
+          // breakMinutes 필드 활성화
+          time: {
+            ...shift.time,
+            breakMinutes: shift.type === 'night' ? 30 : 15, // 야간은 30분, 주간/저녁은 15분 휴식
+          },
+        })),
+        constraints: DEFAULT_CONSTRAINTS,
+        optimizationGoal: 'balanced',
+      };
 
-      const startDateStr = format(monthStart, 'yyyy-MM-dd');
-      const endDateStr = format(monthEnd, 'yyyy-MM-dd');
+      // 5. 스케줄 생성
+      const scheduler = new Scheduler();
+      const result = await scheduler.createSchedule(request);
 
-      let holidays: Holiday[] = [];
-      try {
-        const holidaysData = await api.holidays.getByDateRange.query({
-          startDate: startDateStr,
-          endDate: endDateStr,
-        });
-        holidays = holidaysData.map(h => ({
-          date: h.date,
-          name: h.name || '공휴일',
-        }));
-        addLog('공휴일 로드', 'success', '법정 공휴일 로드 완료', {
-          공휴일수: holidays.length,
-          날짜: holidays.map(h => `${h.name}(${h.date})`).join(', ')
-        });
-      } catch (error) {
-        console.warn('⚠️ Failed to load holidays:', error);
-        addLog('공휴일 로드', 'warning', '법정 공휴일 로드 실패 - 공휴일 없이 진행', error);
-      }
-
-      // 5. 개인 특별 요청 가져오기
-      addLog('특별 요청 로드', 'info', '개인 특별 요청 데이터베이스에서 불러오기 시작');
-
-      let specialRequests: SimpleSpecialRequest[] = [];
-      try {
-        const requestsData = await api.specialRequests.getApprovedForScheduling.query({
-          startDate: startDateStr,
-          endDate: endDateStr,
-        });
-        specialRequests = requestsData.map(r => ({
-          employeeId: r.employeeId,
-          requestType: r.requestType,
-          startDate: r.startDate,
-          endDate: r.endDate,
-        }));
-        addLog('특별 요청 로드', 'success', '개인 특별 요청 로드 완료', {
-          요청수: specialRequests.length,
-        });
-      } catch (error) {
-        console.warn('⚠️ Failed to load special requests:', error);
-        addLog('특별 요청 로드', 'warning', '특별 요청 로드 실패 - 요청 없이 진행', error);
-      }
-
-      // 6. SimpleScheduler용 Employee 데이터 변환
-      addLog('직원 데이터 변환', 'info', 'SimpleScheduler용 Employee 데이터 변환 시작');
-
-      const simpleEmployees: SimpleEmployee[] = unifiedEmployees.map(unified => {
-        const prefs = unified.comprehensivePreferences;
-        const workPatternType = (prefs?.workPreferences as any)?.workPatternType as 'three-shift' | 'night-intensive' | 'weekday-only' || 'three-shift';
-
-        return {
-          id: unified.id,
-          name: unified.name,
-          role: unified.role as 'RN' | 'CN' | 'SN' | 'NA',
-          experienceLevel: unified.experienceLevel,
-          workPatternType,
-          preferredShiftTypes: prefs?.workPreferences?.preferredShiftTypes as { D?: number; E?: number; N?: number } | undefined,
-          maxConsecutiveDaysPreferred: (prefs?.workPreferences as any)?.maxConsecutiveDaysPreferred,
-          maxConsecutiveNightsPreferred: (prefs?.workPreferences as any)?.maxConsecutiveNightsPreferred,
-        };
-      });
-
-      addLog('직원 데이터 변환', 'success', '직원 데이터 변환 완료', {
-        변환완료: `${simpleEmployees.length}명`
-      });
-
-      // 7. SimpleScheduler 생성 및 실행
-      addLog('스케줄 생성', 'info', 'SimpleScheduler 순차 알고리즘 실행 시작');
-
-      const scheduler = new SimpleScheduler({
-        year: monthStart.getFullYear(),
-        month: monthStart.getMonth() + 1,
-        employees: simpleEmployees,
-        holidays,
-        specialRequests,
-        teamPattern: teamPattern ? { pattern: teamPattern } : undefined,
-        requiredStaffPerShift: {
-          D: DEFAULT_SHIFTS.find(s => s.type === 'day')?.requiredStaff || 5,
-          E: DEFAULT_SHIFTS.find(s => s.type === 'evening')?.requiredStaff || 4,
-          N: DEFAULT_SHIFTS.find(s => s.type === 'night')?.requiredStaff || 3,
-        },
-      });
-
-      const assignments = await scheduler.generate();
-      const stats = scheduler.getStatistics();
-
-      addLog('스케줄 생성', 'success', 'SimpleScheduler 실행 완료', {
-        총근무일: stats.totalWorkDays,
-        총할당수: stats.totalAssignments,
-        시프트분포: stats.shiftDistribution,
-        직급분포: stats.roleDistribution,
-      });
-
-      // 8. SimpleAssignment를 ScheduleAssignment로 변환
-      addLog('결과 변환', 'info', '스케줄 결과를 프론트엔드 형식으로 변환 시작');
-
-      const convertedAssignments: ScheduleAssignment[] = assignments.map(a => {
-        const shiftTypeMap: Record<string, string> = {
-          'D': 'shift-day',
-          'E': 'shift-evening',
-          'N': 'shift-night',
-          'OFF': 'shift-off',
-        };
-
-        return {
-          employeeId: a.employeeId,
-          date: new Date(a.date),
-          shiftId: shiftTypeMap[a.shift] || 'shift-off',
-          isLocked: false,
-        };
-      });
-
-      addLog('결과 변환', 'success', '스케줄 결과 변환 완료', {
-        변환완료: `${convertedAssignments.length}건`
-      });
-
-      if (convertedAssignments.length > 0) {
-
-        // 9. 나이트 집중 근무 유급 휴가 적용
+      if (result.success && result.schedule) {
+        // 5.5. 나이트 집중 근무 유급 휴가 적용
         if (nightIntensivePaidLeaveDays > 0) {
-          addLog('유급 휴가', 'info', '나이트 집중 근무 유급 휴가 적용 시작');
           addNightIntensivePaidLeave(
-            convertedAssignments,
+            result.schedule.assignments,
             unifiedEmployees,
             nightIntensivePaidLeaveDays
           );
-          addLog('유급 휴가', 'success', '나이트 집중 근무 유급 휴가 적용 완료');
         }
 
-        setSchedule(convertedAssignments);
-        setOriginalSchedule(convertedAssignments); // 원본 저장
-        setGenerationResult({
-          success: true,
-          schedule: { assignments: convertedAssignments },
-          score: { total: 1.0, preference: 1.0, fairness: 1.0, coverage: 1.0 },
-          violations: [],
-          metadata: {
-            generationTime: 0,
-            iterations: 1,
-            convergenceRate: 1.0,
-          }
-        });
+        setSchedule(result.schedule.assignments);
+        setOriginalSchedule(result.schedule.assignments); // 원본 저장
+        setGenerationResult(result);
         setActiveView('schedule'); // 스케줄 생성 후 스케줄 뷰로 전환
 
-        // 10. 생성 결과 로깅
+        // 6. 생성 결과 로깅
         console.log('Schedule generated successfully:', {
-          assignments: convertedAssignments.length,
-          workDays: stats.totalWorkDays,
-          shiftDistribution: stats.shiftDistribution,
-          roleDistribution: stats.roleDistribution,
-        });
-
-        addLog('완료', 'success', '스케줄 생성 프로세스 완료', {
-          최종할당수: convertedAssignments.length,
-          총근무일: stats.totalWorkDays,
-          시프트분포: `D:${stats.shiftDistribution.D} E:${stats.shiftDistribution.E} N:${stats.shiftDistribution.N} OFF:${stats.shiftDistribution.OFF}`,
-          직급분포: Object.entries(stats.roleDistribution).map(([role, count]) => `${role}:${count}`).join(' '),
+          assignments: result.schedule.assignments.length,
+          score: result.score,
+          violations: result.violations.length,
+          preferencesSatisfied: result.score.preference,
         });
       } else {
-        addLog('스케줄 생성', 'error', '스케줄 생성 실패 - 할당 결과 없음');
-        alert('스케줄 생성에 실패했습니다. 설정을 확인해주세요.');
+        alert('스케줄 생성에 실패했습니다. 제약조건을 확인해주세요.');
       }
     } catch (error) {
       console.error('Schedule generation error:', error);
-      addLog('오류', 'error', '스케줄 생성 중 오류 발생', error);
       alert('스케줄 생성 중 오류가 발생했습니다.');
     } finally {
       setIsGenerating(false);
@@ -1893,34 +1573,24 @@ export default function SchedulePage() {
                 </p>
               </div>
             </div>
-            <div className="flex gap-2 sm:gap-3">
-              <button
-                onClick={async () => {
-                  // member는 자신의 정보로 EmployeePreferencesModal 열기
-                  const currentEmployee = filteredMembers.find(m => m.id === currentUser.dbUser?.id);
-                  if (currentEmployee) {
-                    await handleEmployeeClick(currentEmployee);
-                  }
-                }}
-                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
-              >
-                <Settings className="w-4 h-4" />
-                <span className="hidden sm:inline">선호도 설정</span>
-                <span className="sm:hidden">설정</span>
-              </button>
-              <button
-                onClick={() => setShowSpecialRequest(true)}
-                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                <MessageSquare className="w-4 h-4" />
-                <span className="hidden sm:inline">특별 요청</span>
-                <span className="sm:hidden">요청</span>
-              </button>
-            </div>
+            <button
+              onClick={async () => {
+                // member는 자신의 정보로 EmployeePreferencesModal 열기
+                const currentEmployee = allMembers.find(m => m.id === currentUser.dbUser?.id);
+                if (currentEmployee) {
+                  await handleEmployeeClick(currentEmployee);
+                }
+              }}
+              className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
+            >
+              <Settings className="w-4 h-4" />
+              <span className="hidden sm:inline">선호도 설정</span>
+              <span className="sm:hidden">설정</span>
+            </button>
           </div>
 
           {/* 현재 설정된 선호도 요약 - 모바일에서는 2열 그리드 */}
-          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4">
             <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">선호 시프트</p>
               <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">주간</p>
@@ -1933,38 +1603,8 @@ export default function SchedulePage() {
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">최대 연속</p>
               <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">5일</p>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">특별 요청</p>
-              <p className="text-xs sm:text-sm font-medium text-amber-600 dark:text-amber-400">
-                {specialRequests.filter(r => r.employeeId === currentUserId && r.status === 'pending').length}건
-              </p>
-            </div>
           </div>
 
-          {/* 나의 스케줄만 보기 토글 */}
-          <div className="mt-4 flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg p-3">
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">나의 스케줄만 보기</span>
-            </div>
-            <button
-              onClick={() => setShowMyScheduleOnly(!showMyScheduleOnly)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                showMyScheduleOnly ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  showMyScheduleOnly ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
-          </div>
-          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-            {showMyScheduleOnly
-              ? '현재 나의 스케줄만 표시됩니다.'
-              : '같은 부서의 모든 스케줄을 표시합니다.'}
-          </p>
         </div>
         )}
         {/* Simplified Schedule Action Toolbar */}
@@ -2022,21 +1662,6 @@ export default function SchedulePage() {
                         <span className="hidden sm:inline">확정</span>
                       </button>
                     </>
-                  )}
-
-                  {/* Generation Logs Button */}
-                  {generationLogs.length > 0 && (
-                    <button
-                      onClick={() => setShowGenerationLogs(true)}
-                      className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 rounded-lg border border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30"
-                      title="생성 로그 보기"
-                    >
-                      <FileText className="w-4 h-4" />
-                      <span className="hidden sm:inline">생성 로그</span>
-                      <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-semibold text-white bg-blue-600 dark:bg-blue-500 rounded-full">
-                        {generationLogs.length}
-                      </span>
-                    </button>
                   )}
                 </div>
 
@@ -2196,7 +1821,7 @@ export default function SchedulePage() {
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredMembers.map(member => (
+                {allMembers.map(member => (
                   <div
                     key={member.id}
                     className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -2274,7 +1899,7 @@ export default function SchedulePage() {
                 ))}
               </div>
 
-              {filteredMembers.length === 0 && (
+              {allMembers.length === 0 && (
                 <div className="text-center py-12">
                   <Users className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                   <p className="text-gray-500 dark:text-gray-400">선택된 부서에 직원이 없습니다</p>
@@ -2283,6 +1908,142 @@ export default function SchedulePage() {
             </div>
           </div>
         )}
+
+    {/* 토글 버튼들 - 가로 한 줄 배치 */}
+            <div className="mb-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 divide-y md:divide-y-0 md:divide-x divide-gray-200 dark:divide-gray-700 flex flex-col md:flex-row">
+              {/* 나의 스케줄만 보기 토글 - member/manager만 표시 */}
+              {(isMember || isManager) && (
+                <div className={`flex-1 p-3 transition-opacity ${showSameSchedule ? 'opacity-50' : ''}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Users className={`w-4 h-4 ${showSameSchedule ? 'text-gray-400 dark:text-gray-600' : 'text-blue-600 dark:text-blue-400'}`} />
+                      <span className={`text-sm font-medium ${showSameSchedule ? 'text-gray-500 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'}`}>
+                        나의 스케줄만 보기
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (!showSameSchedule) {
+                          const newValue = !showMyScheduleOnly;
+                          setShowMyScheduleOnly(newValue);
+                          if (newValue) {
+                            setShowSameSchedule(false);
+                          }
+                        }
+                      }}
+                      disabled={showSameSchedule}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                        showSameSchedule
+                          ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed'
+                          : showMyScheduleOnly
+                            ? 'bg-blue-600'
+                            : 'bg-gray-300 dark:bg-gray-600'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          showMyScheduleOnly ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    {showSameSchedule
+                      ? '※ 나와 같은 스케줄 보기가 활성화되어 있습니다.'
+                      : showMyScheduleOnly
+                        ? '현재 나의 스케줄만 표시됩니다.'
+                        : '같은 부서의 모든 스케줄을 표시합니다.'}
+                  </p>
+                </div>
+              )}
+
+              {/* 나와 같은 스케줄 보기 토글 - member/manager만 표시 */}
+              {(isMember || isManager) && (
+                <div className={`flex-1 p-3 transition-opacity ${showMyScheduleOnly ? 'opacity-50' : ''}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ListChecks className={`w-4 h-4 ${showMyScheduleOnly ? 'text-gray-400 dark:text-gray-600' : 'text-green-600 dark:text-green-400'}`} />
+                      <span className={`text-sm font-medium ${showMyScheduleOnly ? 'text-gray-500 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'}`}>
+                        나와 같은 스케줄 보기
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (!showMyScheduleOnly) {
+                          const newValue = !showSameSchedule;
+                          setShowSameSchedule(newValue);
+                          if (newValue) {
+                            setShowMyScheduleOnly(false);
+                            setViewMode('calendar');
+                          }
+                        }
+                      }}
+                      disabled={showMyScheduleOnly}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
+                        showMyScheduleOnly
+                          ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed'
+                          : showSameSchedule
+                            ? 'bg-green-600'
+                            : 'bg-gray-300 dark:bg-gray-600'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          showSameSchedule ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    {showMyScheduleOnly
+                      ? '※ 나의 스케줄만 보기가 활성화되어 있습니다.'
+                      : showSameSchedule
+                        ? '나와 같은 날 근무하는 직원만 캘린더로 표시됩니다.'
+                        : '같은 부서의 모든 스케줄을 표시합니다.'}
+                  </p>
+                </div>
+              )}
+
+              {/* 캘린더 형식으로 보기 토글 */}
+              <div className={`flex-1 p-3 transition-opacity ${showSameSchedule ? 'opacity-50' : ''}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Calendar className={`w-4 h-4 ${showSameSchedule ? 'text-gray-400 dark:text-gray-600' : 'text-purple-600 dark:text-purple-400'}`} />
+                    <span className={`text-sm font-medium ${showSameSchedule ? 'text-gray-500 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'}`}>
+                      캘린더 형식으로 보기
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (!showSameSchedule) {
+                        setViewMode(viewMode === 'grid' ? 'calendar' : 'grid');
+                      }
+                    }}
+                    disabled={showSameSchedule}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                      showSameSchedule
+                        ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed'
+                        : viewMode === 'calendar'
+                          ? 'bg-purple-600'
+                          : 'bg-gray-300 dark:bg-gray-600'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        viewMode === 'calendar' ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  {showSameSchedule
+                    ? '※ 나와 같은 스케줄 보기가 활성화되어 있습니다.'
+                    : viewMode === 'calendar'
+                      ? '캘린더 형식으로 표시됩니다.'
+                      : '그리드 형식으로 표시됩니다.'}
+                </p>
+              </div>
+            </div>
 
         {/* Schedule View */}
         {activeView === 'schedule' && (
@@ -2417,109 +2178,169 @@ export default function SchedulePage() {
           </div>
         )}
 
-        {/* Schedule Grid */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-x-auto">
-          <div className="min-w-max">
-            <div
-              className="grid border-b border-gray-200 dark:border-gray-700"
-              style={{ gridTemplateColumns: scheduleGridTemplate }}
-            >
-                <div className="p-4 bg-gray-50 dark:bg-gray-800 font-medium text-sm text-gray-700 dark:text-gray-300">
-                  직원
-                </div>
-                {daysInMonth.map((date) => (
-                  <div
-                    key={date.toISOString()}
-                    className="p-4 bg-gray-50 dark:bg-gray-800 text-center border-l border-gray-200 dark:border-gray-700"
-                  >
-                    <div className="font-medium text-sm text-gray-700 dark:text-gray-300">
-                      {format(date, 'EEE')}
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {format(date, 'M/d')}
-                    </div>
+        {/* Schedule View - Grid or Calendar */}
+        {viewMode === 'grid' ? (
+          /* Grid View */
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-x-auto">
+            <div className="min-w-max">
+              <div
+                className="grid border-b border-gray-200 dark:border-gray-700"
+                style={{ gridTemplateColumns: scheduleGridTemplate }}
+              >
+                  <div className="p-2 bg-gray-50 dark:bg-gray-800 font-medium text-xs text-gray-700 dark:text-gray-300 flex items-center">
+                    직원
                   </div>
-                ))}
-              </div>
-
-              <div className="max-h-[600px] overflow-y-auto">
-                {displayMembers.map(member => (
-                  <div
-                    key={member.id}
-                    className="grid border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                    style={{ gridTemplateColumns: scheduleGridTemplate }}
-                  >
-                    <div className="p-4 flex items-center gap-2 border-r border-gray-100 dark:border-gray-800">
-                      <div className="flex-1">
-                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{member.name}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">{member.position}</div>
+                  {daysInMonth.map((date) => (
+                    <div
+                      key={date.toISOString()}
+                      className="py-1 px-0.5 bg-gray-50 dark:bg-gray-800 text-center border-l border-gray-200 dark:border-gray-700"
+                    >
+                      <div className="font-medium text-[10px] text-gray-700 dark:text-gray-300">
+                        {format(date, 'EEE', { locale: ko }).slice(0, 1)}
                       </div>
-                      {schedule.length > 0 && (
-                        <div className="flex flex-col items-end gap-1">
-                          {(() => {
-                            const hours = calculateMonthlyHours(member.id);
-                            return hours > 0 && (
-                              <span
-                                className={`text-xs px-2 py-0.5 rounded ${
-                                  hours > monthlyOvertimeThreshold
-                                    ? 'bg-orange-100 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400'
-                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
-                                }`}
-                              >
-                                {hours}시간
-                              </span>
-                            );
-                          })()}
-                          {hasViolations(member.id) && (
-                            <span className="text-xs px-2 py-0.5 rounded bg-red-100 dark:bg-red-950/30 text-red-700 dark:text-red-400">
-                              위반
-                            </span>
-                          )}
-                        </div>
-                      )}
+                      <div className="text-[9px] text-gray-500 dark:text-gray-400">
+                        {format(date, 'd')}
+                      </div>
                     </div>
+                  ))}
+                </div>
 
-                    {daysInMonth.map((date) => {
-                      const dayAssignments = getScheduleForDay(date).filter(a => a.employeeId === member.id);
+                <div>
+                  {displayMembers.map(member => (
+                    <div
+                      key={member.id}
+                      className="grid border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                      style={{ gridTemplateColumns: scheduleGridTemplate }}
+                    >
+                      <div className="p-2 flex flex-col justify-center border-r border-gray-100 dark:border-gray-800">
+                        <div className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">{member.name}</div>
+                        <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{member.position}</div>
+                      </div>
 
-                      return (
-                        <div
-                          key={`${member.id}-${date.toISOString()}`}
-                          className="p-2 border-l border-gray-100 dark:border-gray-800"
-                        >
-                          {dayAssignments.map((assignment, i) => (
+                      {daysInMonth.map((date) => {
+                        const dayAssignments = getScheduleForDay(date).filter(a => a.employeeId === member.id);
+
+                        return (
+                          <div
+                            key={`${member.id}-${date.toISOString()}`}
+                            className="p-0.5 border-l border-gray-100 dark:border-gray-800 flex items-center justify-center"
+                          >
+                            {dayAssignments.map((assignment, i) => (
+                              <div
+                                key={i}
+                                className="w-full px-0.5 py-1 rounded text-[9px] font-medium text-white text-center"
+                                style={{ backgroundColor: getShiftColor(assignment.shiftId) }}
+                                title={getShiftName(assignment.shiftId)}
+                              >
+                                {getShiftName(assignment.shiftId).charAt(0)}
+                              </div>
+                            ))}
+                            {dayAssignments.length === 0 && (
+                              <div className="w-full px-0.5 py-1 text-[9px] text-gray-300 dark:text-gray-600 text-center">
+                                -
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+
+                  {displayMembers.length === 0 && (
+                    <div className="p-12 text-center">
+                      <Users className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                      <p className="text-gray-500 dark:text-gray-400">
+                        {selectedShiftTypes.size > 0
+                          ? '선택된 시프트 타입에 해당하는 직원이 없습니다'
+                          : '선택된 부서에 활성 직원이 없습니다'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+            </div>
+          </div>
+        ) : (
+          /* Calendar View */
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+            {/* Calendar Header - Days of Week */}
+            <div className="grid grid-cols-7 gap-2 mb-2">
+              {['일', '월', '화', '수', '목', '금', '토'].map((day, i) => (
+                <div key={i} className="text-center font-medium text-sm text-gray-700 dark:text-gray-300 py-2">
+                  {day}
+                </div>
+              ))}
+            </div>
+
+            {/* Calendar Grid */}
+            <div className="grid grid-cols-7 gap-2">
+              {(() => {
+                const monthStart = startOfMonth(currentMonth);
+                const monthEnd = endOfMonth(currentMonth);
+                const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+                const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+                const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+
+                return calendarDays.map((date) => {
+                  const isCurrentMonth = date >= monthStart && date <= monthEnd;
+                  const dateStr = format(date, 'yyyy-MM-dd');
+
+                  // Get all assignments for this date
+                  const dayAssignments = getScheduleForDay(date);
+
+                  // Filter by showSameSchedule if enabled
+                  let filteredAssignments = dayAssignments;
+                  if (showSameSchedule && currentUser.dbUser?.id) {
+                    // Get current user's shift for this date
+                    const myShift = dayAssignments.find(a => a.employeeId === currentUser.dbUser?.id);
+                    if (myShift && myShift.shiftId !== 'shift-off') {
+                      // Show only people with the same shift
+                      filteredAssignments = dayAssignments.filter(a => a.shiftId === myShift.shiftId);
+                    } else {
+                      filteredAssignments = [];
+                    }
+                  }
+
+                  return (
+                    <div
+                      key={dateStr}
+                      className={`min-h-[100px] border rounded-lg p-2 ${
+                        isCurrentMonth
+                          ? 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                          : 'bg-gray-50 dark:bg-gray-900 border-gray-100 dark:border-gray-800'
+                      }`}
+                    >
+                      <div className={`text-sm font-medium mb-1 ${
+                        isCurrentMonth
+                          ? 'text-gray-900 dark:text-gray-100'
+                          : 'text-gray-400 dark:text-gray-600'
+                      }`}>
+                        {format(date, 'd')}
+                      </div>
+
+                      <div className="space-y-1">
+                        {filteredAssignments.map((assignment, i) => {
+                          const member = displayMembers.find(m => m.id === assignment.employeeId);
+                          if (!member) return null;
+
+                          return (
                             <div
                               key={i}
-                              className="mb-1 px-2 py-1 rounded text-xs font-medium text-white text-center"
+                              className="text-[10px] px-1 py-0.5 rounded text-white truncate"
                               style={{ backgroundColor: getShiftColor(assignment.shiftId) }}
+                              title={`${member.name} - ${getShiftName(assignment.shiftId)}`}
                             >
-                              {getShiftName(assignment.shiftId)}
+                              {member.name} {getShiftName(assignment.shiftId)}
                             </div>
-                          ))}
-                          {dayAssignments.length === 0 && (
-                            <div className="px-2 py-1 rounded text-xs text-gray-400 dark:text-gray-500 text-center bg-gray-50 dark:bg-gray-800">
-                              휴무
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-
-                {displayMembers.length === 0 && (
-                  <div className="p-12 text-center">
-                    <Users className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                    <p className="text-gray-500 dark:text-gray-400">
-                      {selectedShiftTypes.size > 0
-                        ? '선택된 시프트 타입에 해당하는 직원이 없습니다'
-                        : '선택된 부서에 활성 직원이 없습니다'}
-                    </p>
-                  </div>
-                )}
-              </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Stats */}
         {schedule.length > 0 && (
@@ -3205,127 +3026,6 @@ export default function SchedulePage() {
                   )}
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isMember && (
-        <>
-          <SpecialRequestModal
-            isOpen={showSpecialRequest}
-            onClose={() => setShowSpecialRequest(false)}
-            currentUserId={currentUserId}
-            currentUserName={currentUserName}
-            onSubmit={handleSubmitSpecialRequest}
-            existingRequests={specialRequests.filter(r => r.employeeId === currentUserId)}
-          />
-        </>
-      )}
-
-      {/* Generation Logs Modal */}
-      {showGenerationLogs && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">스케줄 생성 로그</h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  {format(new Date(), 'yyyy-MM-dd HH:mm:ss')} 기준 · 총 {generationLogs.length}개 로그
-                </p>
-              </div>
-              <button
-                onClick={() => setShowGenerationLogs(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Logs Content */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-3">
-              {generationLogs.map((log, index) => {
-                const levelColor = {
-                  success: 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800',
-                  error: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
-                  warning: 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800',
-                  info: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
-                }[log.level];
-
-                const levelIcon = {
-                  success: '✅',
-                  error: '❌',
-                  warning: '⚠️',
-                  info: 'ℹ️'
-                }[log.level];
-
-                const levelTextColor = {
-                  success: 'text-green-700 dark:text-green-300',
-                  error: 'text-red-700 dark:text-red-300',
-                  warning: 'text-yellow-700 dark:text-yellow-300',
-                  info: 'text-blue-700 dark:text-blue-300'
-                }[log.level];
-
-                return (
-                  <div
-                    key={index}
-                    className={`border rounded-lg p-4 ${levelColor}`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-lg">{levelIcon}</span>
-                          <span className={`text-xs font-semibold px-2 py-1 rounded ${levelTextColor} bg-white/50 dark:bg-black/20`}>
-                            {log.phase}
-                          </span>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {format(log.timestamp, 'HH:mm:ss.SSS')}
-                          </span>
-                        </div>
-                        <p className={`text-sm font-medium ${levelTextColor}`}>
-                          {log.message}
-                        </p>
-                        {log.details && (
-                          <details className="mt-2">
-                            <summary className="text-xs text-gray-600 dark:text-gray-400 cursor-pointer hover:text-gray-900 dark:hover:text-gray-200">
-                              세부 정보 보기
-                            </summary>
-                            <pre className="mt-2 p-3 bg-gray-900 dark:bg-black text-green-400 text-xs rounded overflow-x-auto">
-                              {typeof log.details === 'object'
-                                ? JSON.stringify(log.details, null, 2)
-                                : String(log.details)
-                              }
-                            </pre>
-                          </details>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-between p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                성공: {generationLogs.filter(l => l.level === 'success').length} ·
-                경고: {generationLogs.filter(l => l.level === 'warning').length} ·
-                오류: {generationLogs.filter(l => l.level === 'error').length}
-              </div>
-              <button
-                onClick={() => {
-                  const logText = generationLogs.map(log =>
-                    `[${format(log.timestamp, 'yyyy-MM-dd HH:mm:ss.SSS')}] ${log.level.toUpperCase()} [${log.phase}] ${log.message}\n${log.details ? JSON.stringify(log.details, null, 2) : ''}`
-                  ).join('\n\n');
-                  navigator.clipboard.writeText(logText);
-                  alert('로그가 클립보드에 복사되었습니다.');
-                }}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                <FileText className="w-4 h-4" />
-                로그 복사
-              </button>
             </div>
           </div>
         </div>
