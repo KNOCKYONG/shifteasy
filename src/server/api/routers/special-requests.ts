@@ -91,7 +91,8 @@ export const specialRequestsRouter = createTRPCRouter({
   create: protectedProcedure
     .input(z.object({
       employeeId: z.string(),
-      requestType: z.enum(['vacation', 'day_off', 'overtime', 'shift_change']),
+      requestType: z.enum(['vacation', 'day_off', 'overtime', 'shift_change', 'shift_request']),
+      shiftTypeCode: z.string().optional(), // Config 화면의 customShiftTypes code
       startDate: z.string(), // YYYY-MM-DD
       endDate: z.string().optional(), // YYYY-MM-DD
       reason: z.string().optional(),
@@ -106,6 +107,7 @@ export const specialRequestsRouter = createTRPCRouter({
           tenantId,
           employeeId: input.employeeId,
           requestType: input.requestType,
+          shiftTypeCode: input.shiftTypeCode ?? null,
           startDate: input.startDate,
           endDate: input.endDate ?? null,
           reason: input.reason ?? null,

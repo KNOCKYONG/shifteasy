@@ -25,6 +25,7 @@ export const specialRequests = pgTable('special_requests', {
 
   // Request details
   requestType: text('request_type').notNull(), // 'vacation', 'day_off', 'overtime', 'shift_change'
+  shiftTypeCode: text('shift_type_code'), // Config 화면의 customShiftTypes code와 연결
   startDate: date('start_date').notNull(), // 요청 시작일
   endDate: date('end_date'), // 요청 종료일 (단일일 경우 null 가능)
 

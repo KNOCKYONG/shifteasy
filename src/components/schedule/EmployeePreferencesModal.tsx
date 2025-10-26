@@ -1,8 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User, Heart, Calendar, Clock, Users, Shield, X, Save, AlertCircle, Star, UserCheck, UserMinus, ChevronLeft, ChevronRight, Info, CheckCircle } from "lucide-react";
 import { type Employee, type EmployeePreferences, type ShiftType } from "@/lib/scheduler/types";
 import { validatePattern as validatePatternUtil, describePattern, EXAMPLE_PATTERNS, KEYWORD_DESCRIPTIONS, type ShiftToken } from "@/lib/utils/pattern-validator";
+import { api } from "@/lib/trpc/client";
 
 interface EmployeePreferencesModalProps {
   employee: Employee;
@@ -113,7 +114,33 @@ export function EmployeePreferencesModal({
 
   // Request 탭을 위한 state
   const [selectedMonth, setSelectedMonth] = useState(new Date());
-  const [shiftRequests, setShiftRequests] = useState<Record<string, 'D' | 'E' | 'N' | 'OFF' | '연차'>>({});
+  const [shiftRequests, setShiftRequests] = useState<Record<string, string>>({});
+
+  // Custom shift types from config
+  interface CustomShiftType {
+    code: string;
+    name: string;
+    startTime: string;
+    endTime: string;
+    color: string;
+    allowOvertime: boolean;
+  }
+  const [customShiftTypes, setCustomShiftTypes] = useState<CustomShiftType[]>([]);
+
+  // Load custom shift types from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('customShiftTypes');
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          setCustomShiftTypes(parsed);
+        } catch (e) {
+          console.error('Failed to parse customShiftTypes:', e);
+        }
+      }
+    }
+  }, []);
 
   const daysOfWeek = ['일', '월', '화', '수', '목', '금', '토'];
   const shiftTypes: { value: ShiftType; label: string; color: string }[] = [
@@ -132,8 +159,60 @@ export function EmployeePreferencesModal({
     { value: 'other', label: '기타', icon: '📝' },
   ];
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    // Save preferences
     onSave(preferences);
+
+    // Save shift requests to database
+    if (Object.keys(shiftRequests).length > 0) {
+      try {
+        // Group consecutive dates with same shift into single requests
+        const sortedDates = Object.keys(shiftRequests).sort();
+        const requests: Array<{
+          startDate: string;
+          endDate?: string;
+          shiftTypeCode: string;
+        }> = [];
+
+        let currentStart = sortedDates[0];
+        let currentCode = shiftRequests[currentStart];
+
+        for (let i = 1; i <= sortedDates.length; i++) {
+          const date = sortedDates[i];
+          const code = date ? shiftRequests[date] : null;
+
+          // Check if we should start a new request
+          if (code !== currentCode || !date) {
+            requests.push({
+              startDate: currentStart!,
+              endDate: sortedDates[i - 1] !== currentStart ? sortedDates[i - 1] : undefined,
+              shiftTypeCode: currentCode!,
+            });
+
+            if (date) {
+              currentStart = date;
+              currentCode = code!;
+            }
+          }
+        }
+
+        // Save each request
+        for (const request of requests) {
+          await api.specialRequests.create.mutate({
+            employeeId: employee.id,
+            requestType: 'shift_request', // Default type for shift requests
+            shiftTypeCode: request.shiftTypeCode,
+            startDate: request.startDate,
+            endDate: request.endDate,
+            status: 'pending',
+          });
+        }
+
+        console.log('Shift requests saved successfully');
+      } catch (error) {
+        console.error('Failed to save shift requests:', error);
+      }
+    }
   };
 
   const toggleShiftPreference = (shift: ShiftType, type: 'preferred' | 'avoid') => {
@@ -718,7 +797,7 @@ export function EmployeePreferencesModal({
                             if (e.target.value) {
                               setShiftRequests({
                                 ...shiftRequests,
-                                [dateKey]: e.target.value as any
+                                [dateKey]: e.target.value
                               });
                             } else {
                               const newRequests = {...shiftRequests};
@@ -728,11 +807,11 @@ export function EmployeePreferencesModal({
                           }}
                         >
                           <option value="">선택 안함</option>
-                          <option value="D">D (주간)</option>
-                          <option value="E">E (저녁)</option>
-                          <option value="N">N (야간)</option>
-                          <option value="OFF">OFF (휴무)</option>
-                          <option value="연차">연차</option>
+                          {customShiftTypes.map((shiftType) => (
+                            <option key={shiftType.code} value={shiftType.code}>
+                              {shiftType.code} ({shiftType.name})
+                            </option>
+                          ))}
                         </select>
                       </div>
                     );
@@ -743,22 +822,12 @@ export function EmployeePreferencesModal({
               </div>
 
               {/* 범례 */}
-              <div className="flex gap-4 justify-center text-sm text-gray-600 dark:text-gray-400">
-                <div className="flex items-center gap-1">
-                  <span className="font-bold text-blue-600">D</span> - 주간
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="font-bold text-blue-600">E</span> - 저녁
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="font-bold text-blue-600">N</span> - 야간
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="font-bold text-blue-600">OFF</span> - 휴무
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="font-bold text-blue-600">연차</span> - 연차
-                </div>
+              <div className="flex gap-4 flex-wrap justify-center text-sm text-gray-600 dark:text-gray-400">
+                {customShiftTypes.map((shiftType) => (
+                  <div key={shiftType.code} className="flex items-center gap-1">
+                    <span className="font-bold text-blue-600">{shiftType.code}</span> - {shiftType.name}
+                  </div>
+                ))}
               </div>
             </div>
           )}
