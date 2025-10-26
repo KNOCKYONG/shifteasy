@@ -80,7 +80,7 @@ export function EmployeePreferencesModal({
 }: EmployeePreferencesModalProps) {
   const [preferences, setPreferences] = useState<ExtendedEmployeePreferences>({
     ...employee.preferences,
-    workPatternType: 'three-shift',
+    workPatternType: employee.preferences?.workPatternType || 'three-shift',
     workLoadPreference: 'normal',
     flexibilityLevel: 'medium',
     preferredPartners: [],
@@ -197,9 +197,6 @@ export function EmployeePreferencesModal({
     setShowConstraintForm(false);
   };
 
-  // 특수 패턴 정의 (상호 배타적)
-  const specialPatterns = ['평일 근무', '나이트 집중 근무'];
-
   const togglePatternPreference = (pattern: string) => {
     const current = preferences.preferredPatterns || [];
 
@@ -212,22 +209,11 @@ export function EmployeePreferencesModal({
       return;
     }
 
-    // 특수 패턴 선택 시, 다른 모든 패턴 제거
-    if (specialPatterns.includes(pattern)) {
-      setPreferences({
-        ...preferences,
-        preferredPatterns: [pattern],
-      });
-    } else {
-      // 일반 패턴 선택 시, 특수 패턴이 이미 있는지 확인
-      const hasSpecialPattern = current.some(p => specialPatterns.includes(p));
-      if (!hasSpecialPattern) {
-        setPreferences({
-          ...preferences,
-          preferredPatterns: [...current, pattern],
-        });
-      }
-    }
+    // 패턴 추가
+    setPreferences({
+      ...preferences,
+      preferredPatterns: [...current, pattern],
+    });
   };
 
   // 패턴 입력 핸들러 (실시간 검증)
@@ -250,12 +236,6 @@ export function EmployeePreferencesModal({
     }
 
     const current = preferences.preferredPatterns || [];
-
-    // 특수 패턴이 이미 선택되어 있으면 커스텀 패턴 추가 불가
-    const hasSpecialPattern = current.some(p => specialPatterns.includes(p));
-    if (hasSpecialPattern) {
-      return; // 입력 필드가 disabled이므로 실행되지 않음
-    }
 
     // 검증된 패턴을 문자열로 변환 (OFF는 그대로, 나머지는 단일 문자)
     const patternString = patternValidation.tokens
@@ -331,14 +311,45 @@ export function EmployeePreferencesModal({
         <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 240px)' }}>
           {activeTab === 'basic' && (
             <div className="space-y-6">
-              {/* 선호 시프트 */}
+              {/* 근무 패턴 */}
               <div>
-                <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">선호하는 근무 시간</h3>
+                <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">근무 패턴</h3>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { value: 'three-shift', label: '3교대 근무', description: '주간/저녁/야간 순환 근무' },
+                    { value: 'night-intensive', label: '나이트 집중 근무', description: '야간 근무 집중 배치' },
+                    { value: 'weekday-only', label: '평일 근무', description: '월~금 근무, 주말 휴무' },
+                  ].map(option => (
+                    <button
+                      key={option.value}
+                      onClick={() => setPreferences({ ...preferences, workPatternType: option.value as WorkPatternType })}
+                      className={`p-3 rounded-lg border-2 transition-all text-left ${
+                        preferences.workPatternType === option.value
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                          : 'border-gray-200 dark:border-slate-600 hover:border-gray-300 dark:hover:border-slate-500'
+                      }`}
+                    >
+                      <div className="font-medium text-gray-900 dark:text-white">{option.label}</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{option.description}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 선호 시프트 */}
+              <div className={preferences.workPatternType !== 'three-shift' ? 'opacity-50 pointer-events-none' : ''}>
+                <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">
+                  선호하는 근무 시간
+                  {preferences.workPatternType !== 'three-shift' && (
+                    <span className="ml-2 text-sm text-gray-500 font-normal">(3교대 근무 선택 시 활성화)</span>
+                  )}
+                </h3>
                 <div className="flex gap-2">
                   {shiftTypes.filter(s => s.value !== 'off').map(shift => (
                     <button
                       key={shift.value}
                       onClick={() => toggleShiftPreference(shift.value, 'preferred')}
+                      disabled={preferences.workPatternType !== 'three-shift'}
                       className={`px-4 py-2 rounded-lg border-2 transition-all ${
                         preferences.preferredShifts.includes(shift.value)
                           ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
@@ -374,37 +385,13 @@ export function EmployeePreferencesModal({
               </div>
 
               {/* 선호 근무 패턴 */}
-              <div>
-                <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">선호 근무 패턴 (다중 선택 가능)</h3>
-
-                {/* 특수 패턴 (상호 배타적) */}
-                <div className="mb-4">
-                  <label className="block text-sm text-gray-600 dark:text-gray-400 mb-2">
-                    특수 패턴 (하나만 선택 가능, 선택 시 다른 패턴 추가 불가)
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { value: '평일 근무', label: '평일 근무', description: '월~금 근무, 주말 휴무', pattern: 'A-A-A-A-A-OFF-OFF' },
-                      { value: '나이트 집중 근무', label: '나이트 집중 근무', description: '야간 근무 집중 배치' },
-                    ].map(option => (
-                      <button
-                        key={option.value}
-                        onClick={() => togglePatternPreference(option.value)}
-                        className={`p-3 rounded-lg border-2 transition-all text-left ${
-                          (preferences.preferredPatterns || []).includes(option.value)
-                            ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
-                            : 'border-gray-200 dark:border-slate-600 hover:border-gray-300 dark:hover:border-slate-500'
-                        }`}
-                      >
-                        <div className="font-medium text-gray-900 dark:text-white">{option.label}</div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{option.description}</div>
-                        {option.pattern && (
-                          <div className="text-xs text-purple-600 dark:text-purple-400 mt-1 font-mono">{option.pattern}</div>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+              <div className={preferences.workPatternType !== 'three-shift' ? 'opacity-50 pointer-events-none' : ''}>
+                <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">
+                  선호 근무 패턴 (다중 선택 가능)
+                  {preferences.workPatternType !== 'three-shift' && (
+                    <span className="ml-2 text-sm text-gray-500 font-normal">(3교대 근무 선택 시 활성화)</span>
+                  )}
+                </h3>
 
                 {/* 기본 패턴 선택 */}
                 <div className="mb-4">
@@ -418,16 +405,16 @@ export function EmployeePreferencesModal({
                       { value: 'D-OFF-D-OFF-D-OFF-D', label: '격일 근무', description: '1일 근무, 1일 휴무' },
                       { value: 'N-N-N-OFF-OFF-OFF-OFF', label: '야간 집중', description: '야간 3일, 4일 휴무' },
                     ].map(option => {
-                      const hasSpecialPattern = (preferences.preferredPatterns || []).some(p => specialPatterns.includes(p));
+                      const isDisabled = preferences.workPatternType !== 'three-shift';
                       return (
                         <button
                           key={option.value}
-                          onClick={() => !hasSpecialPattern && togglePatternPreference(option.value)}
-                          disabled={hasSpecialPattern}
+                          onClick={() => !isDisabled && togglePatternPreference(option.value)}
+                          disabled={isDisabled}
                           className={`p-3 rounded-lg border-2 transition-all text-left ${
                             (preferences.preferredPatterns || []).includes(option.value)
                               ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                              : hasSpecialPattern
+                              : isDisabled
                               ? 'border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700/50 cursor-not-allowed opacity-50'
                               : 'border-gray-200 dark:border-slate-600 hover:border-gray-300 dark:hover:border-slate-500'
                           }`}
@@ -481,7 +468,7 @@ export function EmployeePreferencesModal({
                   )}
 
                   {(() => {
-                    const hasSpecialPattern = (preferences.preferredPatterns || []).some(p => specialPatterns.includes(p));
+                    const isDisabled = preferences.workPatternType !== 'three-shift';
                     return (
                       <>
                         {/* 입력 필드 */}
@@ -492,18 +479,18 @@ export function EmployeePreferencesModal({
                               value={customPatternInput}
                               onChange={(e) => handlePatternInputChange(e.target.value)}
                               onKeyDown={(e) => {
-                                if (e.key === 'Enter' && patternValidation?.isValid && !hasSpecialPattern) {
+                                if (e.key === 'Enter' && patternValidation?.isValid && !isDisabled) {
                                   addCustomPattern();
                                 }
                               }}
                               placeholder="예: N-N-N-OFF-OFF 또는 D,D,D,OFF,OFF (Enter로 추가)"
-                              disabled={hasSpecialPattern}
+                              disabled={isDisabled}
                               className={`w-full px-3 py-2 border rounded-md font-mono text-sm ${
                                 patternValidation?.isValid
                                   ? 'border-green-300 bg-green-50 dark:bg-green-950/20 focus:ring-green-500'
                                   : patternValidation?.errors.length
                                   ? 'border-red-300 bg-red-50 dark:bg-red-950/20 focus:ring-red-500'
-                                  : hasSpecialPattern
+                                  : isDisabled
                                   ? 'bg-gray-100 dark:bg-slate-800 cursor-not-allowed opacity-50'
                                   : 'border-gray-300 dark:border-slate-600 focus:ring-blue-500'
                               } focus:outline-none focus:ring-2`}
@@ -543,16 +530,16 @@ export function EmployeePreferencesModal({
 
                           <button
                             onClick={addCustomPattern}
-                            disabled={!patternValidation?.isValid || hasSpecialPattern}
+                            disabled={!patternValidation?.isValid || isDisabled}
                             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             추가
                           </button>
                         </div>
 
-                        {hasSpecialPattern && (
+                        {isDisabled && (
                           <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                            특수 패턴이 선택되어 있어 직접 입력이 비활성화되었습니다.
+                            3교대 근무를 선택하면 패턴을 추가할 수 있습니다.
                           </div>
                         )}
                       </>
@@ -791,7 +778,7 @@ export function EmployeePreferencesModal({
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
               >
                 <Save className="w-4 h-4" />
-                저장하기
+                저장
               </button>
             </div>
           </div>
