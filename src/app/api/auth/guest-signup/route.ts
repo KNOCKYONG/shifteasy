@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { tenants, departments, users } from '@/db/schema';
+import { tenants, departments, users } from '@/db/schema/tenants';
 import { clerkClient } from '@clerk/nextjs/server';
 
 export const dynamic = 'force-dynamic';
