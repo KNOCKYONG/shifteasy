@@ -22,16 +22,15 @@ export async function POST(req: NextRequest) {
 
     if (!currentPassword || !newPassword) {
       return NextResponse.json(
-        { error: 'Current password and new password are required' },
+        { error: '현재 비밀번호와 새 비밀번호를 모두 입력해주세요.' },
         { status: 400 }
       );
     }
 
-    // Validate new password complexity
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{12,}$/;
-    if (!passwordRegex.test(newPassword)) {
+    // Validate new password length (minimum 8 characters)
+    if (newPassword.length < 8) {
       return NextResponse.json(
-        { error: 'New password does not meet complexity requirements' },
+        { error: '새 비밀번호는 최소 8자 이상이어야 합니다.' },
         { status: 400 }
       );
     }
@@ -49,7 +48,7 @@ export async function POST(req: NextRequest) {
 
       if (currentUser.length === 0) {
         return NextResponse.json(
-          { error: 'User not found' },
+          { error: '사용자를 찾을 수 없습니다.' },
           { status: 404 }
         );
       }
@@ -61,7 +60,7 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: 'Password changed successfully'
+        message: '비밀번호가 성공적으로 변경되었습니다.'
       });
     } catch (error: any) {
       console.error('Error updating password:', error);
@@ -69,20 +68,28 @@ export async function POST(req: NextRequest) {
       // Check if error is due to incorrect current password
       if ((error as any).errors && (error as any).errors[0]?.code === 'form_password_incorrect') {
         return NextResponse.json(
-          { error: 'Current password is incorrect' },
+          { error: '현재 비밀번호가 올바르지 않습니다.' },
+          { status: 400 }
+        );
+      }
+
+      // Check if error is due to common password
+      if ((error as any).errors && (error as any).errors[0]?.code === 'form_password_pwned') {
+        return NextResponse.json(
+          { error: '너무 흔한 비밀번호입니다. 다른 비밀번호를 사용해주세요.' },
           { status: 400 }
         );
       }
 
       return NextResponse.json(
-        { error: 'Failed to update password' },
+        { error: '비밀번호 변경에 실패했습니다.' },
         { status: 500 }
       );
     }
   } catch (error) {
     console.error('Error in password change:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: '서버 오류가 발생했습니다.' },
       { status: 500 }
     );
   }
