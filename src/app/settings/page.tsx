@@ -1,12 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { User, Shield, Bell, Key, Copy } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { RoleGuard } from "@/components/auth/RoleGuard";
+
+// Force dynamic rendering to prevent build-time errors
+export const dynamic = 'force-dynamic';
 
 interface Department {
   id: string;
@@ -21,7 +24,7 @@ interface CurrentUser {
   department?: string;
 }
 
-export default function SettingsPage() {
+function SettingsContent() {
   const { t } = useTranslation(['settings', 'common']);
   const searchParams = useSearchParams();
   const { user } = useUser();
@@ -41,7 +44,7 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
-    const tab = searchParams.get('tab');
+    const tab = searchParams?.get('tab');
     if (tab === 'security') {
       setActiveTab('security');
     } else if (tab === 'notifications') {
@@ -395,5 +398,13 @@ export default function SettingsPage() {
         </div>
       </MainLayout>
     </RoleGuard>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SettingsContent />
+    </Suspense>
   );
 }
