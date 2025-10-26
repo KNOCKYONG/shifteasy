@@ -11,7 +11,7 @@ export function useCurrentUser() {
   const { data: currentUserData } = api.tenant.users.current.useQuery(
     undefined,
     {
-      enabled: !!userId && !!orgId,
+      enabled: !!userId,
     }
   );
 

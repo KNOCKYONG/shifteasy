@@ -6,8 +6,8 @@ import { ProfileDropdown } from '@/components/ProfileDropdown';
 import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
 import { Menu, X, Bell } from 'lucide-react';
-import { api } from '@/lib/trpc/client';
 import { getNavigationForRole, type Role } from '@/lib/permissions';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 interface NavItem {
   href: string;
@@ -21,7 +21,7 @@ export function NavigationHeader() {
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
-  const { data: currentUser } = api.tenant.users.current.useQuery();
+  const currentUser = useCurrentUser();
 
   // 읽지 않은 알림 개수 조회 (임시 mock 데이터)
   // TODO: API로 실제 읽지 않은 알림 개수 가져오기
@@ -55,7 +55,7 @@ export function NavigationHeader() {
   }, []);
 
   // Get role-based navigation items
-  const roleNavigation = getNavigationForRole(currentUser?.role as Role);
+  const roleNavigation = getNavigationForRole(currentUser.role as Role);
 
   // Filter out dashboard from navigation (it's in the logo link)
   const navItems: NavItem[] = roleNavigation

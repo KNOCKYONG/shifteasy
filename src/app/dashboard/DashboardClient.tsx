@@ -3,12 +3,12 @@
 import { useState, useEffect } from 'react';
 import { Calendar, Users, ArrowRightLeft, Settings } from 'lucide-react';
 import Link from 'next/link';
-import { api } from '@/lib/trpc/client';
 import { MemberDashboard } from '@/components/dashboard/MemberDashboard';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 export default function DashboardClient() {
   const [mounted, setMounted] = useState(false);
-  const { data: currentUser } = api.tenant.users.current.useQuery();
+  const currentUser = useCurrentUser();
 
   useEffect(() => {
     setMounted(true);
@@ -20,7 +20,7 @@ export default function DashboardClient() {
   }
 
   // Show simplified dashboard for members
-  if (currentUser?.role === 'member') {
+  if (currentUser.role === 'member') {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
         <div className="container mx-auto px-4 py-8">
@@ -42,7 +42,7 @@ export default function DashboardClient() {
     },
     {
       title: '팀 관리',
-      description: currentUser?.role === 'manager'
+      description: currentUser.role === 'manager'
         ? '우리 팀 정보를 확인합니다'
         : '팀원 정보와 부서를 관리합니다',
       icon: Users,
@@ -70,7 +70,7 @@ export default function DashboardClient() {
 
   // Filter cards based on user role
   const dashboardCards = allDashboardCards.filter(card =>
-    card.roles.includes(currentUser?.role || '')
+    card.roles.includes(currentUser.role)
   );
 
   return (
