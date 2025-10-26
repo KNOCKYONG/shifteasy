@@ -24,8 +24,6 @@ export function NavigationHeader() {
   const currentUser = useCurrentUser();
 
   // 읽지 않은 알림 개수 조회 (임시 mock 데이터)
-  // TODO: API로 실제 읽지 않은 알림 개수 가져오기
-  // const { data: notifications } = api.notifications.getUnread.useQuery();
   const mockNotifications = [
     { id: '1', message: '새로운 근무 스케줄이 배정되었습니다.', time: '5분 전', isRead: false },
     { id: '2', message: '김철수님의 휴가 신청이 승인되었습니다.', time: '1시간 전', isRead: false },

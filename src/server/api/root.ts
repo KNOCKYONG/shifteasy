@@ -4,7 +4,6 @@ import { tenantRouter } from './routers/tenant';
 import { scheduleRouter } from './routers/schedule';
 import { staffRouter } from './routers/staff';
 import { swapRouter } from './routers/swap';
-import { assignmentRouter } from './routers/assignment';
 import { attendanceRouter } from './routers/attendance';
 import { notificationRouter } from './routers/notification';
 import { preferencesRouter } from './routers/preferences';
@@ -18,7 +17,6 @@ export const appRouter = createTRPCRouter({
   schedule: scheduleRouter,
   staff: staffRouter,
   swap: swapRouter,
-  assignment: assignmentRouter,
   attendance: attendanceRouter,
   notification: notificationRouter,
   preferences: preferencesRouter,

@@ -472,14 +472,6 @@ const departments =
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  {/* 상세 페이지는 아직 구현되지 않음
-                  <button
-                    onClick={() => router.push(`/team/${member.id}`)}
-                    className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                  >
-                    <Edit2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                  </button>
-                  */}
                   <button
                     onClick={() => handleRemoveMember(member.id)}
                     className="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors"
