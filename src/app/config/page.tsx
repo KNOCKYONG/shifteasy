@@ -1,9 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Settings, Save, AlertCircle, Clock, Users, Shield, ChevronRight, Database, Trash2, Activity, Plus, Edit2, Briefcase, Building, FileText, UserCheck } from "lucide-react";
+import { Settings, Save, AlertCircle, Clock, Users, ChevronRight, Database, Trash2, Activity, Plus, Edit2, Briefcase, Building, FileText, UserCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { type ShiftRule, type ShiftPattern } from "@/lib/types";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { ShiftTypesTab } from "./ShiftTypesTab";
@@ -22,44 +21,16 @@ interface ContractType {
 }
 
 interface ConfigData {
-  patterns: ShiftPattern[];
-  rules: ShiftRule[];
   preferences: {
-    autoBalance: boolean;
-    maxConsecutiveShifts: number;
-    minRestHours: number;
-    weekendRotation: boolean;
-    fairnessWeight: number;
+    nightIntensivePaidLeaveDays: number; // 나이트 집중 근무 월별 유급 휴가 일수 (0이면 비활성화)
   };
 }
-
-const DEFAULT_PATTERNS: ShiftPattern[] = [
-  { id: "3-shift", name: "3교대", description: "주간/저녁/야간 순환", daysOn: 5, daysOff: 2 },
-];
-
-const DEFAULT_RULES: ShiftRule[] = [
-  { id: "max-consecutive", name: "최대 연속 근무", type: "limit", value: 5, enabled: true },
-  { id: "min-rest", name: "최소 휴식 시간", type: "minimum", value: 11, enabled: true },
-  { id: "weekend-fairness", name: "주말 공평 배분", type: "balance", value: 1, enabled: true },
-  { id: "night-limit", name: "월 야간 근무 제한", type: "limit", value: 8, enabled: true },
-];
 
 export default function ConfigPage() {
   const router = useRouter();
   const { t, ready } = useTranslation(['config', 'common']);
 
-  // Get rule translation by ID
-  const getRuleName = (id: string): string => {
-    switch (id) {
-      case 'max-consecutive': return t('rules.maxConsecutive', { ns: 'config' });
-      case 'min-rest': return t('rules.minRest', { ns: 'config' });
-      case 'weekend-fairness': return t('rules.weekendFairness', { ns: 'config' });
-      case 'night-limit': return t('rules.nightLimit', { ns: 'config' });
-      default: return '';
-    }
-  };
-
-  const [activeTab, setActiveTab] = useState<"rules" | "preferences" | "positions" | "positionGroups" | "shifts" | "departments" | "contracts" | "statuses">("rules");
+  const [activeTab, setActiveTab] = useState<"preferences" | "positions" | "positionGroups" | "shifts" | "departments" | "contracts" | "statuses">("preferences");
   const [positions, setPositions] = useState<{value: string; label: string; level: number}[]>([]);
   const [newPosition, setNewPosition] = useState({ value: '', label: '', level: 1 });
   const [editingPosition, setEditingPosition] = useState<string | null>(null);
@@ -255,14 +226,8 @@ export default function ConfigPage() {
   }, []);
 
   const [config, setConfig] = useState<ConfigData>({
-    patterns: DEFAULT_PATTERNS,
-    rules: DEFAULT_RULES,
     preferences: {
-      autoBalance: true,
-      maxConsecutiveShifts: 5,
-      minRestHours: 11,
-      weekendRotation: true,
-      fairnessWeight: 70,
+      nightIntensivePaidLeaveDays: 2, // 기본값: 월 2회
     },
   });
 
@@ -270,25 +235,7 @@ export default function ConfigPage() {
     // Save configuration to localStorage
     localStorage.setItem("shiftConfig", JSON.stringify(config));
     alert(t('alerts.saved', { ns: 'config' }));
-    router.push("/schedule");
-  };
-
-  const handleRuleToggle = (ruleId: string) => {
-    setConfig(prev => ({
-      ...prev,
-      rules: prev.rules.map(rule =>
-        rule.id === ruleId ? { ...rule, enabled: !rule.enabled } : rule
-      ),
-    }));
-  };
-
-  const handleRuleValueChange = (ruleId: string, value: number) => {
-    setConfig(prev => ({
-      ...prev,
-      rules: prev.rules.map(rule =>
-        rule.id === ruleId ? { ...rule, value } : rule
-      ),
-    }));
+    // 화면 이동 제거 - 저장만 수행
   };
 
   return (
@@ -309,16 +256,6 @@ export default function ConfigPage() {
             3교대(주간/저녁/야간) 패턴을 기준으로 스케줄이 생성되며, 근무 패턴은 변경할 수 없습니다.
           </div>
           <nav className="flex gap-8">
-            <button
-              onClick={() => setActiveTab("rules")}
-              className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === "rules"
-                  ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
-                  : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
-              }`}
-            >
-              {t('tabs.rules', { ns: 'config' })}
-            </button>
             <button
               onClick={() => setActiveTab("preferences")}
               className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
@@ -393,170 +330,58 @@ export default function ConfigPage() {
         </div>
 
         {/* Tab Content */}
-        {activeTab === "rules" && (
-          <div className="space-y-4">
-            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm text-amber-900 dark:text-amber-300 font-medium">{t('rules.title', { ns: 'config' })}</p>
-                <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
-                  {t('rules.description', { ns: 'config' })}
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700">
-              {config.rules.map((rule) => (
-                <div key={rule.id} className="p-6 flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <Shield className="w-5 h-5 text-gray-400 dark:text-gray-500" />
-                      <h4 className="font-medium text-gray-900 dark:text-gray-100">{getRuleName(rule.id)}</h4>
-                      <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                        rule.type === "limit" ? "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400" :
-                        rule.type === "minimum" ? "bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400" :
-                        "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400"
-                      }`}>
-                        {rule.type === "limit" ? t('rules.type.limit', { ns: 'config' }) : rule.type === "minimum" ? t('rules.type.minimum', { ns: 'config' }) : t('rules.type.balance', { ns: 'config' })}
-                      </span>
-                    </div>
-                    <div className="mt-2 flex items-center gap-4">
-                      <input
-                        type="number"
-                        value={rule.value}
-                        onChange={(e) => handleRuleValueChange(rule.id, parseInt(e.target.value))}
-                        className="w-20 px-3 py-1 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
-                        disabled={!rule.enabled}
-                      />
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
-                        {rule.id === "max-consecutive" ? t('rules.units.days', { ns: 'config' }) :
-                         rule.id === "min-rest" ? t('rules.units.hours', { ns: 'config' }) :
-                         rule.id === "night-limit" ? t('rules.units.times', { ns: 'config' }) : ""}
-                      </span>
-                    </div>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={rule.enabled}
-                      onChange={() => handleRuleToggle(rule.id)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 dark:peer-checked:bg-blue-500"></div>
-                  </label>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {activeTab === "preferences" && (
           <div className="space-y-6">
+            {/* 나이트 집중 근무 유급 휴가 설정 */}
             <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6">{t('preferences.autoOptimization', { ns: 'config' })}</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6">나이트 집중 근무 유급 휴가</h3>
 
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-gray-100">{t('preferences.autoBalance', { ns: 'config' })}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('preferences.autoBalanceDesc', { ns: 'config' })}</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={config.preferences.autoBalance}
-                      onChange={(e) => setConfig(prev => ({
-                        ...prev,
-                        preferences: { ...prev.preferences, autoBalance: e.target.checked }
-                      }))}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 dark:peer-checked:bg-blue-500"></div>
-                  </label>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-gray-100">{t('preferences.weekendRotation', { ns: 'config' })}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('preferences.weekendRotationDesc', { ns: 'config' })}</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={config.preferences.weekendRotation}
-                      onChange={(e) => setConfig(prev => ({
-                        ...prev,
-                        preferences: { ...prev.preferences, weekendRotation: e.target.checked }
-                      }))}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 dark:peer-checked:bg-blue-500"></div>
-                  </label>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="font-medium text-gray-900 dark:text-gray-100">{t('preferences.fairnessWeight', { ns: 'config' })}</p>
-                    <span className="text-sm font-medium text-blue-600 dark:text-blue-400">{config.preferences.fairnessWeight}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={config.preferences.fairnessWeight}
-                    onChange={(e) => setConfig(prev => ({
-                      ...prev,
-                      preferences: { ...prev.preferences, fairnessWeight: parseInt(e.target.value) }
-                    }))}
-                    className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                  />
-                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    <span>{t('preferences.efficiencyFirst', { ns: 'config' })}</span>
-                    <span>{t('preferences.fairnessFirst', { ns: 'config' })}</span>
+              <div className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4 mb-6">
+                <div className="flex items-start gap-3">
+                  <Activity className="w-5 h-5 text-indigo-600 dark:text-indigo-400 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-indigo-900 dark:text-indigo-300">
+                    <p className="font-medium mb-1">나이트 집중 근무 보상 제도</p>
+                    <p className="text-indigo-700 dark:text-indigo-400">
+                      야간 근무 집중 시기 후 보상성 유급 휴가를 부여합니다. 주로 2일 연속 사용되며, 스케줄 생성 시 자동으로 고려됩니다.
+                    </p>
+                    <p className="text-indigo-600 dark:text-indigo-500 mt-2 font-medium">
+                      💡 0으로 설정하면 유급 휴가가 부여되지 않습니다.
+                    </p>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6">{t('preferences.scheduleOptions', { ns: 'config' })}</h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t('preferences.maxConsecutiveShifts', { ns: 'config' })}
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="number"
-                      value={config.preferences.maxConsecutiveShifts}
-                      onChange={(e) => setConfig(prev => ({
-                        ...prev,
-                        preferences: { ...prev.preferences, maxConsecutiveShifts: parseInt(e.target.value) }
-                      }))}
-                      className="w-24 px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
-                    />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">{t('rules.units.days', { ns: 'config' })}</span>
-                  </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  월별 유급 휴가 일수
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min="0"
+                    max="10"
+                    value={config.preferences.nightIntensivePaidLeaveDays}
+                    onChange={(e) => setConfig(prev => ({
+                      ...prev,
+                      preferences: { ...prev.preferences, nightIntensivePaidLeaveDays: parseInt(e.target.value) || 0 }
+                    }))}
+                    className="w-24 px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                  />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">일/월</span>
+                  {config.preferences.nightIntensivePaidLeaveDays > 0 && (
+                    <span className="text-sm text-green-600 dark:text-green-400 font-medium">
+                      ✓ 활성화됨 (주로 2일 연속 사용)
+                    </span>
+                  )}
+                  {config.preferences.nightIntensivePaidLeaveDays === 0 && (
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      비활성화됨
+                    </span>
+                  )}
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t('preferences.minRestHours', { ns: 'config' })}
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="number"
-                      value={config.preferences.minRestHours}
-                      onChange={(e) => setConfig(prev => ({
-                        ...prev,
-                        preferences: { ...prev.preferences, minRestHours: parseInt(e.target.value) }
-                      }))}
-                      className="w-24 px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
-                    />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">{t('rules.units.hours', { ns: 'config' })}</span>
-                  </div>
-                </div>
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  권장: 2-4일 (야간 근무 강도에 따라 조정)
+                </p>
               </div>
             </div>
           </div>
@@ -789,7 +614,7 @@ export default function ConfigPage() {
             className="inline-flex items-center gap-2 px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
           >
             <Save className="w-4 h-4" />
-            {t('actions.saveAndGenerate', { ns: 'config' })}
+            저장
           </button>
         </div>
     </MainLayout>

@@ -9,7 +9,9 @@ import {
   Save,
   RefreshCw,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Info,
+  Keyboard
 } from 'lucide-react';
 import {
   TeamPattern,
@@ -18,6 +20,14 @@ import {
   SHIFT_TYPES,
   type ShiftType
 } from '@/lib/types/team-pattern';
+import {
+  validatePattern,
+  tokensToString,
+  describePattern,
+  EXAMPLE_PATTERNS,
+  KEYWORD_DESCRIPTIONS,
+  type ShiftToken
+} from '@/lib/utils/pattern-validator';
 
 interface TeamPatternPanelProps {
   departmentId: string;
@@ -43,6 +53,11 @@ export function TeamPatternPanel({
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [successMessage, setSuccessMessage] = useState('');
+
+  // 패턴 텍스트 입력 관련 상태
+  const [patternInput, setPatternInput] = useState('');
+  const [patternValidation, setPatternValidation] = useState<ReturnType<typeof validatePattern> | null>(null);
+  const [showPatternHelp, setShowPatternHelp] = useState(false);
 
   // Team Pattern 불러오기
   useEffect(() => {
@@ -148,6 +163,50 @@ export function TeamPatternPanel({
         defaultPatterns: newPatterns,
       };
     });
+  };
+
+  // 패턴 텍스트 입력 핸들러
+  const handlePatternInputChange = (value: string) => {
+    setPatternInput(value);
+
+    // 실시간 검증
+    if (value.trim()) {
+      const validation = validatePattern(value);
+      setPatternValidation(validation);
+    } else {
+      setPatternValidation(null);
+    }
+  };
+
+  // 패턴 텍스트를 적용
+  const applyPatternInput = () => {
+    if (!patternValidation || !patternValidation.isValid) {
+      return;
+    }
+
+    // 검증된 토큰을 패턴 배열에 추가
+    const newPatternArray = patternValidation.tokens.map(token =>
+      token === 'O' ? 'OFF' : token
+    ) as ShiftType[];
+
+    setPattern(prev => ({
+      ...prev,
+      defaultPatterns: [
+        ...(prev.defaultPatterns || []),
+        newPatternArray,
+      ],
+    }));
+
+    // 입력 초기화
+    setPatternInput('');
+    setPatternValidation(null);
+  };
+
+  // 예시 패턴 적용
+  const applyExamplePattern = (examplePattern: string) => {
+    setPatternInput(examplePattern);
+    const validation = validatePattern(examplePattern);
+    setPatternValidation(validation);
   };
 
   // 저장
@@ -356,6 +415,136 @@ export function TeamPatternPanel({
           )}
         </div>
 
+        {/* 텍스트 입력으로 패턴 추가 */}
+        {canEdit && (
+          <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="flex items-start gap-2 mb-2">
+              <Keyboard className="w-5 h-5 text-blue-600 mt-0.5" />
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  패턴 직접 입력
+                </label>
+                <p className="text-xs text-gray-500 mb-2">
+                  하이픈(-), 쉼표(,), 공백으로 구분하여 입력하세요. 예: N-N-N-OFF-OFF
+                </p>
+              </div>
+              <button
+                onClick={() => setShowPatternHelp(!showPatternHelp)}
+                className="p-1 text-gray-400 hover:text-gray-600"
+                title="도움말"
+              >
+                <Info className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* 도움말 */}
+            {showPatternHelp && (
+              <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <div className="text-xs text-blue-900 space-y-2">
+                  <div>
+                    <p className="font-medium mb-1">✅ 유효한 키워드:</p>
+                    <div className="grid grid-cols-2 gap-1 ml-2">
+                      {Object.entries(KEYWORD_DESCRIPTIONS).map(([token, desc]) => (
+                        <div key={token} className="flex items-center gap-1">
+                          <span className="font-mono font-bold">{token}:</span>
+                          <span className="text-gray-600">{desc}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="font-medium mb-1">📝 예시:</p>
+                    <div className="ml-2 space-y-1">
+                      {EXAMPLE_PATTERNS.slice(0, 3).map((ex, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => applyExamplePattern(ex.pattern)}
+                          className="block w-full text-left hover:bg-blue-100 px-2 py-1 rounded transition-colors"
+                        >
+                          <span className="font-mono">{ex.pattern}</span>
+                          <span className="text-gray-500 ml-2">→ {ex.description}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 입력 필드 */}
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  value={patternInput}
+                  onChange={(e) => handlePatternInputChange(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && patternValidation?.isValid) {
+                      applyPatternInput();
+                    }
+                  }}
+                  placeholder="예: N-N-N-OFF-OFF 또는 D,D,D,OFF,OFF (Enter로 추가)"
+                  className={`w-full px-3 py-2 border rounded-md font-mono text-sm ${
+                    patternValidation?.isValid
+                      ? 'border-green-300 bg-green-50 focus:ring-green-500'
+                      : patternValidation?.errors.length
+                      ? 'border-red-300 bg-red-50 focus:ring-red-500'
+                      : 'border-gray-300 focus:ring-blue-500'
+                  } focus:outline-none focus:ring-2`}
+                />
+
+                {/* 실시간 검증 피드백 */}
+                {patternValidation && (
+                  <div className="mt-2 space-y-1">
+                    {/* 에러 메시지 */}
+                    {patternValidation.errors.length > 0 && (
+                      <div className="flex items-start gap-1 text-xs text-red-600">
+                        <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                        <div>
+                          {patternValidation.errors.map((err, idx) => (
+                            <div key={idx}>{err}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 경고 메시지 */}
+                    {patternValidation.warnings.length > 0 && (
+                      <div className="flex items-start gap-1 text-xs text-amber-600">
+                        <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                        <div>
+                          {patternValidation.warnings.map((warn, idx) => (
+                            <div key={idx}>{warn}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 성공 메시지 */}
+                    {patternValidation.isValid && (
+                      <div className="flex items-center gap-1 text-xs text-green-600">
+                        <CheckCircle className="w-3 h-3" />
+                        <span>
+                          유효한 패턴: {describePattern(patternValidation.tokens)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={applyPatternInput}
+                disabled={!patternValidation?.isValid}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+              >
+                <Plus className="w-4 h-4" />
+                추가
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-3">
           {pattern.defaultPatterns?.map((patternArray, patternIndex) => (
             <div key={patternIndex} className="flex items-center gap-2">
@@ -399,15 +588,13 @@ export function TeamPatternPanel({
                   </button>
                 )}
               </div>
-              {canEdit && pattern.defaultPatterns!.length > 1 && (
-                <button
-                  onClick={() => removePattern(patternIndex)}
-                  className="p-1 text-red-600 hover:text-red-700"
-                  title="패턴 삭제"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              )}
+              <button
+                onClick={() => removePattern(patternIndex)}
+                className="p-1 text-red-600 hover:text-red-700"
+                title="패턴 삭제"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
           ))}
         </div>

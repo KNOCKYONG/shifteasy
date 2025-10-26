@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
-import { User, Heart, Calendar, Clock, Users, Shield, X, Save, AlertCircle, Star, UserCheck, UserMinus, ChevronLeft, ChevronRight } from "lucide-react";
+import { User, Heart, Calendar, Clock, Users, Shield, X, Save, AlertCircle, Star, UserCheck, UserMinus, ChevronLeft, ChevronRight, Info, CheckCircle } from "lucide-react";
 import { type Employee, type EmployeePreferences, type ShiftType } from "@/lib/scheduler/types";
+import { validatePattern as validatePatternUtil, describePattern, EXAMPLE_PATTERNS, KEYWORD_DESCRIPTIONS, type ShiftToken } from "@/lib/utils/pattern-validator";
 
 interface EmployeePreferencesModalProps {
   employee: Employee;
@@ -100,7 +101,8 @@ export function EmployeePreferencesModal({
   const [activeTab, setActiveTab] = useState<'basic' | 'personal' | 'request'>('basic');
   const [showConstraintForm, setShowConstraintForm] = useState(false);
   const [customPatternInput, setCustomPatternInput] = useState('');
-  const [patternError, setPatternError] = useState('');
+  const [patternValidation, setPatternValidation] = useState<ReturnType<typeof validatePatternUtil> | null>(null);
+  const [showPatternHelp, setShowPatternHelp] = useState(false);
 
   // Request 탭을 위한 state
   const [selectedMonth, setSelectedMonth] = useState(new Date());
@@ -131,14 +133,16 @@ export function EmployeePreferencesModal({
     if (type === 'preferred') {
       const current = preferences.preferredShifts;
       if (current.includes(shift)) {
+        // 이미 선택된 것을 클릭하면 선택 해제
         setPreferences({
           ...preferences,
-          preferredShifts: current.filter(s => s !== shift),
+          preferredShifts: [],
         });
       } else {
+        // 새로운 것을 선택하면 이전 선택은 해제하고 새것만 선택 (1개만 허용)
         setPreferences({
           ...preferences,
-          preferredShifts: [...current, shift],
+          preferredShifts: [shift],
           avoidShifts: preferences.avoidShifts.filter(s => s !== shift), // 충돌 방지
         });
       }
@@ -219,35 +223,22 @@ export function EmployeePreferencesModal({
     }
   };
 
-  const validatePattern = (pattern: string): boolean => {
-    const validKeywords = ['D', 'E', 'N', 'OFF'];
-    const parts = pattern.split('-');
+  // 패턴 입력 핸들러 (실시간 검증)
+  const handlePatternInputChange = (value: string) => {
+    setCustomPatternInput(value);
 
-    // 빈 패턴 체크
-    if (parts.length === 0 || parts.some(part => !part.trim())) {
-      setPatternError('패턴이 비어있습니다. 예: D-D-E-E-OFF-OFF');
-      return false;
+    // 실시간 검증
+    if (value.trim()) {
+      const validation = validatePatternUtil(value);
+      setPatternValidation(validation);
+    } else {
+      setPatternValidation(null);
     }
-
-    // 각 부분이 유효한 키워드인지 확인
-    for (const part of parts) {
-      if (!validKeywords.includes(part.trim())) {
-        setPatternError(`'${part}'는 유효하지 않은 키워드입니다. 사용 가능: D, E, N, OFF`);
-        return false;
-      }
-    }
-
-    setPatternError('');
-    return true;
   };
 
+  // 패턴 추가
   const addCustomPattern = () => {
-    if (!customPatternInput.trim()) return;
-
-    const trimmedPattern = customPatternInput.trim().toUpperCase();
-
-    // 패턴 검증
-    if (!validatePattern(trimmedPattern)) {
+    if (!patternValidation || !patternValidation.isValid) {
       return;
     }
 
@@ -256,19 +247,21 @@ export function EmployeePreferencesModal({
     // 특수 패턴이 이미 선택되어 있으면 커스텀 패턴 추가 불가
     const hasSpecialPattern = current.some(p => specialPatterns.includes(p));
     if (hasSpecialPattern) {
-      setPatternError('평일 근무 또는 나이트 집중 근무가 선택된 경우 다른 패턴을 추가할 수 없습니다.');
-      return;
+      return; // 입력 필드가 disabled이므로 실행되지 않음
     }
 
-    if (!current.includes(trimmedPattern)) {
+    // 검증된 패턴을 문자열로 변환 (OFF는 그대로, 나머지는 단일 문자)
+    const patternString = patternValidation.tokens
+      .map(token => token === 'O' ? 'OFF' : token)
+      .join('-');
+
+    if (!current.includes(patternString)) {
       setPreferences({
         ...preferences,
-        preferredPatterns: [...current, trimmedPattern],
+        preferredPatterns: [...current, patternString],
       });
       setCustomPatternInput('');
-      setPatternError('');
-    } else {
-      setPatternError('이미 추가된 패턴입니다.');
+      setPatternValidation(null);
     }
   };
 
@@ -333,7 +326,7 @@ export function EmployeePreferencesModal({
             <div className="space-y-6">
               {/* 선호 시프트 */}
               <div>
-                <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">선호하는 근무 시간</h3>
+                <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">선호하는 근무 시간 (1개만 선택 가능)</h3>
                 <div className="flex gap-2">
                   {shiftTypes.filter(s => s.value !== 'off').map(shift => (
                     <button
@@ -443,58 +436,118 @@ export function EmployeePreferencesModal({
 
                 {/* 직접 입력 */}
                 <div className="mb-3">
-                  <label className="block text-sm text-gray-600 dark:text-gray-400 mb-2">
-                    패턴 직접 입력 (예: D-D-E-E-OFF-OFF)
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm text-gray-600 dark:text-gray-400">
+                      패턴 직접 입력
+                    </label>
+                    <button
+                      onClick={() => setShowPatternHelp(!showPatternHelp)}
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                    >
+                      <Info className="w-3 h-3" />
+                      {showPatternHelp ? '도움말 숨기기' : '도움말 보기'}
+                    </button>
+                  </div>
+
+                  {/* 도움말 */}
+                  {showPatternHelp && (
+                    <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+                      <div className="space-y-2 text-xs">
+                        <div>
+                          <span className="font-semibold text-blue-900 dark:text-blue-300">사용 가능한 키워드:</span>
+                          <div className="mt-1 space-y-1 text-gray-700 dark:text-gray-300">
+                            {Object.entries(KEYWORD_DESCRIPTIONS).map(([token, desc]) => (
+                              <div key={token}>• {desc}</div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="border-t border-blue-200 dark:border-blue-800 pt-2">
+                          <span className="font-semibold text-blue-900 dark:text-blue-300">예시:</span>
+                          <div className="mt-1 space-y-1 text-gray-700 dark:text-gray-300">
+                            {EXAMPLE_PATTERNS.map((ex, idx) => (
+                              <div key={idx}>• {ex.pattern} - {ex.description}</div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {(() => {
                     const hasSpecialPattern = (preferences.preferredPatterns || []).some(p => specialPatterns.includes(p));
                     return (
                       <>
+                        {/* 입력 필드 */}
                         <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={customPatternInput}
-                            onChange={(e) => {
-                              setCustomPatternInput(e.target.value);
-                              setPatternError('');
-                            }}
-                            onKeyPress={(e) => e.key === 'Enter' && !hasSpecialPattern && (e.preventDefault(), addCustomPattern())}
-                            placeholder="D-D-E-E-OFF-OFF"
-                            disabled={hasSpecialPattern}
-                            className={`flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 bg-white dark:bg-slate-700 text-gray-900 dark:text-white ${
-                              hasSpecialPattern
-                                ? 'bg-gray-100 dark:bg-slate-800 cursor-not-allowed opacity-50'
-                                : patternError
-                                ? 'border-red-500 focus:ring-red-500'
-                                : 'border-gray-300 dark:border-slate-600 focus:ring-blue-500'
-                            }`}
-                          />
+                          <div className="flex-1">
+                            <input
+                              type="text"
+                              value={customPatternInput}
+                              onChange={(e) => handlePatternInputChange(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && patternValidation?.isValid && !hasSpecialPattern) {
+                                  addCustomPattern();
+                                }
+                              }}
+                              placeholder="예: N-N-N-OFF-OFF 또는 D,D,D,OFF,OFF (Enter로 추가)"
+                              disabled={hasSpecialPattern}
+                              className={`w-full px-3 py-2 border rounded-md font-mono text-sm ${
+                                patternValidation?.isValid
+                                  ? 'border-green-300 bg-green-50 dark:bg-green-950/20 focus:ring-green-500'
+                                  : patternValidation?.errors.length
+                                  ? 'border-red-300 bg-red-50 dark:bg-red-950/20 focus:ring-red-500'
+                                  : hasSpecialPattern
+                                  ? 'bg-gray-100 dark:bg-slate-800 cursor-not-allowed opacity-50'
+                                  : 'border-gray-300 dark:border-slate-600 focus:ring-blue-500'
+                              } focus:outline-none focus:ring-2`}
+                            />
+
+                            {/* 검증 결과 표시 */}
+                            {patternValidation && customPatternInput && (
+                              <div className="mt-2 space-y-1">
+                                {/* 에러 메시지 */}
+                                {patternValidation.errors.map((error, idx) => (
+                                  <div key={idx} className="flex items-center gap-1 text-sm text-red-600 dark:text-red-400">
+                                    <AlertCircle className="w-4 h-4" />
+                                    <span>{error}</span>
+                                  </div>
+                                ))}
+
+                                {/* 경고 메시지 */}
+                                {patternValidation.warnings.map((warning, idx) => (
+                                  <div key={idx} className="flex items-center gap-1 text-sm text-amber-600 dark:text-amber-400">
+                                    <AlertCircle className="w-4 h-4" />
+                                    <span>{warning}</span>
+                                  </div>
+                                ))}
+
+                                {/* 성공 메시지 */}
+                                {patternValidation.isValid && (
+                                  <div className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
+                                    <CheckCircle className="w-4 h-4" />
+                                    <span>
+                                      유효한 패턴: {describePattern(patternValidation.tokens)}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
                           <button
                             onClick={addCustomPattern}
-                            disabled={hasSpecialPattern}
-                            className={`px-4 py-2 rounded-lg transition-colors ${
-                              hasSpecialPattern
-                                ? 'bg-gray-400 cursor-not-allowed opacity-50'
-                                : 'bg-blue-600 text-white hover:bg-blue-700'
-                            }`}
+                            disabled={!patternValidation?.isValid || hasSpecialPattern}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             추가
                           </button>
                         </div>
+
                         {hasSpecialPattern && (
                           <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
                             특수 패턴이 선택되어 있어 직접 입력이 비활성화되었습니다.
                           </div>
                         )}
-                        {patternError && (
-                          <div className="mt-2 flex items-center gap-1 text-sm text-red-600 dark:text-red-400">
-                            <AlertCircle className="w-4 h-4" />
-                            <span>{patternError}</span>
-                          </div>
-                        )}
-                        <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                          사용 가능한 키워드: <span className="font-semibold">D</span> (주간), <span className="font-semibold">E</span> (저녁), <span className="font-semibold">N</span> (야간), <span className="font-semibold">OFF</span> (휴무)
-                        </div>
                       </>
                     );
                   })()}

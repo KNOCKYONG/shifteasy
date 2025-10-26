@@ -13,6 +13,7 @@ import { validateSchedulingRequest, validateEmployee } from "@/lib/validation/sc
 import { ScheduleReviewPanel } from "@/components/schedule/ScheduleReviewPanel";
 import { EmployeePreferencesModal, type ExtendedEmployeePreferences } from "@/components/schedule/EmployeePreferencesModal";
 import { SpecialRequestModal, type SpecialRequest } from "@/components/team/SpecialRequestModal";
+import { type ComprehensivePreferences } from "@/components/team/MyPreferencesPanel";
 import { toEmployee } from "@/lib/utils/employee-converter";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
@@ -93,6 +94,311 @@ const DEFAULT_CONSTRAINTS: Constraint[] = [
     active: true,
   },
 ];
+
+/**
+ * 선호 시프트와 휴무일을 기반으로 맞춤 패턴 생성
+ * @param preferredShift 선호하는 근무 시간 (1개)
+ * @param preferredDaysOff 선호하는 휴무일 (예: [4, 5] = 목금)
+ * @returns 생성된 패턴 문자열 (예: "N-N-N-OFF-OFF")
+ */
+function generateCustomPatternFromPreferences(
+  preferredShift: 'day' | 'evening' | 'night',
+  preferredDaysOff: number[]
+): string {
+  // 시프트 타입 매핑
+  const shiftMap = {
+    day: 'D',
+    evening: 'E',
+    night: 'N'
+  };
+
+  // 선호 휴무일이 없으면 기본 주말 (토일)
+  const offDays = preferredDaysOff.length > 0 ? preferredDaysOff : [0, 6];
+
+  // 7일 주기 패턴 생성
+  const weekPattern: string[] = [];
+
+  // 휴무일이 아닌 날에 근무 배치
+  const nonOffDays = [0, 1, 2, 3, 4, 5, 6].filter(day => !offDays.includes(day));
+
+  // 선호 시프트로 대부분 채우기
+  const preferredShiftCode = shiftMap[preferredShift];
+
+  for (let day = 0; day < 7; day++) {
+    if (offDays.includes(day)) {
+      weekPattern.push('OFF');
+    } else {
+      weekPattern.push(preferredShiftCode);
+    }
+  }
+
+  return weekPattern.join('-');
+}
+
+/**
+ * 선호 시프트에 1.2 비중을 적용하여 월간 시프트 배분 계산
+ * @param preferredShift 선호하는 근무 시간
+ * @param totalWorkDays 총 근무일 수
+ * @returns 각 시프트 타입별 일수 { day: number, evening: number, night: number }
+ */
+function calculateShiftDistribution(
+  preferredShift: 'day' | 'evening' | 'night',
+  totalWorkDays: number
+): { day: number; evening: number; night: number } {
+  const preferenceWeight = 1.2;
+
+  // 기본 배분 (균등)
+  const baseAllocation = totalWorkDays / 3;
+
+  // 선호 시프트에 1.2 배 적용
+  const preferredAllocation = Math.round(baseAllocation * preferenceWeight);
+
+  // 나머지를 다른 시프트에 균등 배분
+  const remainingDays = totalWorkDays - preferredAllocation;
+  const otherAllocation = Math.floor(remainingDays / 2);
+  const lastAllocation = remainingDays - otherAllocation; // 나머지 처리
+
+  const distribution = {
+    day: preferredShift === 'day' ? preferredAllocation : (preferredShift === 'evening' ? otherAllocation : lastAllocation),
+    evening: preferredShift === 'evening' ? preferredAllocation : (preferredShift === 'night' ? otherAllocation : lastAllocation),
+    night: preferredShift === 'night' ? preferredAllocation : (preferredShift === 'day' ? otherAllocation : lastAllocation)
+  };
+
+  return distribution;
+}
+
+/**
+ * 나이트 집중 근무 후 유급 휴가 추가
+ * @param schedule 생성된 스케줄 배열
+ * @param employees UnifiedEmployee 배열
+ * @param paidLeaveDaysPerMonth 월별 유급 휴가 일수
+ */
+function addNightIntensivePaidLeave(
+  schedule: ScheduleAssignment[],
+  employees: UnifiedEmployee[],
+  paidLeaveDaysPerMonth: number
+): void {
+  if (paidLeaveDaysPerMonth === 0) return;
+
+  console.log('\n💼 === 나이트 집중 근무 유급 휴가 적용 ===');
+  console.log(`   설정: 월 ${paidLeaveDaysPerMonth}일 유급 휴가`);
+
+  // 야간 근무를 선호하는 직원들 식별
+  const nightIntensiveEmployees = employees.filter(emp => {
+    const preferredShift = emp.comprehensivePreferences?.workPreferences?.preferredShifts?.[0];
+    return preferredShift === 'night';
+  });
+
+  console.log(`   대상 직원: ${nightIntensiveEmployees.length}명`);
+
+  nightIntensiveEmployees.forEach(employee => {
+    // 해당 직원의 스케줄만 필터링
+    const employeeSchedule = schedule
+      .filter(s => s.employeeId === employee.id)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // 야간 근무 연속 기간 찾기
+    const nightShiftPeriods: { start: number; end: number; count: number }[] = [];
+    let currentPeriodStart = -1;
+    let consecutiveNights = 0;
+
+    employeeSchedule.forEach((assignment, index) => {
+      if (assignment.shiftType === 'night') {
+        if (currentPeriodStart === -1) {
+          currentPeriodStart = index;
+        }
+        consecutiveNights++;
+      } else {
+        if (consecutiveNights >= 3) { // 3일 이상 연속 야간 근무
+          nightShiftPeriods.push({
+            start: currentPeriodStart,
+            end: index - 1,
+            count: consecutiveNights
+          });
+        }
+        currentPeriodStart = -1;
+        consecutiveNights = 0;
+      }
+    });
+
+    // 마지막 기간 처리
+    if (consecutiveNights >= 3) {
+      nightShiftPeriods.push({
+        start: currentPeriodStart,
+        end: employeeSchedule.length - 1,
+        count: consecutiveNights
+      });
+    }
+
+    // 가장 긴 야간 근무 기간들 선택 (유급 휴가를 줄 기간)
+    const sortedPeriods = nightShiftPeriods.sort((a, b) => b.count - a.count);
+    const periodsToReward = sortedPeriods.slice(0, Math.ceil(paidLeaveDaysPerMonth / 2)); // 2일씩 주므로
+
+    console.log(`\n   👤 ${employee.name}:`);
+    console.log(`      - 발견된 집중 야간 근무 기간: ${nightShiftPeriods.length}개`);
+
+    let totalPaidLeaveDays = 0;
+
+    periodsToReward.forEach((period, periodIndex) => {
+      // 야간 근무 기간 직후에 유급 휴가 추가
+      const afterPeriodIndex = period.end + 1;
+
+      // 2일 연속 유급 휴가 (또는 남은 일수만큼)
+      const daysToAdd = Math.min(2, paidLeaveDaysPerMonth - totalPaidLeaveDays);
+
+      for (let i = 0; i < daysToAdd && (afterPeriodIndex + i) < employeeSchedule.length; i++) {
+        const targetAssignment = employeeSchedule[afterPeriodIndex + i];
+
+        // OFF가 아닌 경우에만 유급 휴가로 변경
+        if (targetAssignment.shiftType !== 'off') {
+          // 원래 스케줄에서 찾아서 수정
+          const scheduleIndex = schedule.findIndex(
+            s => s.employeeId === employee.id && s.date === targetAssignment.date
+          );
+
+          if (scheduleIndex !== -1) {
+            schedule[scheduleIndex] = {
+              ...schedule[scheduleIndex],
+              shiftType: 'off',
+              // 유급 휴가 표시를 위한 메모 추가 (있다면)
+            };
+            totalPaidLeaveDays++;
+          }
+        }
+      }
+
+      console.log(`      - 기간 ${periodIndex + 1}: ${period.count}일 연속 야간 → ${daysToAdd}일 유급 휴가 부여`);
+    });
+
+    console.log(`      - 총 부여된 유급 휴가: ${totalPaidLeaveDays}일`);
+  });
+
+  console.log('\n===========================================\n');
+}
+
+// Team Pattern을 기반으로 기본 선호도 생성 헬퍼 함수
+function createDefaultPreferencesFromTeamPattern(
+  member: any,
+  teamPattern: any
+): ComprehensivePreferences {
+  // Team Pattern의 defaultPatterns 분석
+  const patterns = teamPattern.defaultPatterns || [];
+  const shiftCounts = { D: 0, E: 0, N: 0, OFF: 0 };
+  let totalDays = 0;
+
+  // 각 시프트 타입의 빈도 계산
+  patterns.forEach((pattern: string[]) => {
+    pattern.forEach((shift: string) => {
+      if (shift in shiftCounts) {
+        shiftCounts[shift as keyof typeof shiftCounts]++;
+      }
+      totalDays++;
+    });
+  });
+
+  // 가장 많이 나타나는 시프트를 preferredShifts로 설정
+  const preferredShifts: ('day' | 'evening' | 'night')[] = [];
+  if (shiftCounts.D > 0) preferredShifts.push('day');
+  if (shiftCounts.E > 0) preferredShifts.push('evening');
+  if (shiftCounts.N > 0) preferredShifts.push('night');
+
+  // 기본값이 없으면 주간 선호
+  if (preferredShifts.length === 0) {
+    preferredShifts.push('day');
+  }
+
+  // 연속 근무일 계산 (패턴에서 가장 긴 연속 근무 구간)
+  let maxConsecutive = 5; // 기본값
+  patterns.forEach((pattern: string[]) => {
+    let consecutive = 0;
+    let maxInPattern = 0;
+    pattern.forEach((shift: string) => {
+      if (shift !== 'OFF') {
+        consecutive++;
+        maxInPattern = Math.max(maxInPattern, consecutive);
+      } else {
+        consecutive = 0;
+      }
+    });
+    maxConsecutive = Math.max(maxConsecutive, maxInPattern);
+  });
+
+  return {
+    workPreferences: {
+      preferredShifts,
+      avoidShifts: [],
+      maxConsecutiveDays: maxConsecutive,
+      minRestDays: 1,
+      preferredWorkload: 'moderate',
+      weekendPreference: 'neutral',
+      holidayPreference: 'neutral',
+      overtimeWillingness: 'sometimes',
+      offDayPattern: 'flexible',
+    },
+    personalCircumstances: {
+      hasYoungChildren: false,
+      isSingleParent: false,
+      hasCaregivingResponsibilities: false,
+      isStudying: false,
+      pregnancyStatus: 'none',
+    },
+    healthConsiderations: {
+      hasChronicCondition: false,
+      needsFrequentBreaks: false,
+      physicalLimitations: [],
+      medicationSchedule: [],
+      fatigueLevel: 'normal',
+    },
+    commutePreferences: {
+      commuteTime: 30,
+      publicTransportDependent: false,
+      nightTransportDifficulty: false,
+      needsParking: false,
+      flexibleCommuteOptions: true,
+    },
+    teamDynamics: {
+      preferredPartners: [],
+      avoidPartners: [],
+      mentorshipRole: 'neither',
+      leadershipWillingness: 'sometimes',
+      conflictResolutionStyle: 'collaborative',
+    },
+    priorities: {
+      workLifeBalance: 5,
+      income: 5,
+      careerDevelopment: 5,
+      familyTime: 5,
+      personalHealth: 5,
+    },
+    specialRequests: {
+      recurringAppointments: [],
+      religiousObservances: {
+        needed: false,
+        details: '',
+      },
+      educationCommitments: {
+        hasCommitments: false,
+        schedule: [],
+      },
+      secondJob: {
+        has: false,
+        schedule: [],
+      },
+    },
+    flexibilityIndicators: {
+      lastMinuteChanges: 'sometimes',
+      shiftSwaps: 'willing',
+      overtimeAvailability: 'sometimes',
+      crossTraining: 'interested',
+    },
+    communicationPreferences: {
+      notificationMethod: 'app',
+      scheduleChangeNotice: 'asap',
+      feedbackFrequency: 'monthly',
+      languagePreference: 'ko',
+    },
+  };
+}
 
 export default function SchedulePage() {
   const currentUser = useCurrentUser();
@@ -637,6 +943,19 @@ export default function SchedulePage() {
     setGenerationResult(null);
 
     try {
+      // 0. Config 설정 불러오기 (나이트 집중 근무 유급 휴가 설정 포함)
+      let nightIntensivePaidLeaveDays = 0;
+      try {
+        const savedConfig = localStorage.getItem('shiftConfig');
+        if (savedConfig) {
+          const config = JSON.parse(savedConfig);
+          nightIntensivePaidLeaveDays = config.preferences?.nightIntensivePaidLeaveDays || 0;
+          console.log(`⚙️ Config loaded: 나이트 집중 근무 유급 휴가 = ${nightIntensivePaidLeaveDays}일/월`);
+        }
+      } catch (error) {
+        console.warn('⚠️ Failed to load config, using default values:', error);
+      }
+
       // 1. 모든 직원의 선호도 가져오기
       const preferencesResponse = await fetch('/api/preferences');
       const preferencesData = await preferencesResponse.json();
@@ -648,13 +967,52 @@ export default function SchedulePage() {
         });
       }
 
-      console.log(`Loaded preferences for ${preferencesMap.size} employees`);
+      console.log(`✅ Loaded preferences for ${preferencesMap.size} employees`);
+
+      // 1.5. 부서별 team pattern 가져오기 (fallback용)
+      let teamPattern: any = null;
+      try {
+        // 선택된 부서 또는 첫 번째 직원의 부서로 team pattern 조회
+        const targetDepartmentId = selectedDepartment === 'all'
+          ? filteredMembers[0]?.departmentId
+          : selectedDepartment;
+
+        if (targetDepartmentId) {
+          const teamPatternResponse = await fetch(`/api/team-patterns?departmentId=${targetDepartmentId}`);
+          const teamPatternData = await teamPatternResponse.json();
+          teamPattern = teamPatternData.pattern || teamPatternData.defaultPattern;
+          console.log(`✅ Loaded team pattern for department ${targetDepartmentId}:`, teamPattern);
+        }
+      } catch (error) {
+        console.warn('⚠️ Failed to load team pattern, will use default preferences:', error);
+      }
 
       // 2. MockTeamMember를 UnifiedEmployee로 변환
+      let prefsFoundCount = 0;
+      let teamPatternUsedCount = 0;
+      let defaultUsedCount = 0;
+
       const unifiedEmployees: UnifiedEmployee[] = filteredMembers.map(member => {
-        const comprehensivePrefs = preferencesMap.get(member.id);
+        let comprehensivePrefs = preferencesMap.get(member.id);
+
+        // preferencesMap에 값이 있는지 확인
+        if (comprehensivePrefs) {
+          prefsFoundCount++;
+        } else if (teamPattern) {
+          // team pattern을 기반으로 기본 선호도 생성
+          comprehensivePrefs = createDefaultPreferencesFromTeamPattern(member, teamPattern);
+          teamPatternUsedCount++;
+          console.log(`🔄 Using team pattern for ${member.name} (ID: ${member.id})`);
+        } else {
+          // team pattern도 없으면 완전 기본값 사용
+          defaultUsedCount++;
+          console.log(`⚠️ Using default preferences for ${member.name} (ID: ${member.id})`);
+        }
+
         return EmployeeAdapter.fromMockToUnified(member, comprehensivePrefs);
       });
+
+      console.log(`📊 Preference sources: Personal=${prefsFoundCount}, TeamPattern=${teamPatternUsedCount}, Default=${defaultUsedCount}`);
 
       // 3. UnifiedEmployee를 스케줄러용 Employee로 변환 및 검증
       const employees: Employee[] = [];
@@ -675,6 +1033,39 @@ export default function SchedulePage() {
         console.error('Employee validation errors:', validationErrors);
         alert(`일부 직원 데이터에 문제가 있습니다:\n${validationErrors.slice(0, 3).join('\n')}`);
       }
+
+      // 3.5. 각 직원의 선호도 기반 맞춤 패턴 및 시프트 배분 계산
+      console.log('\n📋 === 개인별 선호도 기반 패턴 및 시프트 배분 ===');
+      unifiedEmployees.forEach((unified) => {
+        const prefs = unified.comprehensivePreferences;
+        if (!prefs) return;
+
+        // 선호 시프트가 1개인 경우에만 처리
+        const preferredShift = prefs.workPreferences?.preferredShifts?.[0];
+        if (!preferredShift) return;
+
+        // 선호 휴무일 (EmployeePreferencesModal의 preferredDaysOff 사용)
+        // 실제 ExtendedEmployeePreferences에서 가져와야 하지만, 여기서는 예시로 기본값 사용
+        const preferredDaysOff: number[] = [0, 6]; // 일요일, 토요일
+
+        // 맞춤 패턴 생성
+        const customPattern = generateCustomPatternFromPreferences(
+          preferredShift,
+          preferredDaysOff
+        );
+
+        // 시프트 배분 계산 (22일 근무 가정)
+        const totalWorkDays = 22;
+        const distribution = calculateShiftDistribution(preferredShift, totalWorkDays);
+
+        console.log(`\n👤 ${unified.name}:`);
+        console.log(`   - 선호 시프트: ${preferredShift} (${preferredShift === 'day' ? '주간' : preferredShift === 'evening' ? '저녁' : '야간'})`);
+        console.log(`   - 선호 휴무일: ${preferredDaysOff.map(d => ['일','월','화','수','목','금','토'][d]).join(', ')}`);
+        console.log(`   - 생성된 패턴: ${customPattern}`);
+        console.log(`   - 시프트 배분 (22일): 주간 ${distribution.day}일, 저녁 ${distribution.evening}일, 야간 ${distribution.night}일`);
+        console.log(`   - 선호 시프트 비중: ${preferredShift === 'day' ? distribution.day : preferredShift === 'evening' ? distribution.evening : distribution.night}일 (1.2배 적용)`);
+      });
+      console.log('\n===========================================\n');
 
       // 4. 스케줄링 요청 생성 (미사용 필드 활용)
       const request: SchedulingRequest = {
@@ -699,6 +1090,15 @@ export default function SchedulePage() {
       const result = await scheduler.createSchedule(request);
 
       if (result.success && result.schedule) {
+        // 5.5. 나이트 집중 근무 유급 휴가 적용
+        if (nightIntensivePaidLeaveDays > 0) {
+          addNightIntensivePaidLeave(
+            result.schedule.assignments,
+            unifiedEmployees,
+            nightIntensivePaidLeaveDays
+          );
+        }
+
         setSchedule(result.schedule.assignments);
         setOriginalSchedule(result.schedule.assignments); // 원본 저장
         setGenerationResult(result);
