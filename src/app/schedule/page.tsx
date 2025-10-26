@@ -30,64 +30,12 @@ import {
   ScheduleCalendarView,
   ScheduleStats
 } from "@/components/schedule/views";
+import { convertShiftTypesToShifts, type ShiftType } from "@/lib/utils/shift-utils";
+import { normalizeDate } from "@/lib/utils/date-utils";
 
 // 스케줄 페이지에서 사용하는 확장된 ScheduleAssignment 타입
 interface ExtendedScheduleAssignment extends ScheduleAssignment {
   shiftType?: 'day' | 'evening' | 'night' | 'off' | 'leave' | 'custom';
-}
-
-// ShiftType 인터페이스 정의
-interface ShiftType {
-  code: string;
-  name: string;
-  startTime: string;
-  endTime: string;
-  color: string;
-  allowOvertime: boolean;
-}
-
-// customShiftTypes를 Shift[] 형식으로 변환하는 함수
-function convertShiftTypesToShifts(customShiftTypes: ShiftType[]): Shift[] {
-  return customShiftTypes.map((shiftType) => {
-    // Calculate hours
-    const startParts = shiftType.startTime.split(':');
-    const endParts = shiftType.endTime.split(':');
-    const startHour = parseInt(startParts[0]);
-    const endHour = parseInt(endParts[0]);
-    let hours = endHour - startHour;
-    if (hours <= 0) hours += 24; // Handle overnight shifts
-
-    // Map shift code to type
-    let type: 'day' | 'evening' | 'night' | 'off' | 'leave' | 'custom' = 'custom';
-    if (shiftType.code === 'D') type = 'day';
-    else if (shiftType.code === 'E') type = 'evening';
-    else if (shiftType.code === 'N') type = 'night';
-    else if (shiftType.code === 'O' || shiftType.code === 'OFF') type = 'off';
-    else if (shiftType.code === 'A') type = 'day'; // 행정 근무
-
-    // Map color string to hex
-    const colorMap: Record<string, string> = {
-      blue: '#3B82F6',
-      green: '#10B981',
-      amber: '#F59E0B',
-      red: '#EF4444',
-      purple: '#8B5CF6',
-      indigo: '#6366F1',
-      pink: '#EC4899',
-      gray: '#6B7280',
-    };
-
-    return {
-      id: `shift-${shiftType.code.toLowerCase()}`,
-      type,
-      name: shiftType.name,
-      time: { start: shiftType.startTime, end: shiftType.endTime, hours },
-      color: colorMap[shiftType.color] || '#6B7280',
-      requiredStaff: shiftType.code === 'D' ? 5 : shiftType.code === 'E' ? 4 : shiftType.code === 'N' ? 3 : 1,
-      minStaff: shiftType.code === 'D' ? 4 : shiftType.code === 'E' ? 3 : shiftType.code === 'N' ? 2 : 1,
-      maxStaff: shiftType.code === 'D' ? 6 : shiftType.code === 'E' ? 5 : shiftType.code === 'N' ? 4 : 3,
-    };
-  });
 }
 
 // 기본 제약조건
@@ -502,8 +450,6 @@ export default function SchedulePage() {
     return new Set(holidays?.map(h => h.date) || []);
   }, [holidays]);
 
-  const normalizeDate = (value: Date | string) =>
-    value instanceof Date ? value : new Date(value);
   const currentWeek = monthStart;
   const buildSchedulePayload = () => ({
     id: `schedule-${format(monthStart, 'yyyy-MM')}-${selectedDepartment}`,
