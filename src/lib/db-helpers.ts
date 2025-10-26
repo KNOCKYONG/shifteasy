@@ -3,14 +3,20 @@ import { db } from '@/db';
 import type { Database } from '@/db';
 
 export function scopedDb(tenantId: string) {
+  const hasDeletedAtColumn = (table: Record<string, unknown>) =>
+    typeof table?.deletedAt !== 'undefined';
+
   return {
     async query<T extends Record<string, any>>(
       table: any,
       where?: any
     ) {
+      const maybeDeletedCondition = hasDeletedAtColumn(table)
+        ? [isNull(table.deletedAt)]
+        : [];
       const conditions = [
         eq(table.tenantId, tenantId),
-        isNull(table.deletedAt),
+        ...maybeDeletedCondition,
         ...(where ? [where] : [])
       ];
 
@@ -38,9 +44,12 @@ export function scopedDb(tenantId: string) {
       values: T,
       where?: any
     ) {
+      const maybeDeletedCondition = hasDeletedAtColumn(table)
+        ? [isNull(table.deletedAt)]
+        : [];
       const conditions = [
         eq(table.tenantId, tenantId),
-        isNull(table.deletedAt),
+        ...maybeDeletedCondition,
         ...(where ? [where] : [])
       ];
 
@@ -52,6 +61,10 @@ export function scopedDb(tenantId: string) {
     },
 
     async softDelete(table: any, where?: any) {
+      if (!hasDeletedAtColumn(table)) {
+        throw new Error('softDelete requires a table with deletedAt column');
+      }
+
       const conditions = [
         eq(table.tenantId, tenantId),
         isNull(table.deletedAt),
