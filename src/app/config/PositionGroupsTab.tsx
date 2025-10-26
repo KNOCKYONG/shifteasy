@@ -55,7 +55,6 @@ export function PositionGroupsTab({
       };
       const updatedGroups = [...positionGroups, createdGroup];
       setPositionGroups(updatedGroups);
-      localStorage.setItem('customPositionGroups', JSON.stringify(updatedGroups));
 
       // Reset form
       setNewGroup({
@@ -74,7 +73,6 @@ export function PositionGroupsTab({
       g.id === groupId ? { ...g, ...updates } : g
     );
     setPositionGroups(updatedGroups);
-    localStorage.setItem('customPositionGroups', JSON.stringify(updatedGroups));
   };
 
   const handleDeleteGroup = (groupId: string) => {
@@ -82,7 +80,6 @@ export function PositionGroupsTab({
     if (confirm(`"${group?.name}" 그룹을 삭제하시겠습니까?`)) {
       const updatedGroups = positionGroups.filter(g => g.id !== groupId);
       setPositionGroups(updatedGroups);
-      localStorage.setItem('customPositionGroups', JSON.stringify(updatedGroups));
     }
   };
 

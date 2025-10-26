@@ -22,6 +22,16 @@ interface ExtendedScheduleAssignment extends ScheduleAssignment {
   shiftType?: 'day' | 'evening' | 'night' | 'off' | 'leave' | 'custom';
 }
 
+// ShiftType 인터페이스 정의
+interface ShiftType {
+  code: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  color: string;
+  allowOvertime: boolean;
+}
+
 // 기본 시프트 정의
 const DEFAULT_SHIFTS: Shift[] = [
   {
@@ -426,8 +436,7 @@ export default function SchedulePage() {
   const [generationResult, setGenerationResult] = useState<SchedulingResult | null>(null);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const [selectedShiftTypes, setSelectedShiftTypes] = useState<Set<string>>(new Set());
-  const [showOnlyOvertime, setShowOnlyOvertime] = useState(false); // 초과근무 직원만 표시
-  const [showOnlyConflicts, setShowOnlyConflicts] = useState(false); // 제약 위반 직원만 표시
+  const [customShiftTypes, setCustomShiftTypes] = useState<ShiftType[]>([]); // Config의 근무 타입 데이터
   const [showReport, setShowReport] = useState(false); // 스케줄링 리포트 모달
   const [activeView, setActiveView] = useState<'preferences' | 'schedule' | 'review'>('preferences'); // 기본 뷰를 preferences로 설정
   const [isReviewMode, setIsReviewMode] = useState(false); // 리뷰 모드 상태
@@ -503,6 +512,19 @@ export default function SchedulePage() {
       setActiveView('schedule');
     }
   }, [canViewStaffPreferences, activeView]);
+
+  // Load custom shift types from localStorage
+  useEffect(() => {
+    const savedShiftTypes = localStorage.getItem('customShiftTypes');
+    if (savedShiftTypes) {
+      try {
+        const parsed = JSON.parse(savedShiftTypes);
+        setCustomShiftTypes(parsed);
+      } catch (error) {
+        console.error('Failed to load custom shift types:', error);
+      }
+    }
+  }, []);
 
   // Fetch users from database
   const { data: usersData } = api.tenant.users.list.useQuery(
@@ -730,54 +752,26 @@ export default function SchedulePage() {
     let result = filteredMembers;
 
     // 시프트 타입 필터
-    if (selectedShiftTypes.size > 0) {
-      // Off (휴무) 필터가 선택된 경우 특별 처리
-      if (selectedShiftTypes.has('off')) {
-        // 이번 주에 한 번도 배정이 없는 직원들 찾기
-        const membersWithAnyShift = new Set<string>();
-        schedule.forEach(assignment => {
-          membersWithAnyShift.add(assignment.employeeId);
-        });
-
-        const membersOnlyOff = filteredMembers.filter(member => !membersWithAnyShift.has(member.id));
-
-        // 다른 시프트 타입도 선택된 경우
-        if (selectedShiftTypes.size > 1) {
-          const membersWithSelectedShifts = new Set<string>(membersOnlyOff.map(m => m.id));
-
-          schedule.forEach(assignment => {
-            const shift = DEFAULT_SHIFTS.find(s => s.id === assignment.shiftId);
-            if (shift && selectedShiftTypes.has(shift.type)) {
-              membersWithSelectedShifts.add(assignment.employeeId);
-            }
-          });
-
-          result = filteredMembers.filter(member => membersWithSelectedShifts.has(member.id));
-        } else {
-          result = membersOnlyOff;
+    if (selectedShiftTypes.size > 0 && customShiftTypes.length > 0) {
+      // 선택된 코드들의 근무명 추출
+      const selectedShiftNames = new Set<string>();
+      selectedShiftTypes.forEach(code => {
+        const shiftType = customShiftTypes.find(st => st.code === code);
+        if (shiftType) {
+          selectedShiftNames.add(shiftType.name);
         }
-      } else {
-        // 선택된 시프트 타입에 해당하는 배정이 있는 직원만 표시
-        const membersWithSelectedShifts = new Set<string>();
-        schedule.forEach(assignment => {
-          const shift = DEFAULT_SHIFTS.find(s => s.id === assignment.shiftId);
-          if (shift && selectedShiftTypes.has(shift.type)) {
-            membersWithSelectedShifts.add(assignment.employeeId);
-          }
-        });
+      });
 
-        result = result.filter(member => membersWithSelectedShifts.has(member.id));
-      }
-    }
+      // 선택된 근무명에 해당하는 배정이 있는 직원만 표시
+      const membersWithSelectedShifts = new Set<string>();
+      schedule.forEach(assignment => {
+        const shift = DEFAULT_SHIFTS.find(s => s.id === assignment.shiftId);
+        if (shift && selectedShiftNames.has(shift.name)) {
+          membersWithSelectedShifts.add(assignment.employeeId);
+        }
+      });
 
-    // 초과근무 필터 (월 기준 예상 초과)
-    if (showOnlyOvertime) {
-      result = result.filter(member => calculateMonthlyHours(member.id) > monthlyOvertimeThreshold);
-    }
-
-    // 제약 위반 필터
-    if (showOnlyConflicts) {
-      result = result.filter(member => hasViolations(member.id));
+      result = result.filter(member => membersWithSelectedShifts.has(member.id));
     }
 
     return result;
@@ -1825,48 +1819,32 @@ export default function SchedulePage() {
         {activeView === 'schedule' && (
           <>
         {/* Shift Type Filters - Now inside schedule view */}
-        <div className="mb-4 flex items-center gap-3">
+        <div className="mb-4 flex items-center gap-3 flex-wrap">
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">근무 필터:</span>
-          <button
-            onClick={() => toggleShiftType('day')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-              selectedShiftTypes.has('day')
-                ? 'bg-blue-500 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
-          >
-            주간 (Day)
-          </button>
-          <button
-            onClick={() => toggleShiftType('evening')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-              selectedShiftTypes.has('evening')
-                ? 'bg-purple-500 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
-          >
-            저녁 (Evening)
-          </button>
-          <button
-            onClick={() => toggleShiftType('night')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-              selectedShiftTypes.has('night')
-                ? 'bg-indigo-500 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
-          >
-            야간 (Night)
-          </button>
-          <button
-            onClick={() => toggleShiftType('off')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-              selectedShiftTypes.has('off')
-                ? 'bg-gray-500 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
-          >
-            휴무 (Off)
-          </button>
+          {customShiftTypes.map((shiftType) => {
+            const isSelected = selectedShiftTypes.has(shiftType.code);
+            const colorMap: Record<string, string> = {
+              'blue': isSelected ? 'bg-blue-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300',
+              'green': isSelected ? 'bg-green-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300',
+              'amber': isSelected ? 'bg-amber-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300',
+              'red': isSelected ? 'bg-red-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300',
+              'purple': isSelected ? 'bg-purple-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300',
+              'indigo': isSelected ? 'bg-indigo-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300',
+              'pink': isSelected ? 'bg-pink-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300',
+              'gray': isSelected ? 'bg-gray-500 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300',
+            };
+            const baseClass = !isSelected ? 'border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700' : '';
+
+            return (
+              <button
+                key={shiftType.code}
+                onClick={() => toggleShiftType(shiftType.code)}
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${colorMap[shiftType.color] || colorMap['blue']} ${baseClass}`}
+              >
+                {shiftType.name} ({shiftType.code})
+              </button>
+            );
+          })}
           {selectedShiftTypes.size > 0 && (
             <button
               onClick={() => setSelectedShiftTypes(new Set())}
@@ -1875,31 +1853,6 @@ export default function SchedulePage() {
               필터 초기화
             </button>
           )}
-        </div>
-
-        {/* Additional Filters */}
-        <div className="mb-4 flex items-center gap-3">
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">추가 필터:</span>
-          <button
-            onClick={() => setShowOnlyOvertime(!showOnlyOvertime)}
-            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-              showOnlyOvertime
-                ? 'bg-orange-500 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
-          >
-            초과근무 (40시간+)
-          </button>
-          <button
-            onClick={() => setShowOnlyConflicts(!showOnlyConflicts)}
-            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-              showOnlyConflicts
-                ? 'bg-red-500 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
-          >
-            제약 위반
-          </button>
         </div>
 
         {/* Week Navigation & Department Filter */}

@@ -42,7 +42,6 @@ export function ShiftTypesTab({
     if (newShiftType.code && newShiftType.name) {
       const updatedShiftTypes = [...shiftTypes, newShiftType];
       setShiftTypes(updatedShiftTypes);
-      localStorage.setItem('customShiftTypes', JSON.stringify(updatedShiftTypes));
       setNewShiftType({
         code: '',
         name: '',
@@ -59,14 +58,12 @@ export function ShiftTypesTab({
       s.code === code ? { ...s, ...updates } : s
     );
     setShiftTypes(updatedShiftTypes);
-    localStorage.setItem('customShiftTypes', JSON.stringify(updatedShiftTypes));
   };
 
   const handleDeleteShiftType = (code: string) => {
     if (confirm(`"${shiftTypes.find(s => s.code === code)?.name}" 근무 타입을 삭제하시겠습니까?`)) {
       const updatedShiftTypes = shiftTypes.filter(s => s.code !== code);
       setShiftTypes(updatedShiftTypes);
-      localStorage.setItem('customShiftTypes', JSON.stringify(updatedShiftTypes));
     }
   };
 
@@ -206,11 +203,6 @@ export function ShiftTypesTab({
                     <span className="text-sm text-gray-500 dark:text-gray-400">
                       {shift.startTime} - {shift.endTime}
                     </span>
-                    {shift.allowOvertime && (
-                      <span className="px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-md text-sm">
-                        초과근무 가능
-                      </span>
-                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <button

@@ -8,10 +8,14 @@ import {
   AlertTriangle, CheckCircle, Heart
 } from "lucide-react";
 
+// 근무 패턴 타입 정의
+export type WorkPatternType = 'three-shift' | 'night-intensive' | 'weekday-only';
+
 // 선호도 인터페이스 정의
 export interface ComprehensivePreferences {
   // 기본 근무 선호
   workPreferences: {
+    workPatternType: WorkPatternType; // 근무 패턴: 3교대 근무, 나이트 집중 근무, 평일 근무
     preferredShifts: ('day' | 'evening' | 'night')[];
     avoidShifts?: ('day' | 'evening' | 'night')[];
     maxConsecutiveDays: number;
@@ -140,6 +144,7 @@ export function MyPreferencesPanel({
   const [activeTab, setActiveTab] = useState<'work' | 'personal' | 'health' | 'team' | 'special' | 'priority'>('work');
   const [preferences, setPreferences] = useState<ComprehensivePreferences>({
     workPreferences: initialPreferences?.workPreferences || {
+      workPatternType: 'three-shift', // 기본값: 3교대 근무
       preferredShifts: ['day'],
       avoidShifts: [],
       maxConsecutiveDays: 5,
@@ -247,10 +252,62 @@ export function MyPreferencesPanel({
     }, 1000);
   };
 
-  const renderWorkPreferences = () => (
+  const renderWorkPreferences = () => {
+    // 3교대 근무일 때만 선호 근무 시간/패턴 활성화
+    const isThreeShiftPattern = preferences.workPreferences.workPatternType === 'three-shift';
+
+    return (
     <div className="space-y-6">
+      {/* 근무 패턴 선택 */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">근무 시간 선호</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">근무 패턴</h3>
+        <div className="space-y-3 mt-4">
+          {([
+            { value: 'three-shift', label: '3교대 근무', description: '주간/저녁/야간을 순환하는 교대 근무' },
+            { value: 'night-intensive', label: '나이트 집중 근무', description: '주로 야간 근무를 수행하는 패턴' },
+            { value: 'weekday-only', label: '평일 근무', description: '평일 중심의 고정 근무 패턴' }
+          ] as const).map(pattern => (
+            <label
+              key={pattern.value}
+              className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                preferences.workPreferences.workPatternType === pattern.value
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <input
+                type="radio"
+                name="workPattern"
+                checked={preferences.workPreferences.workPatternType === pattern.value}
+                onChange={() => {
+                  setPreferences(prev => ({
+                    ...prev,
+                    workPreferences: {
+                      ...prev.workPreferences,
+                      workPatternType: pattern.value,
+                      // 3교대가 아닌 경우 선호/기피 시프트 초기화
+                      preferredShifts: pattern.value === 'three-shift' ? prev.workPreferences.preferredShifts : ['day'],
+                      avoidShifts: pattern.value === 'three-shift' ? prev.workPreferences.avoidShifts : []
+                    }
+                  }));
+                }}
+                className="mt-0.5 text-blue-600 focus:ring-blue-500"
+              />
+              <div className="flex-1">
+                <div className="text-sm font-medium text-gray-900">{pattern.label}</div>
+                <div className="text-xs text-gray-500 mt-0.5">{pattern.description}</div>
+              </div>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* 선호 근무 시간 - 3교대 근무일 때만 활성화 */}
+      <div className={!isThreeShiftPattern ? 'opacity-50 pointer-events-none' : ''}>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
+          근무 시간 선호
+          {!isThreeShiftPattern && <span className="ml-2 text-xs text-gray-500">(3교대 근무 선택 시 활성화)</span>}
+        </h3>
 
         <div className="space-y-4">
           <div>
@@ -376,10 +433,18 @@ export function MyPreferencesPanel({
                 : '스케줄에 따라 유연하게 조정 가능합니다'}
             </p>
           </div>
+        </div>
+      </div>
 
-          {/* Pattern Display */}
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <label className="block text-sm font-medium text-gray-700 mb-2">예상 근무 패턴</label>
+      {/* 예상 근무 패턴 - 3교대 근무일 때만 활성화 */}
+      <div className={!isThreeShiftPattern ? 'opacity-50 pointer-events-none' : ''}>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">
+          예상 근무 패턴
+          {!isThreeShiftPattern && <span className="ml-2 text-xs text-gray-500">(3교대 근무 선택 시 활성화)</span>}
+        </h3>
+
+        <div className="space-y-4">
+          <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
             <div className="font-mono text-lg text-gray-900">
               {(() => {
                 const preferred = preferences.workPreferences.preferredShifts;

@@ -11,8 +11,14 @@ interface EmployeePreferencesModalProps {
   teamMembers: Employee[];
 }
 
+// 근무 패턴 타입 정의
+export type WorkPatternType = 'three-shift' | 'night-intensive' | 'weekday-only';
+
 // 확장된 직원 선호도 인터페이스
 export interface ExtendedEmployeePreferences extends EmployeePreferences {
+  // 근무 패턴
+  workPatternType?: WorkPatternType;
+
   // 기본 선호도
   preferredShifts: ShiftType[];
   avoidShifts: ShiftType[];
@@ -74,6 +80,7 @@ export function EmployeePreferencesModal({
 }: EmployeePreferencesModalProps) {
   const [preferences, setPreferences] = useState<ExtendedEmployeePreferences>({
     ...employee.preferences,
+    workPatternType: 'three-shift',
     workLoadPreference: 'normal',
     flexibilityLevel: 'medium',
     preferredPartners: [],
@@ -326,7 +333,7 @@ export function EmployeePreferencesModal({
             <div className="space-y-6">
               {/* 선호 시프트 */}
               <div>
-                <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">선호하는 근무 시간 (1개만 선택 가능)</h3>
+                <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">선호하는 근무 시간</h3>
                 <div className="flex gap-2">
                   {shiftTypes.filter(s => s.value !== 'off').map(shift => (
                     <button

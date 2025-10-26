@@ -31,7 +31,6 @@ export function ContractTypesTab({
     if (newContractType.code && newContractType.name) {
       const updatedContractTypes = [...contractTypes, newContractType];
       setContractTypes(updatedContractTypes);
-      localStorage.setItem('customContractTypes', JSON.stringify(updatedContractTypes));
       setNewContractType({
         code: '',
         name: '',
@@ -48,7 +47,6 @@ export function ContractTypesTab({
       c.code === code ? { ...c, ...updates } : c
     );
     setContractTypes(updatedContractTypes);
-    localStorage.setItem('customContractTypes', JSON.stringify(updatedContractTypes));
   };
 
   const handleDeleteContractType = (code: string) => {
@@ -56,7 +54,6 @@ export function ContractTypesTab({
     if (confirm(`"${contract?.name}" 계약 유형을 삭제하시겠습니까?`)) {
       const updatedContractTypes = contractTypes.filter(c => c.code !== code);
       setContractTypes(updatedContractTypes);
-      localStorage.setItem('customContractTypes', JSON.stringify(updatedContractTypes));
     }
   };
 

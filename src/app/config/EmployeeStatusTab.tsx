@@ -40,7 +40,6 @@ export function EmployeeStatusTab({
     if (newEmployeeStatus.code && newEmployeeStatus.name) {
       const updatedStatuses = [...employeeStatuses, newEmployeeStatus];
       setEmployeeStatuses(updatedStatuses);
-      localStorage.setItem('customEmployeeStatuses', JSON.stringify(updatedStatuses));
       setNewEmployeeStatus({
         code: '',
         name: '',
@@ -57,7 +56,6 @@ export function EmployeeStatusTab({
       s.code === code ? { ...s, ...updates } : s
     );
     setEmployeeStatuses(updatedStatuses);
-    localStorage.setItem('customEmployeeStatuses', JSON.stringify(updatedStatuses));
   };
 
   const handleDeleteEmployeeStatus = (code: string) => {
@@ -65,7 +63,6 @@ export function EmployeeStatusTab({
     if (confirm(`"${status?.name}" 상태를 삭제하시겠습니까?`)) {
       const updatedStatuses = employeeStatuses.filter(s => s.code !== code);
       setEmployeeStatuses(updatedStatuses);
-      localStorage.setItem('customEmployeeStatuses', JSON.stringify(updatedStatuses));
     }
   };
 

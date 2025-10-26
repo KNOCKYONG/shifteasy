@@ -8,6 +8,9 @@ import { eq, and } from 'drizzle-orm';
 const preferenceUpdateSchema = z.object({
   staffId: z.string(),
 
+  // Work pattern type
+  workPatternType: z.enum(['three-shift', 'night-intensive', 'weekday-only']).optional(),
+
   // Shift preferences
   preferredShiftTypes: z.object({
     D: z.number().min(0).max(10).optional(),
@@ -73,15 +76,15 @@ export const preferencesRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
 
-      const [preferences] = await db.query(
-        nursePreferences,
-        and(
+      const preferences = await db.select()
+        .from(nursePreferences)
+        .where(and(
           eq(nursePreferences.tenantId, (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d')),
           eq(nursePreferences.nurseId, input.staffId)
-        )
-      );
+        ))
+        .limit(1);
 
-      return preferences || null;
+      return preferences[0] || null;
     }),
 
   // Create or update preferences
@@ -92,59 +95,60 @@ export const preferencesRouter = createTRPCRouter({
       const { staffId, ...preferenceData } = input;
 
       // Check if preferences exist
-      const [existing] = await db.query(
-        nursePreferences,
-        and(
+      const existing = await db.select()
+        .from(nursePreferences)
+        .where(and(
           eq(nursePreferences.tenantId, (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d')),
           eq(nursePreferences.nurseId, staffId)
-        )
-      );
+        ))
+        .limit(1);
 
       let result;
 
-      if (existing) {
+      if (existing.length > 0) {
         // Update existing preferences
-        const [updated] = await db.update(
-          nursePreferences,
-          {
+        const updated = await db.update(nursePreferences)
+          .set({
             ...preferenceData,
             updatedAt: new Date(),
-          },
-          and(
+          })
+          .where(and(
             eq(nursePreferences.tenantId, (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d')),
             eq(nursePreferences.nurseId, staffId)
-          )
-        );
+          ))
+          .returning();
 
         await createAuditLog({
           tenantId: (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'),
           actorId: (ctx.user?.id || 'dev-user-id'),
           action: 'preferences.updated',
           entityType: 'nurse_preferences',
-          entityId: existing.id,
-          before: existing,
-          after: updated,
+          entityId: existing[0].id,
+          before: existing[0],
+          after: updated[0],
         });
 
-        result = updated;
+        result = updated[0];
       } else {
         // Create new preferences
-        const [created] = await db.insert(nursePreferences, {
-          tenantId: (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'),
-          nurseId: staffId,
-          ...preferenceData,
-        });
+        const created = await db.insert(nursePreferences)
+          .values({
+            tenantId: (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'),
+            nurseId: staffId,
+            ...preferenceData,
+          })
+          .returning();
 
         await createAuditLog({
           tenantId: (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'),
           actorId: (ctx.user?.id || 'dev-user-id'),
           action: 'preferences.created',
           entityType: 'nurse_preferences',
-          entityId: created.id,
-          after: created,
+          entityId: created[0].id,
+          after: created[0],
         });
 
-        result = created;
+        result = created[0];
       }
 
       return result;
@@ -158,22 +162,23 @@ export const preferencesRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
 
-      const [deleted] = await db.hardDelete(
-        nursePreferences,
-        and(
+      const deleted = await db.delete(nursePreferences)
+        .where(and(
           eq(nursePreferences.tenantId, (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d')),
           eq(nursePreferences.nurseId, input.staffId)
-        )
-      );
+        ))
+        .returning();
 
-      await createAuditLog({
-        tenantId: (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'),
-        actorId: (ctx.user?.id || 'dev-user-id'),
-        action: 'preferences.deleted',
-        entityType: 'nurse_preferences',
-        entityId: input.staffId,
-        before: deleted,
-      });
+      if (deleted.length > 0) {
+        await createAuditLog({
+          tenantId: (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'),
+          actorId: (ctx.user?.id || 'dev-user-id'),
+          action: 'preferences.deleted',
+          entityType: 'nurse_preferences',
+          entityId: input.staffId,
+          before: deleted[0],
+        });
+      }
 
       return { success: true };
     }),

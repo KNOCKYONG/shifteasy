@@ -246,6 +246,12 @@ export default function ConfigPage() {
   const handleSave = () => {
     // Save configuration to localStorage
     localStorage.setItem("shiftConfig", JSON.stringify(config));
+    localStorage.setItem('customShiftTypes', JSON.stringify(shiftTypes));
+    localStorage.setItem('customPositions', JSON.stringify(positions));
+    localStorage.setItem('customPositionGroups', JSON.stringify(positionGroups));
+    localStorage.setItem('customDepartments', JSON.stringify(departments));
+    localStorage.setItem('customContractTypes', JSON.stringify(contractTypes));
+    localStorage.setItem('customEmployeeStatuses', JSON.stringify(employeeStatuses));
     alert(t('alerts.saved', { ns: 'config' }));
     // 화면 이동 제거 - 저장만 수행
   };
@@ -403,9 +409,6 @@ export default function ConfigPage() {
                     </span>
                   )}
                 </div>
-                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  권장: 2-4일 (야간 근무 강도에 따라 조정)
-                </p>
               </div>
             </div>
           </div>
@@ -467,7 +470,6 @@ export default function ConfigPage() {
                     if (newPosition.value && newPosition.label && newPosition.level > 0) {
                       const updatedPositions = [...positions, newPosition];
                       setPositions(updatedPositions);
-                      localStorage.setItem('customPositions', JSON.stringify(updatedPositions));
                       setNewPosition({ value: '', label: '', level: 1 });
                     }
                   }}
@@ -498,7 +500,6 @@ export default function ConfigPage() {
                               p.value === position.value ? { ...p, label: e.target.value } : p
                             );
                             setPositions(updatedPositions);
-                            localStorage.setItem('customPositions', JSON.stringify(updatedPositions));
                           }}
                           className="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
                         />
@@ -512,7 +513,6 @@ export default function ConfigPage() {
                                 p.value === position.value ? { ...p, level: parseInt(e.target.value) || 1 } : p
                               );
                               setPositions(updatedPositions);
-                              localStorage.setItem('customPositions', JSON.stringify(updatedPositions));
                               setEditingPosition(null);
                             }}
                             min="1"
@@ -547,7 +547,6 @@ export default function ConfigPage() {
                           if (confirm(`"${position.label}" 직책을 삭제하시겠습니까?`)) {
                             const updatedPositions = positions.filter(p => p.value !== position.value);
                             setPositions(updatedPositions);
-                            localStorage.setItem('customPositions', JSON.stringify(updatedPositions));
                           }
                         }}
                         className="p-2 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors"

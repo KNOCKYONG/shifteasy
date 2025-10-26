@@ -33,7 +33,6 @@ export function DepartmentsTab({
       };
       const updatedDepartments = [...departments, newDept];
       setDepartments(updatedDepartments);
-      localStorage.setItem('customDepartments', JSON.stringify(updatedDepartments));
       setNewDepartment({
         id: '',
         name: '',
@@ -48,7 +47,6 @@ export function DepartmentsTab({
       d.id === id ? { ...d, ...updates } : d
     );
     setDepartments(updatedDepartments);
-    localStorage.setItem('customDepartments', JSON.stringify(updatedDepartments));
   };
 
   const handleDeleteDepartment = (id: string) => {
@@ -56,7 +54,6 @@ export function DepartmentsTab({
     if (confirm(`"${dept?.name}" 부서를 삭제하시겠습니까?`)) {
       const updatedDepartments = departments.filter(d => d.id !== id);
       setDepartments(updatedDepartments);
-      localStorage.setItem('customDepartments', JSON.stringify(updatedDepartments));
     }
   };
 

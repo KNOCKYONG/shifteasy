@@ -30,7 +30,10 @@ export const nursePreferences = pgTable('nurse_preferences', {
   // ==========================================
   // Shift Preferences (근무 선호도)
   // ==========================================
-  
+
+  // Work pattern type
+  workPatternType: text('work_pattern_type').default('three-shift'), // 'three-shift', 'night-intensive', 'weekday-only'
+
   // Preferred shift types
   preferredShiftTypes: jsonb('preferred_shift_types').$type<{
     D: number; // Day preference (0-10)
