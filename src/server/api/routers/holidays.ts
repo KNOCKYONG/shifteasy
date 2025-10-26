@@ -12,12 +12,14 @@ export const holidaysRouter = createTRPCRouter({
       endDate: z.string(), // YYYY-MM-DD
     }))
     .query(async ({ ctx, input }) => {
-      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      // System holidays tenantId (shared across all tenants)
+      const systemTenantId = '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const userTenantId = ctx.tenantId;
 
+      // Get holidays from both system tenant and user's tenant
       const result = await db.select()
         .from(holidays)
         .where(and(
-          eq(holidays.tenantId, tenantId),
           between(holidays.date, input.startDate, input.endDate)
         ))
         .orderBy(holidays.date);
@@ -28,11 +30,9 @@ export const holidaysRouter = createTRPCRouter({
   // Get all holidays
   getAll: protectedProcedure
     .query(async ({ ctx }) => {
-      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
-
+      // Return all holidays (system-wide, not filtered by tenant)
       const result = await db.select()
         .from(holidays)
-        .where(eq(holidays.tenantId, tenantId))
         .orderBy(holidays.date);
 
       return result;

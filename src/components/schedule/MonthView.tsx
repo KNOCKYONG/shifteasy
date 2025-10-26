@@ -1,10 +1,11 @@
 "use client";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { format, startOfMonth, endOfMonth, getDay, isToday, isSameMonth, startOfWeek, endOfWeek } from "date-fns";
 import { eachDayOfInterval } from "date-fns/eachDayOfInterval";
 import { ko } from "date-fns/locale";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { type Staff, type ShiftType, type WeekSchedule } from "@/lib/types";
+import { api } from "@/lib/trpc/client";
 
 const SHIFT_BADGES = {
   D: { bg: "bg-blue-100 dark:bg-blue-900/20", text: "text-blue-700 dark:text-blue-300" },
@@ -28,6 +29,24 @@ export function MonthView({ staff, schedule, currentMonth, onMonthChange }: Mont
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 });
   const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
   const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+
+  // Fetch holidays for the visible date range
+  const { data: holidays } = api.holidays.getByDateRange.useQuery({
+    startDate: format(calendarStart, 'yyyy-MM-dd'),
+    endDate: format(calendarEnd, 'yyyy-MM-dd'),
+  });
+
+  // Create a Set of holiday dates for quick lookup
+  const holidayDates = useMemo(() => {
+    if (!holidays) return new Set<string>();
+    return new Set(holidays.map(h => h.date));
+  }, [holidays]);
+
+  // Check if a date is a holiday
+  const isHoliday = (date: Date): boolean => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    return holidayDates.has(dateStr);
+  };
 
   const handlePreviousMonth = () => {
     onMonthChange(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1));
@@ -112,6 +131,7 @@ export function MonthView({ staff, schedule, currentMonth, onMonthChange }: Mont
             const dayOfWeek = getDay(date);
             const isCurrentMonth = isSameMonth(date, currentMonth);
             const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+            const isHolidayDate = isHoliday(date);
             const shiftCounts = getStaffCountByShift(date);
 
             return (
@@ -122,13 +142,15 @@ export function MonthView({ staff, schedule, currentMonth, onMonthChange }: Mont
                   ${isCurrentMonth ? "bg-white dark:bg-slate-800" : "bg-gray-50 dark:bg-slate-900/50"}
                   ${isToday(date) ? "border-blue-400 dark:border-blue-500 ring-2 ring-blue-100 dark:ring-blue-900/30" : "border-gray-200 dark:border-slate-700"}
                   ${isWeekend && isCurrentMonth ? "bg-blue-50/30 dark:bg-blue-900/10" : ""}
+                  ${isHolidayDate && isCurrentMonth ? "bg-red-50/30 dark:bg-red-900/10" : ""}
                   hover:shadow-md dark:hover:shadow-slate-900/50 cursor-pointer
                 `}
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className={`text-sm font-medium ${
                     !isCurrentMonth ? "text-gray-400 dark:text-gray-600" :
-                    isWeekend ? (dayOfWeek === 0 ? "text-red-500 dark:text-red-400" : "text-blue-500 dark:text-blue-400") :
+                    isHolidayDate || dayOfWeek === 0 ? "text-red-500 dark:text-red-400" :
+                    dayOfWeek === 6 ? "text-blue-500 dark:text-blue-400" :
                     "text-gray-900 dark:text-white"
                   }`}>
                     {format(date, "d")}

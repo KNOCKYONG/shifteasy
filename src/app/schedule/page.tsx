@@ -472,6 +472,20 @@ export default function SchedulePage() {
     [daysInMonth.length]
   );
 
+  // Fetch holidays for the calendar view
+  const calendarStart = React.useMemo(() => startOfWeek(monthStart, { weekStartsOn: 0 }), [monthStart]);
+  const calendarEnd = React.useMemo(() => endOfWeek(monthEnd, { weekStartsOn: 0 }), [monthEnd]);
+
+  const { data: holidays } = api.holidays.getByDateRange.useQuery({
+    startDate: format(calendarStart, 'yyyy-MM-dd'),
+    endDate: format(calendarEnd, 'yyyy-MM-dd'),
+  });
+
+  // Create a Set of holiday dates for quick lookup
+  const holidayDates = React.useMemo(() => {
+    return new Set(holidays?.map(h => h.date) || []);
+  }, [holidays]);
+
   const normalizeDate = (value: Date | string) =>
     value instanceof Date ? value : new Date(value);
   const currentWeek = monthStart;
@@ -2352,19 +2366,40 @@ export default function SchedulePage() {
                   <div className="p-2 bg-gray-50 dark:bg-gray-800 font-medium text-xs text-gray-700 dark:text-gray-300 flex items-center">
                     직원
                   </div>
-                  {daysInMonth.map((date) => (
-                    <div
-                      key={date.toISOString()}
-                      className="py-1 px-0.5 bg-gray-50 dark:bg-gray-800 text-center border-l border-gray-200 dark:border-gray-700"
-                    >
-                      <div className="font-medium text-[10px] text-gray-700 dark:text-gray-300">
-                        {format(date, 'EEE', { locale: ko }).slice(0, 1)}
+                  {daysInMonth.map((date) => {
+                    const dayOfWeek = date.getDay();
+                    const dateStr = format(date, 'yyyy-MM-dd');
+                    const isHoliday = holidayDates.has(dateStr);
+                    const isHolidayOrSunday = isHoliday || dayOfWeek === 0;
+
+                    return (
+                      <div
+                        key={date.toISOString()}
+                        className={`py-1 px-0.5 bg-gray-50 dark:bg-gray-800 text-center border-l border-gray-200 dark:border-gray-700 ${
+                          isHoliday ? 'bg-red-50/30 dark:bg-red-900/10' : ''
+                        }`}
+                      >
+                        <div className={`font-medium text-[10px] ${
+                          isHolidayOrSunday
+                            ? 'text-red-500 dark:text-red-400'
+                            : dayOfWeek === 6
+                              ? 'text-blue-500 dark:text-blue-400'
+                              : 'text-gray-700 dark:text-gray-300'
+                        }`}>
+                          {format(date, 'EEE', { locale: ko }).slice(0, 1)}
+                        </div>
+                        <div className={`text-[9px] ${
+                          isHolidayOrSunday
+                            ? 'text-red-500 dark:text-red-400'
+                            : dayOfWeek === 6
+                              ? 'text-blue-500 dark:text-blue-400'
+                              : 'text-gray-500 dark:text-gray-400'
+                        }`}>
+                          {format(date, 'd')}
+                        </div>
                       </div>
-                      <div className="text-[9px] text-gray-500 dark:text-gray-400">
-                        {format(date, 'd')}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <div>
@@ -2445,6 +2480,10 @@ export default function SchedulePage() {
                 return calendarDays.map((date) => {
                   const isCurrentMonth = date >= monthStart && date <= monthEnd;
                   const dateStr = format(date, 'yyyy-MM-dd');
+                  const dayOfWeek = date.getDay();
+                  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                  const isHoliday = holidayDates.has(dateStr);
+                  const isHolidayOrSunday = isHoliday || dayOfWeek === 0;
 
                   // Get all assignments for this date
                   const dayAssignments = getScheduleForDay(date);
@@ -2469,12 +2508,16 @@ export default function SchedulePage() {
                         isCurrentMonth
                           ? 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
                           : 'bg-gray-50 dark:bg-gray-900 border-gray-100 dark:border-gray-800'
-                      }`}
+                      } ${isHoliday && isCurrentMonth ? 'bg-red-50/30 dark:bg-red-900/10' : ''}`}
                     >
                       <div className={`text-sm font-medium mb-1 ${
-                        isCurrentMonth
-                          ? 'text-gray-900 dark:text-gray-100'
-                          : 'text-gray-400 dark:text-gray-600'
+                        !isCurrentMonth
+                          ? 'text-gray-400 dark:text-gray-600'
+                          : isHolidayOrSunday
+                            ? 'text-red-500 dark:text-red-400'
+                            : dayOfWeek === 6
+                              ? 'text-blue-500 dark:text-blue-400'
+                              : 'text-gray-900 dark:text-gray-100'
                       }`}>
                         {format(date, 'd')}
                       </div>

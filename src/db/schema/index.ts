@@ -3,8 +3,6 @@ export * from './tenants';
 export * from './system';
 
 // Domain schemas
-export * from './shift-assignments';
-export * from './nurse-skills';
 export * from './nurse-preferences';
 export * from './team-patterns';
 export * from './holidays';
