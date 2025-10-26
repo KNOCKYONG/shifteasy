@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useAuth, useClerk, useUser } from '@clerk/nextjs';
+import { useClerk } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { User, Settings, LogOut, ChevronDown, Globe, ChevronRight } from 'lucide-react';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 const languages = [
   { code: 'ko', name: '한국어', flag: '🇰🇷' },
@@ -13,28 +14,14 @@ const languages = [
 ];
 
 export function ProfileDropdown() {
-  const { userId } = useAuth();
   const { signOut } = useClerk();
-  const { user } = useUser();
+  const currentUser = useCurrentUser();
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [showDropdown, setShowDropdown] = useState(false);
-  const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null);
   const [currentLang, setCurrentLang] = useState('ko');
   const [showLanguageSubmenu, setShowLanguageSubmenu] = useState(false);
-
-  useEffect(() => {
-    // Clerk 사용자 데이터 사용
-    if (user) {
-      setCurrentUser({
-        name: user.firstName && user.lastName
-          ? `${user.firstName} ${user.lastName}`.trim()
-          : user.primaryEmailAddress?.emailAddress || '사용자',
-        email: user.primaryEmailAddress?.emailAddress || '',
-      });
-    }
-  }, [user]);
 
   useEffect(() => {
     // Get current language from localStorage
