@@ -79,7 +79,6 @@ export function EmployeePreferencesModal({
   teamMembers
 }: EmployeePreferencesModalProps) {
   const [preferences, setPreferences] = useState<ExtendedEmployeePreferences>({
-    ...employee.preferences,
     workPatternType: 'three-shift',
     workLoadPreference: 'normal',
     flexibilityLevel: 'medium',
@@ -103,6 +102,7 @@ export function EmployeePreferencesModal({
     },
     preferredPattern: '',
     preferredPatterns: [],
+    ...employee.preferences, // Move spread to end to preserve loaded values
   } as any);
 
   const [activeTab, setActiveTab] = useState<'basic' | 'personal' | 'request'>('basic');
