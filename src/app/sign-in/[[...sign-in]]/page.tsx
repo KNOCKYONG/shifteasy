@@ -197,9 +197,9 @@ export default function SignInPage() {
             <p>📧 manager@shifteasy.com (8명 매니저)</p>
             <p>📧 manager.a@shifteasy.com (15명 매니저)</p>
             <p>📧 manager.b@shifteasy.com (20명 매니저)</p>
-            <p>📧 manager.b@shifteasy.com (8명 부서 멤버)</p>
-            <p>📧 manager.b@shifteasy.com (15명 부서 멤버)</p>
-            <p>📧 jo.ara@shifteasy.com (20명 부서 멤버)</p>
+            <p>📧 kim-ha-jin@snuh.org (8명 부서 멤버)</p>
+            <p>📧 jo.ara@shifteasy.com (15명 부서 멤버)</p>
+            <p>📧 lee.byeol@shifteasy.com (20명 부서 멤버)</p>
             <p className="pt-2 text-gray-500 dark:text-gray-500">비밀번호는 Clerk에서 설정한 비밀번호 사용</p>
           </div>
         </div>
