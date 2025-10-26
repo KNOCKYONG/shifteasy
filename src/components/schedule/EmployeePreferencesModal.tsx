@@ -335,6 +335,32 @@ export function EmployeePreferencesModal({
                   ))}
                 </div>
               </div>
+              
+              {/* 선호 휴무일 */}
+              <div className={preferences.workPatternType === 'weekday-only' ? 'opacity-50 pointer-events-none' : ''}>
+                <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">
+                  선호하는 휴무일
+                  {preferences.workPatternType === 'weekday-only' && (
+                    <span className="ml-2 text-sm text-gray-500 font-normal">(평일 근무는 주말 자동 휴무)</span>
+                  )}
+                </h3>
+                <div className="flex gap-2">
+                  {daysOfWeek.map((day, index) => (
+                    <button
+                      key={index}
+                      onClick={() => toggleDayOffPreference(index)}
+                      disabled={preferences.workPatternType === 'weekday-only'}
+                      className={`w-12 h-12 rounded-lg border-2 transition-all ${
+                        preferences.preferredDaysOff.includes(index)
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700'
+                          : 'border-gray-200 dark:border-slate-600 hover:border-gray-300 dark:hover:border-slate-500'
+                      } ${index === 0 ? 'text-red-600' : index === 6 ? 'text-blue-600' : ''}`}
+                    >
+                      {day}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               {/* 선호 시프트 */}
               <div className={preferences.workPatternType !== 'three-shift' ? 'opacity-50 pointer-events-none' : ''}>
@@ -359,26 +385,6 @@ export function EmployeePreferencesModal({
                       <span className={`px-2 py-1 rounded text-sm ${shift.color}`}>
                         {shift.label}
                       </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 선호 휴무일 */}
-              <div>
-                <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">선호하는 휴무일</h3>
-                <div className="flex gap-2">
-                  {daysOfWeek.map((day, index) => (
-                    <button
-                      key={index}
-                      onClick={() => toggleDayOffPreference(index)}
-                      className={`w-12 h-12 rounded-lg border-2 transition-all ${
-                        preferences.preferredDaysOff.includes(index)
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700'
-                          : 'border-gray-200 dark:border-slate-600 hover:border-gray-300 dark:hover:border-slate-500'
-                      } ${index === 0 ? 'text-red-600' : index === 6 ? 'text-blue-600' : ''}`}
-                    >
-                      {day}
                     </button>
                   ))}
                 </div>

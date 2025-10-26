@@ -1,12 +1,15 @@
 "use client";
 import { type Staff } from "@/lib/types";
 import { useTranslation } from "react-i18next";
+import { STAFF_ROLES } from "@/lib/constants/staff";
+import type { WorkPatternType } from "./EmployeePreferencesModal";
 
 interface StaffCardProps {
   staff: Staff;
   compact?: boolean;
   onClick?: () => void;
-  preferredPatterns?: string[]; // 선호 근무 패턴
+  workPatternType?: WorkPatternType; // 근무 패턴 타입
+  preferredShifts?: string[]; // 선호하는 근무 시간
 }
 
 const ROLE_COLORS = {
@@ -18,18 +21,43 @@ const ROLE_COLORS = {
 
 // Experience labels are now translated via i18n
 
-export function StaffCard({ staff, compact = false, onClick, preferredPatterns }: StaffCardProps) {
+const WORK_PATTERN_LABELS: Record<WorkPatternType, string> = {
+  'three-shift': '3교대 근무',
+  'night-intensive': '나이트 집중',
+  'weekday-only': '평일 근무',
+};
+
+export function StaffCard({ staff, compact = false, onClick, workPatternType, preferredShifts }: StaffCardProps) {
   const { t } = useTranslation(['components', 'team']);
   const roleColor = ROLE_COLORS[staff.role] || ROLE_COLORS.RN;
-
-  // 특수 패턴 확인
-  const specialPatterns = ['평일 근무', '나이트 집중 근무'];
-  const hasSpecialPattern = preferredPatterns?.some(p => specialPatterns.includes(p));
-  const displayPattern = preferredPatterns?.find(p => specialPatterns.includes(p));
+  const roleName = STAFF_ROLES[staff.role]?.label || staff.role;
 
   const getExperienceLabel = (level: string) => {
     return t(`experienceLevels.${level}`, { ns: 'team' });
   };
+
+  // 선호도 요약
+  const getPreferenceSummary = () => {
+    const summary: string[] = [];
+
+    if (workPatternType) {
+      summary.push(WORK_PATTERN_LABELS[workPatternType]);
+    }
+
+    if (preferredShifts && preferredShifts.length > 0) {
+      const shiftLabels = preferredShifts.map(s => {
+        if (s === 'day' || s === 'D') return '주간';
+        if (s === 'evening' || s === 'E') return '저녁';
+        if (s === 'night' || s === 'N') return '야간';
+        return s;
+      });
+      summary.push(`선호: ${shiftLabels.join(', ')}`);
+    }
+
+    return summary;
+  };
+
+  const preferenceSummary = getPreferenceSummary();
 
   if (compact) {
     return (
@@ -52,16 +80,16 @@ export function StaffCard({ staff, compact = false, onClick, preferredPatterns }
             <span className={`inline-flex px-1.5 py-0.5 text-xs font-medium rounded-md ${
               roleColor.bg
             } ${roleColor.text} ${roleColor.border} border`}>
-              {staff.role}
+              {roleName}
             </span>
             {staff.experienceLevel && (
               <span className="text-xs text-gray-500 dark:text-gray-400">
                 {getExperienceLabel(staff.experienceLevel)}
               </span>
             )}
-            {displayPattern && (
+            {preferenceSummary.length > 0 && (
               <span className="inline-flex px-1.5 py-0.5 text-xs font-medium rounded-md bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-900/30">
-                {displayPattern}
+                {preferenceSummary[0]}
               </span>
             )}
           </div>
@@ -85,17 +113,21 @@ export function StaffCard({ staff, compact = false, onClick, preferredPatterns }
           <div>
             <h3 className="font-medium text-gray-900 dark:text-white">{staff.name || "미배정"}</h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">{staff.wardId}</p>
-            {displayPattern && (
-              <span className="inline-flex mt-1 px-2 py-0.5 text-xs font-medium rounded-md bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-900/30">
-                {displayPattern}
-              </span>
+            {preferenceSummary.length > 0 && (
+              <div className="flex gap-1 mt-1 flex-wrap">
+                {preferenceSummary.map((pref, idx) => (
+                  <span key={idx} className="inline-flex px-2 py-0.5 text-xs font-medium rounded-md bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-900/30">
+                    {pref}
+                  </span>
+                ))}
+              </div>
             )}
           </div>
         </div>
         <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-lg ${
           roleColor.bg
         } ${roleColor.text} ${roleColor.border} border`}>
-          {staff.role}
+          {roleName}
         </span>
       </div>
 
@@ -117,17 +149,11 @@ export function StaffCard({ staff, compact = false, onClick, preferredPatterns }
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-2 pt-3 border-t border-gray-50 dark:border-slate-700">
+      <div className="pt-3 border-t border-gray-50 dark:border-slate-700">
         <div>
           <p className="text-xs text-gray-500 dark:text-gray-400">{t('staffCard.experience', { ns: 'components' })}</p>
           <p className="text-sm font-medium text-gray-900 dark:text-white">
             {staff.experienceLevel ? getExperienceLabel(staff.experienceLevel) : "-"}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-500 dark:text-gray-400">{t('staffCard.weeklyMax', { ns: 'components' })}</p>
-          <p className="text-sm font-medium text-gray-900 dark:text-white">
-            {staff.maxWeeklyHours || 40}{t('staffCard.hours', { ns: 'components' })}
           </p>
         </div>
       </div>
