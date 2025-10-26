@@ -102,8 +102,10 @@ const departments =
   const actualDepartmentCount = departments.filter(d => d.id !== 'all').length;
   const shouldUseModal = actualDepartmentCount > 5;
 
-  // 선택된 부서 이름 가져오기
-  const selectedDepartmentName = departments.find(d => d.id === selectedDepartment)?.name || '전체';
+  // 선택된 부서 이름 가져오기 - departmentsData에서 직접 찾기
+  const selectedDepartmentName = selectedDepartment === 'all'
+    ? '전체'
+    : (departmentsData?.items as any[] || []).find((dept: any) => dept.id === selectedDepartment)?.name || '선택된 부서';
 
   // Update status filter effect
   useEffect(() => {
@@ -160,17 +162,12 @@ const departments =
     partTime: 0, // TODO: Add contract type to schema
   };
 
-  // Team Pattern용 필터링된 전체 인원 (매니저/관리자 제외)
-  // TODO: contractType 필드 추가 후 '상근'(full-time) 직원도 제외해야 함
+  // Team Pattern용 필터링된 전체 인원 (근무 패턴이 '평일 근무'인 사람만 제외)
   const filteredTotalMembers = teamMembers.filter((m: any) => {
-    // 매니저와 관리자 제외
-    if (['manager', 'admin'].includes(m.role)) {
+    // 근무 패턴이 'weekday-only' (평일 근무)인 경우만 제외
+    if (m.workPatternType === 'weekday-only') {
       return false;
     }
-    // TODO: contractType === 'full-time' 인 경우도 제외
-    // if (m.contractType === 'full-time') {
-    //   return false;
-    // }
     return true;
   }).length;
 
@@ -249,6 +246,7 @@ const departments =
         <div className="mb-6 sm:mb-8">
           <TeamPatternPanel
             departmentId={selectedDepartment !== 'all' ? selectedDepartment : ''}
+            departmentName={selectedDepartmentName}
             totalMembers={filteredTotalMembers}
             canEdit={currentUserRole === 'admin' || currentUserRole === 'manager'}
           />

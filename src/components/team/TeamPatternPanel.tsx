@@ -31,12 +31,14 @@ import {
 
 interface TeamPatternPanelProps {
   departmentId: string;
+  departmentName?: string;
   totalMembers: number;
   canEdit: boolean;
 }
 
 export function TeamPatternPanel({
   departmentId,
+  departmentName,
   totalMembers,
   canEdit
 }: TeamPatternPanelProps) {
@@ -247,6 +249,23 @@ export function TeamPatternPanel({
             totalMembers,
           };
 
+      // 📋 상세 로깅: 어떤 부서에서 어떻게 저장되는지 명확히 표시
+      console.log('\n🔵 ============== Team Pattern 저장 시작 ==============');
+      console.log('📍 부서 정보:');
+      console.log(`   - Department ID: ${departmentId || '(없음)'}`);
+      console.log(`   - Department Name: ${departmentName || '(이름 없음)'}`);
+      console.log('\n📝 저장 모드:', pattern.id ? `UPDATE (ID: ${pattern.id})` : 'CREATE (신규)');
+      console.log('\n📊 저장할 데이터:');
+      console.log('   - 주간(D) 필요 인원:', body.requiredStaffDay || pattern.requiredStaffDay, '명');
+      console.log('   - 저녁(E) 필요 인원:', body.requiredStaffEvening || pattern.requiredStaffEvening, '명');
+      console.log('   - 야간(N) 필요 인원:', body.requiredStaffNight || pattern.requiredStaffNight, '명');
+      console.log('   - 전체 인원:', body.totalMembers || totalMembers, '명');
+      console.log('   - 기본 패턴 개수:', (body.defaultPatterns || pattern.defaultPatterns)?.length || 0, '개');
+      console.log('\n📦 전체 요청 본문:', JSON.stringify(body, null, 2));
+      console.log('🌐 API URL:', url);
+      console.log('📡 HTTP Method:', pattern.id ? 'PUT' : 'POST');
+      console.log('🔵 ================================================\n');
+
       const response = await fetch(url, {
         method: pattern.id ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -255,15 +274,29 @@ export function TeamPatternPanel({
 
       if (!response.ok) {
         const error = await response.json();
+        console.log('\n❌ ============== Team Pattern 저장 실패 ==============');
+        console.log('📍 부서:', departmentName || departmentId);
+        console.log('❌ 에러:', error);
+        console.log('❌ ================================================\n');
         setErrors(error.details || [error.error]);
         return;
       }
 
       const result = await response.json();
+      console.log('\n✅ ============== Team Pattern 저장 성공 ==============');
+      console.log('📍 부서:', departmentName || departmentId);
+      console.log('✅ 응답 데이터:', result);
+      console.log('✅ 저장된 Pattern ID:', result.pattern?.id);
+      console.log('✅ ================================================\n');
+
       setPattern(result.pattern);
       setSuccessMessage('Team Pattern이 성공적으로 저장되었습니다.');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
+      console.log('\n💥 ============== Team Pattern 저장 오류 ==============');
+      console.log('📍 부서:', departmentName || departmentId);
+      console.log('💥 예외 발생:', error);
+      console.log('💥 ================================================\n');
       console.error('Failed to save team pattern:', error);
       setErrors(['저장 중 오류가 발생했습니다.']);
     } finally {

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
-import { users, departments } from '@/db/schema';
+import { users, departments, nursePreferences } from '@/db/schema';
 import { eq, and, or, like } from 'drizzle-orm';
 
 export const tenantRouter = createTRPCRouter({
@@ -88,9 +88,11 @@ export const tenantRouter = createTRPCRouter({
               name: departments.name,
               code: departments.code,
             },
+            workPatternType: nursePreferences.workPatternType,
           })
           .from(users)
           .leftJoin(departments, eq(users.departmentId, departments.id))
+          .leftJoin(nursePreferences, eq(users.id, nursePreferences.nurseId))
           .where(and(...conditions))
           .limit(input?.limit || 50)
           .offset(input?.offset || 0);
