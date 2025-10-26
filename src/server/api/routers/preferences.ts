@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
-import { scopedDb, createAuditLog } from '@/lib/db-helpers';
+import { createAuditLog } from '@/lib/db-helpers';
+import { db } from '@/db';
 import { nursePreferences } from '@/db/schema/nurse-preferences';
 import { eq, and } from 'drizzle-orm';
 
@@ -74,12 +75,12 @@ export const preferencesRouter = createTRPCRouter({
       staffId: z.string(),
     }))
     .query(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
 
       const preferences = await db.select()
         .from(nursePreferences)
         .where(and(
-          eq(nursePreferences.tenantId, (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d')),
+          eq(nursePreferences.tenantId, tenantId),
           eq(nursePreferences.nurseId, input.staffId)
         ))
         .limit(1);
@@ -91,14 +92,56 @@ export const preferencesRouter = createTRPCRouter({
   upsert: protectedProcedure
     .input(preferenceUpdateSchema)
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
-      const { staffId, ...preferenceData } = input;
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const { staffId, workLifeBalance, commutePreferences, preferredPatterns, ...rest } = input;
+
+      // Transform preferredPatterns to match DB schema
+      const transformedPreferredPatterns = preferredPatterns?.map(p => ({
+        pattern: p.pattern,
+        preference: p.preference
+      }));
+
+      // Transform workLifeBalance to match DB schema
+      const hasCareResponsibilities = !!(
+        workLifeBalance?.childcare ||
+        workLifeBalance?.eldercare ||
+        workLifeBalance?.education
+      );
+
+      const careResponsibilityDetails = hasCareResponsibilities ? {
+        type: (workLifeBalance?.childcare ? 'childcare' :
+               workLifeBalance?.eldercare ? 'eldercare' : 'other') as 'childcare' | 'eldercare' | 'other',
+        affectedTimes: [],
+        flexibilityLevel: 'medium' as 'none' | 'low' | 'medium' | 'high'
+      } : null;
+
+      // Transform commutePreferences to match DB schema
+      const hasTransportationIssues = !!(
+        commutePreferences?.parkingRequired ||
+        commutePreferences?.preferPublicTransport
+      );
+
+      const transportationNotes = commutePreferences ?
+        `Max commute: ${commutePreferences.maxCommuteTime || 60} min. ` +
+        `Public transport: ${commutePreferences.preferPublicTransport ? 'Yes' : 'No'}. ` +
+        `Parking: ${commutePreferences.parkingRequired ? 'Required' : 'Not required'}.`
+        : null;
+
+      // Build DB-compatible data
+      const dbData = {
+        ...rest,
+        preferredPatterns: transformedPreferredPatterns,
+        hasCareResponsibilities,
+        ...(careResponsibilityDetails && { careResponsibilityDetails }),
+        hasTransportationIssues,
+        ...(transportationNotes && { transportationNotes }),
+      };
 
       // Check if preferences exist
       const existing = await db.select()
         .from(nursePreferences)
         .where(and(
-          eq(nursePreferences.tenantId, (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d')),
+          eq(nursePreferences.tenantId, tenantId),
           eq(nursePreferences.nurseId, staffId)
         ))
         .limit(1);
@@ -109,17 +152,17 @@ export const preferencesRouter = createTRPCRouter({
         // Update existing preferences
         const updated = await db.update(nursePreferences)
           .set({
-            ...preferenceData,
+            ...dbData,
             updatedAt: new Date(),
           })
           .where(and(
-            eq(nursePreferences.tenantId, (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d')),
+            eq(nursePreferences.tenantId, tenantId),
             eq(nursePreferences.nurseId, staffId)
           ))
           .returning();
 
         await createAuditLog({
-          tenantId: (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'),
+          tenantId,
           actorId: (ctx.user?.id || 'dev-user-id'),
           action: 'preferences.updated',
           entityType: 'nurse_preferences',
@@ -133,14 +176,14 @@ export const preferencesRouter = createTRPCRouter({
         // Create new preferences
         const created = await db.insert(nursePreferences)
           .values({
-            tenantId: (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'),
+            tenantId,
             nurseId: staffId,
-            ...preferenceData,
+            ...dbData,
           })
           .returning();
 
         await createAuditLog({
-          tenantId: (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'),
+          tenantId,
           actorId: (ctx.user?.id || 'dev-user-id'),
           action: 'preferences.created',
           entityType: 'nurse_preferences',
@@ -160,18 +203,18 @@ export const preferencesRouter = createTRPCRouter({
       staffId: z.string(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
 
       const deleted = await db.delete(nursePreferences)
         .where(and(
-          eq(nursePreferences.tenantId, (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d')),
+          eq(nursePreferences.tenantId, tenantId),
           eq(nursePreferences.nurseId, input.staffId)
         ))
         .returning();
 
       if (deleted.length > 0) {
         await createAuditLog({
-          tenantId: (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'),
+          tenantId,
           actorId: (ctx.user?.id || 'dev-user-id'),
           action: 'preferences.deleted',
           entityType: 'nurse_preferences',

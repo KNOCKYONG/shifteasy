@@ -10,7 +10,6 @@ import { type Employee, type Shift, type Constraint, type ScheduleAssignment } f
 import { EmployeeAdapter } from "../../lib/adapters/employee-adapter";
 import type { UnifiedEmployee } from "@/lib/types/unified-employee";
 import { validateSchedulingRequest, validateEmployee } from "@/lib/validation/schemas";
-import { ScheduleReviewPanel } from "@/components/schedule/ScheduleReviewPanel";
 import { EmployeePreferencesModal, type ExtendedEmployeePreferences } from "@/components/schedule/EmployeePreferencesModal";
 import { SpecialRequestModal, type SpecialRequest } from "@/components/team/SpecialRequestModal";
 import { type ComprehensivePreferences } from "@/components/team/MyPreferencesPanel";
@@ -418,6 +417,7 @@ function createDefaultPreferencesFromTeamPattern(
 }
 
 export default function SchedulePage() {
+  const utils = api.useUtils();
   const currentUser = useCurrentUser();
   const userRole = (currentUser.dbUser?.role ?? currentUser.role) as string | undefined;
   const isMember = userRole === 'member';
@@ -438,8 +438,7 @@ export default function SchedulePage() {
   const [selectedShiftTypes, setSelectedShiftTypes] = useState<Set<string>>(new Set());
   const [customShiftTypes, setCustomShiftTypes] = useState<ShiftType[]>([]); // Config의 근무 타입 데이터
   const [showReport, setShowReport] = useState(false); // 스케줄링 리포트 모달
-  const [activeView, setActiveView] = useState<'preferences' | 'schedule' | 'review'>('preferences'); // 기본 뷰를 preferences로 설정
-  const [isReviewMode, setIsReviewMode] = useState(false); // 리뷰 모드 상태
+  const [activeView, setActiveView] = useState<'preferences' | 'schedule'>('preferences'); // 기본 뷰를 preferences로 설정
   const [showMyPreferences, setShowMyPreferences] = useState(false);
   const [showSpecialRequest, setShowSpecialRequest] = useState(false);
   const [specialRequests, setSpecialRequests] = useState<SpecialRequest[]>([]);
@@ -600,8 +599,11 @@ export default function SchedulePage() {
 
   // TRPC mutation for saving preferences
   const savePreferences = api.preferences.upsert.useMutation({
-    onSuccess: () => {
-      console.log('Preferences saved successfully');
+    onSuccess: async (data) => {
+      console.log('Preferences saved successfully:', data);
+      // Invalidate both users and preferences queries
+      await utils.tenant.users.list.invalidate();
+      await utils.preferences.get.invalidate();
       // TODO: Show success toast
     },
     onError: (error) => {
@@ -611,8 +613,102 @@ export default function SchedulePage() {
   });
 
   // Handle employee card click to open preferences modal
-  const handleEmployeeClick = (member: any) => {
+  const handleEmployeeClick = async (member: any) => {
     const employee = toEmployee(member);
+
+    // Fetch saved preferences from database (bypass cache)
+    try {
+      const savedPreferences = await utils.preferences.get.fetch({
+        staffId: member.id,
+      });
+      console.log('Loaded preferences for', member.name, ':', savedPreferences);
+
+      // Merge saved preferences with employee data
+      if (savedPreferences) {
+        employee.preferences = {
+          ...employee.preferences,
+          preferredShifts: [],
+          avoidShifts: [],
+          preferredDaysOff: [],
+          maxConsecutiveDays: savedPreferences.maxConsecutiveDaysPreferred || 5,
+          preferNightShift: false,
+
+          // Convert saved data to ExtendedEmployeePreferences format
+          workPatternType: savedPreferences.workPatternType as any || 'three-shift',
+          workLoadPreference: 'normal' as const,
+          flexibilityLevel: savedPreferences.preferAlternatingWeekends ? 'high' as const : 'medium' as const,
+          preferredPatterns: savedPreferences.preferredPatterns?.map((p: any) => p.pattern) || [],
+          preferredPartners: savedPreferences.preferredColleagues || [],
+          avoidPartners: savedPreferences.avoidColleagues || [],
+          personalConstraints: [],
+          trainingDays: [],
+          mentorshipRole: savedPreferences.mentorshipPreference || 'none',
+          specialization: [],
+          healthConsiderations: {
+            needsLightDuty: false,
+            avoidLongShifts: false,
+            requiresRegularBreaks: false,
+            pregnancyAccommodation: false,
+          },
+          commuteConsiderations: {
+            maxCommuteTime: 60,
+            avoidRushHour: false,
+            needsParking: false,
+            publicTransportDependent: false,
+          },
+        };
+
+        // Convert preferredShiftTypes to preferredShifts array
+        if (savedPreferences.preferredShiftTypes) {
+          const shiftMapping: { [key: string]: 'day' | 'evening' | 'night' } = {
+            D: 'day',
+            E: 'evening',
+            N: 'night',
+          };
+
+          Object.entries(savedPreferences.preferredShiftTypes).forEach(([key, value]) => {
+            if (value && value > 0 && shiftMapping[key]) {
+              employee.preferences.preferredShifts.push(shiftMapping[key]);
+            }
+          });
+        }
+
+        // Convert DB careResponsibilities to UI personalConstraints
+        if (savedPreferences.hasCareResponsibilities && savedPreferences.careResponsibilityDetails) {
+          const details = savedPreferences.careResponsibilityDetails as any;
+          employee.preferences.personalConstraints.push({
+            id: `care-${Date.now()}`,
+            type: details.type,
+            description: `${details.type} 관련 사정`,
+            priority: 'medium',
+          });
+        }
+
+        // Parse transportationNotes to extract commute preferences
+        if (savedPreferences.hasTransportationIssues && savedPreferences.transportationNotes) {
+          const notes = savedPreferences.transportationNotes;
+
+          // Extract max commute time from "Max commute: 60 min."
+          const commuteMatch = notes.match(/Max commute: (\d+) min/);
+          if (commuteMatch) {
+            employee.preferences.commuteConsiderations.maxCommuteTime = parseInt(commuteMatch[1]);
+          }
+
+          // Extract public transport preference from "Public transport: Yes"
+          if (notes.includes('Public transport: Yes')) {
+            employee.preferences.commuteConsiderations.publicTransportDependent = true;
+          }
+
+          // Extract parking requirement from "Parking: Required"
+          if (notes.includes('Parking: Required')) {
+            employee.preferences.commuteConsiderations.needsParking = true;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load preferences:', error);
+    }
+
     setSelectedEmployee(employee);
     setIsPreferencesModalOpen(true);
   };
@@ -629,6 +725,10 @@ export default function SchedulePage() {
         E: preferences.preferredShifts.includes('evening') ? 10 : 0,
         N: preferences.preferredShifts.includes('night') ? 10 : 0,
       },
+      preferredPatterns: (preferences.preferredPatterns || []).map(pattern => ({
+        pattern,
+        preference: 10, // Default preference value
+      })),
       maxConsecutiveDaysPreferred: preferences.maxConsecutiveDays,
       preferAlternatingWeekends: preferences.flexibilityLevel === 'high',
       preferredColleagues: preferences.preferredPartners || [],
@@ -648,6 +748,8 @@ export default function SchedulePage() {
         parkingRequired: preferences.commuteConsiderations.needsParking,
       },
     };
+
+    console.log('Saving preferences for', selectedEmployee.name, ':', preferenceData);
 
     // Save via TRPC
     await savePreferences.mutateAsync(preferenceData);
@@ -1410,12 +1512,11 @@ export default function SchedulePage() {
             </div>
             <div className="flex gap-2 sm:gap-3">
               <button
-                onClick={() => {
+                onClick={async () => {
                   // member는 자신의 정보로 EmployeePreferencesModal 열기
                   const currentEmployee = filteredMembers.find(m => m.id === currentUser.dbUser?.id);
                   if (currentEmployee) {
-                    setSelectedEmployee(toEmployee(currentEmployee));
-                    setIsPreferencesModalOpen(true);
+                    await handleEmployeeClick(currentEmployee);
                   }
                 }}
                 className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
@@ -1600,18 +1701,6 @@ export default function SchedulePage() {
                                   <FileText className="w-4 h-4" />
                                   리포트 보기
                                 </button>
-
-                                <button
-                                  onClick={() => {
-                                    setIsReviewMode(!isReviewMode);
-                                    setActiveView(isReviewMode ? 'schedule' : 'review');
-                                    setShowMoreMenu(false);
-                                  }}
-                                  className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
-                                >
-                                  <Edit3 className="w-4 h-4" />
-                                  스케줄 검토
-                                </button>
                               </>
                             )}
 
@@ -1672,7 +1761,6 @@ export default function SchedulePage() {
               <button
                 onClick={() => {
                   setActiveView('preferences');
-                  setIsReviewMode(false);
                 }}
                 className={`pb-3 px-1 text-xs sm:text-sm font-medium border-b-2 transition-colors flex items-center gap-1 sm:gap-2 whitespace-nowrap ${
                   activeView === 'preferences'
@@ -1687,7 +1775,6 @@ export default function SchedulePage() {
             <button
               onClick={() => {
                 setActiveView('schedule');
-                setIsReviewMode(false);
               }}
               className={`pb-3 px-1 text-xs sm:text-sm font-medium border-b-2 transition-colors flex items-center gap-1 sm:gap-2 whitespace-nowrap ${
                 activeView === 'schedule'
@@ -1698,22 +1785,6 @@ export default function SchedulePage() {
               <Calendar className="w-4 h-4" />
               스케줄<span className="hidden sm:inline"> 보기</span>
             </button>
-            {canManageSchedules && generationResult && (
-              <button
-                onClick={() => {
-                  setActiveView('review');
-                  setIsReviewMode(true);
-                }}
-                className={`pb-3 px-1 text-xs sm:text-sm font-medium border-b-2 transition-colors flex items-center gap-1 sm:gap-2 whitespace-nowrap ${
-                  activeView === 'review'
-                    ? "text-orange-600 dark:text-orange-400 border-orange-600 dark:border-orange-400"
-                    : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
-                }`}
-              >
-                <Edit3 className="w-4 h-4" />
-                <span className="hidden sm:inline">스케줄 </span>검토<span className="hidden md:inline"> 및 수정</span>
-              </button>
-            )}
           </nav>
         </div>
 
@@ -2091,29 +2162,6 @@ export default function SchedulePage() {
           </>
         )}
 
-        {/* Review View - 스케줄 검토 및 수정 */}
-        {activeView === 'review' && generationResult && (
-          <ScheduleReviewPanel
-            originalSchedule={originalSchedule}
-            modifiedSchedule={schedule}
-            staff={filteredMembers as any}
-            currentWeek={currentWeek}
-            onScheduleUpdate={(newSchedule) => setSchedule(newSchedule)}
-            onApplyChanges={() => {
-              // 변경사항 적용
-              setOriginalSchedule(schedule);
-              setIsReviewMode(false);
-              setActiveView('schedule');
-              alert('변경사항이 적용되었습니다.');
-            }}
-            onDiscardChanges={() => {
-              // 변경사항 취소
-              setSchedule(originalSchedule);
-              setIsReviewMode(false);
-              setActiveView('schedule');
-            }}
-          />
-        )}
       {/* 가져오기 모달 */}
       {showImportModal && (
         <div className="fixed inset-0 bg-gray-900/50 dark:bg-gray-950/70 flex items-center justify-center z-50 p-4">
