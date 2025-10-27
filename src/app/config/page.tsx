@@ -11,7 +11,6 @@ import { ContractTypesTab } from "./ContractTypesTab";
 import { EmployeeStatusTab } from "./EmployeeStatusTab";
 import { PositionGroupsTab } from "./PositionGroupsTab";
 import { SecretCodeTab } from "./SecretCodeTab";
-import { api } from "@/trpc/react";
 
 interface ContractType {
   code: string;

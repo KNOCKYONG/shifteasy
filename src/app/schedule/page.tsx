@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unl
 import { MainLayout } from "../../components/layout/MainLayout";
 import { SimpleScheduler, type Employee as SimpleEmployee, type Holiday, type SpecialRequest as SimpleSpecialRequest, type ScheduleAssignment as SimpleAssignment } from "../../lib/scheduler/simple-scheduler";
 import { api } from "../../lib/trpc/client";
-import { type Employee, type Shift, type Constraint, type ScheduleAssignment } from "../../lib/scheduler/types";
+import { type Employee, type Shift, type Constraint, type ScheduleAssignment, type SchedulingResult } from "../../lib/scheduler/types";
 import { EmployeeAdapter } from "../../lib/adapters/employee-adapter";
 import type { UnifiedEmployee } from "@/lib/types/unified-employee";
 import { validateSchedulingRequest, validateEmployee } from "@/lib/validation/schemas";
@@ -314,6 +314,7 @@ function createDefaultPreferencesFromTeamPattern(
 
   return {
     workPreferences: {
+      workPatternType: 'three-shift',
       preferredShifts,
       avoidShifts: [],
       maxConsecutiveDays: maxConsecutive,
@@ -665,6 +666,12 @@ export default function SchedulePage() {
 
       // Merge saved preferences with employee data
       if (savedPreferences) {
+        const mentorshipPreference = savedPreferences.mentorshipPreference;
+        const normalizedMentorshipRole: 'none' | 'mentor' | 'mentee' =
+          mentorshipPreference === 'mentor' || mentorshipPreference === 'mentee'
+            ? mentorshipPreference
+            : 'none';
+
         employee.preferences = {
           ...employee.preferences,
           preferredShifts: [],
@@ -687,7 +694,7 @@ export default function SchedulePage() {
           avoidPartners: savedPreferences.avoidColleagues || [],
           personalConstraints: [],
           trainingDays: [],
-          mentorshipRole: savedPreferences.mentorshipPreference || 'none',
+          mentorshipRole: normalizedMentorshipRole,
           specialization: [],
           healthConsiderations: {
             needsLightDuty: false,
@@ -741,33 +748,43 @@ export default function SchedulePage() {
         // Convert DB careResponsibilities to UI personalConstraints
         if (savedPreferences.hasCareResponsibilities && savedPreferences.careResponsibilityDetails) {
           const details = savedPreferences.careResponsibilityDetails as any;
-          employee.preferences.personalConstraints.push({
+          const constraints = employee.preferences.personalConstraints ?? [];
+          constraints.push({
             id: `care-${Date.now()}`,
             type: details.type,
             description: `${details.type} 관련 사정`,
             priority: 'medium',
           });
+          employee.preferences.personalConstraints = constraints;
         }
 
         // Parse transportationNotes to extract commute preferences
         if (savedPreferences.hasTransportationIssues && savedPreferences.transportationNotes) {
           const notes = savedPreferences.transportationNotes;
+          const commutePreferences = employee.preferences.commuteConsiderations ?? {
+            maxCommuteTime: 60,
+            avoidRushHour: false,
+            needsParking: false,
+            publicTransportDependent: false,
+          };
 
           // Extract max commute time from "Max commute: 60 min."
           const commuteMatch = notes.match(/Max commute: (\d+) min/);
           if (commuteMatch) {
-            employee.preferences.commuteConsiderations.maxCommuteTime = parseInt(commuteMatch[1]);
+            commutePreferences.maxCommuteTime = parseInt(commuteMatch[1]);
           }
 
           // Extract public transport preference from "Public transport: Yes"
           if (notes.includes('Public transport: Yes')) {
-            employee.preferences.commuteConsiderations.publicTransportDependent = true;
+            commutePreferences.publicTransportDependent = true;
           }
 
           // Extract parking requirement from "Parking: Required"
           if (notes.includes('Parking: Required')) {
-            employee.preferences.commuteConsiderations.needsParking = true;
+            commutePreferences.needsParking = true;
           }
+
+          employee.preferences.commuteConsiderations = commutePreferences;
         }
       }
     } catch (error) {
@@ -1402,14 +1419,27 @@ export default function SchedulePage() {
       console.log(`✅ Generated ${scheduleAssignments.length} schedule assignments`);
 
       // 8. SimpleScheduler 결과를 기존 형식으로 변환
-      const convertedAssignments = scheduleAssignments.map(assignment => {
+      const convertedAssignments: ExtendedScheduleAssignment[] = scheduleAssignments.map(assignment => {
         // customShiftTypes에서 shift code로 shiftId 찾기
         let shiftId = 'shift-off'; // Default
+        let shiftType: ExtendedScheduleAssignment['shiftType'] = 'off';
         if (assignment.shift !== 'OFF') {
           const matchingShiftType = customShiftTypes.find(st => st.code === assignment.shift);
           if (matchingShiftType) {
             shiftId = `shift-${matchingShiftType.code.toLowerCase()}`;
           }
+          shiftType = ((): ExtendedScheduleAssignment['shiftType'] => {
+            switch (assignment.shift) {
+              case 'D':
+                return 'day';
+              case 'E':
+                return 'evening';
+              case 'N':
+                return 'night';
+              default:
+                return 'custom';
+            }
+          })();
         }
 
         return {
@@ -1417,6 +1447,8 @@ export default function SchedulePage() {
           employeeId: assignment.employeeId,
           shiftId,
           date: new Date(assignment.date),
+          isLocked: false,
+          shiftType,
         };
       });
 

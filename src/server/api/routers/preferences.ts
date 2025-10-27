@@ -148,8 +148,18 @@ export const preferencesRouter = createTRPCRouter({
         : null;
 
       // Build DB-compatible data
+      const { preferredShiftTypes, ...restData } = rest;
+      const normalizedPreferredShiftTypes = preferredShiftTypes
+        ? {
+            D: preferredShiftTypes.D ?? 0,
+            E: preferredShiftTypes.E ?? 0,
+            N: preferredShiftTypes.N ?? 0,
+          }
+        : undefined;
+
       const dbData = {
-        ...rest,
+        ...restData,
+        ...(normalizedPreferredShiftTypes && { preferredShiftTypes: normalizedPreferredShiftTypes }),
         preferredPatterns: transformedPreferredPatterns,
         hasCareResponsibilities,
         ...(careResponsibilityDetails && { careResponsibilityDetails }),

@@ -43,16 +43,56 @@ export interface Employee {
   skills: string[];
   preferences: EmployeePreferences;
   availability: EmployeeAvailability;
+  experienceLevel?: string;
+  workPatternType?: 'three-shift' | 'night-intensive' | 'weekday-only';
+  preferredShiftTypes?: {
+    D?: number;
+    E?: number;
+    N?: number;
+  };
+  maxConsecutiveDaysPreferred?: number;
+  maxConsecutiveNightsPreferred?: number;
 }
 
 // 직원 선호도
 export interface EmployeePreferences {
+  workPatternType?: 'three-shift' | 'night-intensive' | 'weekday-only';
   preferredShifts: ShiftType[];
   avoidShifts: ShiftType[];
   preferredDaysOff: number[]; // 0-6 (일-토)
   maxConsecutiveDays: number;
   preferNightShift: boolean;
   offDayPattern?: 'short' | 'long' | 'flexible'; // 휴무 패턴 선호도
+  workLoadPreference?: 'light' | 'normal' | 'heavy';
+  flexibilityLevel?: 'low' | 'medium' | 'high';
+  preferredPatterns?: string[];
+  preferredPartners?: string[];
+  avoidPartners?: string[];
+  personalConstraints?: Array<{
+    id: string;
+    type: 'childcare' | 'eldercare' | 'education' | 'medical' | 'religious' | 'other';
+    description: string;
+    affectedDays?: number[];
+    affectedTimes?: { start: string; end: string };
+    priority: 'low' | 'medium' | 'high' | 'critical';
+    startDate?: Date;
+    endDate?: Date;
+  }>;
+  trainingDays?: string[];
+  mentorshipRole?: 'none' | 'mentee' | 'mentor';
+  specialization?: string[];
+  healthConsiderations?: {
+    needsLightDuty: boolean;
+    avoidLongShifts: boolean;
+    requiresRegularBreaks: boolean;
+    pregnancyAccommodation: boolean;
+  };
+  commuteConsiderations?: {
+    maxCommuteTime: number;
+    avoidRushHour: boolean;
+    needsParking: boolean;
+    publicTransportDependent: boolean;
+  };
 }
 
 // 직원 가용성

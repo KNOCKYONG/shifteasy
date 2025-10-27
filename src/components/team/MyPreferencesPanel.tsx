@@ -548,6 +548,8 @@ export function MyPreferencesPanel({
     </div>
   );
 
+  };
+
   const renderPersonalCircumstances = () => (
     <div className="space-y-6">
       <div>

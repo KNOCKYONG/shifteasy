@@ -268,7 +268,7 @@ export class SimpleScheduler {
    */
   private assignShiftWithExperienceBalance(
     employees: Employee[],
-    daySchedule: Map<string, 'D' | 'E' | 'N' | 'OFF'>,
+    daySchedule: Map<string, 'D' | 'E' | 'N' | 'OFF' | 'A'>,
     shift: 'D' | 'E' | 'N',
     requiredCount: number,
     isSpecialDay: boolean
