@@ -22,6 +22,7 @@ export const specialRequests = pgTable('special_requests', {
   id: uuid('id').defaultRandom().primaryKey(),
   tenantId: uuid('tenant_id').notNull(),
   employeeId: uuid('employee_id').notNull().references(() => users.id),
+  departmentId: uuid('department_id'), // User's department from users table
 
   // Request details
   requestType: text('request_type').notNull(), // 'vacation', 'day_off', 'overtime', 'shift_change'
@@ -42,6 +43,7 @@ export const specialRequests = pgTable('special_requests', {
 }, (table) => ({
   tenantIdx: index('special_requests_tenant_idx').on(table.tenantId),
   employeeIdx: index('special_requests_employee_idx').on(table.employeeId),
+  departmentIdx: index('special_requests_department_idx').on(table.departmentId),
   dateIdx: index('special_requests_date_idx').on(table.startDate, table.endDate),
   statusIdx: index('special_requests_status_idx').on(table.status),
 }));

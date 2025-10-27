@@ -26,7 +26,8 @@ export const nursePreferences = pgTable('nurse_preferences', {
   id: uuid('id').defaultRandom().primaryKey(),
   tenantId: uuid('tenant_id').notNull(),
   nurseId: uuid('nurse_id').notNull().references(() => users.id),
-  
+  departmentId: uuid('department_id'), // User's department from users table
+
   // ==========================================
   // Shift Preferences (근무 선호도)
   // ==========================================
@@ -203,6 +204,7 @@ export const nursePreferences = pgTable('nurse_preferences', {
 }, (table) => ({
   nurseIdx: index('nurse_preferences_nurse_idx').on(table.nurseId),
   tenantIdx: index('nurse_preferences_tenant_idx').on(table.tenantId),
+  departmentIdx: index('nurse_preferences_department_idx').on(table.departmentId),
   activeIdx: index('nurse_preferences_active_idx').on(table.isActive),
 }));
 
