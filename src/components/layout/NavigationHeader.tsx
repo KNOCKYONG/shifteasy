@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { ProfileDropdown } from '@/components/ProfileDropdown';
+import { SettingsMenu } from '@/components/SettingsMenu';
 import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
 import { Menu, X, Bell } from 'lucide-react';
@@ -177,6 +178,9 @@ export function NavigationHeader() {
                   </div>
                 )}
               </div>
+
+              {/* Settings Menu */}
+              <SettingsMenu />
 
               {/* Mobile Menu Button */}
               <button

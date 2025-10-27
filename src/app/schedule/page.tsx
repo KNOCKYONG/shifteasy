@@ -1724,6 +1724,31 @@ export default function SchedulePage() {
     return shift?.name || '?';
   };
 
+  // 시프트 코드 가져오기 (config에서 설정한 커스텀 shift types 기반)
+  const getShiftCode = (shiftId: string) => {
+    // shiftId format: 'shift-day', 'shift-evening', 'shift-night', 'shift-off'
+    const codeMap: Record<string, string> = {
+      'shift-off': 'O',
+      'shift-leave': 'O',
+    };
+
+    // Check if it's a predefined code
+    if (codeMap[shiftId]) {
+      return codeMap[shiftId];
+    }
+
+    // Extract code from shiftId (e.g., 'shift-d' -> 'D')
+    const code = shiftId.replace('shift-', '').toUpperCase();
+
+    // Find in customShiftTypes
+    const shiftType = customShiftTypes.find(st => st.code.toUpperCase() === code);
+    if (shiftType) {
+      return shiftType.code.toUpperCase();
+    }
+
+    return code || '?';
+  };
+
   return (
     <MainLayout>
         {/* My Preferences Section - member 권한에서만 표시 */}
@@ -1970,6 +1995,7 @@ export default function SchedulePage() {
           showMyScheduleOnly={filters.showMyScheduleOnly}
           showSameSchedule={filters.showSameSchedule}
           viewMode={filters.viewMode}
+          showCodeFormat={filters.showCodeFormat}
           onToggleMySchedule={(value) => {
             filters.setShowMyScheduleOnly(value);
             if (value) {
@@ -1984,6 +2010,7 @@ export default function SchedulePage() {
             }
           }}
           onToggleViewMode={filters.setViewMode}
+          onToggleCodeFormat={filters.setShowCodeFormat}
         />
 
         {/* Shift Type Filters - Now inside schedule view */}
@@ -2027,9 +2054,11 @@ export default function SchedulePage() {
             selectedShiftTypesSize={filters.selectedShiftTypes.size}
             scheduleGridTemplate={scheduleGridTemplate}
             holidayDates={holidayDates}
+            showCodeFormat={filters.showCodeFormat}
             getScheduleForDay={getScheduleForDay}
             getShiftColor={getShiftColor}
             getShiftName={getShiftName}
+            getShiftCode={getShiftCode}
           />
         ) : (
           <ScheduleCalendarView
@@ -2037,10 +2066,12 @@ export default function SchedulePage() {
             displayMembers={displayMembers}
             holidayDates={holidayDates}
             showSameSchedule={filters.showSameSchedule}
+            showCodeFormat={filters.showCodeFormat}
             currentUser={currentUser}
             getScheduleForDay={getScheduleForDay}
             getShiftColor={getShiftColor}
             getShiftName={getShiftName}
+            getShiftCode={getShiftCode}
           />
         )}
 

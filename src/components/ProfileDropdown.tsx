@@ -4,14 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useClerk } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { User, Settings, LogOut, ChevronDown, Globe, ChevronRight } from 'lucide-react';
+import { User, LogOut, ChevronDown } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-
-const languages = [
-  { code: 'ko', name: '한국어', flag: '🇰🇷' },
-  { code: 'en', name: 'English', flag: '🇺🇸' },
-  { code: 'ja', name: '日本語', flag: '🇯🇵' },
-];
 
 export function ProfileDropdown() {
   const { signOut } = useClerk();
@@ -20,37 +14,16 @@ export function ProfileDropdown() {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [showDropdown, setShowDropdown] = useState(false);
-  const [currentLang, setCurrentLang] = useState('ko');
-  const [showLanguageSubmenu, setShowLanguageSubmenu] = useState(false);
-
-  useEffect(() => {
-    // Get current language from localStorage
-    if (typeof window !== 'undefined') {
-      const savedLang = localStorage.getItem('i18nextLng') || 'ko';
-      setCurrentLang(savedLang);
-    }
-  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setShowDropdown(false);
-        setShowLanguageSubmenu(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const handleLanguageChange = (langCode: string) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('i18nextLng', langCode);
-      setCurrentLang(langCode);
-      setShowLanguageSubmenu(false);
-      setShowDropdown(false);
-      window.location.reload();
-    }
-  };
 
   const handleSignOut = async () => {
     try {
@@ -65,8 +38,6 @@ export function ProfileDropdown() {
       router.push('/sign-in');
     }
   };
-
-  const currentLanguage = languages.find(lang => lang.code === currentLang) || languages[0];
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -96,44 +67,6 @@ export function ProfileDropdown() {
               <User className="w-4 h-4" />
               프로필 설정
             </Link>
-            <div className="relative">
-              <button
-                onMouseEnter={() => setShowLanguageSubmenu(true)}
-                onClick={() => setShowLanguageSubmenu(!showLanguageSubmenu)}
-                className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
-              >
-                <div className="flex items-center gap-3">
-                  <Globe className="w-4 h-4" />
-                  언어 설정
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">{currentLanguage.flag} {currentLanguage.name}</span>
-                  <ChevronRight className="w-4 h-4" />
-                </div>
-              </button>
-
-              {showLanguageSubmenu && (
-                <div
-                  onMouseLeave={() => setShowLanguageSubmenu(false)}
-                  className="absolute left-full top-0 ml-1 w-40 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg dark:shadow-gray-900/50 py-1"
-                >
-                  {languages.map((lang) => (
-                    <button
-                      key={lang.code}
-                      onClick={() => handleLanguageChange(lang.code)}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2 ${
-                        currentLang === lang.code
-                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                          : 'text-gray-700 dark:text-gray-300'
-                      }`}
-                    >
-                      <span>{lang.flag}</span>
-                      <span>{lang.name}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
             <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
             <button
               onClick={handleSignOut}

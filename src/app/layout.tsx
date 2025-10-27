@@ -3,7 +3,6 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { SettingsMenu } from "@/components/SettingsMenu";
 import { I18nProvider } from "@/components/providers/I18nProvider";
 import { TRPCProvider } from "@/components/providers/trpc-provider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -41,9 +40,6 @@ export default function RootLayout({
                   enableSystem
                   disableTransitionOnChange={false}
                 >
-                  <div className="fixed top-4 right-4 z-50">
-                    <SettingsMenu />
-                  </div>
                   <NavigationHeader />
                   {children}
                 </ThemeProvider>

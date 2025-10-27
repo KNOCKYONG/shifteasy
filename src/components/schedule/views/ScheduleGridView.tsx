@@ -20,9 +20,11 @@ interface ScheduleGridViewProps {
   selectedShiftTypesSize: number;
   scheduleGridTemplate: string;
   holidayDates: Set<string>;
+  showCodeFormat?: boolean;
   getScheduleForDay: (date: Date) => Assignment[];
   getShiftColor: (shiftId: string) => string;
   getShiftName: (shiftId: string) => string;
+  getShiftCode?: (shiftId: string) => string;
 }
 
 export function ScheduleGridView({
@@ -31,9 +33,11 @@ export function ScheduleGridView({
   selectedShiftTypesSize,
   scheduleGridTemplate,
   holidayDates,
+  showCodeFormat = false,
   getScheduleForDay,
   getShiftColor,
   getShiftName,
+  getShiftCode,
 }: ScheduleGridViewProps) {
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-x-auto">
@@ -101,16 +105,22 @@ export function ScheduleGridView({
                     key={`${member.id}-${date.toISOString()}`}
                     className="p-0.5 border-l border-gray-100 dark:border-gray-800 flex items-center justify-center"
                   >
-                    {dayAssignments.map((assignment, i) => (
-                      <div
-                        key={i}
-                        className="w-full px-0.5 py-1 rounded text-[9px] font-medium text-white text-center"
-                        style={{ backgroundColor: getShiftColor(assignment.shiftId) }}
-                        title={getShiftName(assignment.shiftId)}
-                      >
-                        {getShiftName(assignment.shiftId).charAt(0)}
-                      </div>
-                    ))}
+                    {dayAssignments.map((assignment, i) => {
+                      const shiftDisplay = showCodeFormat && getShiftCode
+                        ? getShiftCode(assignment.shiftId)
+                        : getShiftName(assignment.shiftId).charAt(0);
+
+                      return (
+                        <div
+                          key={i}
+                          className="w-full px-0.5 py-1 rounded text-[9px] font-medium text-white text-center"
+                          style={{ backgroundColor: getShiftColor(assignment.shiftId) }}
+                          title={getShiftName(assignment.shiftId)}
+                        >
+                          {shiftDisplay}
+                        </div>
+                      );
+                    })}
                     {dayAssignments.length === 0 && (
                       <div className="w-full px-0.5 py-1 text-[9px] text-gray-300 dark:text-gray-600 text-center">
                         -

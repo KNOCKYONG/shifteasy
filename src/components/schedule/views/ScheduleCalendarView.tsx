@@ -23,10 +23,12 @@ interface ScheduleCalendarViewProps {
   displayMembers: Member[];
   holidayDates: Set<string>;
   showSameSchedule: boolean;
+  showCodeFormat: boolean;
   currentUser: CurrentUser;
   getScheduleForDay: (date: Date) => Assignment[];
   getShiftColor: (shiftId: string) => string;
   getShiftName: (shiftId: string) => string;
+  getShiftCode?: (shiftId: string) => string;
 }
 
 export function ScheduleCalendarView({
@@ -34,10 +36,12 @@ export function ScheduleCalendarView({
   displayMembers,
   holidayDates,
   showSameSchedule,
+  showCodeFormat,
   currentUser,
   getScheduleForDay,
   getShiftColor,
   getShiftName,
+  getShiftCode,
 }: ScheduleCalendarViewProps) {
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -108,6 +112,10 @@ export function ScheduleCalendarView({
                   const member = displayMembers.find(m => m.id === assignment.employeeId);
                   if (!member) return null;
 
+                  const shiftDisplay = showCodeFormat && getShiftCode
+                    ? getShiftCode(assignment.shiftId)
+                    : getShiftName(assignment.shiftId);
+
                   return (
                     <div
                       key={i}
@@ -115,7 +123,7 @@ export function ScheduleCalendarView({
                       style={{ backgroundColor: getShiftColor(assignment.shiftId) }}
                       title={`${member.name} - ${getShiftName(assignment.shiftId)}`}
                     >
-                      {member.name} {getShiftName(assignment.shiftId)}
+                      {member.name} {shiftDisplay}
                     </div>
                   );
                 })}
