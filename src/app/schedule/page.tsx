@@ -1168,6 +1168,7 @@ export default function SchedulePage() {
       }
 
       console.log(`✅ Loaded preferences for ${preferencesMap.size} employees`);
+      console.log('📋 [nurse_preferences 테이블 전체 데이터]:', JSON.stringify(preferencesData.data, null, 2));
 
       // 1.5. 부서별 team pattern 가져오기 (fallback용)
       let teamPattern: any = null;
@@ -1229,6 +1230,7 @@ export default function SchedulePage() {
           }));
 
           console.log(`✅ Converted ${simpleSpecialRequests.length} special requests for SimpleScheduler`);
+          console.log('📋 [request 테이블(special_requests) 전체 데이터]:', JSON.stringify(approvedRequests, null, 2));
 
           // Log shift requests details for debugging
           const shiftRequests = simpleSpecialRequests.filter(r => r.requestType === 'shift_request');
