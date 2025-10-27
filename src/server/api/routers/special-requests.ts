@@ -109,7 +109,7 @@ export const specialRequestsRouter = createTRPCRouter({
       return result;
     }),
 
-  // Create a new special request
+  // Create or update a special request (upsert)
   create: protectedProcedure
     .input(z.object({
       employeeId: z.string(),
@@ -133,22 +133,56 @@ export const specialRequestsRouter = createTRPCRouter({
         ))
         .limit(1);
 
-      const result = await db.insert(specialRequests)
-        .values({
-          tenantId,
-          employeeId: input.employeeId,
-          departmentId: user[0]?.departmentId ?? null, // Add department_id from users table
-          requestType: input.requestType,
-          shiftTypeCode: input.shiftTypeCode ?? null,
-          startDate: input.startDate,
-          endDate: input.endDate ?? null,
-          reason: input.reason ?? null,
-          notes: input.notes ?? null,
-          status: input.status,
-        })
-        .returning();
+      // Check if a request already exists for the same employee, date, and type
+      const existing = await db.select()
+        .from(specialRequests)
+        .where(and(
+          eq(specialRequests.tenantId, tenantId),
+          eq(specialRequests.employeeId, input.employeeId),
+          eq(specialRequests.startDate, input.startDate),
+          eq(specialRequests.requestType, input.requestType)
+        ))
+        .limit(1);
 
-      return result[0];
+      let result;
+
+      if (existing.length > 0) {
+        // Update existing request
+        const updated = await db.update(specialRequests)
+          .set({
+            departmentId: user[0]?.departmentId ?? null,
+            shiftTypeCode: input.shiftTypeCode ?? null,
+            endDate: input.endDate ?? null,
+            reason: input.reason ?? null,
+            notes: input.notes ?? null,
+            status: input.status,
+            updatedAt: new Date(),
+          })
+          .where(eq(specialRequests.id, existing[0].id))
+          .returning();
+
+        result = updated[0];
+      } else {
+        // Insert new request
+        const inserted = await db.insert(specialRequests)
+          .values({
+            tenantId,
+            employeeId: input.employeeId,
+            departmentId: user[0]?.departmentId ?? null,
+            requestType: input.requestType,
+            shiftTypeCode: input.shiftTypeCode ?? null,
+            startDate: input.startDate,
+            endDate: input.endDate ?? null,
+            reason: input.reason ?? null,
+            notes: input.notes ?? null,
+            status: input.status,
+          })
+          .returning();
+
+        result = inserted[0];
+      }
+
+      return result;
     }),
 
   // Update request status
