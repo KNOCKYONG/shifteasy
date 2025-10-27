@@ -90,6 +90,7 @@ export const users = pgTable('users', {
 export const shiftTypes = pgTable('shift_types', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
+  departmentId: uuid('department_id').references(() => departments.id, { onDelete: 'set null' }),
   code: text('code').notNull(), // D, E, N, O
   name: text('name').notNull(),
   startTime: text('start_time').notNull(),
@@ -102,7 +103,9 @@ export const shiftTypes = pgTable('shift_types', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
   tenantIdx: index('shift_types_tenant_id_idx').on(table.tenantId),
+  departmentIdx: index('shift_types_department_id_idx').on(table.departmentId),
   codeIdx: index('shift_types_code_idx').on(table.code),
+  tenantDeptCodeIdx: index('shift_types_tenant_dept_code_idx').on(table.tenantId, table.departmentId, table.code),
 }));
 
 // Patterns table (for recurring schedules)

@@ -10,6 +10,7 @@ import { preferencesRouter } from './routers/preferences';
 import { holidaysRouter } from './routers/holidays';
 import { specialRequestsRouter } from './routers/special-requests';
 import { tenantConfigsRouter } from './routers/tenant-configs';
+import { shiftTypesRouter } from './routers/shift-types';
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -23,6 +24,7 @@ export const appRouter = createTRPCRouter({
   holidays: holidaysRouter,
   specialRequests: specialRequestsRouter,
   tenantConfigs: tenantConfigsRouter,
+  shiftTypes: shiftTypesRouter,
 });
 
 export type AppRouter = typeof appRouter;
