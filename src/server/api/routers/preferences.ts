@@ -3,6 +3,7 @@ import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { createAuditLog } from '@/lib/db-helpers';
 import { db } from '@/db';
 import { nursePreferences } from '@/db/schema/nurse-preferences';
+import { users } from '@/db/schema/tenants';
 import { eq, and } from 'drizzle-orm';
 
 // Schema for preference updates
@@ -73,16 +74,24 @@ export const preferencesRouter = createTRPCRouter({
   get: protectedProcedure
     .input(z.object({
       staffId: z.string(),
+      departmentId: z.string().optional(), // Optional department filter
     }))
     .query(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
 
+      const conditions = [
+        eq(nursePreferences.tenantId, tenantId),
+        eq(nursePreferences.nurseId, input.staffId)
+      ];
+
+      // Add department filter if provided
+      if (input.departmentId) {
+        conditions.push(eq(nursePreferences.departmentId, input.departmentId));
+      }
+
       const preferences = await db.select()
         .from(nursePreferences)
-        .where(and(
-          eq(nursePreferences.tenantId, tenantId),
-          eq(nursePreferences.nurseId, input.staffId)
-        ))
+        .where(and(...conditions))
         .limit(1);
 
       return preferences[0] || null;
@@ -94,6 +103,17 @@ export const preferencesRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
       const { staffId, workLifeBalance, commutePreferences, preferredPatterns, ...rest } = input;
+
+      // Get department_id from users table
+      const user = await db.select({ departmentId: users.departmentId })
+        .from(users)
+        .where(and(
+          eq(users.id, staffId),
+          eq(users.tenantId, tenantId)
+        ))
+        .limit(1);
+
+      const departmentId = user[0]?.departmentId;
 
       // Transform preferredPatterns to match DB schema
       const transformedPreferredPatterns = preferredPatterns?.map(p => ({
@@ -135,6 +155,7 @@ export const preferencesRouter = createTRPCRouter({
         ...(careResponsibilityDetails && { careResponsibilityDetails }),
         hasTransportationIssues,
         ...(transportationNotes && { transportationNotes }),
+        ...(departmentId && { departmentId }), // Add department_id from users table
       };
 
       // Check if preferences exist
