@@ -68,7 +68,7 @@ export function ScheduleCalendarView({
           const dayOfWeek = date.getDay();
           const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
           const isHoliday = holidayDates.has(dateStr);
-          const isHolidayOrSunday = isHoliday || dayOfWeek === 0;
+          const isWeekendOrHoliday = isHoliday || dayOfWeek === 0 || dayOfWeek === 6;
 
           // Get all assignments for this date
           const dayAssignments = getScheduleForDay(date);
@@ -98,11 +98,9 @@ export function ScheduleCalendarView({
               <div className={`text-sm font-medium mb-1 ${
                 !isCurrentMonth
                   ? 'text-gray-400 dark:text-gray-600'
-                  : isHolidayOrSunday
+                  : isWeekendOrHoliday
                     ? 'text-red-500 dark:text-red-400'
-                    : dayOfWeek === 6
-                      ? 'text-blue-500 dark:text-blue-400'
-                      : 'text-gray-900 dark:text-gray-100'
+                    : 'text-gray-900 dark:text-gray-100'
               }`}>
                 {format(date, 'd')}
               </div>

@@ -53,7 +53,7 @@ export function ScheduleGridView({
             const dayOfWeek = date.getDay();
             const dateStr = format(date, 'yyyy-MM-dd');
             const isHoliday = holidayDates.has(dateStr);
-            const isHolidayOrSunday = isHoliday || dayOfWeek === 0;
+            const isWeekendOrHoliday = isHoliday || dayOfWeek === 0 || dayOfWeek === 6;
 
             return (
               <div
@@ -63,20 +63,16 @@ export function ScheduleGridView({
                 }`}
               >
                 <div className={`font-medium text-[10px] ${
-                  isHolidayOrSunday
+                  isWeekendOrHoliday
                     ? 'text-red-500 dark:text-red-400'
-                    : dayOfWeek === 6
-                      ? 'text-blue-500 dark:text-blue-400'
-                      : 'text-gray-700 dark:text-gray-300'
+                    : 'text-gray-700 dark:text-gray-300'
                 }`}>
                   {format(date, 'EEE', { locale: ko }).slice(0, 1)}
                 </div>
                 <div className={`text-[9px] ${
-                  isHolidayOrSunday
+                  isWeekendOrHoliday
                     ? 'text-red-500 dark:text-red-400'
-                    : dayOfWeek === 6
-                      ? 'text-blue-500 dark:text-blue-400'
-                      : 'text-gray-500 dark:text-gray-400'
+                    : 'text-gray-500 dark:text-gray-400'
                 }`}>
                   {format(date, 'd')}
                 </div>
