@@ -314,7 +314,7 @@ function createDefaultPreferencesFromTeamPattern(
 
   return {
     workPreferences: {
-      workPatternType: 'three-shift',
+      workPatternType: member.workPatternType || 'three-shift',
       preferredShifts,
       avoidShifts: [],
       maxConsecutiveDays: maxConsecutive,
