@@ -1142,15 +1142,15 @@ export default function SchedulePage() {
         if (shiftConfigData) {
           const config = shiftConfigData.configValue as any;
           nightIntensivePaidLeaveDays = config.preferences?.nightIntensivePaidLeaveDays || 0;
-          console.log(`⚙️ Config loaded from DB: 나이트 집중 근무 유급 휴가 = ${nightIntensivePaidLeaveDays}일/월`);
         } else {
-          // Fallback to localStorage
           const savedConfig = localStorage.getItem('shiftConfig');
           if (savedConfig) {
             const config = JSON.parse(savedConfig);
             nightIntensivePaidLeaveDays = config.preferences?.nightIntensivePaidLeaveDays || 0;
-            console.log(`⚙️ Config loaded from localStorage (fallback): 나이트 집중 근무 유급 휴가 = ${nightIntensivePaidLeaveDays}일/월`);
           }
+        }
+        if (nightIntensivePaidLeaveDays > 0) {
+          console.log(`⚙️ 나이트 집중 근무 유급 휴가: ${nightIntensivePaidLeaveDays}일/월`);
         }
       } catch (error) {
         console.warn('⚠️ Failed to load config, using default values:', error);
@@ -1167,8 +1167,7 @@ export default function SchedulePage() {
         });
       }
 
-      console.log(`✅ Loaded preferences for ${preferencesMap.size} employees`);
-      console.log('📋 [nurse_preferences 테이블 전체 데이터]:', JSON.stringify(preferencesData.data, null, 2));
+      console.log(`✅ ${preferencesMap.size}명의 선호도 로드 완료`);
 
       // 1.5. 부서별 team pattern 가져오기 (fallback용)
       let teamPattern: any = null;
@@ -1178,17 +1177,11 @@ export default function SchedulePage() {
           ? filteredMembers[0]?.departmentId
           : selectedDepartment;
 
-        console.log(`🔍 Looking for team pattern with departmentId: ${targetDepartmentId}`);
-
         if (targetDepartmentId) {
           const teamPatternResponse = await fetch(`/api/team-patterns?departmentId=${targetDepartmentId}`);
           const teamPatternData = await teamPatternResponse.json();
-          console.log(`📋 Team pattern response:`, teamPatternData);
-
           teamPattern = teamPatternData.pattern || teamPatternData.defaultPattern || teamPatternData;
-          console.log(`✅ Loaded team pattern for department ${targetDepartmentId}:`, teamPattern);
-        } else {
-          console.warn('⚠️ No department ID available for team pattern lookup');
+          console.log(`✅ 팀 패턴 로드 완료 (부서: ${targetDepartmentId})`);
         }
       } catch (error) {
         console.warn('⚠️ Failed to load team pattern, will use default preferences:', error);
@@ -1229,16 +1222,7 @@ export default function SchedulePage() {
             shiftTypeCode: req.shiftTypeCode || null,
           }));
 
-          console.log(`✅ Converted ${simpleSpecialRequests.length} special requests for SimpleScheduler`);
-          console.log('📋 [request 테이블(special_requests) 전체 데이터]:', JSON.stringify(approvedRequests, null, 2));
-
-          // Log shift requests details for debugging
-          const shiftRequests = simpleSpecialRequests.filter(r => r.requestType === 'shift_request');
-          if (shiftRequests.length > 0) {
-            console.log(`📋 Shift requests breakdown:`, shiftRequests.map(r =>
-              `Employee ${r.employeeId}: ${r.shiftTypeCode} on ${r.startDate}`
-            ));
-          }
+          console.log(`✅ ${simpleSpecialRequests.length}개의 특별 요청 로드 완료`);
         }
       } catch (error) {
         console.warn('⚠️ Failed to load special requests:', error);
@@ -1259,17 +1243,15 @@ export default function SchedulePage() {
           // team pattern을 기반으로 기본 선호도 생성
           comprehensivePrefs = createDefaultPreferencesFromTeamPattern(member, teamPattern);
           teamPatternUsedCount++;
-          console.log(`🔄 Using team pattern for ${member.name} (ID: ${member.id})`);
         } else {
           // team pattern도 없으면 완전 기본값 사용
           defaultUsedCount++;
-          console.log(`⚠️ Using default preferences for ${member.name} (ID: ${member.id})`);
         }
 
         return EmployeeAdapter.fromMockToUnified(member, comprehensivePrefs);
       });
 
-      console.log(`📊 Preference sources: Personal=${prefsFoundCount}, TeamPattern=${teamPatternUsedCount}, Default=${defaultUsedCount}`);
+      console.log(`📊 선호도 출처: 개인설정 ${prefsFoundCount}명, 팀패턴 ${teamPatternUsedCount}명, 기본값 ${defaultUsedCount}명`);
 
       // 3. UnifiedEmployee를 스케줄러용 Employee로 변환 및 검증
       const employees: Employee[] = [];
@@ -1290,44 +1272,6 @@ export default function SchedulePage() {
         console.error('Employee validation errors:', validationErrors);
         alert(`일부 직원 데이터에 문제가 있습니다:\n${validationErrors.slice(0, 3).join('\n')}`);
       }
-
-      // 3.5. 각 직원의 선호도 기반 맞춤 패턴 및 시프트 배분 계산
-      console.log('\n📋 === 개인별 선호도 기반 패턴 및 시프트 배분 ===');
-      unifiedEmployees.forEach((unified) => {
-        const prefs = unified.comprehensivePreferences;
-        if (!prefs) return;
-
-        // 선호 시프트가 1개인 경우에만 처리
-        const preferredShift = prefs.workPreferences?.preferredShifts?.[0];
-        if (!preferredShift) return;
-
-        // 선호 휴무일 가져오기 (저장된 선호도에서 로드)
-        // prefs를 로깅하여 실제 구조 확인
-        console.log(`🔍 ${unified.name} preferences:`, prefs);
-
-        // preferredDaysOff가 있으면 사용, 없으면 기본값
-        const preferredDaysOff: number[] = (prefs as any).preferredDaysOff ||
-                                            (prefs.workPreferences as any)?.preferredDaysOff ||
-                                            [0, 6]; // 기본값: 일요일, 토요일
-
-        // 맞춤 패턴 생성
-        const customPattern = generateCustomPatternFromPreferences(
-          preferredShift,
-          preferredDaysOff
-        );
-
-        // 시프트 배분 계산 (22일 근무 가정)
-        const totalWorkDays = 22;
-        const distribution = calculateShiftDistribution(preferredShift, totalWorkDays);
-
-        console.log(`\n👤 ${unified.name}:`);
-        console.log(`   - 선호 시프트: ${preferredShift} (${preferredShift === 'day' ? '주간' : preferredShift === 'evening' ? '저녁' : '야간'})`);
-        console.log(`   - 선호 휴무일: ${preferredDaysOff.map(d => ['일','월','화','수','목','금','토'][d]).join(', ')}`);
-        console.log(`   - 생성된 패턴: ${customPattern}`);
-        console.log(`   - 시프트 배분 (22일): 주간 ${distribution.day}일, 저녁 ${distribution.evening}일, 야간 ${distribution.night}일`);
-        console.log(`   - 선호 시프트 비중: ${preferredShift === 'day' ? distribution.day : preferredShift === 'evening' ? distribution.evening : distribution.night}일 (1.2배 적용)`);
-      });
-      console.log('\n===========================================\n');
 
       // 4. Holidays 가져오기 + 주말 자동 추가
       let holidays: Array<{ date: string; name: string }> = [];
@@ -1367,10 +1311,7 @@ export default function SchedulePage() {
         }
       });
 
-      const dbHolidayCount = (holidays.length - weekendDays.length);
-      console.log(`✅ Loaded ${holidays.length} holidays (including weekends) for ${format(monthStart, 'yyyy-MM')}`);
-      console.log(`   - DB holidays: ${dbHolidayCount}개`);
-      console.log(`   - Weekends: ${weekendDays.length}개`);
+      console.log(`✅ 휴일 ${holidays.length}개 (공휴일 ${holidays.length - weekendDays.length}개 + 주말 ${weekendDays.length}개)`);
 
       // 5. SimpleScheduler용 Employee 변환
       const simpleEmployees = employees.map(emp => ({
@@ -1385,8 +1326,6 @@ export default function SchedulePage() {
       }));
 
       // 6. SimpleSchedulerConfig 생성
-      console.log('🔍 Team pattern before config creation:', teamPattern);
-
       const schedulerConfig = {
         year: currentMonth.getFullYear(),
         month: currentMonth.getMonth() + 1, // 1-12
@@ -1403,16 +1342,7 @@ export default function SchedulePage() {
         } : { D: 5, E: 4, N: 3 },
       };
 
-      console.log('📋 SimpleScheduler config:', {
-        year: schedulerConfig.year,
-        month: schedulerConfig.month,
-        employeeCount: schedulerConfig.employees.length,
-        holidayCount: schedulerConfig.holidays.length,
-        specialRequestCount: schedulerConfig.specialRequests.length,
-        teamPattern: schedulerConfig.teamPattern,
-        hasTeamPattern: !!schedulerConfig.teamPattern,
-        requiredStaffPerShift: schedulerConfig.requiredStaffPerShift,
-      });
+      console.log(`📋 스케줄러 설정: ${schedulerConfig.employees.length}명, 필요인원 D${schedulerConfig.requiredStaffPerShift.D}/E${schedulerConfig.requiredStaffPerShift.E}/N${schedulerConfig.requiredStaffPerShift.N}`);
 
       // 7. 스케줄 생성
       const scheduler = new SimpleScheduler(schedulerConfig);

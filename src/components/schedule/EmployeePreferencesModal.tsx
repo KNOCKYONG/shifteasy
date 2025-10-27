@@ -191,15 +191,6 @@ export function EmployeePreferencesModal({
     { value: 'off', label: '휴무', color: 'bg-gray-100 text-gray-800 dark:text-gray-200' },
   ];
 
-  const personalConstraintTypes = [
-    { value: 'childcare', label: '육아', icon: '👶' },
-    { value: 'eldercare', label: '간병', icon: '👵' },
-    { value: 'education', label: '학업', icon: '📚' },
-    { value: 'medical', label: '의료', icon: '🏥' },
-    { value: 'religious', label: '종교', icon: '🙏' },
-    { value: 'other', label: '기타', icon: '📝' },
-  ];
-
   const handleSave = async () => {
     // Save preferences to database
     try {

@@ -175,10 +175,6 @@ export class SimpleScheduler {
     const requiredPerShift = this.config.requiredStaffPerShift || { D: 5, E: 4, N: 3 };
     const holidaySet = new Set(this.config.holidays.map(h => h.date));
 
-    // Track OFF count per employee for fair distribution
-    const offCounts = new Map<string, number>();
-    this.config.employees.forEach(emp => offCounts.set(emp.id, 0));
-
     // Separate employees by work pattern type
     const weekdayOnlyEmployees = this.config.employees.filter(
       emp => emp.workPatternType === 'weekday-only'
@@ -187,14 +183,29 @@ export class SimpleScheduler {
       emp => emp.workPatternType !== 'weekday-only'
     );
 
-    console.log(`👥 Employee breakdown: ${weekdayOnlyEmployees.length} 평일근무, ${shiftEmployees.length} 교대근무`);
+    console.log(`👥 직원 구성: 행정 ${weekdayOnlyEmployees.length}명, 교대 ${shiftEmployees.length}명`);
+
+    // Calculate required OFF days for shift employees (fair distribution)
+    const totalDays = this.workDays.length;
+    const totalShiftPositions = totalDays * (requiredPerShift.D + requiredPerShift.E + requiredPerShift.N);
+    const targetWorkDaysPerEmployee = Math.floor(totalShiftPositions / shiftEmployees.length);
+    const targetOffDaysPerEmployee = totalDays - targetWorkDaysPerEmployee;
+
+    // Track OFF and work counts per employee
+    const offCounts = new Map<string, number>();
+    const workCounts = new Map<string, number>();
+    this.config.employees.forEach(emp => {
+      offCounts.set(emp.id, 0);
+      workCounts.set(emp.id, 0);
+    });
+
+    console.log(`📊 목표: 교대근무자 1인당 근무 ${targetWorkDaysPerEmployee}일, OFF ${targetOffDaysPerEmployee}일`);
 
     for (const day of this.workDays) {
       const dateStr = format(day, 'yyyy-MM-dd');
       const daySchedule = this.schedule.get(dateStr);
       if (!daySchedule) continue;
 
-      // Check if weekend or holiday
       const isWeekendDay = isWeekend(day);
       const isHoliday = holidaySet.has(dateStr);
       const isSpecialDay = isWeekendDay || isHoliday;
@@ -205,61 +216,68 @@ export class SimpleScheduler {
         if (daySchedule.has(emp.id)) continue; // Already assigned by special request
 
         if (isWeekday && !isHoliday) {
-          // 평일(공휴일 제외): A(행정) 근무 배치
           daySchedule.set(emp.id, 'A');
+          workCounts.set(emp.id, (workCounts.get(emp.id) || 0) + 1);
         } else {
-          // 주말 또는 공휴일: OFF
           daySchedule.set(emp.id, 'OFF');
           offCounts.set(emp.id, (offCounts.get(emp.id) || 0) + 1);
         }
       }
 
-      // 2. 교대 근무자 처리 (3교대, 나이트 집중)
-      const unassignedShiftEmployees = shiftEmployees.filter(
-        emp => !daySchedule.has(emp.id)
-      );
+      // 2. 교대 근무자 OFF 먼저 공정 배분
+      const unassignedShiftEmployees = shiftEmployees.filter(emp => !daySchedule.has(emp.id));
 
-      // Assign D shift with experience balance
-      this.assignShiftWithExperienceBalance(
-        unassignedShiftEmployees,
-        daySchedule,
-        'D',
-        requiredPerShift.D,
-        isSpecialDay
-      );
+      // Calculate how many should be OFF today for fair distribution
+      const currentAvgOff = Array.from(offCounts.entries())
+        .filter(([id]) => shiftEmployees.some(e => e.id === id))
+        .reduce((sum, [, count]) => sum + count, 0) / shiftEmployees.length;
 
-      // Assign E shift with experience balance
-      const afterD = unassignedShiftEmployees.filter(emp => !daySchedule.has(emp.id));
-      this.assignShiftWithExperienceBalance(
-        afterD,
-        daySchedule,
-        'E',
-        requiredPerShift.E,
-        isSpecialDay
-      );
+      const neededOffCount = Math.max(0, unassignedShiftEmployees.length - requiredPerShift.D - requiredPerShift.E - requiredPerShift.N);
 
-      // Assign N shift with experience balance
-      const afterE = afterD.filter(emp => !daySchedule.has(emp.id));
-      this.assignShiftWithExperienceBalance(
-        afterE,
-        daySchedule,
-        'N',
-        requiredPerShift.N,
-        isSpecialDay
-      );
+      // Sort by who needs OFF most (lowest OFF count, then lowest work count)
+      const sortedForOff = [...unassignedShiftEmployees].sort((a, b) => {
+        const aOff = offCounts.get(a.id) || 0;
+        const bOff = offCounts.get(b.id) || 0;
+        if (aOff !== bOff) return aOff - bOff; // Fewer OFF days first
 
-      // Remaining shift employees get OFF
-      const remaining = afterE.filter(emp => !daySchedule.has(emp.id));
-      remaining.forEach(emp => {
+        const aWork = workCounts.get(a.id) || 0;
+        const bWork = workCounts.get(b.id) || 0;
+        return bWork - aWork; // More work days first
+      });
+
+      // Assign OFF to those who need it most
+      for (let i = 0; i < neededOffCount && i < sortedForOff.length; i++) {
+        const emp = sortedForOff[i];
         daySchedule.set(emp.id, 'OFF');
         offCounts.set(emp.id, (offCounts.get(emp.id) || 0) + 1);
+      }
+
+      // 3. 남은 교대 근무자에게 시프트 배치
+      const availableForShifts = unassignedShiftEmployees.filter(emp => !daySchedule.has(emp.id));
+
+      this.assignShiftWithExperienceBalance(availableForShifts, daySchedule, 'D', requiredPerShift.D, isSpecialDay);
+
+      const afterD = availableForShifts.filter(emp => !daySchedule.has(emp.id));
+      this.assignShiftWithExperienceBalance(afterD, daySchedule, 'E', requiredPerShift.E, isSpecialDay);
+
+      const afterE = afterD.filter(emp => !daySchedule.has(emp.id));
+      this.assignShiftWithExperienceBalance(afterE, daySchedule, 'N', requiredPerShift.N, isSpecialDay);
+
+      // Update work counts
+      availableForShifts.forEach(emp => {
+        if (daySchedule.has(emp.id) && daySchedule.get(emp.id) !== 'OFF') {
+          workCounts.set(emp.id, (workCounts.get(emp.id) || 0) + 1);
+        }
       });
     }
 
-    console.log('📊 OFF distribution:', Array.from(offCounts.entries()).map(([id, count]) => {
-      const emp = this.config.employees.find(e => e.id === id);
-      return `${emp?.name} (${emp?.workPatternType || '3교대'}): ${count}일`;
-    }));
+    console.log('📊 OFF 배분 결과:', Array.from(offCounts.entries())
+      .filter(([id]) => this.config.employees.some(e => e.id === id))
+      .map(([id, count]) => {
+        const emp = this.config.employees.find(e => e.id === id);
+        const work = workCounts.get(id) || 0;
+        return `${emp?.name}: 근무 ${work}일, OFF ${count}일`;
+      }).join(' | '));
   }
 
   /**
