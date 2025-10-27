@@ -45,7 +45,7 @@ export interface TeamPattern {
 export interface ScheduleAssignment {
   date: string; // YYYY-MM-DD
   employeeId: string;
-  shift: 'D' | 'E' | 'N' | 'A' | 'OFF'; // A = 행정 근무 (평일 근무자용)
+  shift: 'D' | 'E' | 'N' | 'A' | 'OFF'; // A = 행정 근무 (평일 행정 업무, 주말/공휴일 휴무)
 }
 
 export interface SimpleSchedulerConfig {
@@ -200,7 +200,7 @@ export class SimpleScheduler {
       const isSpecialDay = isWeekendDay || isHoliday;
       const isWeekday = !isWeekendDay;
 
-      // 1. 평일 근무자 처리
+      // 1. 행정 근무자 처리
       for (const emp of weekdayOnlyEmployees) {
         if (daySchedule.has(emp.id)) continue; // Already assigned by special request
 

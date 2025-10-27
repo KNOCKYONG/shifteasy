@@ -162,9 +162,9 @@ const departments =
     partTime: 0, // TODO: Add contract type to schema
   };
 
-  // Team Pattern용 필터링된 전체 인원 (근무 패턴이 '평일 근무'인 사람만 제외)
+  // Team Pattern용 필터링된 전체 인원 (근무 패턴이 '행정 근무'인 사람만 제외)
   const filteredTotalMembers = teamMembers.filter((m: any) => {
-    // 근무 패턴이 'weekday-only' (평일 근무)인 경우만 제외
+    // 근무 패턴이 'weekday-only' (행정 근무)인 경우만 제외
     if (m.workPatternType === 'weekday-only') {
       return false;
     }

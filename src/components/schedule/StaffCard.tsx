@@ -24,7 +24,7 @@ const ROLE_COLORS = {
 const WORK_PATTERN_LABELS: Record<WorkPatternType, string> = {
   'three-shift': '3교대 근무',
   'night-intensive': '나이트 집중',
-  'weekday-only': '평일 근무',
+  'weekday-only': '행정 근무',
 };
 
 export function StaffCard({ staff, compact = false, onClick, workPatternType, preferredShifts }: StaffCardProps) {

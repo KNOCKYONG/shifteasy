@@ -15,7 +15,7 @@ export type WorkPatternType = 'three-shift' | 'night-intensive' | 'weekday-only'
 export interface ComprehensivePreferences {
   // 기본 근무 선호
   workPreferences: {
-    workPatternType: WorkPatternType; // 근무 패턴: 3교대 근무, 나이트 집중 근무, 평일 근무
+    workPatternType: WorkPatternType; // 근무 패턴: 3교대 근무, 나이트 집중 근무, 행정 근무
     preferredShifts: ('day' | 'evening' | 'night')[];
     avoidShifts?: ('day' | 'evening' | 'night')[];
     maxConsecutiveDays: number;
@@ -265,7 +265,7 @@ export function MyPreferencesPanel({
           {([
             { value: 'three-shift', label: '3교대 근무', description: '주간/저녁/야간을 순환하는 교대 근무' },
             { value: 'night-intensive', label: '나이트 집중 근무', description: '주로 야간 근무를 수행하는 패턴' },
-            { value: 'weekday-only', label: '평일 근무', description: '평일 중심의 고정 근무 패턴' }
+            { value: 'weekday-only', label: '행정 근무', description: '평일 행정 업무 (주말/공휴일 휴무)' }
           ] as const).map(pattern => (
             <label
               key={pattern.value}

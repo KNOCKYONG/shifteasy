@@ -438,7 +438,7 @@ export function EmployeePreferencesModal({
                   {[
                     { value: 'three-shift', label: '3교대 근무', description: '주간/저녁/야간 순환 근무' },
                     { value: 'night-intensive', label: '나이트 집중 근무', description: '야간 근무 집중 배치' },
-                    { value: 'weekday-only', label: '평일 근무', description: '월~금 근무, 주말 휴무' },
+                    { value: 'weekday-only', label: '행정 근무', description: '평일 행정 업무, 주말/공휴일 휴무' },
                   ].map(option => (
                     <button
                       key={option.value}
@@ -461,7 +461,7 @@ export function EmployeePreferencesModal({
                 <h3 className="font-semibold mb-3 text-gray-900 dark:text-white">
                   선호하는 휴무일
                   {preferences.workPatternType === 'weekday-only' && (
-                    <span className="ml-2 text-sm text-gray-500 font-normal">(평일 근무는 주말 자동 휴무)</span>
+                    <span className="ml-2 text-sm text-gray-500 font-normal">(행정 근무는 주말/공휴일 자동 휴무)</span>
                   )}
                 </h3>
                 <div className="flex gap-2">
