@@ -185,13 +185,11 @@ export class SimpleScheduler {
 
     console.log(`👥 직원 구성: 행정 ${weekdayOnlyEmployees.length}명, 교대 ${shiftEmployees.length}명`);
 
-    // Calculate fair OFF distribution for shift employees
-    const totalDays = this.workDays.length;
-
-    // Target: Each employee should work approximately equal days
-    // Simple rule: distribute OFF days evenly (e.g., 8-10 OFF days per month)
-    const targetOffDaysPerEmployee = Math.floor(totalDays * 0.27); // ~27% OFF (8 days out of 30)
-    const targetWorkDaysPerEmployee = totalDays - targetOffDaysPerEmployee;
+    // Check if we have enough staff
+    const totalRequired = requiredPerShift.D + requiredPerShift.E + requiredPerShift.N;
+    if (shiftEmployees.length < totalRequired) {
+      console.warn(`⚠️ 인원 부족: 필요 ${totalRequired}명, 실제 ${shiftEmployees.length}명 (주말/공휴일 제외 평일은 전원 근무 필요)`);
+    }
 
     // Track OFF and work counts per employee
     const offCounts = new Map<string, number>();
@@ -200,8 +198,6 @@ export class SimpleScheduler {
       offCounts.set(emp.id, 0);
       workCounts.set(emp.id, 0);
     });
-
-    console.log(`📊 목표: 교대근무자 1인당 근무 ${targetWorkDaysPerEmployee}일, OFF ${targetOffDaysPerEmployee}일`);
 
     for (const day of this.workDays) {
       const dateStr = format(day, 'yyyy-MM-dd');
@@ -226,80 +222,52 @@ export class SimpleScheduler {
         }
       }
 
-      // 2. 교대 근무자 OFF 먼저 공정 배분
+      // 2. 교대 근무자 시프트 배치 (team pattern 기준)
       const unassignedShiftEmployees = shiftEmployees.filter(emp => !daySchedule.has(emp.id));
 
-      // Calculate how many should be OFF today
-      // Target: ~27% of shift employees should be OFF each day (to reach targetOffDaysPerEmployee)
-      const targetOffToday = Math.round(shiftEmployees.length * 0.27);
-
-      // Adjust based on current progress toward target
-      const currentAvgOff = Array.from(offCounts.entries())
-        .filter(([id]) => shiftEmployees.some(e => e.id === id))
-        .reduce((sum, [, count]) => sum + count, 0) / shiftEmployees.length;
-
-      const expectedOffByNow = (this.workDays.indexOf(day) + 1) * (targetOffDaysPerEmployee / totalDays);
-      const needMoreOff = currentAvgOff < expectedOffByNow;
-
-      // Adjust neededOffCount: more OFF if behind target, less if ahead
-      let neededOffCount = needMoreOff ? targetOffToday + 1 : targetOffToday;
-      neededOffCount = Math.min(neededOffCount, unassignedShiftEmployees.length);
-
-      // Sort by who needs OFF most (lowest OFF count, then highest work count)
-      const sortedForOff = [...unassignedShiftEmployees].sort((a, b) => {
-        const aOff = offCounts.get(a.id) || 0;
-        const bOff = offCounts.get(b.id) || 0;
-        if (aOff !== bOff) return aOff - bOff; // Fewer OFF days first
-
-        const aWork = workCounts.get(a.id) || 0;
-        const bWork = workCounts.get(b.id) || 0;
-        return bWork - aWork; // More work days first
-      });
-
-      // Assign OFF to those who need it most
-      for (let i = 0; i < neededOffCount && i < sortedForOff.length; i++) {
-        const emp = sortedForOff[i];
-        daySchedule.set(emp.id, 'OFF');
-        offCounts.set(emp.id, (offCounts.get(emp.id) || 0) + 1);
-      }
-
-      // 3. 남은 교대 근무자에게 시프트 배치
-      const availableForShifts = unassignedShiftEmployees.filter(emp => !daySchedule.has(emp.id));
-
-      // Adjust required counts if not enough employees available
-      const totalRequired = requiredPerShift.D + requiredPerShift.E + requiredPerShift.N;
-      const availableCount = availableForShifts.length;
-
+      // Determine required staff based on day type
       let adjustedD = requiredPerShift.D;
       let adjustedE = requiredPerShift.E;
       let adjustedN = requiredPerShift.N;
 
-      if (availableCount < totalRequired) {
-        // Distribute available employees proportionally
-        const ratio = availableCount / totalRequired;
-        adjustedD = Math.round(requiredPerShift.D * ratio);
-        adjustedE = Math.round(requiredPerShift.E * ratio);
-        adjustedN = availableCount - adjustedD - adjustedE; // Remainder goes to N
+      // On weekends/holidays, reduce required staff (minimum staffing)
+      if (isSpecialDay) {
+        // Reduce to ~40% of regular staffing on weekends/holidays
+        adjustedD = Math.max(1, Math.ceil(requiredPerShift.D * 0.4));
+        adjustedE = Math.max(1, Math.ceil(requiredPerShift.E * 0.4));
+        adjustedN = Math.max(1, Math.ceil(requiredPerShift.N * 0.4));
       }
 
-      this.assignShiftWithExperienceBalance(availableForShifts, daySchedule, 'D', adjustedD, isSpecialDay);
+      const totalRequiredToday = adjustedD + adjustedE + adjustedN;
+      const availableCount = unassignedShiftEmployees.length;
 
-      const afterD = availableForShifts.filter(emp => !daySchedule.has(emp.id));
+      // If not enough staff, scale down proportionally
+      if (availableCount < totalRequiredToday) {
+        const ratio = availableCount / totalRequiredToday;
+        adjustedD = Math.max(0, Math.round(adjustedD * ratio));
+        adjustedE = Math.max(0, Math.round(adjustedE * ratio));
+        adjustedN = Math.max(0, availableCount - adjustedD - adjustedE);
+      }
+
+      // 3. 시프트 배치 (D, E, N 순서대로)
+      this.assignShiftWithExperienceBalance(unassignedShiftEmployees, daySchedule, 'D', adjustedD, isSpecialDay);
+
+      const afterD = unassignedShiftEmployees.filter(emp => !daySchedule.has(emp.id));
       this.assignShiftWithExperienceBalance(afterD, daySchedule, 'E', adjustedE, isSpecialDay);
 
       const afterE = afterD.filter(emp => !daySchedule.has(emp.id));
       this.assignShiftWithExperienceBalance(afterE, daySchedule, 'N', adjustedN, isSpecialDay);
 
-      // 4. 아직 배치되지 않은 사람이 있다면 OFF 처리
-      const stillUnassigned = afterE.filter(emp => !daySchedule.has(emp.id));
-      stillUnassigned.forEach(emp => {
+      // 4. 시프트 배치 후 남은 사람들은 OFF
+      const remainingAfterShifts = afterE.filter(emp => !daySchedule.has(emp.id));
+      remainingAfterShifts.forEach(emp => {
         daySchedule.set(emp.id, 'OFF');
         offCounts.set(emp.id, (offCounts.get(emp.id) || 0) + 1);
       });
 
       // Update work counts
-      availableForShifts.forEach(emp => {
-        if (daySchedule.has(emp.id) && daySchedule.get(emp.id) !== 'OFF') {
+      unassignedShiftEmployees.forEach(emp => {
+        if (daySchedule.has(emp.id) && daySchedule.get(emp.id) !== 'OFF' && daySchedule.get(emp.id) !== 'A') {
           workCounts.set(emp.id, (workCounts.get(emp.id) || 0) + 1);
         }
       });
