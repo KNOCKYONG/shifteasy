@@ -201,7 +201,91 @@ export function EmployeePreferencesModal({
   ];
 
   const handleSave = async () => {
-    // Save preferences
+    // Save preferences to database
+    try {
+      await fetch('/api/preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          preferences: {
+            workPreferences: {
+              workPatternType: preferences.workPatternType,
+              preferredShifts: ['day'], // default
+              avoidShifts: [],
+              maxConsecutiveDays: 5,
+              minRestDays: 2,
+              preferredWorkload: preferences.workLoadPreference === 'light' ? 'light' : preferences.workLoadPreference === 'heavy' ? 'heavy' : 'moderate',
+              weekendPreference: 'neutral',
+              holidayPreference: 'neutral',
+              overtimeWillingness: 'sometimes',
+              offDayPattern: 'flexible',
+            },
+            personalCircumstances: {
+              hasYoungChildren: false,
+              isSingleParent: false,
+              hasCaregivingResponsibilities: false,
+              isStudying: false,
+            },
+            healthConsiderations: {
+              hasChronicCondition: false,
+              needsFrequentBreaks: false,
+              mobilityRestrictions: false,
+              visualImpairment: false,
+              hearingImpairment: false,
+              mentalHealthSupport: false,
+            },
+            commutePreferences: {
+              commuteTime: 30,
+              transportMode: 'car',
+              parkingRequired: false,
+              nightTransportDifficulty: false,
+              weatherSensitive: false,
+              needsTransportAssistance: false,
+              carpoolInterested: false,
+            },
+            teamPreferences: {
+              preferredPartners: preferences.preferredPartners || [],
+              avoidPartners: preferences.avoidPartners || [],
+              mentorshipRole: 'none',
+              languagePreferences: ['korean'],
+              communicationStyle: 'direct',
+              conflictResolution: 'immediate',
+            },
+            professionalDevelopment: {
+              specializations: [],
+              certifications: [],
+              trainingInterests: [],
+              careerGoals: '',
+              preferredDepartments: [],
+              avoidDepartments: [],
+              teachingInterest: false,
+              researchInterest: false,
+              administrativeInterest: false,
+            },
+            specialRequests: {
+              religiousObservances: { needed: false },
+              culturalConsiderations: '',
+              emergencyContact: { name: '', relationship: '', phone: '' },
+              temporaryRequests: [],
+            },
+            priorities: {
+              workLifeBalance: 7,
+              careerGrowth: 5,
+              teamHarmony: 6,
+              incomeMaximization: 4,
+              healthWellbeing: 8,
+              familyTime: 7,
+            },
+          },
+        }),
+      });
+      console.log('✅ Preferences saved to database for employee:', employee.id);
+    } catch (error) {
+      console.error('❌ Failed to save preferences:', error);
+    }
+
+    // Save preferences to parent component
     onSave(preferences);
 
     // Save shift requests to database

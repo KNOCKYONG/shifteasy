@@ -15,7 +15,9 @@ const PreferencesSchema = z.object({
   employeeId: z.string(),
   preferences: z.object({
     workPreferences: z.object({
+      workPatternType: z.enum(['three-shift', 'night-intensive', 'weekday-only']),
       preferredShifts: z.array(z.enum(['day', 'evening', 'night'])),
+      avoidShifts: z.array(z.enum(['day', 'evening', 'night'])).optional(),
       maxConsecutiveDays: z.number().min(1).max(7),
       minRestDays: z.number().min(1).max(4),
       preferredWorkload: z.enum(['light', 'moderate', 'heavy', 'flexible']),
