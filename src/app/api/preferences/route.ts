@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 // Default tenant ID (나중에 인증 시스템에서 가져와야 함)
 const DEFAULT_TENANT_ID = '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
 
-// 선호도 검증 스키마
+// 선호도 검증 스키마 (실제 사용 필드만)
 const PreferencesSchema = z.object({
   employeeId: z.string(),
   preferences: z.object({
@@ -28,29 +28,17 @@ const PreferencesSchema = z.object({
     }),
     personalCircumstances: z.object({
       hasYoungChildren: z.boolean(),
-      childrenAges: z.array(z.number()).optional(),
       isSingleParent: z.boolean(),
       hasCaregivingResponsibilities: z.boolean(),
-      caregivingDetails: z.string().optional(),
       isStudying: z.boolean(),
-      studySchedule: z.object({
-        days: z.array(z.string()),
-        timeSlots: z.array(z.string()),
-      }).optional(),
-      pregnancyStatus: z.enum(['none', 'early', 'late', 'postpartum']).optional(),
-      weddingPlanned: z.date().optional(),
     }),
     healthConsiderations: z.object({
       hasChronicCondition: z.boolean(),
-      conditionDetails: z.string().optional(),
       needsFrequentBreaks: z.boolean(),
       mobilityRestrictions: z.boolean(),
       visualImpairment: z.boolean(),
       hearingImpairment: z.boolean(),
       mentalHealthSupport: z.boolean(),
-      medicationSchedule: z.array(z.string()).optional(),
-      recentSurgery: z.date().optional(),
-      recoveryPeriod: z.number().optional(),
     }),
     commutePreferences: z.object({
       commuteTime: z.number(),
@@ -60,13 +48,11 @@ const PreferencesSchema = z.object({
       weatherSensitive: z.boolean(),
       needsTransportAssistance: z.boolean(),
       carpoolInterested: z.boolean(),
-      preferredCarpoolPartners: z.array(z.string()).optional(),
     }),
     teamPreferences: z.object({
       preferredPartners: z.array(z.string()),
       avoidPartners: z.array(z.string()),
       mentorshipRole: z.enum(['mentor', 'mentee', 'both', 'none']),
-      preferredMentor: z.string().optional(),
       languagePreferences: z.array(z.string()),
       communicationStyle: z.enum(['direct', 'gentle', 'detailed', 'brief']),
       conflictResolution: z.enum(['immediate', 'planned', 'mediator', 'avoid']),
@@ -85,22 +71,14 @@ const PreferencesSchema = z.object({
     specialRequests: z.object({
       religiousObservances: z.object({
         needed: z.boolean(),
-        details: z.string().optional(),
-        dates: z.array(z.date()).optional(),
       }),
       culturalConsiderations: z.string(),
-      dietaryRestrictions: z.string().optional(),
       emergencyContact: z.object({
         name: z.string(),
         relationship: z.string(),
         phone: z.string(),
       }),
-      temporaryRequests: z.array(z.object({
-        reason: z.string(),
-        startDate: z.date(),
-        endDate: z.date(),
-        details: z.string(),
-      })),
+      temporaryRequests: z.array(z.any()),
     }),
     priorities: z.object({
       workLifeBalance: z.number().min(1).max(10),
