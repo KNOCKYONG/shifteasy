@@ -7,4 +7,3 @@ export { AIGenerationResult } from './AIGenerationResult';
 export { ScheduleGridView } from './ScheduleGridView';
 export { ScheduleCalendarView } from './ScheduleCalendarView';
 export { ScheduleStats } from './ScheduleStats';
-export { ScheduleCodeView } from './ScheduleCodeView';
