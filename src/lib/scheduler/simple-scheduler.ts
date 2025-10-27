@@ -185,11 +185,13 @@ export class SimpleScheduler {
 
     console.log(`👥 직원 구성: 행정 ${weekdayOnlyEmployees.length}명, 교대 ${shiftEmployees.length}명`);
 
-    // Calculate required OFF days for shift employees (fair distribution)
+    // Calculate fair OFF distribution for shift employees
     const totalDays = this.workDays.length;
-    const totalShiftPositions = totalDays * (requiredPerShift.D + requiredPerShift.E + requiredPerShift.N);
-    const targetWorkDaysPerEmployee = Math.floor(totalShiftPositions / shiftEmployees.length);
-    const targetOffDaysPerEmployee = totalDays - targetWorkDaysPerEmployee;
+
+    // Target: Each employee should work approximately equal days
+    // Simple rule: distribute OFF days evenly (e.g., 8-10 OFF days per month)
+    const targetOffDaysPerEmployee = Math.floor(totalDays * 0.27); // ~27% OFF (8 days out of 30)
+    const targetWorkDaysPerEmployee = totalDays - targetOffDaysPerEmployee;
 
     // Track OFF and work counts per employee
     const offCounts = new Map<string, number>();
@@ -227,14 +229,23 @@ export class SimpleScheduler {
       // 2. 교대 근무자 OFF 먼저 공정 배분
       const unassignedShiftEmployees = shiftEmployees.filter(emp => !daySchedule.has(emp.id));
 
-      // Calculate how many should be OFF today for fair distribution
+      // Calculate how many should be OFF today
+      // Target: ~27% of shift employees should be OFF each day (to reach targetOffDaysPerEmployee)
+      const targetOffToday = Math.round(shiftEmployees.length * 0.27);
+
+      // Adjust based on current progress toward target
       const currentAvgOff = Array.from(offCounts.entries())
         .filter(([id]) => shiftEmployees.some(e => e.id === id))
         .reduce((sum, [, count]) => sum + count, 0) / shiftEmployees.length;
 
-      const neededOffCount = Math.max(0, unassignedShiftEmployees.length - requiredPerShift.D - requiredPerShift.E - requiredPerShift.N);
+      const expectedOffByNow = (this.workDays.indexOf(day) + 1) * (targetOffDaysPerEmployee / totalDays);
+      const needMoreOff = currentAvgOff < expectedOffByNow;
 
-      // Sort by who needs OFF most (lowest OFF count, then lowest work count)
+      // Adjust neededOffCount: more OFF if behind target, less if ahead
+      let neededOffCount = needMoreOff ? targetOffToday + 1 : targetOffToday;
+      neededOffCount = Math.min(neededOffCount, unassignedShiftEmployees.length);
+
+      // Sort by who needs OFF most (lowest OFF count, then highest work count)
       const sortedForOff = [...unassignedShiftEmployees].sort((a, b) => {
         const aOff = offCounts.get(a.id) || 0;
         const bOff = offCounts.get(b.id) || 0;
@@ -255,13 +266,36 @@ export class SimpleScheduler {
       // 3. 남은 교대 근무자에게 시프트 배치
       const availableForShifts = unassignedShiftEmployees.filter(emp => !daySchedule.has(emp.id));
 
-      this.assignShiftWithExperienceBalance(availableForShifts, daySchedule, 'D', requiredPerShift.D, isSpecialDay);
+      // Adjust required counts if not enough employees available
+      const totalRequired = requiredPerShift.D + requiredPerShift.E + requiredPerShift.N;
+      const availableCount = availableForShifts.length;
+
+      let adjustedD = requiredPerShift.D;
+      let adjustedE = requiredPerShift.E;
+      let adjustedN = requiredPerShift.N;
+
+      if (availableCount < totalRequired) {
+        // Distribute available employees proportionally
+        const ratio = availableCount / totalRequired;
+        adjustedD = Math.round(requiredPerShift.D * ratio);
+        adjustedE = Math.round(requiredPerShift.E * ratio);
+        adjustedN = availableCount - adjustedD - adjustedE; // Remainder goes to N
+      }
+
+      this.assignShiftWithExperienceBalance(availableForShifts, daySchedule, 'D', adjustedD, isSpecialDay);
 
       const afterD = availableForShifts.filter(emp => !daySchedule.has(emp.id));
-      this.assignShiftWithExperienceBalance(afterD, daySchedule, 'E', requiredPerShift.E, isSpecialDay);
+      this.assignShiftWithExperienceBalance(afterD, daySchedule, 'E', adjustedE, isSpecialDay);
 
       const afterE = afterD.filter(emp => !daySchedule.has(emp.id));
-      this.assignShiftWithExperienceBalance(afterE, daySchedule, 'N', requiredPerShift.N, isSpecialDay);
+      this.assignShiftWithExperienceBalance(afterE, daySchedule, 'N', adjustedN, isSpecialDay);
+
+      // 4. 아직 배치되지 않은 사람이 있다면 OFF 처리
+      const stillUnassigned = afterE.filter(emp => !daySchedule.has(emp.id));
+      stillUnassigned.forEach(emp => {
+        daySchedule.set(emp.id, 'OFF');
+        offCounts.set(emp.id, (offCounts.get(emp.id) || 0) + 1);
+      });
 
       // Update work counts
       availableForShifts.forEach(emp => {
