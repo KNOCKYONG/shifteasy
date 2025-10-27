@@ -1181,7 +1181,12 @@ export default function SchedulePage() {
           const teamPatternResponse = await fetch(`/api/team-patterns?departmentId=${targetDepartmentId}`);
           const teamPatternData = await teamPatternResponse.json();
           teamPattern = teamPatternData.pattern || teamPatternData.defaultPattern || teamPatternData;
-          console.log(`✅ 팀 패턴 로드 완료 (부서: ${targetDepartmentId})`);
+
+          if (teamPatternData.pattern) {
+            console.log(`✅ 팀 패턴 로드: D=${teamPattern.requiredStaffDay}, E=${teamPattern.requiredStaffEvening}, N=${teamPattern.requiredStaffNight} (부서: ${targetDepartmentId})`);
+          } else {
+            console.warn(`⚠️ 팀 패턴 없음 - 기본값 사용: D=${teamPattern.requiredStaffDay}, E=${teamPattern.requiredStaffEvening}, N=${teamPattern.requiredStaffNight} (부서: ${targetDepartmentId})`);
+          }
         }
       } catch (error) {
         console.warn('⚠️ Failed to load team pattern, will use default preferences:', error);
