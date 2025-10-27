@@ -20,7 +20,7 @@ import { relations } from 'drizzle-orm';
 
 export const holidays = pgTable('holidays', {
   id: uuid('id').defaultRandom().primaryKey(),
-  tenantId: uuid('tenant_id').notNull(),
+  tenantId: uuid('tenant_id'), // Nullable - NULL means global holiday shared across all tenants
 
   // Holiday details
   date: date('date').notNull(), // 휴일 날짜 (YYYY-MM-DD)
