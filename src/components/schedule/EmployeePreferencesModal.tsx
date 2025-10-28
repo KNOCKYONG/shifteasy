@@ -891,7 +891,7 @@ export function EmployeePreferencesModal({
                           {currentRequest && (
                             <div className="absolute inset-0 flex items-center justify-center">
                               <span className="text-base font-bold text-blue-600 dark:text-blue-400">
-                                {currentRequest === 'OFF' || currentRequest === 'O' ? 'O^' : currentRequest}
+                                {currentRequest}
                               </span>
                             </div>
                           )}
@@ -899,12 +899,13 @@ export function EmployeePreferencesModal({
                         {/* 클릭 시 선택 드롭다운 */}
                         <select
                           className="absolute inset-0 opacity-0 cursor-pointer"
-                          value={currentRequest || ''}
+                          value={currentRequest?.replace('^', '') || ''}
                           onChange={(e) => {
                             if (e.target.value) {
+                              // Add "^" suffix to indicate it's a request
                               setShiftRequests({
                                 ...shiftRequests,
-                                [dateKey]: e.target.value
+                                [dateKey]: e.target.value + '^'
                               });
                             } else {
                               const newRequests = {...shiftRequests};

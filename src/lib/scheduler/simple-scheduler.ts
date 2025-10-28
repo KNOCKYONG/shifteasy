@@ -198,7 +198,10 @@ export class SimpleScheduler {
    * Map custom shift type code to standard shift type (D, E, N, OFF)
    */
   private mapShiftCode(code: string): 'D' | 'E' | 'N' | 'OFF' {
-    switch (code.toUpperCase()) {
+    // Remove "^" suffix if present (indicates shift request)
+    const cleanCode = code.replace('^', '').toUpperCase();
+
+    switch (cleanCode) {
       case 'D':
         return 'D';
       case 'E':
@@ -206,6 +209,7 @@ export class SimpleScheduler {
       case 'N':
         return 'N';
       case 'O': // 휴무
+      case 'OFF':
         return 'OFF';
       default:
         // 기타 커스텀 코드(교육 등)는 OFF로 처리
