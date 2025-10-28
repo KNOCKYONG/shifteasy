@@ -305,49 +305,23 @@ export function EmployeePreferencesModal({
 
       // 2. Then create new requests based on current shiftRequests state
       if (Object.keys(shiftRequests).length > 0) {
-        // Group consecutive dates with same shift into single requests
-        const sortedDates = Object.keys(shiftRequests).sort();
-        const requests: Array<{
-          startDate: string;
-          endDate?: string;
-          shiftTypeCode: string;
-        }> = [];
-
-        let currentStart = sortedDates[0];
-        let currentCode = shiftRequests[currentStart];
-
-        for (let i = 1; i <= sortedDates.length; i++) {
-          const date = sortedDates[i];
-          const code = date ? shiftRequests[date] : null;
-
-          // Check if we should start a new request
-          if (code !== currentCode || !date) {
-            requests.push({
-              startDate: currentStart!,
-              endDate: sortedDates[i - 1] !== currentStart ? sortedDates[i - 1] : undefined,
-              shiftTypeCode: currentCode!,
-            });
-
-            if (date) {
-              currentStart = date;
-              currentCode = code!;
-            }
-          }
-        }
+        // Save each date as an individual request (no grouping)
+        // This ensures only selected dates are saved, not date ranges
+        const dates = Object.keys(shiftRequests);
 
         // Save each request
-        for (const request of requests) {
+        for (const date of dates) {
           await createSpecialRequest.mutateAsync({
             employeeId: employee.id,
-            requestType: 'shift_request', // Default type for shift requests
-            shiftTypeCode: request.shiftTypeCode,
-            startDate: request.startDate,
-            endDate: request.endDate,
+            requestType: 'shift_request',
+            shiftTypeCode: shiftRequests[date],
+            startDate: date,
+            // endDate is intentionally omitted to save only single dates
             status: 'pending',
           });
         }
 
-        console.log('✅ Shift requests saved successfully:', requests.length, 'requests');
+        console.log('✅ Shift requests saved successfully:', dates.length, 'individual dates');
       } else {
         console.log('✅ No shift requests to save (all cleared)');
       }
