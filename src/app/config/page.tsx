@@ -11,6 +11,7 @@ import { ContractTypesTab } from "./ContractTypesTab";
 import { EmployeeStatusTab } from "./EmployeeStatusTab";
 import { PositionGroupsTab } from "./PositionGroupsTab";
 import { SecretCodeTab } from "./SecretCodeTab";
+import { api as trpc } from "@/lib/trpc/client";
 
 interface ContractType {
   code: string;
@@ -30,6 +31,10 @@ interface ConfigData {
 export default function ConfigPage() {
   const router = useRouter();
   const { t, ready } = useTranslation(['config', 'common']);
+
+  // tRPC queries for fetching configs
+  const { data: allConfigs, isLoading: configsLoading, refetch: refetchConfigs } = trpc.tenantConfigs.getAll.useQuery();
+  const setConfigMutation = trpc.tenantConfigs.set.useMutation();
 
   const [activeTab, setActiveTab] = useState<"preferences" | "positions" | "positionGroups" | "shifts" | "departments" | "contracts" | "statuses" | "secretCode">("preferences");
   const [currentUser, setCurrentUser] = useState<{ role: string } | null>(null);
@@ -129,113 +134,58 @@ export default function ConfigPage() {
   }, []);
 
   useEffect(() => {
-    // Load positions from localStorage
-    const savedPositions = localStorage.getItem('customPositions');
-    if (savedPositions) {
-      const parsed = JSON.parse(savedPositions);
-      // Migrate old positions without level to have appropriate levels
-      const migratedPositions = parsed.map((p: any) => {
-        if (!p.level) {
-          // Assign default levels based on position code
-          switch(p.value) {
-            case 'HN': return { ...p, level: 9 };
-            case 'SN': return { ...p, level: 7 };
-            case 'CN': return { ...p, level: 5 };
-            case 'RN': return { ...p, level: 3 };
-            case 'NA': return { ...p, level: 1 };
-            default: return { ...p, level: 1 };
-          }
-        }
-        return p;
-      });
-      setPositions(migratedPositions);
-      // Save migrated positions back if changed
-      if (JSON.stringify(parsed) !== JSON.stringify(migratedPositions)) {
-        localStorage.setItem('customPositions', JSON.stringify(migratedPositions));
-      }
-    } else {
-      // Default positions if none saved
-      const defaultPositions = [
-        { value: 'HN', label: '수석간호사', level: 9 },
-        { value: 'SN', label: '전문간호사', level: 7 },
-        { value: 'CN', label: '책임간호사', level: 5 },
-        { value: 'RN', label: '정규간호사', level: 3 },
-        { value: 'NA', label: '간호조무사', level: 1 },
-      ];
-      setPositions(defaultPositions);
-      localStorage.setItem('customPositions', JSON.stringify(defaultPositions));
-    }
+    if (!allConfigs) return; // Wait for API data
 
-    // Load shift types from localStorage
-    const savedShiftTypes = localStorage.getItem('customShiftTypes');
-    if (savedShiftTypes) {
-      setShiftTypes(JSON.parse(savedShiftTypes));
-    } else {
-      // Default shift types
-      const defaultShiftTypes = [
-        { code: 'D', name: '주간 근무', startTime: '07:00', endTime: '15:00', color: 'blue', allowOvertime: false },
-        { code: 'E', name: '저녁 근무', startTime: '15:00', endTime: '23:00', color: 'amber', allowOvertime: false },
-        { code: 'N', name: '야간 근무', startTime: '23:00', endTime: '07:00', color: 'indigo', allowOvertime: true },
-        { code: 'O', name: '휴무', startTime: '00:00', endTime: '00:00', color: 'gray', allowOvertime: false },
-      ];
-      setShiftTypes(defaultShiftTypes);
-      localStorage.setItem('customShiftTypes', JSON.stringify(defaultShiftTypes));
-    }
+    // Default values
+    const defaultPositions = [
+      { value: 'HN', label: '수석간호사', level: 9 },
+      { value: 'SN', label: '전문간호사', level: 7 },
+      { value: 'CN', label: '책임간호사', level: 5 },
+      { value: 'RN', label: '정규간호사', level: 3 },
+      { value: 'NA', label: '간호조무사', level: 1 },
+    ];
 
-    // Load departments from localStorage
-    const savedDepartments = localStorage.getItem('customDepartments');
-    if (savedDepartments) {
-      setDepartments(JSON.parse(savedDepartments));
-    } else {
-      // Default departments
-      const defaultDepartments = [
-        { id: 'dept-er', name: '응급실', code: 'ER', requiresSpecialSkills: true },
-        { id: 'dept-icu', name: '중환자실', code: 'ICU', requiresSpecialSkills: true },
-        { id: 'dept-or', name: '수술실', code: 'OR', requiresSpecialSkills: true },
-        { id: 'dept-ward', name: '일반병동', code: 'WARD', requiresSpecialSkills: false },
-      ];
-      setDepartments(defaultDepartments);
-      localStorage.setItem('customDepartments', JSON.stringify(defaultDepartments));
-    }
+    const defaultShiftTypes = [
+      { code: 'D', name: '주간 근무', startTime: '07:00', endTime: '15:00', color: 'blue', allowOvertime: false },
+      { code: 'E', name: '저녁 근무', startTime: '15:00', endTime: '23:00', color: 'amber', allowOvertime: false },
+      { code: 'N', name: '야간 근무', startTime: '23:00', endTime: '07:00', color: 'indigo', allowOvertime: true },
+      { code: 'O', name: '휴무', startTime: '00:00', endTime: '00:00', color: 'gray', allowOvertime: false },
+    ];
 
-    // Load contract types from localStorage
-    const savedContractTypes = localStorage.getItem('customContractTypes');
-    if (savedContractTypes) {
-      setContractTypes(JSON.parse(savedContractTypes));
-    } else {
-      // Default contract types
-      const defaultContractTypes = [
-        { code: 'FT', name: '정규직', description: '정규 고용 계약', isPrimary: true },
-        { code: 'PT', name: '파트타임', description: '시간제 계약', maxHoursPerWeek: 30, isPrimary: false },
-        { code: 'CT', name: '계약직', description: '기간 계약직', isPrimary: false },
-        { code: 'IN', name: '인턴', description: '인턴십 프로그램', maxHoursPerWeek: 40, isPrimary: false },
-      ];
-      setContractTypes(defaultContractTypes);
-      localStorage.setItem('customContractTypes', JSON.stringify(defaultContractTypes));
-    }
+    const defaultDepartments = [
+      { id: 'dept-er', name: '응급실', code: 'ER', requiresSpecialSkills: true },
+      { id: 'dept-icu', name: '중환자실', code: 'ICU', requiresSpecialSkills: true },
+      { id: 'dept-or', name: '수술실', code: 'OR', requiresSpecialSkills: true },
+      { id: 'dept-ward', name: '일반병동', code: 'WARD', requiresSpecialSkills: false },
+    ];
 
-    // Load employee statuses from localStorage
-    const savedEmployeeStatuses = localStorage.getItem('customEmployeeStatuses');
-    if (savedEmployeeStatuses) {
-      setEmployeeStatuses(JSON.parse(savedEmployeeStatuses));
-    } else {
-      // Default employee statuses
-      const defaultStatuses = [
-        { code: 'ACTIVE', name: '활성', description: '정상 근무', isActive: true, allowScheduling: true, color: 'green' },
-        { code: 'LEAVE', name: '휴가', description: '휴가 중', isActive: false, allowScheduling: false, color: 'amber' },
-        { code: 'SICK', name: '병가', description: '병가 중', isActive: false, allowScheduling: false, color: 'red' },
-        { code: 'TRAINING', name: '교육', description: '교육 참여 중', isActive: true, allowScheduling: false, color: 'blue' },
-      ];
-      setEmployeeStatuses(defaultStatuses);
-      localStorage.setItem('customEmployeeStatuses', JSON.stringify(defaultStatuses));
-    }
+    const defaultContractTypes = [
+      { code: 'FT', name: '정규직', description: '정규 고용 계약', isPrimary: true },
+      { code: 'PT', name: '파트타임', description: '시간제 계약', maxHoursPerWeek: 30, isPrimary: false },
+      { code: 'CT', name: '계약직', description: '기간 계약직', isPrimary: false },
+      { code: 'IN', name: '인턴', description: '인턴십 프로그램', maxHoursPerWeek: 40, isPrimary: false },
+    ];
 
-    // Load position groups from localStorage
-    const savedPositionGroups = localStorage.getItem('customPositionGroups');
-    if (savedPositionGroups) {
-      setPositionGroups(JSON.parse(savedPositionGroups));
+    const defaultEmployeeStatuses = [
+      { code: 'ACTIVE', name: '활성', description: '정상 근무', isActive: true, allowScheduling: true, color: 'green' },
+      { code: 'LEAVE', name: '휴가', description: '휴가 중', isActive: false, allowScheduling: false, color: 'amber' },
+      { code: 'SICK', name: '병가', description: '병가 중', isActive: false, allowScheduling: false, color: 'red' },
+      { code: 'TRAINING', name: '교육', description: '교육 참여 중', isActive: true, allowScheduling: false, color: 'blue' },
+    ];
+
+    // Load from API or use defaults
+    setPositions(allConfigs.positions || defaultPositions);
+    setShiftTypes(allConfigs.shift_types || defaultShiftTypes);
+    setDepartments(allConfigs.departments || defaultDepartments);
+    setContractTypes(allConfigs.contract_types || defaultContractTypes);
+    setEmployeeStatuses(allConfigs.employee_statuses || defaultEmployeeStatuses);
+    setPositionGroups(allConfigs.position_groups || []);
+
+    // Load preferences
+    if (allConfigs.preferences) {
+      setConfig({ preferences: allConfigs.preferences });
     }
-  }, []);
+  }, [allConfigs]);
 
   const [config, setConfig] = useState<ConfigData>({
     preferences: {
@@ -243,17 +193,27 @@ export default function ConfigPage() {
     },
   });
 
-  const handleSave = () => {
-    // Save configuration to localStorage
-    localStorage.setItem("shiftConfig", JSON.stringify(config));
-    localStorage.setItem('customShiftTypes', JSON.stringify(shiftTypes));
-    localStorage.setItem('customPositions', JSON.stringify(positions));
-    localStorage.setItem('customPositionGroups', JSON.stringify(positionGroups));
-    localStorage.setItem('customDepartments', JSON.stringify(departments));
-    localStorage.setItem('customContractTypes', JSON.stringify(contractTypes));
-    localStorage.setItem('customEmployeeStatuses', JSON.stringify(employeeStatuses));
-    alert(t('alerts.saved', { ns: 'config' }));
-    // 화면 이동 제거 - 저장만 수행
+  const handleSave = async () => {
+    try {
+      // Save all configurations to tenant_configs via API
+      await Promise.all([
+        setConfigMutation.mutateAsync({ configKey: 'positions', configValue: positions }),
+        setConfigMutation.mutateAsync({ configKey: 'shift_types', configValue: shiftTypes }),
+        setConfigMutation.mutateAsync({ configKey: 'departments', configValue: departments }),
+        setConfigMutation.mutateAsync({ configKey: 'contract_types', configValue: contractTypes }),
+        setConfigMutation.mutateAsync({ configKey: 'employee_statuses', configValue: employeeStatuses }),
+        setConfigMutation.mutateAsync({ configKey: 'position_groups', configValue: positionGroups }),
+        setConfigMutation.mutateAsync({ configKey: 'preferences', configValue: config.preferences }),
+      ]);
+
+      // Refetch configs to update UI
+      await refetchConfigs();
+
+      alert(t('alerts.saved', { ns: 'config' }));
+    } catch (error) {
+      console.error('Failed to save configurations:', error);
+      alert('설정 저장 중 오류가 발생했습니다.');
+    }
   };
 
   return (

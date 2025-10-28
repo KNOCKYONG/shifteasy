@@ -41,11 +41,13 @@ const preferenceUpdateSchema = z.object({
     sunday: z.number().min(0).max(10),
   }).optional(),
 
+  offPreference: z.enum(['prefer', 'avoid', 'neutral']).optional(),
   weekendPreference: z.enum(['prefer', 'avoid', 'neutral']).optional(),
   maxWeekendsPerMonth: z.number().optional(),
   preferAlternatingWeekends: z.boolean().optional(),
 
   holidayPreference: z.enum(['prefer', 'avoid', 'neutral']).optional(),
+  preferredDaysOff: z.array(z.number().min(0).max(6)).optional(), // 0=Sunday, 1=Monday, ..., 6=Saturday
 
   // Team preferences
   preferredColleagues: z.array(z.string()).optional(),
@@ -102,7 +104,7 @@ export const preferencesRouter = createTRPCRouter({
     .input(preferenceUpdateSchema)
     .mutation(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
-      const { staffId, workLifeBalance, commutePreferences, preferredPatterns, ...rest } = input;
+      const { staffId, workLifeBalance, commutePreferences, preferredPatterns, preferredDaysOff, ...rest } = input;
 
       // Get department_id from users table
       const user = await db.select({ departmentId: users.departmentId })
@@ -147,6 +149,13 @@ export const preferencesRouter = createTRPCRouter({
         `Parking: ${commutePreferences.parkingRequired ? 'Required' : 'Not required'}.`
         : null;
 
+      // Transform preferredDaysOff to specificHolidayPreferences
+      // preferredDaysOff: [0, 6] => [{ dayOfWeek: 0, preference: 'off' }, { dayOfWeek: 6, preference: 'off' }]
+      const specificHolidayPreferences = preferredDaysOff?.map(dayOfWeek => ({
+        dayOfWeek,
+        preference: 'off' as 'work' | 'off' | 'neutral',
+      })) || [];
+
       // Build DB-compatible data
       const { preferredShiftTypes, ...restData } = rest;
       const normalizedPreferredShiftTypes = preferredShiftTypes
@@ -161,6 +170,7 @@ export const preferencesRouter = createTRPCRouter({
         ...restData,
         ...(normalizedPreferredShiftTypes && { preferredShiftTypes: normalizedPreferredShiftTypes }),
         preferredPatterns: transformedPreferredPatterns,
+        specificHolidayPreferences: specificHolidayPreferences.length > 0 ? specificHolidayPreferences : undefined,
         hasCareResponsibilities,
         ...(careResponsibilityDetails && { careResponsibilityDetails }),
         hasTransportationIssues,

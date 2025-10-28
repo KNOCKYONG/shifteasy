@@ -67,12 +67,22 @@ export class SimpleScheduler {
   private workDays: Date[];
   private schedule: Map<string, Map<string, 'D' | 'E' | 'N' | 'A' | 'OFF'>>; // date -> employeeId -> shift
   private roleRatios: Map<string, number>; // role -> count
+  private workCounts: Map<string, number>; // employeeId -> work day count
+  private offCounts: Map<string, number>; // employeeId -> OFF day count
 
   constructor(config: SimpleSchedulerConfig) {
     this.config = config;
     this.workDays = [];
     this.schedule = new Map();
     this.roleRatios = this.calculateRoleRatios();
+    this.workCounts = new Map();
+    this.offCounts = new Map();
+
+    // Initialize work/OFF counts to 0 for all employees
+    this.config.employees.forEach(emp => {
+      this.workCounts.set(emp.id, 0);
+      this.offCounts.set(emp.id, 0);
+    });
   }
 
   /**
@@ -134,11 +144,19 @@ export class SimpleScheduler {
           // Assign OFF for vacation/day_off requests
           if (request.requestType === 'vacation' || request.requestType === 'day_off') {
             daySchedule.set(request.employeeId, 'OFF');
+            // Update OFF count
+            this.offCounts.set(request.employeeId, (this.offCounts.get(request.employeeId) || 0) + 1);
           }
           // Assign specific shift for shift_request
           else if (request.requestType === 'shift_request' && request.shiftTypeCode) {
             const mappedShift = this.mapShiftCode(request.shiftTypeCode);
             daySchedule.set(request.employeeId, mappedShift);
+            // Update work count if not OFF
+            if (mappedShift !== 'OFF') {
+              this.workCounts.set(request.employeeId, (this.workCounts.get(request.employeeId) || 0) + 1);
+            } else {
+              this.offCounts.set(request.employeeId, (this.offCounts.get(request.employeeId) || 0) + 1);
+            }
           }
         }
       }
@@ -191,14 +209,6 @@ export class SimpleScheduler {
       console.warn(`⚠️ 인원 부족: 필요 ${totalRequired}명, 실제 ${shiftEmployees.length}명 (주말/공휴일 제외 평일은 전원 근무 필요)`);
     }
 
-    // Track OFF and work counts per employee
-    const offCounts = new Map<string, number>();
-    const workCounts = new Map<string, number>();
-    this.config.employees.forEach(emp => {
-      offCounts.set(emp.id, 0);
-      workCounts.set(emp.id, 0);
-    });
-
     for (const day of this.workDays) {
       const dateStr = format(day, 'yyyy-MM-dd');
       const daySchedule = this.schedule.get(dateStr);
@@ -215,10 +225,10 @@ export class SimpleScheduler {
 
         if (isWeekday && !isHoliday) {
           daySchedule.set(emp.id, 'A');
-          workCounts.set(emp.id, (workCounts.get(emp.id) || 0) + 1);
+          this.workCounts.set(emp.id, (this.workCounts.get(emp.id) || 0) + 1);
         } else {
           daySchedule.set(emp.id, 'OFF');
-          offCounts.set(emp.id, (offCounts.get(emp.id) || 0) + 1);
+          this.offCounts.set(emp.id, (this.offCounts.get(emp.id) || 0) + 1);
         }
       }
 
@@ -262,29 +272,29 @@ export class SimpleScheduler {
       const remainingAfterShifts = afterE.filter(emp => !daySchedule.has(emp.id));
       remainingAfterShifts.forEach(emp => {
         daySchedule.set(emp.id, 'OFF');
-        offCounts.set(emp.id, (offCounts.get(emp.id) || 0) + 1);
+        this.offCounts.set(emp.id, (this.offCounts.get(emp.id) || 0) + 1);
       });
 
       // Update work counts
       unassignedShiftEmployees.forEach(emp => {
         if (daySchedule.has(emp.id) && daySchedule.get(emp.id) !== 'OFF' && daySchedule.get(emp.id) !== 'A') {
-          workCounts.set(emp.id, (workCounts.get(emp.id) || 0) + 1);
+          this.workCounts.set(emp.id, (this.workCounts.get(emp.id) || 0) + 1);
         }
       });
     }
 
-    console.log('📊 OFF 배분 결과:', Array.from(offCounts.entries())
+    console.log('📊 OFF 배분 결과:', Array.from(this.offCounts.entries())
       .filter(([id]) => this.config.employees.some(e => e.id === id))
       .map(([id, count]) => {
         const emp = this.config.employees.find(e => e.id === id);
-        const work = workCounts.get(id) || 0;
+        const work = this.workCounts.get(id) || 0;
         return `${emp?.name}: 근무 ${work}일, OFF ${count}일`;
       }).join(' | '));
   }
 
   /**
-   * Helper: Assign shift with experience level balance
-   * 경력별 균형을 고려하여 신입이 몰리지 않도록 배치
+   * Helper: Assign shift with fair rotation and experience balance
+   * 공정한 순환 배치: 적게 일한 사람부터 우선 배치
    */
   private assignShiftWithExperienceBalance(
     employees: Employee[],
@@ -296,53 +306,40 @@ export class SimpleScheduler {
     // Filter unassigned employees
     const available = employees.filter(emp => !daySchedule.has(emp.id));
 
-    // Sort by experience (senior first) and preference
+    // Sort by workload fairness FIRST, then experience/preference
     const sorted = available.sort((a, b) => {
-      // Experience level priority (senior > mid > junior)
+      // 1. 근무 횟수가 적은 사람 우선 (공정성)
+      const aWork = this.workCounts.get(a.id) || 0;
+      const bWork = this.workCounts.get(b.id) || 0;
+      if (aWork !== bWork) return aWork - bWork; // Less work first
+
+      // 2. OFF 횟수가 많은 사람 우선 (더 쉰 사람이 일해야 함)
+      const aOff = this.offCounts.get(a.id) || 0;
+      const bOff = this.offCounts.get(b.id) || 0;
+      if (aOff !== bOff) return bOff - aOff; // More OFF = work now
+
+      // 3. Experience level (senior for quality)
       const aExp = this.getExperienceScore(a);
       const bExp = this.getExperienceScore(b);
-      if (aExp !== bExp) return bExp - aExp; // Higher experience first
+      if (aExp !== bExp) return bExp - aExp;
 
-      // Then by shift preference
+      // 4. Shift preference
       const aPref = this.getShiftPreference(a, shift);
       const bPref = this.getShiftPreference(b, shift);
       if (aPref !== bPref) return bPref - aPref;
 
-      // Then by role (RN > CN > SN > NA)
+      // 5. Role (RN > CN > SN > NA)
       const roleOrder: Record<string, number> = { RN: 4, CN: 3, SN: 2, NA: 1 };
       return (roleOrder[b.role] || 0) - (roleOrder[a.role] || 0);
     });
 
     let assigned = 0;
-    const experienceLevels = new Map<string, number>(); // Track experience distribution
 
-    // Assign with experience balance
+    // Assign up to requiredCount
     for (const employee of sorted) {
       if (assigned >= requiredCount) break;
-
-      const expLevel = employee.experienceLevel || 'junior';
-      const currentExpCount = experienceLevels.get(expLevel) || 0;
-
-      // Calculate target distribution (aim for proportional distribution)
-      const targetExpCount = Math.ceil(requiredCount / 3); // Rough balance
-
-      // Prefer balanced distribution
-      if (currentExpCount < targetExpCount || assigned < requiredCount) {
-        daySchedule.set(employee.id, shift);
-        experienceLevels.set(expLevel, currentExpCount + 1);
-        assigned++;
-      }
-    }
-
-    // Fill remaining slots if needed
-    if (assigned < requiredCount) {
-      for (const employee of sorted) {
-        if (assigned >= requiredCount) break;
-        if (!daySchedule.has(employee.id)) {
-          daySchedule.set(employee.id, shift);
-          assigned++;
-        }
-      }
+      daySchedule.set(employee.id, shift);
+      assigned++;
     }
   }
 

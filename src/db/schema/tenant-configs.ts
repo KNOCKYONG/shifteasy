@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, jsonb, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, jsonb, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import { tenants } from './tenants';
 
 /**
@@ -11,6 +11,13 @@ import { tenants } from './tenants';
  * - contract_types: 계약 형태
  * - position_groups: 직위 그룹
  * - employee_statuses: 직원 상태
+ * - schedule_rules: 스케줄 생성 규칙
+ * - shift_rules: 근무 규칙
+ * - performance_thresholds: 성능 임계값
+ * - staff_experience_weights: 경력 가중치
+ * - team_balance_rules: 팀 밸런스 규칙
+ * - balance_weights: 밸런스 계산 가중치
+ * - staff_default_values: 직원 기본값
  */
 export const tenantConfigs = pgTable('tenant_configs', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -25,7 +32,10 @@ export const tenantConfigs = pgTable('tenant_configs', {
   // Timestamps
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (table) => ({
+  // Unique constraint: one config key per tenant
+  tenantConfigKeyUnique: uniqueIndex('tenant_configs_tenant_id_config_key_unique').on(table.tenantId, table.configKey),
+}));
 
 export type TenantConfig = typeof tenantConfigs.$inferSelect;
 export type NewTenantConfig = typeof tenantConfigs.$inferInsert;

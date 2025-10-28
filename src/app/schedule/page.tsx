@@ -1360,7 +1360,29 @@ export default function SchedulePage() {
         // customShiftTypes에서 shift code로 shiftId 찾기
         let shiftId = 'shift-off'; // Default
         let shiftType: ExtendedScheduleAssignment['shiftType'] = 'off';
-        if (assignment.shift !== 'OFF') {
+
+        if (assignment.shift === 'OFF') {
+          // OFF: customShiftTypes에서 "O" 코드를 찾거나 기본 'shift-off' 사용
+          const offShiftType = customShiftTypes.find(st => st.code === 'O' || st.code === 'OFF');
+          if (offShiftType) {
+            shiftId = `shift-${offShiftType.code.toLowerCase()}`;
+          } else {
+            shiftId = 'shift-off'; // Fallback
+          }
+          shiftType = 'off';
+        } else if (assignment.shift === 'A') {
+          // 행정 근무 (평일 행정 업무)
+          const adminShiftType = customShiftTypes.find(st => st.code === 'A');
+          if (adminShiftType) {
+            shiftId = `shift-${adminShiftType.code.toLowerCase()}`;
+            shiftType = 'custom';
+          } else {
+            // A 타입이 없으면 기본 주간 근무로 처리
+            shiftId = 'shift-d';
+            shiftType = 'day';
+          }
+        } else {
+          // D, E, N 시프트
           const matchingShiftType = customShiftTypes.find(st => st.code === assignment.shift);
           if (matchingShiftType) {
             shiftId = `shift-${matchingShiftType.code.toLowerCase()}`;
@@ -1663,9 +1685,10 @@ export default function SchedulePage() {
 
   // 시프트 코드 가져오기 (config에서 설정한 커스텀 shift types 기반)
   const getShiftCode = (shiftId: string) => {
-    // shiftId format: 'shift-day', 'shift-evening', 'shift-night', 'shift-off'
+    // shiftId format: 'shift-day', 'shift-evening', 'shift-night', 'shift-off', 'shift-o'
     const codeMap: Record<string, string> = {
       'shift-off': 'O',
+      'shift-o': 'O',
       'shift-leave': 'O',
     };
 
