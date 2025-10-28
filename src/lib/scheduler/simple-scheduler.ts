@@ -89,17 +89,34 @@ export class SimpleScheduler {
    * Main scheduling method
    */
   public async generate(): Promise<ScheduleAssignment[]> {
+    console.log('\n🚀 ===== 스케줄 생성 시작 =====');
+    console.log(`📅 대상 기간: ${this.config.year}년 ${this.config.month}월`);
+    console.log(`👥 총 직원 수: ${this.config.employees.length}명`);
+    console.log(`📝 특별 요청: ${this.config.specialRequests.length}건`);
+    console.log(`🎉 공휴일: ${this.config.holidays.length}일`);
+
     // Step 1: Calculate work days
+    console.log('\n📊 Step 1: 근무일 계산 중...');
     this.calculateWorkDays();
 
     // Step 2: Assign special requests
+    console.log('\n🎯 Step 2: 특별 요청 배정 중...');
     this.assignSpecialRequests();
 
     // Step 3: Assign preferred patterns with role ratio matching
+    console.log('\n⚙️ Step 3: 선호 패턴 배정 중...');
     this.assignPreferredPatterns();
 
     // Step 4: Fill gaps with team pattern
+    console.log('\n🔧 Step 4: 팀 패턴으로 빈 자리 채우기...');
     this.assignTeamPattern();
+
+    // Final statistics
+    const stats = this.getStatistics();
+    console.log('\n✅ ===== 스케줄 생성 완료 =====');
+    console.log(`📊 총 배정: ${stats.totalAssignments}건`);
+    console.log(`📈 시프트 분포: D=${stats.shiftDistribution.D}, E=${stats.shiftDistribution.E}, N=${stats.shiftDistribution.N}, OFF=${stats.shiftDistribution.OFF}, A=${stats.shiftDistribution.A || 0}`);
+    console.log('=============================\n');
 
     // Convert to array format
     return this.convertToAssignments();
@@ -119,6 +136,12 @@ export class SimpleScheduler {
     // 모든 날짜를 workDays에 포함 (주말, 공휴일 모두 근무 배정 필요)
     this.workDays = allDays;
 
+    const weekendCount = allDays.filter(d => isWeekend(d)).length;
+    const holidaySet = new Set(this.config.holidays.map(h => h.date));
+    const holidayCount = this.config.holidays.length;
+
+    console.log(`   ✓ 총 ${allDays.length}일 (평일: ${allDays.length - weekendCount}일, 주말: ${weekendCount}일, 공휴일: ${holidayCount}일)`);
+
     // Initialize schedule map for all days
     allDays.forEach(day => {
       const dateStr = format(day, 'yyyy-MM-dd');
@@ -130,7 +153,12 @@ export class SimpleScheduler {
    * Step 2: Assign special requests first (highest priority)
    */
   private assignSpecialRequests(): void {
+    let requestCount = 0;
+
     for (const request of this.config.specialRequests) {
+      const employee = this.config.employees.find(e => e.id === request.employeeId);
+      const empName = employee?.name || request.employeeId;
+
       const startDate = new Date(request.startDate);
       const endDate = request.endDate ? new Date(request.endDate) : startDate;
 
@@ -144,22 +172,32 @@ export class SimpleScheduler {
           // Assign OFF for vacation/day_off requests
           if (request.requestType === 'vacation' || request.requestType === 'day_off') {
             daySchedule.set(request.employeeId, 'OFF');
+            console.log(`   📝 ${empName}: ${dateStr} → OFF (${request.requestType})`);
             // Update OFF count
             this.offCounts.set(request.employeeId, (this.offCounts.get(request.employeeId) || 0) + 1);
+            requestCount++;
           }
           // Assign specific shift for shift_request
           else if (request.requestType === 'shift_request' && request.shiftTypeCode) {
             const mappedShift = this.mapShiftCode(request.shiftTypeCode);
             daySchedule.set(request.employeeId, mappedShift);
+            console.log(`   📝 ${empName}: ${dateStr} → ${mappedShift} (shift_request)`);
             // Update work count if not OFF
             if (mappedShift !== 'OFF') {
               this.workCounts.set(request.employeeId, (this.workCounts.get(request.employeeId) || 0) + 1);
             } else {
               this.offCounts.set(request.employeeId, (this.offCounts.get(request.employeeId) || 0) + 1);
             }
+            requestCount++;
           }
         }
       }
+    }
+
+    if (requestCount === 0) {
+      console.log('   ℹ️ 특별 요청 없음');
+    } else {
+      console.log(`   ✓ ${requestCount}건 배정 완료`);
     }
   }
 
@@ -201,7 +239,8 @@ export class SimpleScheduler {
       emp => emp.workPatternType !== 'weekday-only'
     );
 
-    console.log(`👥 직원 구성: 행정 ${weekdayOnlyEmployees.length}명, 교대 ${shiftEmployees.length}명`);
+    console.log(`   👥 직원 구성: 행정 ${weekdayOnlyEmployees.length}명, 교대 ${shiftEmployees.length}명`);
+    console.log(`   📊 필요 인원: D=${requiredPerShift.D}, E=${requiredPerShift.E}, N=${requiredPerShift.N}`);
 
     // Check if we have enough staff
     const totalRequired = requiredPerShift.D + requiredPerShift.E + requiredPerShift.N;
@@ -219,17 +258,29 @@ export class SimpleScheduler {
       const isSpecialDay = isWeekendDay || isHoliday;
       const isWeekday = !isWeekendDay;
 
+      const dayType = isHoliday ? '공휴일' : isWeekendDay ? '주말' : '평일';
+      console.log(`\n   📅 ${dateStr} (${dayType})`);
+
       // 1. 행정 근무자 처리
+      const adminAssignments: string[] = [];
       for (const emp of weekdayOnlyEmployees) {
-        if (daySchedule.has(emp.id)) continue; // Already assigned by special request
+        if (daySchedule.has(emp.id)) {
+          console.log(`      ${emp.name}: ${daySchedule.get(emp.id)} (특별 요청)`);
+          continue; // Already assigned by special request
+        }
 
         if (isWeekday && !isHoliday) {
           daySchedule.set(emp.id, 'A');
           this.workCounts.set(emp.id, (this.workCounts.get(emp.id) || 0) + 1);
+          adminAssignments.push(emp.name);
         } else {
           daySchedule.set(emp.id, 'OFF');
           this.offCounts.set(emp.id, (this.offCounts.get(emp.id) || 0) + 1);
         }
+      }
+
+      if (adminAssignments.length > 0) {
+        console.log(`      행정(A): ${adminAssignments.join(', ')}`);
       }
 
       // 2. 교대 근무자 시프트 배치 (team pattern 기준)
@@ -261,15 +312,40 @@ export class SimpleScheduler {
 
       // 3. 시프트 배치 (D, E, N 순서대로)
       this.assignShiftWithExperienceBalance(unassignedShiftEmployees, daySchedule, 'D', adjustedD, isSpecialDay);
+      const dAssignments = unassignedShiftEmployees
+        .filter(emp => daySchedule.get(emp.id) === 'D')
+        .map(emp => `${emp.name}(${emp.role})`)
+        .join(', ');
+      if (dAssignments) {
+        console.log(`      주간(D): ${dAssignments}`);
+      }
 
       const afterD = unassignedShiftEmployees.filter(emp => !daySchedule.has(emp.id));
       this.assignShiftWithExperienceBalance(afterD, daySchedule, 'E', adjustedE, isSpecialDay);
+      const eAssignments = afterD
+        .filter(emp => daySchedule.get(emp.id) === 'E')
+        .map(emp => `${emp.name}(${emp.role})`)
+        .join(', ');
+      if (eAssignments) {
+        console.log(`      저녁(E): ${eAssignments}`);
+      }
 
       const afterE = afterD.filter(emp => !daySchedule.has(emp.id));
       this.assignShiftWithExperienceBalance(afterE, daySchedule, 'N', adjustedN, isSpecialDay);
+      const nAssignments = afterE
+        .filter(emp => daySchedule.get(emp.id) === 'N')
+        .map(emp => `${emp.name}(${emp.role})`)
+        .join(', ');
+      if (nAssignments) {
+        console.log(`      야간(N): ${nAssignments}`);
+      }
 
       // 4. 시프트 배치 후 남은 사람들은 OFF
       const remainingAfterShifts = afterE.filter(emp => !daySchedule.has(emp.id));
+      const offAssignments = remainingAfterShifts.map(emp => emp.name).join(', ');
+      if (offAssignments) {
+        console.log(`      휴무(OFF): ${offAssignments}`);
+      }
       remainingAfterShifts.forEach(emp => {
         daySchedule.set(emp.id, 'OFF');
         this.offCounts.set(emp.id, (this.offCounts.get(emp.id) || 0) + 1);
@@ -283,13 +359,14 @@ export class SimpleScheduler {
       });
     }
 
-    console.log('📊 OFF 배분 결과:', Array.from(this.offCounts.entries())
+    console.log('\n   📊 근무 통계 요약:');
+    Array.from(this.workCounts.entries())
       .filter(([id]) => this.config.employees.some(e => e.id === id))
-      .map(([id, count]) => {
+      .forEach(([id, work]) => {
         const emp = this.config.employees.find(e => e.id === id);
-        const work = this.workCounts.get(id) || 0;
-        return `${emp?.name}: 근무 ${work}일, OFF ${count}일`;
-      }).join(' | '));
+        const off = this.offCounts.get(id) || 0;
+        console.log(`      ${emp?.name}: 근무 ${work}일, OFF ${off}일`);
+      });
   }
 
   /**
@@ -366,10 +443,22 @@ export class SimpleScheduler {
    * Step 4: Fill remaining gaps with team pattern
    */
   private assignTeamPattern(): void {
-    if (!this.config.teamPattern) return;
+    if (!this.config.teamPattern) {
+      console.log('   ℹ️ 팀 패턴 없음 - 건너뜀');
+      return;
+    }
 
     const pattern = this.config.teamPattern.pattern;
     let patternIndex = 0;
+    let filledCount = 0;
+
+    // 행정 근무자(weekday-only)를 제외한 교대 근무자만 대상
+    const shiftEmployees = this.config.employees.filter(
+      emp => emp.workPatternType !== 'weekday-only'
+    );
+
+    console.log(`   📋 팀 패턴: [${pattern.join(', ')}]`);
+    console.log(`   👥 팀 패턴 적용 대상: 교대 근무자 ${shiftEmployees.length}명`);
 
     for (const day of this.workDays) {
       const dateStr = format(day, 'yyyy-MM-dd');
@@ -377,16 +466,29 @@ export class SimpleScheduler {
       if (!daySchedule) continue;
 
       // Check if any employee is still unassigned
-      for (const employee of this.config.employees) {
+      const unassigned: string[] = [];
+      for (const employee of shiftEmployees) {
         if (!daySchedule.has(employee.id)) {
           const shiftFromPattern = pattern[patternIndex % pattern.length];
           if (shiftFromPattern === 'D' || shiftFromPattern === 'E' || shiftFromPattern === 'N' || shiftFromPattern === 'OFF') {
             daySchedule.set(employee.id, shiftFromPattern);
+            unassigned.push(`${employee.name} → ${shiftFromPattern}`);
+            filledCount++;
           }
         }
       }
 
+      if (unassigned.length > 0) {
+        console.log(`   ${dateStr}: ${unassigned.join(', ')}`);
+      }
+
       patternIndex++;
+    }
+
+    if (filledCount === 0) {
+      console.log('   ✓ 모든 직원 배정 완료 (팀 패턴 불필요)');
+    } else {
+      console.log(`   ✓ ${filledCount}건 추가 배정 완료`);
     }
   }
 
@@ -438,7 +540,7 @@ export class SimpleScheduler {
     shiftDistribution: Record<string, number>;
     roleDistribution: Record<string, number>;
   } {
-    const shiftDist: Record<string, number> = { D: 0, E: 0, N: 0, OFF: 0 };
+    const shiftDist: Record<string, number> = { D: 0, E: 0, N: 0, A: 0, OFF: 0 };
     const roleDist: Record<string, number> = {};
 
     for (const [, daySchedule] of this.schedule.entries()) {

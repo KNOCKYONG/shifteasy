@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { createAuditLog } from '@/lib/db-helpers';
 import { db } from '@/db';
-import { nursePreferences } from '@/db/schema/nurse-preferences';
+import { tenantConfigs } from '@/db/schema/tenant-configs';
 import { users } from '@/db/schema/tenants';
 import { eq, and } from 'drizzle-orm';
 
@@ -76,27 +76,25 @@ export const preferencesRouter = createTRPCRouter({
   get: protectedProcedure
     .input(z.object({
       staffId: z.string(),
-      departmentId: z.string().optional(), // Optional department filter
+      departmentId: z.string().optional(), // Optional department filter (not used in tenant_configs)
     }))
     .query(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const configKey = `preferences_${input.staffId}`;
 
-      const conditions = [
-        eq(nursePreferences.tenantId, tenantId),
-        eq(nursePreferences.nurseId, input.staffId)
-      ];
-
-      // Add department filter if provided
-      if (input.departmentId) {
-        conditions.push(eq(nursePreferences.departmentId, input.departmentId));
-      }
-
-      const preferences = await db.select()
-        .from(nursePreferences)
-        .where(and(...conditions))
+      const result = await db.select()
+        .from(tenantConfigs)
+        .where(and(
+          eq(tenantConfigs.tenantId, tenantId),
+          eq(tenantConfigs.configKey, configKey)
+        ))
         .limit(1);
 
-      return preferences[0] || null;
+      if (result.length === 0) {
+        return null;
+      }
+
+      return result[0].configValue;
     }),
 
   // Create or update preferences
@@ -104,138 +102,45 @@ export const preferencesRouter = createTRPCRouter({
     .input(preferenceUpdateSchema)
     .mutation(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
-      const { staffId, workLifeBalance, commutePreferences, preferredPatterns, preferredDaysOff, ...rest } = input;
-
-      // Get department_id from users table
-      const user = await db.select({ departmentId: users.departmentId })
-        .from(users)
-        .where(and(
-          eq(users.id, staffId),
-          eq(users.tenantId, tenantId)
-        ))
-        .limit(1);
-
-      const departmentId = user[0]?.departmentId;
-
-      // Transform preferredPatterns to match DB schema
-      const transformedPreferredPatterns = preferredPatterns?.map(p => ({
-        pattern: p.pattern,
-        preference: p.preference
-      }));
-
-      // Transform workLifeBalance to match DB schema
-      const hasCareResponsibilities = !!(
-        workLifeBalance?.childcare ||
-        workLifeBalance?.eldercare ||
-        workLifeBalance?.education
-      );
-
-      const careResponsibilityDetails = hasCareResponsibilities ? {
-        type: (workLifeBalance?.childcare ? 'childcare' :
-               workLifeBalance?.eldercare ? 'eldercare' : 'other') as 'childcare' | 'eldercare' | 'other',
-        affectedTimes: [],
-        flexibilityLevel: 'medium' as 'none' | 'low' | 'medium' | 'high'
-      } : null;
-
-      // Transform commutePreferences to match DB schema
-      const hasTransportationIssues = !!(
-        commutePreferences?.parkingRequired ||
-        commutePreferences?.preferPublicTransport
-      );
-
-      const transportationNotes = commutePreferences ?
-        `Max commute: ${commutePreferences.maxCommuteTime || 60} min. ` +
-        `Public transport: ${commutePreferences.preferPublicTransport ? 'Yes' : 'No'}. ` +
-        `Parking: ${commutePreferences.parkingRequired ? 'Required' : 'Not required'}.`
-        : null;
-
-      // Transform preferredDaysOff to specificHolidayPreferences
-      // preferredDaysOff: [0, 6] => [{ dayOfWeek: 0, preference: 'off' }, { dayOfWeek: 6, preference: 'off' }]
-      const specificHolidayPreferences = preferredDaysOff?.map(dayOfWeek => ({
-        dayOfWeek,
-        preference: 'off' as 'work' | 'off' | 'neutral',
-      })) || [];
-
-      // Build DB-compatible data
-      const { preferredShiftTypes, ...restData } = rest;
-      const normalizedPreferredShiftTypes = preferredShiftTypes
-        ? {
-            D: preferredShiftTypes.D ?? 0,
-            E: preferredShiftTypes.E ?? 0,
-            N: preferredShiftTypes.N ?? 0,
-          }
-        : undefined;
-
-      const dbData = {
-        ...restData,
-        ...(normalizedPreferredShiftTypes && { preferredShiftTypes: normalizedPreferredShiftTypes }),
-        preferredPatterns: transformedPreferredPatterns,
-        specificHolidayPreferences: specificHolidayPreferences.length > 0 ? specificHolidayPreferences : undefined,
-        hasCareResponsibilities,
-        ...(careResponsibilityDetails && { careResponsibilityDetails }),
-        hasTransportationIssues,
-        ...(transportationNotes && { transportationNotes }),
-        ...(departmentId && { departmentId }), // Add department_id from users table
-      };
+      const { staffId, ...preferences } = input;
+      const configKey = `preferences_${staffId}`;
 
       // Check if preferences exist
       const existing = await db.select()
-        .from(nursePreferences)
+        .from(tenantConfigs)
         .where(and(
-          eq(nursePreferences.tenantId, tenantId),
-          eq(nursePreferences.nurseId, staffId)
+          eq(tenantConfigs.tenantId, tenantId),
+          eq(tenantConfigs.configKey, configKey)
         ))
         .limit(1);
 
-      let result;
-
-      if (existing.length > 0) {
-        // Update existing preferences
-        const updated = await db.update(nursePreferences)
-          .set({
-            ...dbData,
+      const result = await db.insert(tenantConfigs)
+        .values({
+          tenantId,
+          configKey,
+          configValue: preferences,
+        })
+        .onConflictDoUpdate({
+          target: [tenantConfigs.tenantId, tenantConfigs.configKey],
+          set: {
+            configValue: preferences,
             updatedAt: new Date(),
-          })
-          .where(and(
-            eq(nursePreferences.tenantId, tenantId),
-            eq(nursePreferences.nurseId, staffId)
-          ))
-          .returning();
+          },
+        })
+        .returning();
 
-        await createAuditLog({
-          tenantId,
-          actorId: (ctx.user?.id || 'dev-user-id'),
-          action: 'preferences.updated',
-          entityType: 'nurse_preferences',
-          entityId: existing[0].id,
-          before: existing[0],
-          after: updated[0],
-        });
+      // Create audit log
+      await createAuditLog({
+        tenantId,
+        actorId: (ctx.user?.id || 'dev-user-id'),
+        action: existing.length > 0 ? 'preferences.updated' : 'preferences.created',
+        entityType: 'tenant_configs',
+        entityId: configKey,
+        before: existing[0]?.configValue,
+        after: preferences,
+      });
 
-        result = updated[0];
-      } else {
-        // Create new preferences
-        const created = await db.insert(nursePreferences)
-          .values({
-            tenantId,
-            nurseId: staffId,
-            ...dbData,
-          })
-          .returning();
-
-        await createAuditLog({
-          tenantId,
-          actorId: (ctx.user?.id || 'dev-user-id'),
-          action: 'preferences.created',
-          entityType: 'nurse_preferences',
-          entityId: created[0].id,
-          after: created[0],
-        });
-
-        result = created[0];
-      }
-
-      return result;
+      return result[0];
     }),
 
   // Delete preferences
@@ -245,11 +150,12 @@ export const preferencesRouter = createTRPCRouter({
     }))
     .mutation(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const configKey = `preferences_${input.staffId}`;
 
-      const deleted = await db.delete(nursePreferences)
+      const deleted = await db.delete(tenantConfigs)
         .where(and(
-          eq(nursePreferences.tenantId, tenantId),
-          eq(nursePreferences.nurseId, input.staffId)
+          eq(tenantConfigs.tenantId, tenantId),
+          eq(tenantConfigs.configKey, configKey)
         ))
         .returning();
 
@@ -258,9 +164,9 @@ export const preferencesRouter = createTRPCRouter({
           tenantId,
           actorId: (ctx.user?.id || 'dev-user-id'),
           action: 'preferences.deleted',
-          entityType: 'nurse_preferences',
-          entityId: input.staffId,
-          before: deleted[0],
+          entityType: 'tenant_configs',
+          entityId: configKey,
+          before: deleted[0].configValue,
         });
       }
 
