@@ -128,8 +128,14 @@ export function EmployeePreferencesModal({
   }
   const [customShiftTypes, setCustomShiftTypes] = useState<CustomShiftType[]>([]);
 
-  // tRPC mutation for creating special requests
-  const createSpecialRequest = api.specialRequests.create.useMutation();
+  // tRPC utils and mutation for creating special requests
+  const utils = api.useUtils();
+  const createSpecialRequest = api.specialRequests.create.useMutation({
+    onSuccess: async () => {
+      // 캐시 무효화로 UI 자동 업데이트
+      await utils.specialRequests.getByDateRange.invalidate();
+    },
+  });
 
   // Query to fetch existing special requests for the selected month
   const { data: existingRequests } = api.specialRequests.getByDateRange.useQuery({
