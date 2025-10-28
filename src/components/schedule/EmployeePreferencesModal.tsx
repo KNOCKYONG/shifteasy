@@ -128,9 +128,16 @@ export function EmployeePreferencesModal({
   }
   const [customShiftTypes, setCustomShiftTypes] = useState<CustomShiftType[]>([]);
 
-  // tRPC utils and mutation for creating special requests
+  // tRPC utils and mutations for managing special requests
   const utils = api.useUtils();
   const createSpecialRequest = api.specialRequests.create.useMutation({
+    onSuccess: async () => {
+      // 캐시 무효화로 UI 자동 업데이트
+      await utils.specialRequests.getByDateRange.invalidate();
+    },
+  });
+
+  const deleteShiftRequests = api.specialRequests.deleteByEmployeeAndDateRange.useMutation({
     onSuccess: async () => {
       // 캐시 무효화로 UI 자동 업데이트
       await utils.specialRequests.getByDateRange.invalidate();
@@ -286,8 +293,18 @@ export function EmployeePreferencesModal({
     onSave(preferences);
 
     // Save shift requests to database
-    if (Object.keys(shiftRequests).length > 0) {
-      try {
+    try {
+      // 1. First, delete all existing shift_request type requests for this employee in the current month
+      await deleteShiftRequests.mutateAsync({
+        employeeId: employee.id,
+        requestType: 'shift_request',
+        startDate: format(startOfMonth(selectedMonth), 'yyyy-MM-dd'),
+        endDate: format(endOfMonth(selectedMonth), 'yyyy-MM-dd'),
+      });
+      console.log('✅ Existing shift requests deleted for month:', format(selectedMonth, 'yyyy-MM'));
+
+      // 2. Then create new requests based on current shiftRequests state
+      if (Object.keys(shiftRequests).length > 0) {
         // Group consecutive dates with same shift into single requests
         const sortedDates = Object.keys(shiftRequests).sort();
         const requests: Array<{
@@ -330,10 +347,12 @@ export function EmployeePreferencesModal({
           });
         }
 
-        console.log('Shift requests saved successfully');
-      } catch (error) {
-        console.error('Failed to save shift requests:', error);
+        console.log('✅ Shift requests saved successfully:', requests.length, 'requests');
+      } else {
+        console.log('✅ No shift requests to save (all cleared)');
       }
+    } catch (error) {
+      console.error('❌ Failed to save shift requests:', error);
     }
   };
 

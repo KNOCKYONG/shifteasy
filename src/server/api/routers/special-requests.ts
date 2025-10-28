@@ -226,4 +226,27 @@ export const specialRequestsRouter = createTRPCRouter({
 
       return { success: true };
     }),
+
+  // Delete shift requests by employee and date range
+  deleteByEmployeeAndDateRange: protectedProcedure
+    .input(z.object({
+      employeeId: z.string(),
+      requestType: z.enum(['vacation', 'day_off', 'overtime', 'shift_change', 'shift_request']),
+      startDate: z.string(), // YYYY-MM-DD
+      endDate: z.string(), // YYYY-MM-DD
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+
+      await db.delete(specialRequests)
+        .where(and(
+          eq(specialRequests.tenantId, tenantId),
+          eq(specialRequests.employeeId, input.employeeId),
+          eq(specialRequests.requestType, input.requestType),
+          gte(specialRequests.startDate, input.startDate),
+          lte(specialRequests.startDate, input.endDate)
+        ));
+
+      return { success: true };
+    }),
 });
