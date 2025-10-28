@@ -20,22 +20,10 @@ export const specialRequestsRouter = createTRPCRouter({
 
       const conditions = [
         eq(specialRequests.tenantId, tenantId),
-        or(
-          // Request starts within range
-          and(
-            gte(specialRequests.startDate, input.startDate),
-            lte(specialRequests.startDate, input.endDate)
-          ),
-          // Request ends within range
-          and(
-            gte(specialRequests.endDate, input.startDate),
-            lte(specialRequests.endDate, input.endDate)
-          ),
-          // Request spans the entire range
-          and(
-            lte(specialRequests.startDate, input.startDate),
-            gte(specialRequests.endDate, input.endDate)
-          )
+        // Date within range
+        and(
+          gte(specialRequests.date, input.startDate),
+          lte(specialRequests.date, input.endDate)
         )
       ];
 
@@ -55,7 +43,7 @@ export const specialRequestsRouter = createTRPCRouter({
       const result = await db.select()
         .from(specialRequests)
         .where(and(...conditions))
-        .orderBy(specialRequests.startDate);
+        .orderBy(specialRequests.date);
 
       return result;
     }),
@@ -80,19 +68,10 @@ export const specialRequestsRouter = createTRPCRouter({
             eq(specialRequests.status, 'pending')
           )
         ),
-        or(
-          and(
-            gte(specialRequests.startDate, input.startDate),
-            lte(specialRequests.startDate, input.endDate)
-          ),
-          and(
-            gte(specialRequests.endDate, input.startDate),
-            lte(specialRequests.endDate, input.endDate)
-          ),
-          and(
-            lte(specialRequests.startDate, input.startDate),
-            gte(specialRequests.endDate, input.endDate)
-          )
+        // Date within range
+        and(
+          gte(specialRequests.date, input.startDate),
+          lte(specialRequests.date, input.endDate)
         )
       ];
 
@@ -104,7 +83,7 @@ export const specialRequestsRouter = createTRPCRouter({
       const result = await db.select()
         .from(specialRequests)
         .where(and(...conditions))
-        .orderBy(specialRequests.startDate);
+        .orderBy(specialRequests.date);
 
       return result;
     }),
@@ -115,8 +94,7 @@ export const specialRequestsRouter = createTRPCRouter({
       employeeId: z.string(),
       requestType: z.enum(['vacation', 'day_off', 'overtime', 'shift_change', 'shift_request']),
       shiftTypeCode: z.string().optional(), // Config 화면의 customShiftTypes code
-      startDate: z.string(), // YYYY-MM-DD
-      endDate: z.string().optional(), // YYYY-MM-DD
+      date: z.string(), // YYYY-MM-DD
       reason: z.string().optional(),
       notes: z.string().optional(),
       status: z.enum(['pending', 'approved', 'rejected']).default('approved'),
@@ -139,7 +117,7 @@ export const specialRequestsRouter = createTRPCRouter({
         .where(and(
           eq(specialRequests.tenantId, tenantId),
           eq(specialRequests.employeeId, input.employeeId),
-          eq(specialRequests.startDate, input.startDate),
+          eq(specialRequests.date, input.date),
           eq(specialRequests.requestType, input.requestType)
         ))
         .limit(1);
@@ -152,7 +130,6 @@ export const specialRequestsRouter = createTRPCRouter({
           .set({
             departmentId: user[0]?.departmentId ?? null,
             shiftTypeCode: input.shiftTypeCode ?? null,
-            endDate: input.endDate ?? null,
             reason: input.reason ?? null,
             notes: input.notes ?? null,
             status: input.status,
@@ -171,8 +148,7 @@ export const specialRequestsRouter = createTRPCRouter({
             departmentId: user[0]?.departmentId ?? null,
             requestType: input.requestType,
             shiftTypeCode: input.shiftTypeCode ?? null,
-            startDate: input.startDate,
-            endDate: input.endDate ?? null,
+            date: input.date,
             reason: input.reason ?? null,
             notes: input.notes ?? null,
             status: input.status,
@@ -243,8 +219,8 @@ export const specialRequestsRouter = createTRPCRouter({
           eq(specialRequests.tenantId, tenantId),
           eq(specialRequests.employeeId, input.employeeId),
           eq(specialRequests.requestType, input.requestType),
-          gte(specialRequests.startDate, input.startDate),
-          lte(specialRequests.startDate, input.endDate)
+          gte(specialRequests.date, input.startDate),
+          lte(specialRequests.date, input.endDate)
         ));
 
       return { success: true };

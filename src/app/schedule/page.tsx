@@ -1196,8 +1196,7 @@ export default function SchedulePage() {
       let simpleSpecialRequests: Array<{
         employeeId: string;
         requestType: string;
-        startDate: string;
-        endDate?: string | null;
+        date: string;
         shiftTypeCode?: string | null;
       }> = [];
       try {
@@ -1218,12 +1217,11 @@ export default function SchedulePage() {
           const approvedRequests = specialRequestsData[0].result.data.json;
           console.log(`✅ Loaded ${approvedRequests.length} approved shift requests`);
 
-          // SimpleScheduler의 SpecialRequest 형식으로 변환
+          // SimpleScheduler의 SpecialRequest 형식으로 변환 (date 필드 사용)
           simpleSpecialRequests = approvedRequests.map((req: any) => ({
             employeeId: req.employeeId,
             requestType: req.requestType,
-            startDate: req.startDate,
-            endDate: req.endDate || null,
+            date: req.date, // 단일 date 필드 사용
             shiftTypeCode: req.shiftTypeCode || null,
           }));
 

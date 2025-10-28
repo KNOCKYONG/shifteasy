@@ -33,8 +33,7 @@ export interface Holiday {
 export interface SpecialRequest {
   employeeId: string;
   requestType: string;
-  startDate: string; // YYYY-MM-DD
-  endDate?: string | null; // YYYY-MM-DD
+  date: string; // YYYY-MM-DD
   shiftTypeCode?: string | null; // Config 화면의 customShiftTypes code (shift_request용)
 }
 
@@ -159,37 +158,31 @@ export class SimpleScheduler {
       const employee = this.config.employees.find(e => e.id === request.employeeId);
       const empName = employee?.name || request.employeeId;
 
-      const startDate = new Date(request.startDate);
-      const endDate = request.endDate ? new Date(request.endDate) : startDate;
+      // Each request now has a single date (not a range)
+      const dateStr = request.date;
+      const daySchedule = this.schedule.get(dateStr);
 
-      const requestDays = eachDayOfInterval({ start: startDate, end: endDate });
-
-      for (const day of requestDays) {
-        const dateStr = format(day, 'yyyy-MM-dd');
-        const daySchedule = this.schedule.get(dateStr);
-
-        if (daySchedule) {
-          // Assign OFF for vacation/day_off requests
-          if (request.requestType === 'vacation' || request.requestType === 'day_off') {
-            daySchedule.set(request.employeeId, 'OFF');
-            console.log(`   📝 ${empName}: ${dateStr} → OFF (${request.requestType})`);
-            // Update OFF count
+      if (daySchedule) {
+        // Assign OFF for vacation/day_off requests
+        if (request.requestType === 'vacation' || request.requestType === 'day_off') {
+          daySchedule.set(request.employeeId, 'OFF');
+          console.log(`   📝 ${empName}: ${dateStr} → OFF (${request.requestType})`);
+          // Update OFF count
+          this.offCounts.set(request.employeeId, (this.offCounts.get(request.employeeId) || 0) + 1);
+          requestCount++;
+        }
+        // Assign specific shift for shift_request
+        else if (request.requestType === 'shift_request' && request.shiftTypeCode) {
+          const mappedShift = this.mapShiftCode(request.shiftTypeCode);
+          daySchedule.set(request.employeeId, mappedShift);
+          console.log(`   📝 ${empName}: ${dateStr} → ${mappedShift} (shift_request)`);
+          // Update work count if not OFF
+          if (mappedShift !== 'OFF') {
+            this.workCounts.set(request.employeeId, (this.workCounts.get(request.employeeId) || 0) + 1);
+          } else {
             this.offCounts.set(request.employeeId, (this.offCounts.get(request.employeeId) || 0) + 1);
-            requestCount++;
           }
-          // Assign specific shift for shift_request
-          else if (request.requestType === 'shift_request' && request.shiftTypeCode) {
-            const mappedShift = this.mapShiftCode(request.shiftTypeCode);
-            daySchedule.set(request.employeeId, mappedShift);
-            console.log(`   📝 ${empName}: ${dateStr} → ${mappedShift} (shift_request)`);
-            // Update work count if not OFF
-            if (mappedShift !== 'OFF') {
-              this.workCounts.set(request.employeeId, (this.workCounts.get(request.employeeId) || 0) + 1);
-            } else {
-              this.offCounts.set(request.employeeId, (this.offCounts.get(request.employeeId) || 0) + 1);
-            }
-            requestCount++;
-          }
+          requestCount++;
         }
       }
     }

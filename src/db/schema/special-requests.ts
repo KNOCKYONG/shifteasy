@@ -25,10 +25,9 @@ export const specialRequests = pgTable('special_requests', {
   departmentId: uuid('department_id'), // User's department from users table
 
   // Request details
-  requestType: text('request_type').notNull(), // 'vacation', 'day_off', 'overtime', 'shift_change'
+  requestType: text('request_type').notNull(), // 'vacation', 'day_off', 'overtime', 'shift_change', 'shift_request'
   shiftTypeCode: text('shift_type_code'), // Config 화면의 customShiftTypes code와 연결
-  startDate: date('start_date').notNull(), // 요청 시작일
-  endDate: date('end_date'), // 요청 종료일 (단일일 경우 null 가능)
+  date: date('date').notNull(), // 요청 날짜
 
   // Approval status
   status: text('status').default('approved'), // 'pending', 'approved', 'rejected'
@@ -44,7 +43,7 @@ export const specialRequests = pgTable('special_requests', {
   tenantIdx: index('special_requests_tenant_idx').on(table.tenantId),
   employeeIdx: index('special_requests_employee_idx').on(table.employeeId),
   departmentIdx: index('special_requests_department_idx').on(table.departmentId),
-  dateIdx: index('special_requests_date_idx').on(table.startDate, table.endDate),
+  dateIdx: index('special_requests_date_idx').on(table.date),
   statusIdx: index('special_requests_status_idx').on(table.status),
 }));
 

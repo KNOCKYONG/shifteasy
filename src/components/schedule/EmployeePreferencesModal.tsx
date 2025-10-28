@@ -173,20 +173,11 @@ export function EmployeePreferencesModal({
       const requestsMap: Record<string, string> = {};
 
       existingRequests.forEach(req => {
-        // Convert date strings to Date objects
-        const start = new Date(req.startDate);
-        const end = req.endDate ? new Date(req.endDate) : start;
-
-        // Get all dates in the range
-        const days = eachDayOfInterval({ start, end });
-
-        // Map each day to its shift type code
-        days.forEach(day => {
-          const dateKey = format(day, 'yyyy-MM-dd');
-          if (req.shiftTypeCode) {
-            requestsMap[dateKey] = req.shiftTypeCode;
-          }
-        });
+        // Each request now has a single date (not a range)
+        const dateKey = req.date; // Already in 'yyyy-MM-dd' format
+        if (req.shiftTypeCode) {
+          requestsMap[dateKey] = req.shiftTypeCode;
+        }
       });
 
       setShiftRequests(requestsMap);
@@ -315,8 +306,7 @@ export function EmployeePreferencesModal({
             employeeId: employee.id,
             requestType: 'shift_request',
             shiftTypeCode: shiftRequests[date],
-            startDate: date,
-            // endDate is intentionally omitted to save only single dates
+            date: date,
             status: 'pending',
           });
         }
@@ -900,7 +890,9 @@ export function EmployeePreferencesModal({
                           <div className="text-right text-sm text-gray-700 dark:text-gray-300">{day}</div>
                           {currentRequest && (
                             <div className="absolute inset-0 flex items-center justify-center">
-                              <span className="text-base font-bold text-blue-600 dark:text-blue-400">{currentRequest}</span>
+                              <span className="text-base font-bold text-blue-600 dark:text-blue-400">
+                                {currentRequest === 'OFF' || currentRequest === 'O' ? 'O^' : currentRequest}
+                              </span>
                             </div>
                           )}
                         </div>
