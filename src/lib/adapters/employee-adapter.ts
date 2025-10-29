@@ -96,6 +96,28 @@ export class EmployeeAdapter {
       ? this.convertComprehensiveToBasic(unified.comprehensivePreferences)
       : unified.preferences;
 
+    // Extract workPatternType and preferredShiftTypes from comprehensivePreferences
+    let workPatternType: 'three-shift' | 'night-intensive' | 'weekday-only' | undefined;
+    let preferredShiftTypes: { D?: number; E?: number; N?: number; } | undefined;
+    let maxConsecutiveDaysPreferred: number | undefined;
+    let maxConsecutiveNightsPreferred: number | undefined;
+
+    if (unified.comprehensivePreferences) {
+      const comp = unified.comprehensivePreferences;
+      workPatternType = comp.workPreferences.workPatternType as any;
+
+      // Map preferredShifts to numeric scores (0-10)
+      const prefs = comp.workPreferences.preferredShifts || [];
+      preferredShiftTypes = {
+        D: prefs.includes('day') ? 10 : 0,
+        E: prefs.includes('evening') ? 10 : 0,
+        N: prefs.includes('night') ? 10 : 0,
+      };
+
+      maxConsecutiveDaysPreferred = comp.workPreferences.maxConsecutiveDays;
+      // maxConsecutiveNightsPreferred is optional, keep as undefined
+    }
+
     return {
       id: unified.id,
       name: unified.name,
@@ -107,6 +129,10 @@ export class EmployeeAdapter {
       skills: unified.skills,
       preferences,
       availability: this.enhanceAvailability(unified),
+      workPatternType,
+      preferredShiftTypes,
+      maxConsecutiveDaysPreferred,
+      maxConsecutiveNightsPreferred,
     };
   }
 

@@ -3,6 +3,8 @@ import { z } from 'zod';
 import type { ComprehensivePreferences } from '@/components/team/MyPreferencesPanel';
 import { db } from '@/db';
 import { tenantConfigs } from '@/db/schema/tenant-configs';
+import { nursePreferences } from '@/db/schema/nurse-preferences';
+import { users } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
@@ -181,7 +183,7 @@ export async function POST(request: NextRequest) {
     const { employeeId, preferences } = validationResult.data;
     const configKey = `preferences_${employeeId}`;
 
-    // 기존 레코드 확인
+    // 1. Update tenant_configs (legacy storage)
     const existing = await db.select()
       .from(tenantConfigs)
       .where(and(
@@ -209,6 +211,56 @@ export async function POST(request: NextRequest) {
           configKey,
           configValue: preferences,
         });
+    }
+
+    // 2. Get user's department_id
+    const user = await db.select()
+      .from(users)
+      .where(eq(users.id, employeeId))
+      .limit(1);
+
+    if (user.length === 0) {
+      console.warn(`User not found for employeeId: ${employeeId}`);
+    } else {
+      const departmentId = user[0].departmentId;
+
+      // 3. Sync to nurse_preferences table (used by scheduler)
+      const existingNursePrefs = await db.select()
+        .from(nursePreferences)
+        .where(eq(nursePreferences.nurseId, employeeId))
+        .limit(1);
+
+      // Map ComprehensivePreferences to nurse_preferences format
+      const prefs = preferences.workPreferences.preferredShifts || [];
+      const nursePrefsData = {
+        tenantId,
+        nurseId: employeeId,
+        departmentId,
+        workPatternType: preferences.workPreferences.workPatternType,
+        preferredShiftTypes: {
+          D: prefs.includes('day') ? 10 : 0,
+          E: prefs.includes('evening') ? 10 : 0,
+          N: prefs.includes('night') ? 10 : 0,
+        },
+        maxConsecutiveDaysPreferred: preferences.workPreferences.maxConsecutiveDays,
+        maxConsecutiveNightsPreferred: null, // Optional field
+        updatedAt: new Date(),
+      };
+
+      if (existingNursePrefs.length > 0) {
+        // Update existing nurse_preferences
+        await db.update(nursePreferences)
+          .set(nursePrefsData)
+          .where(eq(nursePreferences.nurseId, employeeId));
+
+        console.log(`✅ Updated nurse_preferences for employee: ${employeeId}`);
+      } else {
+        // Insert new nurse_preferences
+        await db.insert(nursePreferences)
+          .values(nursePrefsData);
+
+        console.log(`✅ Created nurse_preferences for employee: ${employeeId}`);
+      }
     }
 
     // 스케줄러에 변경 알림 (WebSocket 또는 SSE 사용 가능)

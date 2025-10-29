@@ -80,32 +80,51 @@ export function EmployeePreferencesModal({
   onClose,
   teamMembers
 }: EmployeePreferencesModalProps) {
-  const [preferences, setPreferences] = useState<ExtendedEmployeePreferences>({
-    workPatternType: 'three-shift',
-    workLoadPreference: 'normal',
-    flexibilityLevel: 'medium',
-    preferredPartners: [],
-    avoidPartners: [],
-    personalConstraints: [],
-    trainingDays: [],
-    mentorshipRole: 'none',
-    specialization: [],
-    healthConsiderations: {
-      needsLightDuty: false,
-      avoidLongShifts: false,
-      requiresRegularBreaks: false,
-      pregnancyAccommodation: false,
-    },
-    commuteConsiderations: {
-      maxCommuteTime: 60,
-      avoidRushHour: false,
-      needsParking: false,
-      publicTransportDependent: false,
-    },
-    preferredPattern: '',
-    preferredPatterns: [],
-    ...employee.preferences, // Move spread to end to preserve loaded values
-  } as any);
+  const [preferences, setPreferences] = useState<ExtendedEmployeePreferences>(() => {
+    // Spread employee.preferences first, then apply defaults for undefined fields
+    const basePrefs = {
+      workPatternType: 'three-shift' as WorkPatternType,
+      workLoadPreference: 'normal' as const,
+      flexibilityLevel: 'medium' as const,
+      preferredPartners: [],
+      avoidPartners: [],
+      personalConstraints: [],
+      trainingDays: [],
+      mentorshipRole: 'none' as const,
+      specialization: [],
+      preferredShifts: [],
+      avoidShifts: [],
+      preferredDaysOff: [],
+      maxConsecutiveDays: 5,
+      preferNightShift: false,
+      healthConsiderations: {
+        needsLightDuty: false,
+        avoidLongShifts: false,
+        requiresRegularBreaks: false,
+        pregnancyAccommodation: false,
+      },
+      commuteConsiderations: {
+        maxCommuteTime: 60,
+        avoidRushHour: false,
+        needsParking: false,
+        publicTransportDependent: false,
+      },
+      preferredPattern: '',
+      preferredPatterns: [],
+    };
+
+    // Merge with employee preferences, using loaded values where available
+    return {
+      ...basePrefs,
+      ...employee.preferences,
+      // Ensure arrays are never undefined
+      preferredShifts: employee.preferences?.preferredShifts || [],
+      avoidShifts: employee.preferences?.avoidShifts || [],
+      preferredDaysOff: employee.preferences?.preferredDaysOff || [],
+      preferredPartners: employee.preferences?.preferredPartners || [],
+      avoidPartners: employee.preferences?.avoidPartners || [],
+    } as ExtendedEmployeePreferences;
+  });
 
   const [activeTab, setActiveTab] = useState<'basic' | 'personal' | 'request'>('basic');
   const [showConstraintForm, setShowConstraintForm] = useState(false);
@@ -206,9 +225,9 @@ export function EmployeePreferencesModal({
           preferences: {
             workPreferences: {
               workPatternType: preferences.workPatternType,
-              preferredShifts: ['day'], // default
-              avoidShifts: [],
-              maxConsecutiveDays: 5,
+              preferredShifts: preferences.preferredShifts || [], // Use actual selected shifts
+              avoidShifts: preferences.avoidShifts || [],
+              maxConsecutiveDays: preferences.maxConsecutiveDays || 5,
               minRestDays: 2,
               preferredWorkload: preferences.workLoadPreference === 'light' ? 'light' : preferences.workLoadPreference === 'heavy' ? 'heavy' : 'moderate',
               weekendPreference: 'neutral',

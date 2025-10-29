@@ -285,16 +285,8 @@ function createDefaultPreferencesFromTeamPattern(
     });
   });
 
-  // 가장 많이 나타나는 시프트를 preferredShifts로 설정
+  // preferredShifts는 빈 배열로 시작 - 사용자가 명시적으로 선택하도록 함
   const preferredShifts: ('day' | 'evening' | 'night')[] = [];
-  if (shiftCounts.D > 0) preferredShifts.push('day');
-  if (shiftCounts.E > 0) preferredShifts.push('evening');
-  if (shiftCounts.N > 0) preferredShifts.push('night');
-
-  // 기본값이 없으면 주간 선호
-  if (preferredShifts.length === 0) {
-    preferredShifts.push('day');
-  }
 
   // 연속 근무일 계산 (패턴에서 가장 긴 연속 근무 구간)
   let maxConsecutive = 5; // 기본값
