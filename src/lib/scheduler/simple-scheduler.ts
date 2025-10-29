@@ -70,6 +70,8 @@ export class SimpleScheduler {
   private offCounts: Map<string, number>; // employeeId -> OFF day count
   private lastShift: Map<string, 'D' | 'E' | 'N' | 'A' | 'OFF' | null>; // employeeId -> last assigned shift
   private consecutiveShiftCounts: Map<string, number>; // employeeId -> consecutive days of same shift
+  private minOffDaysPerMonth: number; // 월별 최소 휴무일 (주말/공휴일 개수 기반)
+  private weekendAndHolidayCount: number; // 해당 월의 주말/공휴일 개수
 
   constructor(config: SimpleSchedulerConfig) {
     this.config = config;
@@ -81,6 +83,10 @@ export class SimpleScheduler {
     this.lastShift = new Map();
     this.consecutiveShiftCounts = new Map();
 
+    // Calculate weekend and holiday count for the month
+    this.weekendAndHolidayCount = this.calculateWeekendAndHolidayCount();
+    this.minOffDaysPerMonth = this.weekendAndHolidayCount;
+
     // Initialize work/OFF counts to 0 for all employees
     this.config.employees.forEach(emp => {
       this.workCounts.set(emp.id, 0);
@@ -88,6 +94,27 @@ export class SimpleScheduler {
       this.lastShift.set(emp.id, null);
       this.consecutiveShiftCounts.set(emp.id, 0);
     });
+  }
+
+  /**
+   * Calculate the number of weekends and holidays in the month
+   */
+  private calculateWeekendAndHolidayCount(): number {
+    const year = this.config.year;
+    const month = this.config.month;
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const holidaySet = new Set(this.config.holidays.map(h => h.date));
+
+    let count = 0;
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month - 1, day);
+      const dateStr = format(date, 'yyyy-MM-dd');
+      if (isWeekend(date) || holidaySet.has(dateStr)) {
+        count++;
+      }
+    }
+
+    return count;
   }
 
   /**
@@ -99,6 +126,8 @@ export class SimpleScheduler {
     console.log(`👥 총 직원 수: ${this.config.employees.length}명`);
     console.log(`📝 특별 요청: ${this.config.specialRequests.length}건`);
     console.log(`🎉 공휴일: ${this.config.holidays.length}일`);
+    console.log(`📆 주말/공휴일 합계: ${this.weekendAndHolidayCount}일`);
+    console.log(`💤 최소 보장 휴무일: ${this.minOffDaysPerMonth}일 (주말/공휴일 기준)`);
 
     // Step 1: Calculate work days
     console.log('\n📊 Step 1: 근무일 계산 중...');
@@ -306,18 +335,17 @@ export class SimpleScheduler {
       let adjustedE = requiredPerShift.E;
       let adjustedN = requiredPerShift.N;
 
-      // On weekends/holidays, reduce required staff (minimum staffing)
+      // On weekends/holidays, use minimum staffing (1 person per shift for emergency coverage)
       if (isSpecialDay) {
-        // Reduce to ~30% of regular staffing on weekends/holidays (더 많은 휴무 보장)
-        adjustedD = Math.max(1, Math.ceil(requiredPerShift.D * 0.3));
-        adjustedE = Math.max(1, Math.ceil(requiredPerShift.E * 0.3));
-        adjustedN = Math.max(1, Math.ceil(requiredPerShift.N * 0.3));
+        // 주말/공휴일은 각 시프트당 최소 1명만 (24시간 응급 대응)
+        adjustedD = 1;
+        adjustedE = 1;
+        adjustedN = 1;
       }
 
       // 현재 날짜의 진행도 계산
       const currentDayIndex = this.workDays.findIndex(d => format(d, 'yyyy-MM-dd') === dateStr);
       const progressRatio = (currentDayIndex + 1) / this.workDays.length;
-      const MIN_OFF_DAYS_PER_MONTH = 8;
 
       // 휴무가 심각하게 부족한 사람들을 강제 OFF (최소 휴무일 확보)
       const employeesNeedingOff: Employee[] = [];
@@ -327,8 +355,8 @@ export class SimpleScheduler {
         const totalAssigned = currentOff + currentWork;
 
         if (totalAssigned > 0) {
-          // 현재까지의 배정 기준 최소 휴무일
-          const expectedMinOff = Math.ceil((totalAssigned / this.workDays.length) * MIN_OFF_DAYS_PER_MONTH);
+          // 현재까지의 배정 기준 최소 휴무일 (주말/공휴일 개수 기반)
+          const expectedMinOff = Math.ceil((totalAssigned / this.workDays.length) * this.minOffDaysPerMonth);
 
           // 심각하게 부족 (2일 이상 미달)
           if (currentOff < expectedMinOff - 2) {
@@ -437,7 +465,6 @@ export class SimpleScheduler {
     isSpecialDay: boolean
   ): void {
     const MAX_CONSECUTIVE_SAME_SHIFT = 3; // 같은 시프트 최대 연속 일수
-    const MIN_OFF_DAYS_PER_MONTH = 8; // 월 최소 휴무일
     const totalDaysInMonth = this.workDays.length;
 
     // Filter unassigned employees
@@ -467,7 +494,7 @@ export class SimpleScheduler {
 
     // Sort by workload fairness FIRST, then experience/preference
     const sorted = available.sort((a, b) => {
-      // 1. OFF 횟수가 적은 사람 우선 (최소 휴무일 보장)
+      // 1. OFF 횟수가 적은 사람 우선 (최소 휴무일 보장 - 주말/공휴일 기준)
       const aOff = this.offCounts.get(a.id) || 0;
       const bOff = this.offCounts.get(b.id) || 0;
       const aWork = this.workCounts.get(a.id) || 0;
@@ -476,8 +503,8 @@ export class SimpleScheduler {
       // 현재까지 배정된 날짜 기준으로 최소 휴무일 비율 계산
       const currentDay = aWork + aOff;
       if (currentDay > 0) {
-        const aMinOffNeeded = Math.ceil((currentDay / totalDaysInMonth) * MIN_OFF_DAYS_PER_MONTH);
-        const bMinOffNeeded = Math.ceil((currentDay / totalDaysInMonth) * MIN_OFF_DAYS_PER_MONTH);
+        const aMinOffNeeded = Math.ceil((currentDay / totalDaysInMonth) * this.minOffDaysPerMonth);
+        const bMinOffNeeded = Math.ceil((currentDay / totalDaysInMonth) * this.minOffDaysPerMonth);
 
         // 최소 휴무일보다 적으면 우선순위를 낮춤 (OFF가 필요함)
         if (aOff < aMinOffNeeded && bOff >= bMinOffNeeded) return 1; // b 우선
