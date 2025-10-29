@@ -308,14 +308,52 @@ export class SimpleScheduler {
 
       // On weekends/holidays, reduce required staff (minimum staffing)
       if (isSpecialDay) {
-        // Reduce to ~40% of regular staffing on weekends/holidays
-        adjustedD = Math.max(1, Math.ceil(requiredPerShift.D * 0.4));
-        adjustedE = Math.max(1, Math.ceil(requiredPerShift.E * 0.4));
-        adjustedN = Math.max(1, Math.ceil(requiredPerShift.N * 0.4));
+        // Reduce to ~30% of regular staffing on weekends/holidays (더 많은 휴무 보장)
+        adjustedD = Math.max(1, Math.ceil(requiredPerShift.D * 0.3));
+        adjustedE = Math.max(1, Math.ceil(requiredPerShift.E * 0.3));
+        adjustedN = Math.max(1, Math.ceil(requiredPerShift.N * 0.3));
       }
 
+      // 현재 날짜의 진행도 계산
+      const currentDayIndex = this.workDays.findIndex(d => format(d, 'yyyy-MM-dd') === dateStr);
+      const progressRatio = (currentDayIndex + 1) / this.workDays.length;
+      const MIN_OFF_DAYS_PER_MONTH = 8;
+
+      // 휴무가 심각하게 부족한 사람들을 강제 OFF (최소 휴무일 확보)
+      const employeesNeedingOff: Employee[] = [];
+      unassignedShiftEmployees.forEach(emp => {
+        const currentOff = this.offCounts.get(emp.id) || 0;
+        const currentWork = this.workCounts.get(emp.id) || 0;
+        const totalAssigned = currentOff + currentWork;
+
+        if (totalAssigned > 0) {
+          // 현재까지의 배정 기준 최소 휴무일
+          const expectedMinOff = Math.ceil((totalAssigned / this.workDays.length) * MIN_OFF_DAYS_PER_MONTH);
+
+          // 심각하게 부족 (2일 이상 미달)
+          if (currentOff < expectedMinOff - 2) {
+            employeesNeedingOff.push(emp);
+          }
+        }
+      });
+
+      // 휴무가 필요한 사람들을 강제 OFF로 배정
+      if (employeesNeedingOff.length > 0) {
+        const forcedOffNames = employeesNeedingOff.map(emp => emp.name).join(', ');
+        console.log(`      🚨 강제 휴무 (최소 휴무일 미달): ${forcedOffNames}`);
+
+        employeesNeedingOff.forEach(emp => {
+          daySchedule.set(emp.id, 'OFF');
+          this.offCounts.set(emp.id, (this.offCounts.get(emp.id) || 0) + 1);
+          this.lastShift.set(emp.id, 'OFF');
+          this.consecutiveShiftCounts.set(emp.id, 0);
+        });
+      }
+
+      // 강제 OFF 후 남은 인원
+      const afterForcedOff = unassignedShiftEmployees.filter(emp => !daySchedule.has(emp.id));
       const totalRequiredToday = adjustedD + adjustedE + adjustedN;
-      const availableCount = unassignedShiftEmployees.length;
+      const availableCount = afterForcedOff.length;
 
       // If not enough staff, scale down proportionally
       if (availableCount < totalRequiredToday) {
@@ -325,9 +363,9 @@ export class SimpleScheduler {
         adjustedN = Math.max(0, availableCount - adjustedD - adjustedE);
       }
 
-      // 3. 시프트 배치 (D, E, N 순서대로)
-      this.assignShiftWithExperienceBalance(unassignedShiftEmployees, daySchedule, 'D', adjustedD, isSpecialDay);
-      const dAssignments = unassignedShiftEmployees
+      // 3. 시프트 배치 (D, E, N 순서대로) - 강제 OFF 제외한 사람들만
+      this.assignShiftWithExperienceBalance(afterForcedOff, daySchedule, 'D', adjustedD, isSpecialDay);
+      const dAssignments = afterForcedOff
         .filter(emp => daySchedule.get(emp.id) === 'D')
         .map(emp => `${emp.name}(${emp.role})`)
         .join(', ');
@@ -335,7 +373,7 @@ export class SimpleScheduler {
         console.log(`      주간(D): ${dAssignments}`);
       }
 
-      const afterD = unassignedShiftEmployees.filter(emp => !daySchedule.has(emp.id));
+      const afterD = afterForcedOff.filter(emp => !daySchedule.has(emp.id));
       this.assignShiftWithExperienceBalance(afterD, daySchedule, 'E', adjustedE, isSpecialDay);
       const eAssignments = afterD
         .filter(emp => daySchedule.get(emp.id) === 'E')
