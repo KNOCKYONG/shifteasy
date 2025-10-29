@@ -68,6 +68,8 @@ export class SimpleScheduler {
   private roleRatios: Map<string, number>; // role -> count
   private workCounts: Map<string, number>; // employeeId -> work day count
   private offCounts: Map<string, number>; // employeeId -> OFF day count
+  private lastShift: Map<string, 'D' | 'E' | 'N' | 'A' | 'OFF' | null>; // employeeId -> last assigned shift
+  private consecutiveShiftCounts: Map<string, number>; // employeeId -> consecutive days of same shift
 
   constructor(config: SimpleSchedulerConfig) {
     this.config = config;
@@ -76,11 +78,15 @@ export class SimpleScheduler {
     this.roleRatios = this.calculateRoleRatios();
     this.workCounts = new Map();
     this.offCounts = new Map();
+    this.lastShift = new Map();
+    this.consecutiveShiftCounts = new Map();
 
     // Initialize work/OFF counts to 0 for all employees
     this.config.employees.forEach(emp => {
       this.workCounts.set(emp.id, 0);
       this.offCounts.set(emp.id, 0);
+      this.lastShift.set(emp.id, null);
+      this.consecutiveShiftCounts.set(emp.id, 0);
     });
   }
 
@@ -269,10 +275,22 @@ export class SimpleScheduler {
         if (isWeekday && !isHoliday) {
           daySchedule.set(emp.id, 'A');
           this.workCounts.set(emp.id, (this.workCounts.get(emp.id) || 0) + 1);
+
+          // 연속 시프트 추적
+          const prevShift = this.lastShift.get(emp.id);
+          if (prevShift === 'A') {
+            this.consecutiveShiftCounts.set(emp.id, (this.consecutiveShiftCounts.get(emp.id) || 0) + 1);
+          } else {
+            this.consecutiveShiftCounts.set(emp.id, 1);
+          }
+          this.lastShift.set(emp.id, 'A');
+
           adminAssignments.push(emp.name);
         } else {
           daySchedule.set(emp.id, 'OFF');
           this.offCounts.set(emp.id, (this.offCounts.get(emp.id) || 0) + 1);
+          this.lastShift.set(emp.id, 'OFF');
+          this.consecutiveShiftCounts.set(emp.id, 0);
         }
       }
 
@@ -346,6 +364,9 @@ export class SimpleScheduler {
       remainingAfterShifts.forEach(emp => {
         daySchedule.set(emp.id, 'OFF');
         this.offCounts.set(emp.id, (this.offCounts.get(emp.id) || 0) + 1);
+        // OFF로 배정되면 lastShift를 OFF로 업데이트하고 연속 카운트 초기화
+        this.lastShift.set(emp.id, 'OFF');
+        this.consecutiveShiftCounts.set(emp.id, 0);
       });
 
       // Update work counts
@@ -377,32 +398,78 @@ export class SimpleScheduler {
     requiredCount: number,
     isSpecialDay: boolean
   ): void {
+    const MAX_CONSECUTIVE_SAME_SHIFT = 3; // 같은 시프트 최대 연속 일수
+    const MIN_OFF_DAYS_PER_MONTH = 8; // 월 최소 휴무일
+    const totalDaysInMonth = this.workDays.length;
+
     // Filter unassigned employees
-    const available = employees.filter(emp => !daySchedule.has(emp.id));
+    let available = employees.filter(emp => !daySchedule.has(emp.id));
+
+    // 1. 같은 시프트가 MAX_CONSECUTIVE_SAME_SHIFT일 이상 연속된 사람 제외
+    available = available.filter(emp => {
+      const lastAssigned = this.lastShift.get(emp.id);
+      const consecutiveCount = this.consecutiveShiftCounts.get(emp.id) || 0;
+
+      // 같은 시프트가 이미 MAX일 이상 연속이면 다른 시프트로 변경 필요
+      if (lastAssigned === shift && consecutiveCount >= MAX_CONSECUTIVE_SAME_SHIFT) {
+        return false;
+      }
+      return true;
+    });
+
+    // 2. 야간 근무 직후인 사람은 제외 (휴식 필요)
+    available = available.filter(emp => {
+      const lastAssigned = this.lastShift.get(emp.id);
+      // 야간 근무 바로 다음에는 주간/저녁 근무 배정하지 않음
+      if (lastAssigned === 'N' && (shift === 'D' || shift === 'E')) {
+        return false;
+      }
+      return true;
+    });
 
     // Sort by workload fairness FIRST, then experience/preference
     const sorted = available.sort((a, b) => {
-      // 1. 근무 횟수가 적은 사람 우선 (공정성)
-      const aWork = this.workCounts.get(a.id) || 0;
-      const bWork = this.workCounts.get(b.id) || 0;
-      if (aWork !== bWork) return aWork - bWork; // Less work first
-
-      // 2. OFF 횟수가 많은 사람 우선 (더 쉰 사람이 일해야 함)
+      // 1. OFF 횟수가 적은 사람 우선 (최소 휴무일 보장)
       const aOff = this.offCounts.get(a.id) || 0;
       const bOff = this.offCounts.get(b.id) || 0;
+      const aWork = this.workCounts.get(a.id) || 0;
+      const bWork = this.workCounts.get(b.id) || 0;
+
+      // 현재까지 배정된 날짜 기준으로 최소 휴무일 비율 계산
+      const currentDay = aWork + aOff;
+      if (currentDay > 0) {
+        const aMinOffNeeded = Math.ceil((currentDay / totalDaysInMonth) * MIN_OFF_DAYS_PER_MONTH);
+        const bMinOffNeeded = Math.ceil((currentDay / totalDaysInMonth) * MIN_OFF_DAYS_PER_MONTH);
+
+        // 최소 휴무일보다 적으면 우선순위를 낮춤 (OFF가 필요함)
+        if (aOff < aMinOffNeeded && bOff >= bMinOffNeeded) return 1; // b 우선
+        if (bOff < bMinOffNeeded && aOff >= aMinOffNeeded) return -1; // a 우선
+      }
+
+      // 2. 근무 횟수가 적은 사람 우선 (공정성)
+      if (aWork !== bWork) return aWork - bWork; // Less work first
+
+      // 3. OFF 횟수가 많은 사람 우선 (더 쉰 사람이 일해야 함)
       if (aOff !== bOff) return bOff - aOff; // More OFF = work now
 
-      // 3. Experience level (senior for quality)
+      // 4. 같은 시프트 연속 횟수가 적은 사람 우선
+      const aLastShift = this.lastShift.get(a.id);
+      const bLastShift = this.lastShift.get(b.id);
+      const aConsecutive = aLastShift === shift ? (this.consecutiveShiftCounts.get(a.id) || 0) : 0;
+      const bConsecutive = bLastShift === shift ? (this.consecutiveShiftCounts.get(b.id) || 0) : 0;
+      if (aConsecutive !== bConsecutive) return aConsecutive - bConsecutive;
+
+      // 5. Experience level (senior for quality)
       const aExp = this.getExperienceScore(a);
       const bExp = this.getExperienceScore(b);
       if (aExp !== bExp) return bExp - aExp;
 
-      // 4. Shift preference
+      // 6. Shift preference
       const aPref = this.getShiftPreference(a, shift);
       const bPref = this.getShiftPreference(b, shift);
       if (aPref !== bPref) return bPref - aPref;
 
-      // 5. Role (RN > CN > SN > NA)
+      // 7. Role (RN > CN > SN > NA)
       const roleOrder: Record<string, number> = { RN: 4, CN: 3, SN: 2, NA: 1 };
       return (roleOrder[b.role] || 0) - (roleOrder[a.role] || 0);
     });
@@ -412,7 +479,20 @@ export class SimpleScheduler {
     // Assign up to requiredCount
     for (const employee of sorted) {
       if (assigned >= requiredCount) break;
+
       daySchedule.set(employee.id, shift);
+
+      // Update consecutive shift tracking
+      const lastAssigned = this.lastShift.get(employee.id);
+      if (lastAssigned === shift) {
+        // 같은 시프트 연속
+        this.consecutiveShiftCounts.set(employee.id, (this.consecutiveShiftCounts.get(employee.id) || 0) + 1);
+      } else {
+        // 다른 시프트로 변경
+        this.consecutiveShiftCounts.set(employee.id, 1);
+      }
+      this.lastShift.set(employee.id, shift);
+
       assigned++;
     }
   }
