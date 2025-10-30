@@ -25,10 +25,14 @@ export const scheduleRouter = createTRPCRouter({
           return [];
         }
         conditions.push(eq(schedules.departmentId, ctx.user.departmentId));
+        // Members can only see published schedules (not draft or archived)
+        conditions.push(eq(schedules.status, 'published'));
       } else if (input.departmentId) {
         conditions.push(eq(schedules.departmentId, input.departmentId));
       }
-      if (input.status) {
+
+      // Only apply status filter for non-members (admin/manager can filter by any status)
+      if (input.status && ctx.user?.role !== 'member') {
         conditions.push(eq(schedules.status, input.status));
       }
       if (input.startDate) {
@@ -65,6 +69,13 @@ export const scheduleRouter = createTRPCRouter({
           throw new TRPCError({
             code: 'FORBIDDEN',
             message: '본인 부서의 스케줄만 조회할 수 있습니다.',
+          });
+        }
+        // Members can only see published schedules
+        if (schedule.status !== 'published') {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: '확정된 스케줄만 조회할 수 있습니다.',
           });
         }
       }
