@@ -72,7 +72,7 @@ export const scheduleRouter = createTRPCRouter({
       return schedule;
     }),
 
-  generate: adminProcedure
+  generate: protectedProcedure
     .input(z.object({
       name: z.string(),
       departmentId: z.string().optional(),
@@ -88,6 +88,29 @@ export const scheduleRouter = createTRPCRouter({
     }))
     .mutation(async ({ ctx, input }) => {
       const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
+
+      // Check permissions: manager can only generate schedules for their department
+      if (ctx.user?.role === 'manager') {
+        if (!ctx.user.departmentId) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: '부서 정보가 없습니다.',
+          });
+        }
+        if (input.departmentId && input.departmentId !== ctx.user.departmentId) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: '담당 부서의 스케줄만 생성할 수 있습니다.',
+          });
+        }
+        // Force departmentId to be the manager's department
+        input.departmentId = ctx.user.departmentId;
+      } else if (ctx.user?.role === 'member') {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: '스케줄을 생성할 권한이 없습니다. 관리자 또는 매니저에게 문의하세요.',
+        });
+      }
 
       // TODO: Implement scheduling algorithm
       // For now, create a draft schedule
@@ -117,7 +140,7 @@ export const scheduleRouter = createTRPCRouter({
       return schedule;
     }),
 
-  publish: adminProcedure
+  publish: protectedProcedure
     .input(z.object({
       id: z.string(),
     }))
@@ -128,6 +151,21 @@ export const scheduleRouter = createTRPCRouter({
 
       if (!schedule) {
         throw new Error('Schedule not found');
+      }
+
+      // Check permissions: manager can only publish schedules for their department
+      if (ctx.user?.role === 'manager') {
+        if (!ctx.user.departmentId || schedule.departmentId !== ctx.user.departmentId) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: '담당 부서의 스케줄만 확정할 수 있습니다.',
+          });
+        }
+      } else if (ctx.user?.role === 'member') {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: '스케줄을 확정할 권한이 없습니다. 관리자 또는 매니저에게 문의하세요.',
+        });
       }
 
       const [updated] = await db.update(
@@ -155,12 +193,37 @@ export const scheduleRouter = createTRPCRouter({
       return updated;
     }),
 
-  archive: adminProcedure
+  archive: protectedProcedure
     .input(z.object({
       id: z.string(),
     }))
     .mutation(async ({ ctx, input }) => {
       const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
+
+      // Get schedule to check permissions
+      const [schedule] = await db.query(schedules, eq(schedules.id, input.id));
+
+      if (!schedule) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Schedule not found',
+        });
+      }
+
+      // Check permissions: manager can only archive schedules for their department
+      if (ctx.user?.role === 'manager') {
+        if (!ctx.user.departmentId || schedule.departmentId !== ctx.user.departmentId) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: '담당 부서의 스케줄만 관리할 수 있습니다.',
+          });
+        }
+      } else if (ctx.user?.role === 'member') {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: '스케줄을 아카이브할 권한이 없습니다. 관리자 또는 매니저에게 문의하세요.',
+        });
+      }
 
       const [updated] = await db.update(
         schedules,
