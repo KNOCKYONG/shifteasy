@@ -444,19 +444,35 @@ export default function SchedulePage() {
   }, [holidays]);
 
   const currentWeek = monthStart;
-  const buildSchedulePayload = () => ({
-    id: `schedule-${format(monthStart, 'yyyy-MM')}-${selectedDepartment}`,
-    departmentId: selectedDepartment === 'all' ? 'all-departments' : selectedDepartment,
-    startDate: monthStart.toISOString(),
-    endDate: monthEnd.toISOString(),
-    assignments: schedule.map(assignment => ({
-      employeeId: assignment.employeeId,
-      shiftId: assignment.shiftId,
-      date: normalizeDate(assignment.date).toISOString(),
-      isLocked: (assignment as any).isLocked ?? false,
-    })),
-    status: 'draft' as const,
-  });
+  const buildSchedulePayload = () => {
+    // ✅ Manager/Member는 항상 실제 departmentId 사용
+    let actualDepartmentId: string;
+
+    if ((isManager || isMember) && memberDepartmentId) {
+      actualDepartmentId = memberDepartmentId;
+    } else if (selectedDepartment === 'all') {
+      actualDepartmentId = 'all-departments';
+    } else if (selectedDepartment === 'no-department') {
+      // 'no-department'는 더미 값이므로 memberDepartmentId 또는 첫 번째 실제 부서 사용
+      actualDepartmentId = memberDepartmentId || 'dept-er';
+    } else {
+      actualDepartmentId = selectedDepartment;
+    }
+
+    return {
+      id: `schedule-${format(monthStart, 'yyyy-MM')}-${actualDepartmentId}`,
+      departmentId: actualDepartmentId,
+      startDate: monthStart.toISOString(),
+      endDate: monthEnd.toISOString(),
+      assignments: schedule.map(assignment => ({
+        employeeId: assignment.employeeId,
+        shiftId: assignment.shiftId,
+        date: normalizeDate(assignment.date).toISOString(),
+        isLocked: (assignment as any).isLocked ?? false,
+      })),
+      status: 'draft' as const,
+    };
+  };
 
   const departmentOptions = React.useMemo(() => {
     if (isMember) {
