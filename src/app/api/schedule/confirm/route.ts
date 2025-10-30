@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentUser } from '@/lib/auth';
+import { db } from '@/db';
+import { schedules } from '@/db/schema';
+import { eq, and } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,6 +76,28 @@ export async function POST(request: NextRequest) {
 
     const { scheduleId, schedule, validationScore, approverNotes, notifyEmployees } = validationResult.data;
 
+    // ✅ CRITICAL: Fetch actual schedule from DB to verify department
+    const [existingSchedule] = await db
+      .select()
+      .from(schedules)
+      .where(
+        and(
+          eq(schedules.id, scheduleId),
+          eq(schedules.tenantId, tenantId)
+        )
+      )
+      .limit(1);
+
+    if (!existingSchedule) {
+      console.error(`[Confirm] Schedule ${scheduleId} not found in DB`);
+      return NextResponse.json(
+        { error: '스케줄을 찾을 수 없습니다.' },
+        { status: 404 }
+      );
+    }
+
+    console.log(`[Confirm] Found schedule: ${scheduleId}, DB departmentId: ${existingSchedule.departmentId}, user departmentId: ${user.departmentId}`);
+
     // Manager can only confirm schedules for their department
     if (userRole === 'manager') {
       if (!user.departmentId) {
@@ -82,8 +107,9 @@ export async function POST(request: NextRequest) {
           { status: 403 }
         );
       }
-      if (user.departmentId !== schedule.departmentId) {
-        console.error(`[Confirm] Manager ${user.id} department ${user.departmentId} tried to confirm schedule for department ${schedule.departmentId}`);
+      // ✅ Use DB schedule's departmentId, not client-provided value
+      if (user.departmentId !== existingSchedule.departmentId) {
+        console.error(`[Confirm] Manager ${user.id} department ${user.departmentId} tried to confirm schedule for department ${existingSchedule.departmentId}`);
         return NextResponse.json(
           { error: '담당 부서의 스케줄만 확정할 수 있습니다.' },
           { status: 403 }
@@ -91,36 +117,54 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`[Confirm] User ${user.id} (${userRole}) confirming schedule ${scheduleId} for department ${schedule.departmentId}`);
+    console.log(`[Confirm] User ${user.id} (${userRole}) confirming schedule ${scheduleId} for department ${existingSchedule.departmentId}`);
 
-    // Check if schedule exists and is not already confirmed
-    const scheduleKey = `${tenantId}:${scheduleId}`;
-    const existingSchedule = confirmedSchedules.get(scheduleKey);
-    if (existingSchedule && existingSchedule.status === 'published') {
+    // Check if schedule is already published
+    if (existingSchedule.status === 'published') {
       return NextResponse.json(
         { error: 'Schedule is already confirmed and published.' },
         { status: 400 }
       );
     }
 
-    // Prepare confirmed schedule data
-    const confirmedSchedule = {
-      id: scheduleId,
-      ...schedule,
-      status: 'published',
-      publishedAt: new Date().toISOString(),
-      approvedBy: user.id,
-      approverNotes,
-      validationScore,
-      metadata: {
-        tenantId,
-        confirmedAt: new Date().toISOString(),
-        confirmedBy: user.id,
-      },
-    };
+    // ✅ Update schedule in DB to published status
+    const [updatedSchedule] = await db
+      .update(schedules)
+      .set({
+        status: 'published',
+        publishedAt: new Date(),
+        publishedBy: user.id,
+        metadata: {
+          ...((existingSchedule.metadata as any) || {}),
+          confirmedAt: new Date().toISOString(),
+          confirmedBy: user.id,
+          approverNotes,
+          validationScore,
+        },
+      })
+      .where(
+        and(
+          eq(schedules.id, scheduleId),
+          eq(schedules.tenantId, tenantId)
+        )
+      )
+      .returning();
 
-    // Store confirmed schedule (in production, this would be saved to Supabase)
-    confirmedSchedules.set(scheduleKey, confirmedSchedule);
+    if (!updatedSchedule) {
+      console.error(`[Confirm] Failed to update schedule ${scheduleId}`);
+      return NextResponse.json(
+        { error: '스케줄 업데이트에 실패했습니다.' },
+        { status: 500 }
+      );
+    }
+
+    console.log(`[Confirm] Successfully published schedule ${scheduleId}`);
+
+    // Prepare response data
+    const confirmedSchedule = {
+      ...updatedSchedule,
+      assignments: schedule.assignments,  // Include assignments from request
+    };
 
     // Send notifications if requested
     if (notifyEmployees) {
