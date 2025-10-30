@@ -47,7 +47,10 @@ export async function POST(request: NextRequest) {
     }
 
     const userRole = user.role;
+
+    // Check user role permissions
     if (!userRole || !['admin', 'manager', 'owner'].includes(userRole)) {
+      console.error(`[Confirm] Permission denied for user ${user.id}, role: ${userRole}`);
       return NextResponse.json(
         { error: 'Unauthorized. Only admins or managers can confirm schedules.' },
         { status: 403 }
@@ -70,12 +73,25 @@ export async function POST(request: NextRequest) {
 
     const { scheduleId, schedule, validationScore, approverNotes, notifyEmployees } = validationResult.data;
 
-    if (userRole === 'manager' && user.departmentId && user.departmentId !== schedule.departmentId) {
-      return NextResponse.json(
-        { error: '다른 부서의 스케줄은 확정할 수 없습니다.' },
-        { status: 403 }
-      );
+    // Manager can only confirm schedules for their department
+    if (userRole === 'manager') {
+      if (!user.departmentId) {
+        console.error(`[Confirm] Manager ${user.id} has no departmentId`);
+        return NextResponse.json(
+          { error: '부서 정보가 없습니다. 관리자에게 문의하세요.' },
+          { status: 403 }
+        );
+      }
+      if (user.departmentId !== schedule.departmentId) {
+        console.error(`[Confirm] Manager ${user.id} department ${user.departmentId} tried to confirm schedule for department ${schedule.departmentId}`);
+        return NextResponse.json(
+          { error: '담당 부서의 스케줄만 확정할 수 있습니다.' },
+          { status: 403 }
+        );
+      }
     }
+
+    console.log(`[Confirm] User ${user.id} (${userRole}) confirming schedule ${scheduleId} for department ${schedule.departmentId}`);
 
     // Check if schedule exists and is not already confirmed
     const scheduleKey = `${tenantId}:${scheduleId}`;
