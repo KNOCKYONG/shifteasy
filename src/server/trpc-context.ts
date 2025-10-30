@@ -2,7 +2,7 @@ import { type FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { db } from '@/db';
 import { users } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 
 export async function createTRPCContext(opts?: FetchCreateContextFnOptions) {
   // Get Clerk user
@@ -21,11 +21,28 @@ export async function createTRPCContext(opts?: FetchCreateContextFnOptions) {
   }
 
   // Get user from database with role information
-  const dbUser = await db
-    .select()
-    .from(users)
-    .where(eq(users.clerkUserId, clerkUserId))
-    .limit(1);
+  // If orgId exists, prioritize users from that organization
+  let dbUser;
+  if (orgId) {
+    // Query with both clerkUserId AND tenantId for accurate role information
+    dbUser = await db
+      .select()
+      .from(users)
+      .where(
+        and(
+          eq(users.clerkUserId, clerkUserId),
+          eq(users.tenantId, orgId)
+        )
+      )
+      .limit(1);
+  } else {
+    // Fallback: query by clerkUserId only
+    dbUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.clerkUserId, clerkUserId))
+      .limit(1);
+  }
 
   const user = dbUser[0] || null;
 
