@@ -410,6 +410,7 @@ export default function SchedulePage() {
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const [customShiftTypes, setCustomShiftTypes] = useState<ShiftType[]>([]); // Config의 근무 타입 데이터
   const [showMyPreferences, setShowMyPreferences] = useState(false);
+  const [loadedScheduleId, setLoadedScheduleId] = useState<string | null>(null); // 이미 로드된 스케줄 ID
 
   // Employee preferences modal state
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -455,7 +456,8 @@ export default function SchedulePage() {
   // ✅ Load schedule from DB when month/department changes
   useEffect(() => {
     if (!savedSchedules || savedSchedules.length === 0) {
-      // No saved schedule, keep current state
+      // No saved schedule, clear loaded ID
+      setLoadedScheduleId(null);
       return;
     }
 
@@ -465,6 +467,12 @@ export default function SchedulePage() {
       .sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime())[0];
 
     if (!currentMonthSchedule) {
+      setLoadedScheduleId(null);
+      return;
+    }
+
+    // ✅ Skip if already loaded this schedule
+    if (loadedScheduleId === currentMonthSchedule.id) {
       return;
     }
 
@@ -486,9 +494,10 @@ export default function SchedulePage() {
       setSchedule(convertedAssignments);
       setOriginalSchedule(convertedAssignments);
       setIsConfirmed(true);
+      setLoadedScheduleId(currentMonthSchedule.id); // ✅ Mark as loaded
       console.log(`✅ Loaded ${convertedAssignments.length} assignments from saved schedule ${currentMonthSchedule.id}`);
     }
-  }, [savedSchedules, monthStart]);
+  }, [savedSchedules, monthStart, loadedScheduleId]);
 
   const currentWeek = monthStart;
   const buildSchedulePayload = () => {
@@ -679,18 +688,21 @@ export default function SchedulePage() {
     setCurrentMonth(prev => subMonths(prev, 1));
     setSchedule([]);
     setGenerationResult(null);
+    setLoadedScheduleId(null); // ✅ Reset to allow loading new month's schedule
   };
 
   const handleNextMonth = () => {
     setCurrentMonth(prev => addMonths(prev, 1));
     setSchedule([]);
     setGenerationResult(null);
+    setLoadedScheduleId(null); // ✅ Reset to allow loading new month's schedule
   };
 
   const handleThisMonth = () => {
     setCurrentMonth(startOfMonth(new Date()));
     setSchedule([]);
     setGenerationResult(null);
+    setLoadedScheduleId(null); // ✅ Reset to allow loading current month's schedule
   };
 
   // TRPC mutation for saving preferences
@@ -1481,6 +1493,7 @@ export default function SchedulePage() {
       setSchedule(convertedAssignments);
       setOriginalSchedule(convertedAssignments); // 원본 저장
       setGenerationResult(null); // SimpleScheduler는 result 객체를 반환하지 않음
+      setLoadedScheduleId(null); // ✅ Clear loaded ID since this is a newly generated schedule
       filters.setActiveView('schedule'); // 스케줄 생성 후 스케줄 뷰로 전환
 
       console.log('✅ Schedule generated successfully:', {
