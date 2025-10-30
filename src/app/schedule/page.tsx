@@ -443,6 +443,53 @@ export default function SchedulePage() {
     return new Set(holidays?.map(h => h.date) || []);
   }, [holidays]);
 
+  // ✅ Load saved schedules from DB
+  const { data: savedSchedules } = api.schedule.list.useQuery({
+    departmentId: (isManager || isMember) && memberDepartmentId ? memberDepartmentId :
+                  selectedDepartment !== 'all' && selectedDepartment !== 'no-department' ? selectedDepartment : undefined,
+    status: 'published',
+    startDate: monthStart,
+    endDate: monthEnd,
+  });
+
+  // ✅ Load schedule from DB when month/department changes
+  useEffect(() => {
+    if (!savedSchedules || savedSchedules.length === 0) {
+      // No saved schedule, keep current state
+      return;
+    }
+
+    // Find the most recent published schedule for this month
+    const currentMonthSchedule = savedSchedules
+      .filter(s => s.status === 'published')
+      .sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime())[0];
+
+    if (!currentMonthSchedule) {
+      return;
+    }
+
+    // Extract assignments from metadata
+    const metadata = currentMonthSchedule.metadata as any;
+    const assignments = metadata?.assignments || [];
+
+    if (assignments.length > 0) {
+      // Convert DB assignments to ScheduleAssignment format
+      const convertedAssignments: ScheduleAssignment[] = assignments.map((a: any) => ({
+        id: a.id || `${a.employeeId}-${a.date}`,
+        employeeId: a.employeeId,
+        shiftId: a.shiftId,
+        date: new Date(a.date),
+        isLocked: a.isLocked || false,
+        shiftType: a.shiftType || 'custom',
+      }));
+
+      setSchedule(convertedAssignments);
+      setOriginalSchedule(convertedAssignments);
+      setIsConfirmed(true);
+      console.log(`✅ Loaded ${convertedAssignments.length} assignments from saved schedule ${currentMonthSchedule.id}`);
+    }
+  }, [savedSchedules, monthStart]);
+
   const currentWeek = monthStart;
   const buildSchedulePayload = () => {
     // ✅ Manager/Member는 항상 실제 departmentId 사용
@@ -1116,7 +1163,12 @@ export default function SchedulePage() {
 
       if (result.success) {
         setScheduleStatus('confirmed');
+        setIsConfirmed(true);
         modals.setShowConfirmDialog(false);
+
+        // ✅ Invalidate schedule cache to reload from DB
+        await utils.schedule.list.invalidate();
+
         alert('스케줄이 확정되었습니다!\n직원들에게 알림이 발송되었습니다.');
       } else {
         alert('스케줄 확정에 실패했습니다: ' + result.error);
