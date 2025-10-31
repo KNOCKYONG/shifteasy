@@ -29,6 +29,9 @@ export function useScheduleModals() {
   // Employee Preferences
   const [isPreferencesModalOpen, setIsPreferencesModalOpen] = useState(false);
 
+  // Manage Schedules
+  const [showManageModal, setShowManageModal] = useState(false);
+
   return {
     // Import/Export
     showImportModal,
@@ -69,5 +72,9 @@ export function useScheduleModals() {
     // Employee Preferences
     isPreferencesModalOpen,
     setIsPreferencesModalOpen,
+
+    // Manage Schedules
+    showManageModal,
+    setShowManageModal,
   };
 }

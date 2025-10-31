@@ -3,3 +3,4 @@ export { ExportModal } from './ExportModal';
 export { ValidationResultsModal } from './ValidationResultsModal';
 export { ConfirmationDialog } from './ConfirmationDialog';
 export { ReportModal } from './ReportModal';
+export { ManageSchedulesModal } from './ManageSchedulesModal';

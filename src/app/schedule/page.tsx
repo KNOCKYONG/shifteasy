@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isWeekend } from "date-fns";
 import { ko } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCcw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCcw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings, FolderOpen } from "lucide-react";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { SimpleScheduler, type Employee as SimpleEmployee, type Holiday, type SpecialRequest as SimpleSpecialRequest, type ScheduleAssignment as SimpleAssignment } from "../../lib/scheduler/simple-scheduler";
 import { api } from "../../lib/trpc/client";
@@ -19,6 +19,7 @@ import { ExportModal } from "@/components/schedule/modals/ExportModal";
 import { ValidationResultsModal } from "@/components/schedule/modals/ValidationResultsModal";
 import { ConfirmationDialog } from "@/components/schedule/modals/ConfirmationDialog";
 import { ReportModal } from "@/components/schedule/modals/ReportModal";
+import { ManageSchedulesModal } from "@/components/schedule/modals/ManageSchedulesModal";
 import {
   ViewTabs,
   ShiftTypeFilters,
@@ -1910,6 +1911,15 @@ export default function SchedulePage() {
                     </button>
                   )}
 
+                  {/* Manage Saved Schedules */}
+                  <button
+                    onClick={() => modals.setShowManageModal(true)}
+                    className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                    title="스케줄 관리"
+                  >
+                    <FolderOpen className="w-4 h-4" />
+                  </button>
+
                   {/* Dropdown Menu for Additional Options */}
                   <div className="relative">
                     <button
@@ -2139,6 +2149,18 @@ export default function SchedulePage() {
         isOpen={modals.showReport}
         onClose={() => modals.setShowReport(false)}
         generationResult={generationResult}
+      />
+
+      {/* 스케줄 관리 모달 */}
+      <ManageSchedulesModal
+        isOpen={modals.showManageModal}
+        onClose={() => modals.setShowManageModal(false)}
+        onScheduleDeleted={() => {
+          // Clear current schedule and reload
+          setSchedule([]);
+          setLoadedScheduleId(null);
+          setGenerationResult(null);
+        }}
       />
 
       {/* Validation Results Modal */}
