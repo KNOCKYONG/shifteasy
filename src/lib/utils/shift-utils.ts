@@ -43,7 +43,7 @@ export function convertShiftTypesToShifts(customShiftTypes: ShiftType[]): Shift[
     else if (shiftType.code === 'E') type = 'evening';
     else if (shiftType.code === 'N') type = 'night';
     else if (shiftType.code === 'O' || shiftType.code === 'OFF') type = 'off';
-    else if (shiftType.code === 'A') type = 'day'; // 행정 근무
+    else if (shiftType.code === 'A') type = 'custom'; // 행정 근무 (administrative work)
 
     return {
       id: `shift-${shiftType.code.toLowerCase()}`,
