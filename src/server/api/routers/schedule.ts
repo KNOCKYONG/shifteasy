@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, protectedProcedure, adminProcedure } from '../trpc';
 import { scopedDb, createAuditLog } from '@/lib/db-helpers';
-import { schedules, users, shiftTypes } from '@/db/schema';
+import { schedules, users, shiftTypes, departments } from '@/db/schema';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
 
 export const scheduleRouter = createTRPCRouter({
@@ -44,11 +44,36 @@ export const scheduleRouter = createTRPCRouter({
 
       const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-      const results = await db.query(schedules, where);
+      // Join with departments to get department name
+      const results = await db
+        .select({
+          id: schedules.id,
+          tenantId: schedules.tenantId,
+          departmentId: schedules.departmentId,
+          name: schedules.name,
+          patternId: schedules.patternId,
+          startDate: schedules.startDate,
+          endDate: schedules.endDate,
+          status: schedules.status,
+          publishedAt: schedules.publishedAt,
+          publishedBy: schedules.publishedBy,
+          metadata: schedules.metadata,
+          createdAt: schedules.createdAt,
+          updatedAt: schedules.updatedAt,
+          department: {
+            id: departments.id,
+            name: departments.name,
+            code: departments.code,
+          },
+        })
+        .from(schedules)
+        .leftJoin(departments, eq(schedules.departmentId, departments.id))
+        .where(where)
+        .orderBy(desc(schedules.createdAt))
+        .limit(input.limit)
+        .offset(input.offset);
 
-      return results
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-        .slice(input.offset, input.offset + input.limit);
+      return results;
     }),
 
   get: protectedProcedure
@@ -254,5 +279,51 @@ export const scheduleRouter = createTRPCRouter({
       });
 
       return updated;
+    }),
+
+  delete: protectedProcedure
+    .input(z.object({
+      id: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
+
+      // Get schedule to check permissions
+      const [schedule] = await db.query(schedules, eq(schedules.id, input.id));
+
+      if (!schedule) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Schedule not found',
+        });
+      }
+
+      // Check permissions: manager can only delete schedules for their department
+      if (ctx.user?.role === 'manager') {
+        if (!ctx.user.departmentId || schedule.departmentId !== ctx.user.departmentId) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: '담당 부서의 스케줄만 삭제할 수 있습니다.',
+          });
+        }
+      } else if (ctx.user?.role === 'member') {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: '스케줄을 삭제할 권한이 없습니다. 관리자 또는 매니저에게 문의하세요.',
+        });
+      }
+
+      await db.delete(schedules, eq(schedules.id, input.id));
+
+      await createAuditLog({
+        tenantId: (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'),
+        actorId: (ctx.user?.id || 'dev-user-id'),
+        action: 'schedule.deleted',
+        entityType: 'schedule',
+        entityId: input.id,
+        before: schedule,
+      });
+
+      return { success: true };
     }),
 });

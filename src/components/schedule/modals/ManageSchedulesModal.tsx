@@ -1,18 +1,9 @@
 "use client";
-import React, { useState, useEffect } from 'react';
-import { X, Trash2, Calendar, Users, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Trash2, Calendar, Users, AlertCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-
-interface SavedSchedule {
-  id: string;
-  month: string;
-  departmentId: string;
-  departmentName: string;
-  savedAt: string;
-  assignmentCount: number;
-  employeeCount: number;
-}
+import { api } from '@/lib/trpc/client';
 
 interface ManageSchedulesModalProps {
   isOpen: boolean;
@@ -21,91 +12,42 @@ interface ManageSchedulesModalProps {
 }
 
 export function ManageSchedulesModal({ isOpen, onClose, onScheduleDeleted }: ManageSchedulesModalProps) {
-  const [savedSchedules, setSavedSchedules] = useState<SavedSchedule[]>([]);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isOpen) {
-      loadSavedSchedules();
-    }
-  }, [isOpen]);
+  // Fetch schedules from database
+  const { data: schedules = [], isLoading, refetch } = api.schedule.list.useQuery(
+    { limit: 100, offset: 0 },
+    { enabled: isOpen }
+  );
 
-  const loadSavedSchedules = () => {
-    try {
-      const saved = localStorage.getItem('savedSchedules');
-      if (saved) {
-        const schedules = JSON.parse(saved);
-        const scheduleList: SavedSchedule[] = Object.entries(schedules).map(([id, data]: [string, any]) => {
-          // Parse month from schedule data
-          const firstAssignment = data.assignments?.[0];
-          const month = firstAssignment ? format(new Date(firstAssignment.date), 'yyyy년 MM월', { locale: ko }) : 'Unknown';
-
-          // Get unique employee count
-          const employeeIds = new Set(data.assignments?.map((a: any) => a.employeeId) || []);
-
-          return {
-            id,
-            month,
-            departmentId: data.departmentId || 'unknown',
-            departmentName: getDepartmentName(data.departmentId),
-            savedAt: data.savedAt || new Date().toISOString(),
-            assignmentCount: data.assignments?.length || 0,
-            employeeCount: employeeIds.size,
-          };
-        });
-
-        // Sort by saved date (newest first)
-        scheduleList.sort((a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
-        setSavedSchedules(scheduleList);
-      } else {
-        setSavedSchedules([]);
-      }
-    } catch (error) {
-      console.error('Failed to load saved schedules:', error);
-      setSavedSchedules([]);
-    }
-  };
-
-  const getDepartmentName = (departmentId: string): string => {
-    const deptMap: Record<string, string> = {
-      'dept-er': '응급실',
-      'dept-icu': '중환자실',
-      'dept-or': '수술실',
-      'dept-ward': '일반병동',
-      'all-departments': '전체',
-    };
-    return deptMap[departmentId] || departmentId;
-  };
-
-  const handleDelete = (scheduleId: string) => {
-    try {
-      const saved = localStorage.getItem('savedSchedules');
-      if (saved) {
-        const schedules = JSON.parse(saved);
-        delete schedules[scheduleId];
-        localStorage.setItem('savedSchedules', JSON.stringify(schedules));
-        loadSavedSchedules();
-        setDeleteConfirmId(null);
-
-        // Notify parent component
-        if (onScheduleDeleted) {
-          onScheduleDeleted();
-        }
-      }
-    } catch (error) {
-      console.error('Failed to delete schedule:', error);
-    }
-  };
-
-  const handleDeleteAll = () => {
-    if (window.confirm('모든 저장된 스케줄을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
-      localStorage.removeItem('savedSchedules');
-      setSavedSchedules([]);
+  // Delete mutation
+  const deleteMutation = api.schedule.delete.useMutation({
+    onSuccess: () => {
+      refetch();
       setDeleteConfirmId(null);
-
       if (onScheduleDeleted) {
         onScheduleDeleted();
       }
+    },
+    onError: (error) => {
+      alert(`삭제 실패: ${error.message}`);
+    },
+  });
+
+  const handleDelete = (scheduleId: string) => {
+    deleteMutation.mutate({ id: scheduleId });
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'draft':
+        return { text: '임시저장', className: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' };
+      case 'published':
+        return { text: '확정', className: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' };
+      case 'archived':
+        return { text: '보관됨', className: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' };
+      default:
+        return { text: status, className: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' };
     }
   };
 
@@ -121,7 +63,7 @@ export function ManageSchedulesModal({ isOpen, onClose, onScheduleDeleted }: Man
               저장된 스케줄 관리
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              로컬에 저장된 스케줄을 조회하고 삭제할 수 있습니다
+              데이터베이스에 저장된 스케줄을 조회하고 삭제할 수 있습니다
             </p>
           </div>
           <button
@@ -134,7 +76,14 @@ export function ManageSchedulesModal({ isOpen, onClose, onScheduleDeleted }: Man
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {savedSchedules.length === 0 ? (
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Loader2 className="w-12 h-12 text-blue-500 animate-spin mb-4" />
+              <p className="text-gray-500 dark:text-gray-400 text-lg">
+                스케줄 로딩 중...
+              </p>
+            </div>
+          ) : schedules.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Calendar className="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4" />
               <p className="text-gray-500 dark:text-gray-400 text-lg">
@@ -146,66 +95,74 @@ export function ManageSchedulesModal({ isOpen, onClose, onScheduleDeleted }: Man
             </div>
           ) : (
             <div className="space-y-3">
-              {savedSchedules.map((schedule) => (
-                <div
-                  key={schedule.id}
-                  className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-md transition-all"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <Calendar className="w-5 h-5 text-blue-500" />
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                          {schedule.month}
-                        </h3>
-                        <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-                          {schedule.departmentName}
-                        </span>
+              {schedules.map((schedule) => {
+                const statusBadge = getStatusBadge(schedule.status);
+                const dateRange = `${format(new Date(schedule.startDate), 'yyyy년 MM월 dd일', { locale: ko })} ~ ${format(new Date(schedule.endDate), 'MM월 dd일', { locale: ko })}`;
+
+                return (
+                  <div
+                    key={schedule.id}
+                    className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-md transition-all"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <Calendar className="w-5 h-5 text-blue-500" />
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                            {schedule.name || dateRange}
+                          </h3>
+                          <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${statusBadge.className}`}>
+                            {statusBadge.text}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-col gap-2 text-sm text-gray-600 dark:text-gray-400">
+                          <div className="flex items-center gap-4">
+                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                              {schedule.department?.name || '부서 미지정'}
+                            </span>
+                            <span>{dateRange}</span>
+                          </div>
+                          <div className="text-gray-400 dark:text-gray-500">
+                            생성: {format(new Date(schedule.createdAt), 'yyyy-MM-dd HH:mm', { locale: ko })}
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-                        <div className="flex items-center gap-1">
-                          <Users className="w-4 h-4" />
-                          <span>{schedule.employeeCount}명</span>
-                        </div>
-                        <div>
-                          <span>{schedule.assignmentCount}건 배정</span>
-                        </div>
-                        <div className="text-gray-400 dark:text-gray-500">
-                          저장: {format(new Date(schedule.savedAt), 'MM/dd HH:mm', { locale: ko })}
-                        </div>
+                      <div className="flex items-center gap-2">
+                        {deleteConfirmId === schedule.id ? (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleDelete(schedule.id)}
+                              disabled={deleteMutation.isPending}
+                              className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 rounded-lg transition-colors flex items-center gap-2"
+                            >
+                              {deleteMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+                              삭제 확인
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirmId(null)}
+                              disabled={deleteMutation.isPending}
+                              className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 rounded-lg transition-colors"
+                            >
+                              취소
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setDeleteConfirmId(schedule.id)}
+                            disabled={deleteMutation.isPending}
+                            className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 rounded-lg transition-colors"
+                            title="삭제"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        )}
                       </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {deleteConfirmId === schedule.id ? (
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleDelete(schedule.id)}
-                            className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
-                          >
-                            삭제 확인
-                          </button>
-                          <button
-                            onClick={() => setDeleteConfirmId(null)}
-                            className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                          >
-                            취소
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setDeleteConfirmId(schedule.id)}
-                          className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                          title="삭제"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      )}
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -218,14 +175,6 @@ export function ManageSchedulesModal({ isOpen, onClose, onScheduleDeleted }: Man
           </div>
 
           <div className="flex items-center gap-3">
-            {savedSchedules.length > 0 && (
-              <button
-                onClick={handleDeleteAll}
-                className="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-              >
-                전체 삭제
-              </button>
-            )}
             <button
               onClick={onClose}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
