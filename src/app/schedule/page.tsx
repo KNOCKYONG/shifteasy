@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isWeekend } from "date-fns";
 import { ko } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCcw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings, FolderOpen } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCcw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings, FolderOpen, ArrowLeftRight } from "lucide-react";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { SimpleScheduler, type Employee as SimpleEmployee, type Holiday, type SpecialRequest as SimpleSpecialRequest, type ScheduleAssignment as SimpleAssignment } from "../../lib/scheduler/simple-scheduler";
 import { api } from "../../lib/trpc/client";
@@ -20,6 +20,7 @@ import { ValidationResultsModal } from "@/components/schedule/modals/ValidationR
 import { ConfirmationDialog } from "@/components/schedule/modals/ConfirmationDialog";
 import { ReportModal } from "@/components/schedule/modals/ReportModal";
 import { ManageSchedulesModal } from "@/components/schedule/modals/ManageSchedulesModal";
+import { SwapRequestModal } from "@/components/schedule/modals/SwapRequestModal";
 import {
   ViewTabs,
   ShiftTypeFilters,
@@ -454,11 +455,15 @@ export default function SchedulePage() {
     endDate: monthEnd,
   });
 
-  // ✅ Load schedule from DB when month/department changes
+  // ✅ Track last loaded schedule ID and updatedAt
+  const lastLoadedRef = React.useRef<{ id: string; updatedAt: string } | null>(null);
+
+  // ✅ Load schedule from DB when month/department changes OR when schedule is updated (swap)
   useEffect(() => {
     if (!savedSchedules || savedSchedules.length === 0) {
       // No saved schedule, clear loaded ID
       setLoadedScheduleId(null);
+      lastLoadedRef.current = null;
       return;
     }
 
@@ -469,11 +474,14 @@ export default function SchedulePage() {
 
     if (!currentMonthSchedule) {
       setLoadedScheduleId(null);
+      lastLoadedRef.current = null;
       return;
     }
 
-    // ✅ Skip if already loaded this schedule
-    if (loadedScheduleId === currentMonthSchedule.id) {
+    // ✅ Skip if already loaded this exact version (same ID and updatedAt)
+    const currentUpdatedAt = currentMonthSchedule.updatedAt?.toString() || '';
+    if (lastLoadedRef.current?.id === currentMonthSchedule.id &&
+        lastLoadedRef.current?.updatedAt === currentUpdatedAt) {
       return;
     }
 
@@ -495,10 +503,11 @@ export default function SchedulePage() {
       setSchedule(convertedAssignments);
       setOriginalSchedule(convertedAssignments);
       setIsConfirmed(true);
-      setLoadedScheduleId(currentMonthSchedule.id); // ✅ Mark as loaded
-      console.log(`✅ Loaded ${convertedAssignments.length} assignments from saved schedule ${currentMonthSchedule.id}`);
+      setLoadedScheduleId(currentMonthSchedule.id);
+      lastLoadedRef.current = { id: currentMonthSchedule.id, updatedAt: currentUpdatedAt };
+      console.log(`✅ Loaded ${convertedAssignments.length} assignments from saved schedule ${currentMonthSchedule.id} (updated: ${currentMonthSchedule.updatedAt})`);
     }
-  }, [savedSchedules, monthStart, loadedScheduleId]);
+  }, [savedSchedules, monthStart]);
 
   const currentWeek = monthStart;
   const buildSchedulePayload = () => {
@@ -718,6 +727,21 @@ export default function SchedulePage() {
     onError: (error) => {
       console.error('Failed to save preferences:', error);
       // TODO: Show error toast
+    },
+  });
+
+  // Swap request mutation
+  const createSwapRequest = api.swap.create.useMutation({
+    onSuccess: () => {
+      alert('교환 요청이 성공적으로 생성되었습니다. 관리자의 승인을 기다려주세요.');
+      setShowSwapModal(false);
+      setSelectedSwapCell(null);
+      setTargetSwapCell(null);
+      setSwapMode(false);
+    },
+    onError: (error) => {
+      console.error('Swap request failed:', error);
+      alert(`교환 요청에 실패했습니다: ${error.message}`);
     },
   });
 
@@ -1023,6 +1047,16 @@ export default function SchedulePage() {
       });
 
       result = result.filter(member => membersWithSelectedShifts.has(member.id));
+    }
+
+    // Member인 경우 자신의 스케줄을 최상단으로 정렬
+    if (isMember && currentUser.dbUser?.id) {
+      const currentUserId = currentUser.dbUser.id;
+      result = result.sort((a, b) => {
+        if (a.id === currentUserId) return -1;
+        if (b.id === currentUserId) return 1;
+        return 0;
+      });
     }
 
     return result;
@@ -1527,6 +1561,12 @@ export default function SchedulePage() {
   const [scheduleStatus, setScheduleStatus] = useState<'draft' | 'confirmed'>('draft');
   const [showMoreMenu, setShowMoreMenu] = useState(false);
 
+  // Swap 관련 상태
+  const [swapMode, setSwapMode] = useState(false);
+  const [selectedSwapCell, setSelectedSwapCell] = useState<{ date: string; employeeId: string; assignment: any } | null>(null);
+  const [targetSwapCell, setTargetSwapCell] = useState<{ date: string; employeeId: string; assignment: any } | null>(null);
+  const [showSwapModal, setShowSwapModal] = useState(false);
+
   // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = () => setShowMoreMenu(false);
@@ -1541,6 +1581,47 @@ export default function SchedulePage() {
       setShowMoreMenu(false);
     }
   }, [canManageSchedules, showMoreMenu]);
+
+  // Swap 관련 핸들러
+  const handleSwapCellClick = (date: Date, employeeId: string, assignment: any) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+
+    // 자신의 셀을 클릭한 경우
+    if (employeeId === currentUser.dbUser?.id) {
+      if (!assignment) {
+        alert('교환할 스케줄이 없습니다.');
+        return;
+      }
+      setSelectedSwapCell({ date: dateStr, employeeId, assignment });
+      setTargetSwapCell(null);
+    }
+    // 자신의 셀을 선택한 후 다른 사람의 셀을 클릭한 경우
+    else if (selectedSwapCell && selectedSwapCell.date === dateStr) {
+      if (!assignment) {
+        alert('교환할 스케줄이 없습니다.');
+        return;
+      }
+      setTargetSwapCell({ date: dateStr, employeeId, assignment });
+      setShowSwapModal(true);
+    }
+  };
+
+  const handleSwapSubmit = (reason: string) => {
+    if (!selectedSwapCell || !targetSwapCell) return;
+
+    createSwapRequest.mutate({
+      date: selectedSwapCell.date,
+      requesterShiftId: selectedSwapCell.assignment.shiftId,
+      targetUserId: targetSwapCell.employeeId,
+      targetShiftId: targetSwapCell.assignment.shiftId,
+      reason,
+    });
+  };
+
+  const handleSwapModalClose = () => {
+    setShowSwapModal(false);
+    setTargetSwapCell(null);
+  };
 
   const handleImport = async () => {
     if (!canManageSchedules) {
@@ -1997,15 +2078,35 @@ export default function SchedulePage() {
                   <Lock className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                   <span>일반 권한은 스케줄 조회만 가능합니다.</span>
                 </div>
-                {memberDepartmentId ? (
-                  <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                    배정된 병동 스케줄만 표시됩니다.
-                  </span>
-                ) : (
-                  <span className="text-xs sm:text-sm text-red-500 dark:text-red-400">
-                    배정된 병동 정보가 없어 스케줄을 조회할 수 없습니다.
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  {isMember && schedule.length > 0 && (
+                    <button
+                      onClick={() => {
+                        setSwapMode(!swapMode);
+                        setSelectedSwapCell(null);
+                        setTargetSwapCell(null);
+                      }}
+                      className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                        swapMode
+                          ? 'bg-blue-600 text-white hover:bg-blue-700'
+                          : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
+                      title="스케줄 교환 모드"
+                    >
+                      <ArrowLeftRight className="w-4 h-4" />
+                      {swapMode ? '교환 모드 종료' : '스케줄 교환'}
+                    </button>
+                  )}
+                  {memberDepartmentId ? (
+                    <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                      배정된 병동 스케줄만 표시됩니다.
+                    </span>
+                  ) : (
+                    <span className="text-xs sm:text-sm text-red-500 dark:text-red-400">
+                      배정된 병동 정보가 없어 스케줄을 조회할 수 없습니다.
+                    </span>
+                  )}
+                </div>
               </div>
             )}
         </div>
@@ -2100,6 +2201,10 @@ export default function SchedulePage() {
             getShiftColor={getShiftColor}
             getShiftName={getShiftName}
             getShiftCode={getShiftCode}
+            enableSwapMode={isMember && swapMode}
+            currentUserId={currentUser.dbUser?.id}
+            selectedSwapCell={selectedSwapCell}
+            onCellClick={handleSwapCellClick}
           />
         ) : (
           <ScheduleCalendarView
@@ -2180,6 +2285,33 @@ export default function SchedulePage() {
         isConfirming={modals.isConfirming}
         validationScore={modals.validationScore}
       />
+
+      {/* Swap Request Modal */}
+      {selectedSwapCell && targetSwapCell && (
+        <SwapRequestModal
+          isOpen={showSwapModal}
+          onClose={handleSwapModalClose}
+          onSubmit={handleSwapSubmit}
+          myAssignment={{
+            date: selectedSwapCell.date,
+            employeeName: currentUser.dbUser?.name || '',
+            shiftName: getShiftName(selectedSwapCell.assignment.shiftId),
+            shiftTime: (() => {
+              const shift = shifts.find(s => s.id === selectedSwapCell.assignment.shiftId);
+              return shift?.time ? `${shift.time.start} - ${shift.time.end}` : '';
+            })(),
+          }}
+          targetAssignment={{
+            date: targetSwapCell.date,
+            employeeName: allMembers.find(m => m.id === targetSwapCell.employeeId)?.name || '',
+            shiftName: getShiftName(targetSwapCell.assignment.shiftId),
+            shiftTime: (() => {
+              const shift = shifts.find(s => s.id === targetSwapCell.assignment.shiftId);
+              return shift?.time ? `${shift.time.start} - ${shift.time.end}` : '';
+            })(),
+          }}
+        />
+      )}
 
       {/* Employee Preferences Modal */}
       {modals.isPreferencesModalOpen && selectedEmployee && (

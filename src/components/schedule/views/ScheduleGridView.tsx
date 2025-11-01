@@ -25,6 +25,10 @@ interface ScheduleGridViewProps {
   getShiftColor: (shiftId: string) => string;
   getShiftName: (shiftId: string) => string;
   getShiftCode?: (shiftId: string) => string;
+  enableSwapMode?: boolean;
+  currentUserId?: string;
+  selectedSwapCell?: { date: string; employeeId: string } | null;
+  onCellClick?: (date: Date, employeeId: string, assignment: Assignment | null) => void;
 }
 
 export function ScheduleGridView({
@@ -38,6 +42,10 @@ export function ScheduleGridView({
   getShiftColor,
   getShiftName,
   getShiftCode,
+  enableSwapMode = false,
+  currentUserId,
+  selectedSwapCell,
+  onCellClick,
 }: ScheduleGridViewProps) {
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-x-auto">
@@ -95,11 +103,29 @@ export function ScheduleGridView({
 
               {daysInMonth.map((date) => {
                 const dayAssignments = getScheduleForDay(date).filter(a => a.employeeId === member.id);
+                const dateStr = format(date, 'yyyy-MM-dd');
+                const isSelected = selectedSwapCell?.date === dateStr && selectedSwapCell?.employeeId === member.id;
+                const isMyCell = currentUserId === member.id;
+                const isClickable = enableSwapMode && (
+                  // 자신의 셀은 항상 클릭 가능
+                  isMyCell ||
+                  // 또는 자신의 셀을 선택한 후 같은 날짜의 다른 사람 셀 클릭 가능
+                  (selectedSwapCell && selectedSwapCell.date === dateStr && selectedSwapCell.employeeId !== member.id)
+                );
 
                 return (
                   <div
                     key={`${member.id}-${date.toISOString()}`}
-                    className="p-0.5 border-l border-gray-100 dark:border-gray-800 flex items-center justify-center"
+                    onClick={() => {
+                      if (isClickable && onCellClick) {
+                        onCellClick(date, member.id, dayAssignments[0] || null);
+                      }
+                    }}
+                    className={`p-0.5 border-l border-gray-100 dark:border-gray-800 flex items-center justify-center ${
+                      isClickable ? 'cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20' : ''
+                    } ${
+                      isSelected ? 'bg-blue-100 dark:bg-blue-900/30 ring-2 ring-blue-500 dark:ring-blue-400' : ''
+                    }`}
                   >
                     {dayAssignments.map((assignment, i) => {
                       const shiftDisplay = showCodeFormat && getShiftCode
