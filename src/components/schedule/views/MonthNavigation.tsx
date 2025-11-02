@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, ArrowLeftRight } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Department {
@@ -15,10 +15,13 @@ interface MonthNavigationProps {
   filteredMembersCount: number;
   selectedShiftTypesSize: number;
   isMember: boolean;
+  swapMode?: boolean;
+  hasSchedule?: boolean;
   onPreviousMonth: () => void;
   onThisMonth: () => void;
   onNextMonth: () => void;
   onDepartmentChange: (departmentId: string) => void;
+  onToggleSwapMode?: () => void;
 }
 
 export function MonthNavigation({
@@ -29,10 +32,13 @@ export function MonthNavigation({
   filteredMembersCount,
   selectedShiftTypesSize,
   isMember,
+  swapMode,
+  hasSchedule,
   onPreviousMonth,
   onThisMonth,
   onNextMonth,
   onDepartmentChange,
+  onToggleSwapMode,
 }: MonthNavigationProps) {
   return (
     <div className="mb-6 flex items-center justify-between">
@@ -66,16 +72,31 @@ export function MonthNavigation({
       </div>
 
       <div className="flex items-center gap-4">
-        <select
-          value={selectedDepartment}
-          onChange={(e) => onDepartmentChange(e.target.value)}
-          disabled={isMember}
-          className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-gray-100 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:dark:bg-gray-800 disabled:dark:text-gray-500"
-        >
-          {departmentOptions.map(dept => (
-            <option key={dept.id} value={dept.id}>{dept.name}</option>
-          ))}
-        </select>
+        {/* Member일 때는 스케줄 교환 버튼, 아니면 부서 선택 dropdown */}
+        {isMember && hasSchedule ? (
+          <button
+            onClick={onToggleSwapMode}
+            className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              swapMode
+                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+            }`}
+            title="스케줄 교환 모드"
+          >
+            <ArrowLeftRight className="w-4 h-4" />
+            {swapMode ? '교환 모드 종료' : '스케줄 교환'}
+          </button>
+        ) : !isMember ? (
+          <select
+            value={selectedDepartment}
+            onChange={(e) => onDepartmentChange(e.target.value)}
+            className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-gray-100"
+          >
+            {departmentOptions.map(dept => (
+              <option key={dept.id} value={dept.id}>{dept.name}</option>
+            ))}
+          </select>
+        ) : null}
         <span className="text-sm text-gray-500 dark:text-gray-400">
           {displayMembersCount}명 {selectedShiftTypesSize > 0 && `(전체: ${filteredMembersCount}명)`}
         </span>
