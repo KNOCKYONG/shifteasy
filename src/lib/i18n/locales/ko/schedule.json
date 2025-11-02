@@ -2,9 +2,24 @@
   "title": "주간 스케줄",
   "weekSchedule": "주간 스케줄",
   "monthSchedule": "월간 스케줄",
+  "views": {
+    "preferences": "직원 선호사항",
+    "today": "오늘의 일정",
+    "schedule": "스케줄 보기",
+    "teamManagement": "팀 배정"
+  },
   "viewMode": {
     "week": "주간",
     "month": "월간"
+  },
+  "today": {
+    "title": "오늘의 일정",
+    "shiftTime": "근무 시간",
+    "morning": "오전 (D)",
+    "afternoon": "오후 (E)",
+    "night": "야간 (N)",
+    "totalWorking": "총 근무 인원",
+    "team": "팀"
   },
   "stats": {
     "totalStaff": "총 직원",
@@ -33,5 +48,25 @@
     "generationError": "스케줄 생성 중 오류가 발생했습니다."
   },
   "weekOf": "{{date}} 주",
-  "employee": "직원"
+  "employee": "직원",
+  "teamManagement": {
+    "title": "팀 관리",
+    "description": "팀을 추가하고 이름을 변경할 수 있습니다",
+    "addTeam": "팀 추가",
+    "teamName": "팀 이름",
+    "teamCode": "팀 코드",
+    "teamColor": "팀 색상",
+    "edit": "수정",
+    "delete": "삭제",
+    "save": "저장",
+    "cancel": "취소",
+    "deleteConfirm": "정말 이 팀을 삭제하시겠습니까?",
+    "noTeams": "등록된 팀이 없습니다. 팀을 추가해주세요.",
+    "createSuccess": "팀이 생성되었습니다",
+    "updateSuccess": "팀 정보가 수정되었습니다",
+    "deleteSuccess": "팀이 삭제되었습니다",
+    "createError": "팀 생성에 실패했습니다",
+    "updateError": "팀 수정에 실패했습니다",
+    "deleteError": "팀 삭제에 실패했습니다"
+  }
 }

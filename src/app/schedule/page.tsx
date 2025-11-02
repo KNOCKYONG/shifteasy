@@ -32,6 +32,7 @@ import {
   ScheduleCalendarView,
   ScheduleStats
 } from "@/components/schedule/views";
+import { TodayScheduleBoard } from "@/components/schedule/TodayScheduleBoard";
 import { convertShiftTypesToShifts, type ShiftType } from "@/lib/utils/shift-utils";
 import { normalizeDate } from "@/lib/utils/date-utils";
 import { useScheduleModals } from "@/hooks/useScheduleModals";
@@ -2094,6 +2095,16 @@ export default function SchedulePage() {
           />
         )}
 
+        {/* Today View */}
+        {filters.activeView === 'today' && (
+          <TodayScheduleBoard
+            employees={allMembers}
+            assignments={schedule}
+            shiftTypes={customShiftTypes}
+            today={new Date()}
+          />
+        )}
+
         {/* Schedule View */}
         {filters.activeView === 'schedule' && (
           <>
@@ -2162,44 +2173,51 @@ export default function SchedulePage() {
           onClose={() => setGenerationResult(null)}
         />
 
-        {/* Schedule View - Grid or Calendar */}
-        {filters.viewMode === 'grid' ? (
-          <ScheduleGridView
-            daysInMonth={daysInMonth}
-            displayMembers={displayMembers}
-            selectedShiftTypesSize={filters.selectedShiftTypes.size}
-            scheduleGridTemplate={scheduleGridTemplate}
-            holidayDates={holidayDates}
-            showCodeFormat={filters.showCodeFormat}
-            getScheduleForDay={getScheduleForDay}
-            getShiftColor={getShiftColor}
-            getShiftName={getShiftName}
-            getShiftCode={getShiftCode}
-            enableSwapMode={isMember && swapMode}
-            currentUserId={currentUser.dbUser?.id}
-            selectedSwapCell={selectedSwapCell}
-            onCellClick={handleSwapCellClick}
-          />
-        ) : (
-          <ScheduleCalendarView
-            currentMonth={currentMonth}
-            displayMembers={displayMembers}
-            holidayDates={holidayDates}
-            showSameSchedule={filters.showSameSchedule}
-            showCodeFormat={filters.showCodeFormat}
-            currentUser={currentUser}
-            getScheduleForDay={getScheduleForDay}
-            getShiftColor={getShiftColor}
-            getShiftName={getShiftName}
-            getShiftCode={getShiftCode}
-          />
-        )}
+        {/* Schedule View */}
+        <div>
+          {/* Main Schedule View */}
+          <div>
+            {filters.viewMode === 'grid' ? (
+              <ScheduleGridView
+                daysInMonth={daysInMonth}
+                displayMembers={displayMembers}
+                selectedShiftTypesSize={filters.selectedShiftTypes.size}
+                scheduleGridTemplate={scheduleGridTemplate}
+                holidayDates={holidayDates}
+                showCodeFormat={filters.showCodeFormat}
+                getScheduleForDay={getScheduleForDay}
+                getShiftColor={getShiftColor}
+                getShiftName={getShiftName}
+                getShiftCode={getShiftCode}
+                enableSwapMode={isMember && swapMode}
+                currentUserId={currentUser.dbUser?.id}
+                selectedSwapCell={selectedSwapCell}
+                onCellClick={handleSwapCellClick}
+              />
+            ) : (
+              <ScheduleCalendarView
+                currentMonth={currentMonth}
+                displayMembers={displayMembers}
+                holidayDates={holidayDates}
+                showSameSchedule={filters.showSameSchedule}
+                showCodeFormat={filters.showCodeFormat}
+                currentUser={currentUser}
+                getScheduleForDay={getScheduleForDay}
+                getShiftColor={getShiftColor}
+                getShiftName={getShiftName}
+                getShiftCode={getShiftCode}
+              />
+            )}
 
-        {/* Stats */}
-        <ScheduleStats
-          schedule={schedule}
-          shifts={shifts}
-        />
+            {/* Stats */}
+            <div className="mt-6">
+              <ScheduleStats
+                schedule={schedule}
+                shifts={shifts}
+              />
+            </div>
+          </div>
+        </div>
           </>
         )}
 

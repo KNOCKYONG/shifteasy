@@ -102,6 +102,19 @@ export const staffRouter = createTRPCRouter({
       departmentId: z.string().optional(),
       position: z.string().optional(),
       status: z.enum(['active', 'inactive', 'on_leave']).optional(),
+      profile: z.object({
+        phone: z.string().optional(),
+        avatar: z.string().optional(),
+        team: z.string().optional(),
+        skills: z.array(z.string()).optional(),
+        certifications: z.array(z.string()).optional(),
+        preferences: z.object({
+          preferredShifts: z.array(z.string()).optional(),
+          unavailableDates: z.array(z.string()).optional(),
+          maxHoursPerWeek: z.number().optional(),
+          minHoursPerWeek: z.number().optional(),
+        }).optional(),
+      }).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));

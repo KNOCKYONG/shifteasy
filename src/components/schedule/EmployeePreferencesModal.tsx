@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { User, Heart, Calendar, Clock, Users, Shield, X, Save, AlertCircle, Star, UserCheck, UserMinus, ChevronLeft, ChevronRight, Info, CheckCircle } from "lucide-react";
+import { User, Heart, Calendar, Clock, Users, Shield, X, Save, AlertCircle, Star, UserCheck, UserMinus, ChevronLeft, ChevronRight, Info, CheckCircle, Edit2, Trash2 } from "lucide-react";
 import { type Employee, type EmployeePreferences, type ShiftType } from "@/lib/scheduler/types";
 import { validatePattern as validatePatternUtil, describePattern, EXAMPLE_PATTERNS, KEYWORD_DESCRIPTIONS, type ShiftToken } from "@/lib/utils/pattern-validator";
 import { api } from "@/lib/trpc/client";
@@ -135,11 +135,18 @@ export function EmployeePreferencesModal({
     } as ExtendedEmployeePreferences;
   });
 
-  const [activeTab, setActiveTab] = useState<'basic' | 'personal' | 'request'>('basic');
+  const [activeTab, setActiveTab] = useState<'basic' | 'personal' | 'team' | 'request'>('basic');
+  const [selectedTeam, setSelectedTeam] = useState<string>(employee.profile?.team || '');
   const [showConstraintForm, setShowConstraintForm] = useState(false);
   const [customPatternInput, setCustomPatternInput] = useState('');
   const [patternValidation, setPatternValidation] = useState<ReturnType<typeof validatePatternUtil> | null>(null);
   const [showPatternHelp, setShowPatternHelp] = useState(false);
+  const [showAddTeamModal, setShowAddTeamModal] = useState(false);
+  const [newTeam, setNewTeam] = useState({ name: '', code: '', color: '#3B82F6' });
+  const [showEditTeamModal, setShowEditTeamModal] = useState(false);
+  const [editingTeam, setEditingTeam] = useState<any>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingTeam, setDeletingTeam] = useState<any>(null);
 
   // Request 탭을 위한 state
   const [selectedMonth, setSelectedMonth] = useState(new Date());
@@ -165,10 +172,60 @@ export function EmployeePreferencesModal({
     },
   });
 
+  const updateStaffProfile = api.staff.update.useMutation({
+    onSuccess: async () => {
+      // 캐시 무효화로 UI 자동 업데이트
+      await utils.staff.list.invalidate();
+    },
+  });
+
   const deleteShiftRequests = api.specialRequests.deleteByEmployeeAndDateRange.useMutation({
     onSuccess: async () => {
       // 캐시 무효화로 UI 자동 업데이트
       await utils.specialRequests.getByDateRange.invalidate();
+    },
+  });
+
+  // Teams query and mutations
+  const { data: teams = [], refetch: refetchTeams } = api.teams.getAll.useQuery();
+
+  const createTeam = api.teams.create.useMutation({
+    onSuccess: async () => {
+      await refetchTeams();
+      setShowAddTeamModal(false);
+      setNewTeam({ name: '', code: '', color: '#3B82F6' });
+      alert('팀이 생성되었습니다');
+    },
+    onError: (error) => {
+      alert('팀 생성 실패: ' + error.message);
+    },
+  });
+
+  const updateTeam = api.teams.update.useMutation({
+    onSuccess: async () => {
+      await refetchTeams();
+      setShowEditTeamModal(false);
+      setEditingTeam(null);
+      alert('팀이 수정되었습니다');
+    },
+    onError: (error) => {
+      alert('팀 수정 실패: ' + error.message);
+    },
+  });
+
+  const deleteTeam = api.teams.delete.useMutation({
+    onSuccess: async () => {
+      await refetchTeams();
+      setShowDeleteConfirm(false);
+      setDeletingTeam(null);
+      // If the deleted team was selected, clear selection
+      if (selectedTeam === deletingTeam?.code) {
+        setSelectedTeam('');
+      }
+      alert('팀이 삭제되었습니다');
+    },
+    onError: (error) => {
+      alert('팀 삭제 실패: ' + error.message);
     },
   });
 
@@ -224,6 +281,20 @@ export function EmployeePreferencesModal({
   ];
 
   const handleSave = async () => {
+    // Save team assignment to user profile
+    try {
+      await updateStaffProfile.mutateAsync({
+        id: employee.id,
+        profile: {
+          ...employee.profile,
+          team: selectedTeam || undefined,
+        },
+      });
+      console.log('✅ Team assignment saved:', selectedTeam);
+    } catch (error) {
+      console.error('❌ Failed to save team assignment:', error);
+    }
+
     // Save preferences to database
     try {
       await fetch('/api/preferences', {
@@ -501,6 +572,7 @@ export function EmployeePreferencesModal({
             {[
               { id: 'basic', label: '기본 선호도', icon: Clock },
               { id: 'personal', label: '개인 사정', icon: Calendar },
+              { id: 'team', label: '팀 배정', icon: Users },
               { id: 'request', label: 'Request', icon: Star },
             ].map((tab) => (
               <button
@@ -852,6 +924,119 @@ export function EmployeePreferencesModal({
             </div>
           )}
 
+          {activeTab === 'team' && (
+            <div className="space-y-6">
+              {/* 팀 배정 */}
+              <div>
+                <h3 className="font-semibold mb-3 text-gray-900 dark:text-white flex items-center gap-2">
+                  <Users className="w-5 h-5 text-blue-500" />
+                  팀 배정
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  직원을 팀에 배정하여 스케줄 생성 시 팀 단위로 관리할 수 있습니다.
+                </p>
+
+                {/* 팀 선택 */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {teams.map((team) => (
+                    <div key={team.id} className="relative group">
+                      <button
+                        onClick={() => setSelectedTeam(team.code)}
+                        className={`w-full p-4 rounded-lg border-2 transition-all text-center ${
+                          selectedTeam === team.code
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-md'
+                            : 'border-gray-200 dark:border-slate-600 hover:border-gray-300 dark:hover:border-slate-500'
+                        }`}
+                      >
+                        <div
+                          className="w-12 h-12 rounded-full mx-auto mb-2 flex items-center justify-center text-white font-bold text-xl shadow-lg"
+                          style={{ backgroundColor: team.color }}
+                        >
+                          {team.code}
+                        </div>
+                        <div className="font-medium text-gray-900 dark:text-white">{team.name}</div>
+                      </button>
+
+                      {/* Edit/Delete Buttons */}
+                      <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingTeam(team);
+                            setShowEditTeamModal(true);
+                          }}
+                          className="p-1 bg-white dark:bg-slate-700 rounded-md shadow-md hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                          title="팀 수정"
+                        >
+                          <Edit2 className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeletingTeam(team);
+                            setShowDeleteConfirm(true);
+                          }}
+                          className="p-1 bg-white dark:bg-slate-700 rounded-md shadow-md hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                          title="팀 삭제"
+                        >
+                          <Trash2 className="w-3 h-3 text-red-600 dark:text-red-400" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Add Team Button */}
+                  <button
+                    onClick={() => setShowAddTeamModal(true)}
+                    className="p-4 rounded-lg border-2 border-dashed border-gray-300 dark:border-slate-600 hover:border-blue-500 dark:hover:border-blue-500 transition-all text-center group"
+                  >
+                    <div className="w-12 h-12 bg-gray-200 dark:bg-slate-600 rounded-full mx-auto mb-2 flex items-center justify-center group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-colors">
+                      <Users className="w-6 h-6 text-gray-400 dark:text-gray-500 group-hover:text-blue-500" />
+                    </div>
+                    <div className="font-medium text-gray-500 dark:text-gray-400 group-hover:text-blue-500">팀 추가</div>
+                  </button>
+                </div>
+
+                {/* 팀 배정 해제 */}
+                {selectedTeam && (() => {
+                  const team = teams.find(t => t.code === selectedTeam);
+                  return (
+                    <div className="mt-4 flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-700 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-lg"
+                          style={{ backgroundColor: team?.color || '#3B82F6' }}
+                        >
+                          {selectedTeam}
+                        </div>
+                        <div>
+                          <div className="font-medium text-gray-900 dark:text-white">
+                            {employee.name}님은 {team?.name || selectedTeam}에 배정됩니다
+                          </div>
+                          <div className="text-xs text-gray-600 dark:text-gray-400">
+                            스케줄 생성 시 팀 정보가 반영됩니다
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setSelectedTeam('')}
+                        className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                      >
+                        배정 해제
+                      </button>
+                    </div>
+                  );
+                })()}
+
+                {!selectedTeam && (
+                  <div className="mt-4 text-center py-8 text-gray-500 dark:text-gray-400">
+                    팀이 배정되지 않았습니다. 위에서 팀을 선택하세요.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {activeTab === 'request' && (
             <div className="space-y-4">
               {/* 월 선택 */}
@@ -1003,6 +1188,62 @@ export function EmployeePreferencesModal({
           onClose={() => setShowConstraintForm(false)}
         />
       )}
+
+      {/* Add Team Modal */}
+      {showAddTeamModal && (
+        <AddTeamModal
+          newTeam={newTeam}
+          setNewTeam={setNewTeam}
+          onSave={() => {
+            if (!newTeam.name.trim() || !newTeam.code.trim()) {
+              alert('팀 이름과 코드를 입력해주세요');
+              return;
+            }
+            createTeam.mutate(newTeam);
+          }}
+          onClose={() => {
+            setShowAddTeamModal(false);
+            setNewTeam({ name: '', code: '', color: '#3B82F6' });
+          }}
+        />
+      )}
+
+      {/* Edit Team Modal */}
+      {showEditTeamModal && editingTeam && (
+        <EditTeamModal
+          team={editingTeam}
+          onSave={(updatedTeam) => {
+            if (!updatedTeam.name.trim() || !updatedTeam.code.trim()) {
+              alert('팀 이름과 코드를 입력해주세요');
+              return;
+            }
+            updateTeam.mutate({
+              id: editingTeam.id,
+              name: updatedTeam.name,
+              code: updatedTeam.code,
+              color: updatedTeam.color,
+            });
+          }}
+          onClose={() => {
+            setShowEditTeamModal(false);
+            setEditingTeam(null);
+          }}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && deletingTeam && (
+        <DeleteConfirmDialog
+          teamName={deletingTeam.name}
+          onConfirm={() => {
+            deleteTeam.mutate({ id: deletingTeam.id });
+          }}
+          onCancel={() => {
+            setShowDeleteConfirm(false);
+            setDeletingTeam(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -1088,6 +1329,190 @@ function PersonalConstraintForm({
           >
             추가
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// Add Team Modal Component
+function AddTeamModal({
+  newTeam,
+  setNewTeam,
+  onSave,
+  onClose,
+}: {
+  newTeam: { name: string; code: string; color: string };
+  setNewTeam: (team: { name: string; code: string; color: string }) => void;
+  onSave: () => void;
+  onClose: () => void;
+}) {
+  const DEFAULT_COLORS = [
+    "#3B82F6",
+    "#10B981",
+    "#F59E0B",
+    "#EF4444",
+    "#8B5CF6",
+    "#EC4899",
+    "#14B8A6",
+    "#F97316",
+  ];
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70]">
+      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl p-6 w-full max-w-md">
+        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">팀 추가</h3>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">팀 이름</label>
+            <input type="text" value={newTeam.name} onChange={(e) => setNewTeam({ ...newTeam, name: e.target.value })} placeholder="예: A팀" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">팀 코드</label>
+            <input type="text" value={newTeam.code} onChange={(e) => setNewTeam({ ...newTeam, code: e.target.value.toUpperCase() })} placeholder="예: A" maxLength={10} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">팀 색상</label>
+            <div className="flex gap-2">
+              {DEFAULT_COLORS.map((color) => (
+                <button key={color} onClick={() => setNewTeam({ ...newTeam, color })} className={`w-10 h-10 rounded-full border-2 transition-all ${newTeam.color === color ? "border-gray-900 dark:border-white scale-110" : "border-gray-300 dark:border-gray-600"}`} style={{ backgroundColor: color }} />
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-3 mt-6">
+          <button onClick={onClose} className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-600">취소</button>
+          <button onClick={onSave} disabled={!newTeam.name.trim() || !newTeam.code.trim()} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"><Save className="w-4 h-4" />추가</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Edit Team Modal Component
+function EditTeamModal({
+  team,
+  onSave,
+  onClose
+}: {
+  team: { id: string; name: string; code: string; color: string };
+  onSave: (team: { name: string; code: string; color: string }) => void;
+  onClose: () => void;
+}) {
+  const [editedTeam, setEditedTeam] = useState({
+    name: team.name,
+    code: team.code,
+    color: team.color,
+  });
+
+  const DEFAULT_COLORS = [
+    '#3B82F6', // blue
+    '#10B981', // green
+    '#F59E0B', // yellow
+    '#EF4444', // red
+    '#8B5CF6', // purple
+    '#EC4899', // pink
+    '#14B8A6', // teal
+    '#F97316', // orange
+  ];
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 p-6 z-10">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white">팀 수정</h3>
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
+              <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+            </button>
+          </div>
+        </div>
+        <div className="p-6">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">팀 이름</label>
+              <input
+                type="text"
+                value={editedTeam.name}
+                onChange={(e) => setEditedTeam({ ...editedTeam, name: e.target.value })}
+                placeholder="A팀"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">팀 코드</label>
+              <input
+                type="text"
+                value={editedTeam.code}
+                onChange={(e) => setEditedTeam({ ...editedTeam, code: e.target.value.toUpperCase() })}
+                placeholder="A"
+                maxLength={10}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">팀 색상</label>
+              <div className="flex flex-wrap gap-3">
+                {DEFAULT_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    onClick={() => setEditedTeam({ ...editedTeam, color })}
+                    className={`w-12 h-12 rounded-full border-2 transition-all ${
+                      editedTeam.color === color
+                        ? 'border-gray-900 dark:border-white scale-110 shadow-lg'
+                        : 'border-gray-300 dark:border-slate-600 hover:scale-105'
+                    }`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-slate-700">
+          <button onClick={onClose} className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-600">취소</button>
+          <button onClick={() => onSave(editedTeam)} disabled={!editedTeam.name.trim() || !editedTeam.code.trim()} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"><Save className="w-4 h-4" />저장</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Delete Confirmation Dialog Component
+function DeleteConfirmDialog({
+  teamName,
+  onConfirm,
+  onCancel
+}: {
+  teamName: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+              <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">팀 삭제</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">이 작업은 되돌릴 수 없습니다</p>
+            </div>
+          </div>
+          <p className="text-gray-700 dark:text-gray-300 mb-6">
+            <span className="font-semibold text-red-600 dark:text-red-400">{teamName}</span> 팀을 삭제하시겠습니까?
+            이 팀에 배정된 직원들의 팀 정보도 함께 제거됩니다.
+          </p>
+          <div className="flex justify-end gap-3">
+            <button onClick={onCancel} className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-600">취소</button>
+            <button onClick={onConfirm} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2">
+              <Trash2 className="w-4 h-4" />
+              삭제
+            </button>
+          </div>
         </div>
       </div>
     </div>

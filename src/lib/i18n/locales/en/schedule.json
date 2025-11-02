@@ -2,9 +2,24 @@
   "title": "Weekly Schedule",
   "weekSchedule": "Weekly Schedule",
   "monthSchedule": "Monthly Schedule",
+  "views": {
+    "preferences": "Staff Preferences",
+    "today": "Today's Schedule",
+    "schedule": "View Schedule",
+    "teamManagement": "Team Assignment"
+  },
   "viewMode": {
     "week": "Week",
     "month": "Month"
+  },
+  "today": {
+    "title": "Today's Schedule",
+    "shiftTime": "Shift Time",
+    "morning": "Morning (D)",
+    "afternoon": "Afternoon (E)",
+    "night": "Night (N)",
+    "totalWorking": "Total Working Staff",
+    "team": "Team"
   },
   "stats": {
     "totalStaff": "Total Staff",
@@ -33,5 +48,25 @@
     "generationError": "An error occurred during schedule generation."
   },
   "weekOf": "Week of {{date}}",
-  "employee": "Employee"
+  "employee": "Employee",
+  "teamManagement": {
+    "title": "Team Management",
+    "description": "Add teams and change their names",
+    "addTeam": "Add Team",
+    "teamName": "Team Name",
+    "teamCode": "Team Code",
+    "teamColor": "Team Color",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "deleteConfirm": "Are you sure you want to delete this team?",
+    "noTeams": "No teams registered. Please add a team.",
+    "createSuccess": "Team created successfully",
+    "updateSuccess": "Team updated successfully",
+    "deleteSuccess": "Team deleted successfully",
+    "createError": "Failed to create team",
+    "updateError": "Failed to update team",
+    "deleteError": "Failed to delete team"
+  }
 }

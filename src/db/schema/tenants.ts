@@ -66,6 +66,7 @@ export const users = pgTable('users', {
   profile: jsonb('profile').$type<{
     phone?: string;
     avatar?: string;
+    team?: string; // A, B, C, D 등 팀 구분
     skills?: string[];
     certifications?: string[];
     preferences?: {

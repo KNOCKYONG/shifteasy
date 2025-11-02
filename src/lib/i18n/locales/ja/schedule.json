@@ -2,9 +2,24 @@
   "title": "週間スケジュール",
   "weekSchedule": "週間スケジュール",
   "monthSchedule": "月間スケジュール",
+  "views": {
+    "preferences": "スタッフ選好",
+    "today": "今日のスケジュール",
+    "schedule": "スケジュール表示",
+    "teamManagement": "チーム配置"
+  },
   "viewMode": {
     "week": "週間",
     "month": "月間"
+  },
+  "today": {
+    "title": "今日のスケジュール",
+    "shiftTime": "勤務時間",
+    "morning": "午前 (D)",
+    "afternoon": "午後 (E)",
+    "night": "夜間 (N)",
+    "totalWorking": "総勤務人員",
+    "team": "チーム"
   },
   "stats": {
     "totalStaff": "総スタッフ",
@@ -33,5 +48,25 @@
     "generationError": "スケジュール生成中にエラーが発生しました。"
   },
   "weekOf": "{{date}}週",
-  "employee": "従業員"
+  "employee": "従業員",
+  "teamManagement": {
+    "title": "チーム管理",
+    "description": "チームを追加して名前を変更できます",
+    "addTeam": "チーム追加",
+    "teamName": "チーム名",
+    "teamCode": "チームコード",
+    "teamColor": "チームカラー",
+    "edit": "編集",
+    "delete": "削除",
+    "save": "保存",
+    "cancel": "キャンセル",
+    "deleteConfirm": "このチームを削除してもよろしいですか？",
+    "noTeams": "登録されたチームがありません。チームを追加してください。",
+    "createSuccess": "チームが作成されました",
+    "updateSuccess": "チーム情報が更新されました",
+    "deleteSuccess": "チームが削除されました",
+    "createError": "チーム作成に失敗しました",
+    "updateError": "チーム更新に失敗しました",
+    "deleteError": "チーム削除に失敗しました"
+  }
 }
