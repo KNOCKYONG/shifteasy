@@ -3,7 +3,8 @@ import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, protectedProcedure, adminProcedure } from '../trpc';
 import { scopedDb, createAuditLog } from '@/lib/db-helpers';
 import { schedules, users, shiftTypes, departments } from '@/db/schema';
-import { eq, and, gte, lte, desc } from 'drizzle-orm';
+import { eq, and, gte, lte, desc, inArray } from 'drizzle-orm';
+import { db } from '@/db';
 
 export const scheduleRouter = createTRPCRouter({
   list: protectedProcedure
@@ -17,9 +18,11 @@ export const scheduleRouter = createTRPCRouter({
     }))
     .query(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
-      const db = scopedDb(tenantId);
 
-      const conditions = [];
+      const conditions = [
+        eq(schedules.tenantId, tenantId),
+      ];
+
       if (ctx.user?.role === 'member') {
         if (!ctx.user.departmentId) {
           return [];
@@ -42,38 +45,43 @@ export const scheduleRouter = createTRPCRouter({
         conditions.push(lte(schedules.endDate, input.endDate));
       }
 
-      const where = conditions.length > 0 ? and(...conditions) : undefined;
-
-      // Join with departments to get department name
-      const results = await db
-        .select({
-          id: schedules.id,
-          tenantId: schedules.tenantId,
-          departmentId: schedules.departmentId,
-          name: schedules.name,
-          patternId: schedules.patternId,
-          startDate: schedules.startDate,
-          endDate: schedules.endDate,
-          status: schedules.status,
-          publishedAt: schedules.publishedAt,
-          publishedBy: schedules.publishedBy,
-          metadata: schedules.metadata,
-          createdAt: schedules.createdAt,
-          updatedAt: schedules.updatedAt,
-          department: {
-            id: departments.id,
-            name: departments.name,
-            code: departments.code,
-          },
-        })
+      // Get schedules
+      const scheduleResults = await db
+        .select()
         .from(schedules)
-        .leftJoin(departments, eq(schedules.departmentId, departments.id))
-        .where(where)
+        .where(and(...conditions))
         .orderBy(desc(schedules.createdAt))
         .limit(input.limit)
         .offset(input.offset);
 
-      return results;
+      // Get unique department IDs
+      const deptIds = [...new Set(scheduleResults.map(s => s.departmentId).filter(Boolean))] as string[];
+
+      // Fetch department information separately
+      const depts = deptIds.length > 0
+        ? await db
+            .select()
+            .from(departments)
+            .where(and(
+              eq(departments.tenantId, tenantId),
+              inArray(departments.id, deptIds)
+            ))
+        : [];
+
+      // Create department map
+      const deptMap = new Map(depts.map(d => [d.id, d]));
+
+      // Combine results
+      return scheduleResults.map(schedule => ({
+        ...schedule,
+        department: schedule.departmentId && deptMap.has(schedule.departmentId)
+          ? {
+              id: deptMap.get(schedule.departmentId)!.id,
+              name: deptMap.get(schedule.departmentId)!.name,
+              code: deptMap.get(schedule.departmentId)!.code,
+            }
+          : null,
+      }));
     }),
 
   get: protectedProcedure
@@ -286,10 +294,16 @@ export const scheduleRouter = createTRPCRouter({
       id: z.string(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
 
       // Get schedule to check permissions
-      const [schedule] = await db.query(schedules, eq(schedules.id, input.id));
+      const [schedule] = await db
+        .select()
+        .from(schedules)
+        .where(and(
+          eq(schedules.id, input.id),
+          eq(schedules.tenantId, tenantId)
+        ));
 
       if (!schedule) {
         throw new TRPCError({
@@ -313,10 +327,15 @@ export const scheduleRouter = createTRPCRouter({
         });
       }
 
-      await db.delete(schedules, eq(schedules.id, input.id));
+      await db
+        .delete(schedules)
+        .where(and(
+          eq(schedules.id, input.id),
+          eq(schedules.tenantId, tenantId)
+        ));
 
       await createAuditLog({
-        tenantId: (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'),
+        tenantId: tenantId,
         actorId: (ctx.user?.id || 'dev-user-id'),
         action: 'schedule.deleted',
         entityType: 'schedule',
