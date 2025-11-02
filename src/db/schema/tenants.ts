@@ -57,6 +57,7 @@ export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
   departmentId: uuid('department_id').references(() => departments.id, { onDelete: 'set null' }),
+  teamId: uuid('team_id').references((): any => (require('./teams').teams).id, { onDelete: 'set null' }),
   clerkUserId: text('clerk_user_id').unique(),
   email: text('email').notNull(),
   name: text('name').notNull(),
@@ -66,7 +67,6 @@ export const users = pgTable('users', {
   profile: jsonb('profile').$type<{
     phone?: string;
     avatar?: string;
-    team?: string; // A, B, C, D 등 팀 구분
     skills?: string[];
     certifications?: string[];
     preferences?: {
@@ -85,6 +85,7 @@ export const users = pgTable('users', {
   emailIdx: index('users_email_idx').on(table.email),
   clerkUserIdx: index('users_clerk_user_id_idx').on(table.clerkUserId),
   departmentIdx: index('users_department_id_idx').on(table.departmentId),
+  teamIdx: index('users_team_id_idx').on(table.teamId),
 }));
 
 // Shift Types table
@@ -196,6 +197,10 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   department: one(departments, {
     fields: [users.departmentId],
     references: [departments.id],
+  }),
+  team: one(() => require('./teams').teams, {
+    fields: [users.teamId],
+    references: [(require('./teams').teams as any).id],
   }),
   publishedSchedules: many(schedules),
 }));

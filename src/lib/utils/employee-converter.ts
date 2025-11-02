@@ -80,5 +80,6 @@ export function toEmployee(member: any): Employee {
     skills: member?.skills || [],
     preferences,
     availability,
-  };
+    ...(member?.teamId !== undefined && { teamId: member.teamId }),
+  } as any;
 }

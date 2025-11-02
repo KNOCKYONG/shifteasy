@@ -649,6 +649,7 @@ export default function SchedulePage() {
       avatar: '',
       phone: item.profile?.phone || '',
       skills: item.profile?.skills || [],
+      teamId: item.teamId || null,
       workSchedule: item.profile?.preferences || {
         preferredShifts: [],
         maxHoursPerWeek: 40,
@@ -748,7 +749,44 @@ export default function SchedulePage() {
 
   // Handle employee card click to open preferences modal
   const handleEmployeeClick = async (member: any) => {
-    const employee = toEmployee(member);
+    // 최신 데이터를 직접 가져오기
+    const freshUsersData = await utils.tenant.users.list.fetch({
+      limit: 100,
+      offset: 0,
+      status: 'active',
+      departmentId:
+        !isMember && userRole !== 'manager' && selectedDepartment !== 'all' && selectedDepartment !== 'no-department'
+          ? selectedDepartment
+          : undefined,
+    });
+
+    // 최신 데이터에서 member 찾기
+    const latestMemberData = freshUsersData?.items?.find((item: any) => item.id === member.id);
+    const latestMember = latestMemberData ? {
+      id: latestMemberData.id,
+      employeeId: latestMemberData.employeeId || '',
+      name: latestMemberData.name,
+      email: latestMemberData.email,
+      role: latestMemberData.role as 'admin' | 'manager' | 'staff',
+      departmentId: latestMemberData.departmentId || '',
+      departmentName: latestMemberData.department?.name || '',
+      status: latestMemberData.status as 'active' | 'inactive' | 'on_leave',
+      position: latestMemberData.position || '',
+      joinedAt: latestMemberData.createdAt?.toISOString() || new Date().toISOString(),
+      avatar: '',
+      phone: latestMemberData.profile?.phone || '',
+      skills: latestMemberData.profile?.skills || [],
+      teamId: latestMemberData.teamId || null,
+      workSchedule: latestMemberData.profile?.preferences || {
+        preferredShifts: [],
+        maxHoursPerWeek: 40,
+        minHoursPerWeek: 30,
+        availableDays: [1, 2, 3, 4, 5],
+        unavailableDates: []
+      }
+    } : member;
+
+    const employee = toEmployee(latestMember);
 
     // Fetch saved preferences from database (bypass cache)
     try {
@@ -961,7 +999,9 @@ export default function SchedulePage() {
   };
 
   // Handle modal close
-  const handleModalClose = () => {
+  const handleModalClose = async () => {
+    // 모달을 닫을 때 캐시 무효화하여 업데이트된 employee 데이터 가져오기
+    await utils.tenant.users.list.invalidate();
     modals.setIsPreferencesModalOpen(false);
     setSelectedEmployee(null);
   };
@@ -2312,6 +2352,7 @@ export default function SchedulePage() {
           teamMembers={filteredMembers.map(toEmployee)}
           onSave={handlePreferencesSave}
           onClose={handleModalClose}
+          canManageTeams={canManageSchedules}
         />
       )}
 

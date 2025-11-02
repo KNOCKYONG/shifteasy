@@ -72,6 +72,7 @@ export const tenantRouter = createTRPCRouter({
             id: users.id,
             tenantId: users.tenantId,
             departmentId: users.departmentId,
+            teamId: users.teamId,
             clerkUserId: users.clerkUserId,
             email: users.email,
             name: users.name,

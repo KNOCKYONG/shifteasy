@@ -1,6 +1,6 @@
 import { pgTable, uuid, text, timestamp, integer, index } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
-import { tenants, departments } from './tenants';
+import { tenants, departments, users } from './tenants';
 
 /**
  * Teams table - 팀 관리
@@ -27,7 +27,7 @@ export const teams = pgTable('teams', {
   codeIdx: index('teams_code_idx').on(table.code),
 }));
 
-export const teamsRelations = relations(teams, ({ one }) => ({
+export const teamsRelations = relations(teams, ({ one, many }) => ({
   tenant: one(tenants, {
     fields: [teams.tenantId],
     references: [tenants.id],
@@ -36,4 +36,5 @@ export const teamsRelations = relations(teams, ({ one }) => ({
     fields: [teams.departmentId],
     references: [departments.id],
   }),
+  members: many(users),
 }));

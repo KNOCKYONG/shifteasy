@@ -100,12 +100,12 @@ export const staffRouter = createTRPCRouter({
       name: z.string().optional(),
       role: z.enum(['admin', 'manager', 'member']).optional(),
       departmentId: z.string().optional(),
+      teamId: z.string().nullable().optional(),
       position: z.string().optional(),
       status: z.enum(['active', 'inactive', 'on_leave']).optional(),
       profile: z.object({
         phone: z.string().optional(),
         avatar: z.string().optional(),
-        team: z.string().optional(),
         skills: z.array(z.string()).optional(),
         certifications: z.array(z.string()).optional(),
         preferences: z.object({

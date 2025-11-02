@@ -11,6 +11,7 @@ interface EmployeePreferencesModalProps {
   onSave: (preferences: ExtendedEmployeePreferences) => void;
   onClose: () => void;
   teamMembers: Employee[];
+  canManageTeams?: boolean; // manager 이상 권한
 }
 
 // 근무 패턴 타입 정의
@@ -87,7 +88,8 @@ export function EmployeePreferencesModal({
   employee,
   onSave,
   onClose,
-  teamMembers
+  teamMembers,
+  canManageTeams = false
 }: EmployeePreferencesModalProps) {
   const [preferences, setPreferences] = useState<ExtendedEmployeePreferences>(() => {
     // Spread employee.preferences first, then apply defaults for undefined fields
@@ -136,8 +138,13 @@ export function EmployeePreferencesModal({
   });
 
   const [activeTab, setActiveTab] = useState<'basic' | 'personal' | 'team' | 'request'>('basic');
-  const [selectedTeam, setSelectedTeam] = useState<string>(employee.profile?.team || '');
+  const [selectedTeam, setSelectedTeam] = useState<string>((employee as any).teamId || '');
   const [showConstraintForm, setShowConstraintForm] = useState(false);
+
+  // employee가 변경될 때 selectedTeam 업데이트
+  useEffect(() => {
+    setSelectedTeam((employee as any).teamId || '');
+  }, [employee.id, (employee as any).teamId]);
   const [customPatternInput, setCustomPatternInput] = useState('');
   const [patternValidation, setPatternValidation] = useState<ReturnType<typeof validatePatternUtil> | null>(null);
   const [showPatternHelp, setShowPatternHelp] = useState(false);
@@ -176,6 +183,7 @@ export function EmployeePreferencesModal({
     onSuccess: async () => {
       // 캐시 무효화로 UI 자동 업데이트
       await utils.staff.list.invalidate();
+      await utils.tenant.users.list.invalidate(); // schedule 페이지에서 사용하는 쿼리
     },
   });
 
@@ -219,7 +227,7 @@ export function EmployeePreferencesModal({
       setShowDeleteConfirm(false);
       setDeletingTeam(null);
       // If the deleted team was selected, clear selection
-      if (selectedTeam === deletingTeam?.code) {
+      if (selectedTeam === deletingTeam?.id) {
         setSelectedTeam('');
       }
       alert('팀이 삭제되었습니다');
@@ -281,14 +289,11 @@ export function EmployeePreferencesModal({
   ];
 
   const handleSave = async () => {
-    // Save team assignment to user profile
+    // Save team assignment
     try {
       await updateStaffProfile.mutateAsync({
         id: employee.id,
-        profile: {
-          ...employee.profile,
-          team: selectedTeam || undefined,
-        },
+        teamId: selectedTeam || null,
       });
       console.log('✅ Team assignment saved:', selectedTeam);
     } catch (error) {
@@ -572,8 +577,8 @@ export function EmployeePreferencesModal({
             {[
               { id: 'basic', label: '기본 선호도', icon: Clock },
               { id: 'personal', label: '개인 사정', icon: Calendar },
-              { id: 'team', label: '팀 배정', icon: Users },
               { id: 'request', label: 'Request', icon: Star },
+              ...(canManageTeams ? [{ id: 'team', label: '팀 배정', icon: Users }] : []),
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -941,9 +946,9 @@ export function EmployeePreferencesModal({
                   {teams.map((team) => (
                     <div key={team.id} className="relative group">
                       <button
-                        onClick={() => setSelectedTeam(team.code)}
+                        onClick={() => setSelectedTeam(team.id)}
                         className={`w-full p-4 rounded-lg border-2 transition-all text-center ${
-                          selectedTeam === team.code
+                          selectedTeam === team.id
                             ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-md'
                             : 'border-gray-200 dark:border-slate-600 hover:border-gray-300 dark:hover:border-slate-500'
                         }`}
@@ -999,7 +1004,7 @@ export function EmployeePreferencesModal({
 
                 {/* 팀 배정 해제 */}
                 {selectedTeam && (() => {
-                  const team = teams.find(t => t.code === selectedTeam);
+                  const team = teams.find(t => t.id === selectedTeam);
                   return (
                     <div className="mt-4 flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-700 rounded-lg">
                       <div className="flex items-center gap-3">
@@ -1007,11 +1012,11 @@ export function EmployeePreferencesModal({
                           className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-lg"
                           style={{ backgroundColor: team?.color || '#3B82F6' }}
                         >
-                          {selectedTeam}
+                          {team?.code || '-'}
                         </div>
                         <div>
                           <div className="font-medium text-gray-900 dark:text-white">
-                            {employee.name}님은 {team?.name || selectedTeam}에 배정됩니다
+                            {employee.name}님은 {team?.name || '알 수 없는 팀'}에 배정됩니다
                           </div>
                           <div className="text-xs text-gray-600 dark:text-gray-400">
                             스케줄 생성 시 팀 정보가 반영됩니다

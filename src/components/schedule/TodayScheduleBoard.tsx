@@ -11,9 +11,7 @@ import { api } from '@/lib/trpc/client';
 interface Employee {
   id: string;
   name: string;
-  profile?: {
-    team?: string;
-  };
+  teamId?: string | null;
 }
 
 interface ShiftAssignment {
@@ -52,8 +50,8 @@ export function TodayScheduleBoard({
 
   // Use DB teams or fallback to single team with "-"
   const teams = dbTeams.length > 0
-    ? dbTeams.map(team => ({ code: team.code, name: team.name, color: team.color }))
-    : [{ code: '-', name: '-', color: '#6B7280' }];
+    ? dbTeams.map(team => ({ id: team.id, code: team.code, name: team.name, color: team.color }))
+    : [{ id: 'unassigned', code: '-', name: '-', color: '#6B7280' }];
 
   // Group shift types by time of day (오전/D, 오후/E, 야간/N)
   const shiftGroups = [
@@ -63,11 +61,15 @@ export function TodayScheduleBoard({
   ];
 
   // Get employees working in each team/shift combination
-  const getEmployeesForTeamAndShift = (team: string, shiftCodes: string[]) => {
+  const getEmployeesForTeamAndShift = (teamId: string, shiftCodes: string[]) => {
     return todayAssignments
       .map((assignment) => {
         const employee = employees.find((e) => e.id === assignment.employeeId);
-        if (!employee || employee.profile?.team !== team) return null;
+        // Match team: if team is 'unassigned', show employees with no teamId
+        const teamMatches = teamId === 'unassigned'
+          ? !employee?.teamId
+          : employee?.teamId === teamId;
+        if (!employee || !teamMatches) return null;
 
         // Extract shift code from shiftId (format: "shift-d", "shift-e", "shift-n")
         const shiftCode = assignment.shiftId.replace('shift-', '').toUpperCase();
@@ -140,12 +142,15 @@ export function TodayScheduleBoard({
           {teams.map((team) => {
             const teamEmployees = todayAssignments.filter((a) => {
               const emp = employees.find((e) => e.id === a.employeeId);
-              return emp?.profile?.team === team.code;
+              const teamMatches = team.id === 'unassigned'
+                ? !emp?.teamId
+                : emp?.teamId === team.id;
+              return teamMatches;
             });
 
             return (
               <div
-                key={team.code}
+                key={team.id}
                 className="flex flex-col gap-0 flex-1 min-w-[200px]"
               >
                 {/* Team Header */}
@@ -164,7 +169,7 @@ export function TodayScheduleBoard({
 
                 {/* Shift Sections */}
                 {shiftGroups.map((shiftGroup) => {
-                  const shiftEmployees = getEmployeesForTeamAndShift(team.code, shiftGroup.codes);
+                  const shiftEmployees = getEmployeesForTeamAndShift(team.id, shiftGroup.codes);
 
                   return (
                     <div
@@ -211,11 +216,14 @@ export function TodayScheduleBoard({
             {teams.map((team) => {
               const teamEmployees = todayAssignments.filter((a) => {
                 const emp = employees.find((e) => e.id === a.employeeId);
-                return emp?.profile?.team === team.code;
+                const teamMatches = team.id === 'unassigned'
+                  ? !emp?.teamId
+                  : emp?.teamId === team.id;
+                return teamMatches;
               });
 
               return (
-                <div key={team.code} className="flex items-center gap-1">
+                <div key={team.id} className="flex items-center gap-1">
                   <div
                     className="w-3 h-3 rounded-full"
                     style={{ backgroundColor: team.color }}
