@@ -3,7 +3,7 @@ import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, protectedProcedure, adminProcedure } from '../trpc';
 import { scopedDb, createAuditLog } from '@/lib/db-helpers';
 import { schedules, users, shiftTypes, departments } from '@/db/schema';
-import { eq, and, gte, lte, desc, inArray } from 'drizzle-orm';
+import { eq, and, gte, lte, desc, inArray, isNull, ne, or } from 'drizzle-orm';
 import { db } from '@/db';
 
 export const scheduleRouter = createTRPCRouter({
@@ -21,6 +21,11 @@ export const scheduleRouter = createTRPCRouter({
 
       const conditions = [
         eq(schedules.tenantId, tenantId),
+        // Filter out soft-deleted schedules (deletedFlag != 'X' or null)
+        or(
+          isNull(schedules.deletedFlag),
+          ne(schedules.deletedFlag, 'X')
+        ),
       ];
 
       if (ctx.user?.role === 'member') {
@@ -90,8 +95,19 @@ export const scheduleRouter = createTRPCRouter({
     }))
     .query(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
-      const db = scopedDb(tenantId);
-      const [schedule] = await db.query(schedules, eq(schedules.id, input.id));
+
+      const [schedule] = await db
+        .select()
+        .from(schedules)
+        .where(and(
+          eq(schedules.id, input.id),
+          eq(schedules.tenantId, tenantId),
+          // Filter out soft-deleted schedules (deletedFlag != 'X' or null)
+          or(
+            isNull(schedules.deletedFlag),
+            ne(schedules.deletedFlag, 'X')
+          )
+        ));
 
       if (!schedule) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Schedule not found' });
@@ -327,8 +343,13 @@ export const scheduleRouter = createTRPCRouter({
         });
       }
 
+      // Soft delete: set deletedFlag to 'X'
       await db
-        .delete(schedules)
+        .update(schedules)
+        .set({
+          deletedFlag: 'X',
+          updatedAt: new Date()
+        })
         .where(and(
           eq(schedules.id, input.id),
           eq(schedules.tenantId, tenantId)
@@ -344,5 +365,119 @@ export const scheduleRouter = createTRPCRouter({
       });
 
       return { success: true };
+    }),
+
+  // Check for existing published schedules in a date range
+  checkExisting: protectedProcedure
+    .input(z.object({
+      departmentId: z.string(),
+      startDate: z.date(),
+      endDate: z.date(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+
+      // Check for published schedules that overlap with the requested date range
+      const existingSchedules = await db
+        .select({
+          id: schedules.id,
+          startDate: schedules.startDate,
+          endDate: schedules.endDate,
+          version: schedules.version,
+          publishedAt: schedules.publishedAt,
+          publishedBy: schedules.publishedBy,
+          metadata: schedules.metadata,
+        })
+        .from(schedules)
+        .where(and(
+          eq(schedules.tenantId, tenantId),
+          eq(schedules.departmentId, input.departmentId),
+          eq(schedules.status, 'published'),
+          or(
+            isNull(schedules.deletedFlag),
+            ne(schedules.deletedFlag, 'X')
+          ),
+          // Check for overlap: schedule.startDate <= input.endDate AND schedule.endDate >= input.startDate
+          lte(schedules.startDate, input.endDate),
+          gte(schedules.endDate, input.startDate)
+        ))
+        .orderBy(desc(schedules.publishedAt));
+
+      return {
+        hasExisting: existingSchedules.length > 0,
+        schedules: existingSchedules,
+      };
+    }),
+
+  // Increment schedule version (used for swaps and updates)
+  incrementVersion: protectedProcedure
+    .input(z.object({
+      scheduleId: z.string(),
+      reason: z.string(),
+      changes: z.any().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+
+      // Get current schedule
+      const [currentSchedule] = await db
+        .select()
+        .from(schedules)
+        .where(and(
+          eq(schedules.id, input.scheduleId),
+          eq(schedules.tenantId, tenantId),
+          or(
+            isNull(schedules.deletedFlag),
+            ne(schedules.deletedFlag, 'X')
+          )
+        ));
+
+      if (!currentSchedule) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Schedule not found',
+        });
+      }
+
+      const newVersion = currentSchedule.version + 1;
+      const versionHistory = (currentSchedule.metadata as any)?.versionHistory || [];
+
+      // Add to version history
+      versionHistory.push({
+        version: newVersion,
+        updatedAt: new Date().toISOString(),
+        updatedBy: ctx.user?.id || 'dev-user-id',
+        reason: input.reason,
+        changes: input.changes,
+      });
+
+      // Update schedule with new version
+      const [updated] = await db
+        .update(schedules)
+        .set({
+          version: newVersion,
+          metadata: {
+            ...currentSchedule.metadata as any,
+            versionHistory,
+          },
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(schedules.id, input.scheduleId),
+          eq(schedules.tenantId, tenantId)
+        ))
+        .returning();
+
+      await createAuditLog({
+        tenantId: tenantId,
+        actorId: (ctx.user?.id || 'dev-user-id'),
+        action: 'schedule.version_updated',
+        entityType: 'schedule',
+        entityId: input.scheduleId,
+        before: currentSchedule,
+        after: updated,
+      });
+
+      return updated;
     }),
 });

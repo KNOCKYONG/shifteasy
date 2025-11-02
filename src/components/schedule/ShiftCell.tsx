@@ -13,11 +13,22 @@ interface ShiftCellProps {
 }
 
 export function ShiftCell({ id, shift, isDisabled, onShiftChange }: ShiftCellProps) {
-  const [shiftOptions, setShiftOptions] = useState(getShiftOptions());
+  const [shiftOptions, setShiftOptions] = useState<Array<{
+    value: string;
+    label: string;
+    fullName: string;
+    colors: { bg: string; border: string; text: string };
+    startTime: string;
+    endTime: string;
+    allowOvertime: boolean;
+  }>>([]);
 
   useEffect(() => {
     // Reload shift options when component mounts or localStorage changes
-    const loadOptions = () => setShiftOptions(getShiftOptions());
+    const loadOptions = async () => {
+      const options = await getShiftOptions();
+      setShiftOptions(options);
+    };
     loadOptions();
 
     // Listen for storage changes

@@ -69,7 +69,10 @@ export const swapRouter = createTRPCRouter({
         ...req,
         requester: usersMap.get(req.requesterId),
         targetUser: req.targetUserId ? usersMap.get(req.targetUserId) : null,
-      }));
+      })) as Array<typeof results[0] & {
+        requester: any;
+        targetUser: any;
+      }>;
 
       return {
         items: enrichedResults
@@ -352,13 +355,31 @@ export const swapRouter = createTRPCRouter({
 
         console.log(`[Swap] AFTER swap - Requester: ${assignments[requesterAssignmentIndex].shiftId}, Target: ${assignments[targetAssignmentIndex].shiftId}`);
 
-        // Update the schedule with swapped assignments
+        // Increment version and add to version history
+        const newVersion = (schedule.version || 1) + 1;
+        const versionHistory = metadata?.versionHistory || [];
+        versionHistory.push({
+          version: newVersion,
+          updatedAt: new Date().toISOString(),
+          updatedBy: ctx.user?.id || 'dev-user-id',
+          reason: 'shift_swap_approved',
+          changes: {
+            swapRequestId: input.id,
+            requesterShift: { from: requesterOldShift, to: assignments[requesterAssignmentIndex].shiftId },
+            targetShift: { from: targetOldShift, to: assignments[targetAssignmentIndex].shiftId },
+            date: swapDateStr,
+          },
+        });
+
+        // Update the schedule with swapped assignments and new version
         const updateResult = await db.update(
           schedules,
           {
+            version: newVersion,
             metadata: {
               ...metadata,
               assignments,
+              versionHistory,
               lastSwap: {
                 swapRequestId: input.id,
                 swappedAt: new Date().toISOString(),
@@ -368,6 +389,8 @@ export const swapRouter = createTRPCRouter({
           },
           eq(schedules.id, schedule.id)
         );
+
+        console.log(`[Swap] Schedule version updated from ${schedule.version || 1} to ${newVersion}`);
 
         console.log(`[Swap] DB update completed for schedule ${schedule.id}`);
         console.log(`[Swap] Update result:`, updateResult);

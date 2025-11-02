@@ -758,7 +758,8 @@ export default function SchedulePage() {
 
       // Merge saved preferences with employee data
       if (savedPreferences) {
-        const mentorshipPreference = savedPreferences.mentorshipPreference;
+        const prefs = savedPreferences as any;
+        const mentorshipPreference = prefs.mentorshipPreference;
         const normalizedMentorshipRole: 'none' | 'mentor' | 'mentee' =
           mentorshipPreference === 'mentor' || mentorshipPreference === 'mentee'
             ? mentorshipPreference
@@ -769,21 +770,21 @@ export default function SchedulePage() {
           preferredShifts: [],
           avoidShifts: [],
           preferredDaysOff: [],
-          maxConsecutiveDays: savedPreferences.maxConsecutiveDaysPreferred || 5,
+          maxConsecutiveDays: prefs.maxConsecutiveDaysPreferred || 5,
           preferNightShift: false,
 
           // Convert saved data to ExtendedEmployeePreferences format
-          workPatternType: savedPreferences.workPatternType as any || 'three-shift',
+          workPatternType: prefs.workPatternType || 'three-shift',
           workLoadPreference: 'normal' as const,
-          flexibilityLevel: savedPreferences.preferAlternatingWeekends ? 'high' as const : 'medium' as const,
+          flexibilityLevel: prefs.preferAlternatingWeekends ? 'high' as const : 'medium' as const,
           preferredPatterns: (() => {
-            const patterns = savedPreferences.preferredPatterns?.map((p: any) => p.pattern) || [];
-            console.log('Loaded preferredPatterns from DB:', savedPreferences.preferredPatterns);
+            const patterns = prefs.preferredPatterns?.map((p: any) => p.pattern) || [];
+            console.log('Loaded preferredPatterns from DB:', prefs.preferredPatterns);
             console.log('Converted to UI format:', patterns);
             return patterns;
           })(),
-          preferredPartners: savedPreferences.preferredColleagues || [],
-          avoidPartners: savedPreferences.avoidColleagues || [],
+          preferredPartners: prefs.preferredColleagues || [],
+          avoidPartners: prefs.avoidColleagues || [],
           personalConstraints: [],
           trainingDays: [],
           mentorshipRole: normalizedMentorshipRole,
@@ -803,22 +804,22 @@ export default function SchedulePage() {
         };
 
         // Convert preferredShiftTypes to preferredShifts array
-        if (savedPreferences.preferredShiftTypes) {
+        if (prefs.preferredShiftTypes) {
           const shiftMapping: { [key: string]: 'day' | 'evening' | 'night' } = {
             D: 'day',
             E: 'evening',
             N: 'night',
           };
 
-          Object.entries(savedPreferences.preferredShiftTypes).forEach(([key, value]) => {
-            if (value && value > 0 && shiftMapping[key]) {
+          Object.entries(prefs.preferredShiftTypes).forEach(([key, value]) => {
+            if (value && (value as number) > 0 && shiftMapping[key]) {
               employee.preferences.preferredShifts.push(shiftMapping[key]);
             }
           });
         }
 
         // Convert weekdayPreferences to preferredDaysOff array
-        if (savedPreferences.weekdayPreferences) {
+        if (prefs.weekdayPreferences) {
           const dayMapping: { [key: string]: number } = {
             sunday: 0,
             monday: 1,
@@ -829,17 +830,17 @@ export default function SchedulePage() {
             saturday: 6,
           };
 
-          Object.entries(savedPreferences.weekdayPreferences).forEach(([dayName, score]) => {
+          Object.entries(prefs.weekdayPreferences).forEach(([dayName, score]) => {
             // Days with score >= 7 are considered preferred days off
-            if (score && score >= 7 && dayMapping[dayName] !== undefined) {
+            if (score && (score as number) >= 7 && dayMapping[dayName] !== undefined) {
               employee.preferences.preferredDaysOff.push(dayMapping[dayName]);
             }
           });
         }
 
         // Convert DB careResponsibilities to UI personalConstraints
-        if (savedPreferences.hasCareResponsibilities && savedPreferences.careResponsibilityDetails) {
-          const details = savedPreferences.careResponsibilityDetails as any;
+        if (prefs.hasCareResponsibilities && prefs.careResponsibilityDetails) {
+          const details = prefs.careResponsibilityDetails;
           const constraints = employee.preferences.personalConstraints ?? [];
           constraints.push({
             id: `care-${Date.now()}`,
@@ -851,8 +852,8 @@ export default function SchedulePage() {
         }
 
         // Parse transportationNotes to extract commute preferences
-        if (savedPreferences.hasTransportationIssues && savedPreferences.transportationNotes) {
-          const notes = savedPreferences.transportationNotes;
+        if (prefs.hasTransportationIssues && prefs.transportationNotes) {
+          const notes = prefs.transportationNotes;
           const commutePreferences = employee.preferences.commuteConsiderations ?? {
             maxCommuteTime: 60,
             avoidRushHour: false,

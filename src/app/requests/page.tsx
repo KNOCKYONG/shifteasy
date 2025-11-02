@@ -362,7 +362,7 @@ export default function RequestsPage() {
                     <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex gap-3 justify-end">
                       <button
                         onClick={() => handleReject(request.id)}
-                        disabled={rejectMutation.isLoading}
+                        disabled={rejectMutation.isPending}
                         className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50 transition-colors"
                       >
                         <XCircle className="w-4 h-4" />
@@ -370,7 +370,7 @@ export default function RequestsPage() {
                       </button>
                       <button
                         onClick={() => handleApprove(request.id)}
-                        disabled={approveMutation.isLoading}
+                        disabled={approveMutation.isPending}
                         className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
                       >
                         <CheckCircle className="w-4 h-4" />
@@ -384,7 +384,7 @@ export default function RequestsPage() {
                     <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex gap-3 justify-end">
                       <button
                         onClick={() => handleCancel(request.id)}
-                        disabled={cancelMutation.isLoading}
+                        disabled={cancelMutation.isPending}
                         className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-orange-700 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/30 disabled:opacity-50 transition-colors"
                       >
                         <XCircle className="w-4 h-4" />

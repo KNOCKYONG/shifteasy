@@ -74,6 +74,15 @@ interface PersonalConstraint {
   endDate?: Date;
 }
 
+const personalConstraintTypes = [
+  { value: 'childcare', label: '육아', icon: '👶' },
+  { value: 'eldercare', label: '노인 돌봄', icon: '👴' },
+  { value: 'education', label: '교육/학업', icon: '📚' },
+  { value: 'medical', label: '의료/치료', icon: '🏥' },
+  { value: 'religious', label: '종교 활동', icon: '🕌' },
+  { value: 'other', label: '기타', icon: '📝' },
+] as const;
+
 export function EmployeePreferencesModal({
   employee,
   onSave,

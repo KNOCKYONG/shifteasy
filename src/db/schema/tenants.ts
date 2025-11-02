@@ -133,8 +133,10 @@ export const schedules = pgTable('schedules', {
   startDate: timestamp('start_date', { withTimezone: true }).notNull(),
   endDate: timestamp('end_date', { withTimezone: true }).notNull(),
   status: text('status').notNull().default('draft'), // draft, published, archived
+  version: integer('version').notNull().default(1), // Version starts at 1, increments on updates
   publishedAt: timestamp('published_at', { withTimezone: true }),
   publishedBy: uuid('published_by').references(() => users.id),
+  deletedFlag: text('deleted_flag'), // 'X' for soft deleted schedules
   metadata: jsonb('metadata').$type<{
     notes?: string;
     constraints?: any;
@@ -143,6 +145,18 @@ export const schedules = pgTable('schedules', {
       averageHours?: number;
       coverage?: Record<string, number>;
     };
+    confirmedAt?: string;
+    confirmedBy?: string;
+    approverNotes?: string;
+    validationScore?: number;
+    assignments?: any;
+    versionHistory?: Array<{
+      version: number;
+      updatedAt: string;
+      updatedBy: string;
+      reason: string;
+      changes?: any;
+    }>;
   }>(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
@@ -151,6 +165,8 @@ export const schedules = pgTable('schedules', {
   departmentIdx: index('schedules_department_id_idx').on(table.departmentId),
   dateRangeIdx: index('schedules_date_range_idx').on(table.startDate, table.endDate),
   statusIdx: index('schedules_status_idx').on(table.status),
+  deletedFlagIdx: index('schedules_deleted_flag_idx').on(table.deletedFlag),
+  versionIdx: index('schedules_version_idx').on(table.version),
 }));
 
 // Relations
@@ -289,6 +305,151 @@ export const pushSubscriptions = pgTable('push_subscriptions', {
   endpointIdx: index('push_subscriptions_endpoint_idx').on(table.endpoint),
 }));
 
+// Handoffs table (간호사 인수인계)
+export const handoffs = pgTable('handoffs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
+  departmentId: uuid('department_id').references(() => departments.id, { onDelete: 'cascade' }).notNull(),
+  shiftDate: timestamp('shift_date', { withTimezone: true }).notNull(),
+  shiftType: text('shift_type').notNull(), // D, E, N (주간, 저녁, 야간)
+  handoverUserId: uuid('handover_user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(), // 인계자
+  receiverUserId: uuid('receiver_user_id').references(() => users.id, { onDelete: 'set null' }), // 인수자
+  status: text('status').notNull().default('draft'), // draft, submitted, in_review, completed
+  startedAt: timestamp('started_at', { withTimezone: true }).defaultNow().notNull(),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  duration: integer('duration'), // 소요 시간 (분)
+  overallNotes: text('overall_notes'), // 전체 메모
+  metadata: jsonb('metadata').$type<{
+    totalPatients?: number;
+    criticalCount?: number;
+    highCount?: number;
+    checklistCompleted?: boolean;
+    checklist?: Array<{
+      item: string;
+      checked: boolean;
+      checkedAt?: string;
+    }>;
+  }>(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => ({
+  tenantIdx: index('handoffs_tenant_id_idx').on(table.tenantId),
+  departmentIdx: index('handoffs_department_id_idx').on(table.departmentId),
+  shiftDateIdx: index('handoffs_shift_date_idx').on(table.shiftDate),
+  statusIdx: index('handoffs_status_idx').on(table.status),
+  handoverUserIdx: index('handoffs_handover_user_id_idx').on(table.handoverUserId),
+  receiverUserIdx: index('handoffs_receiver_user_id_idx').on(table.receiverUserId),
+}));
+
+// Handoff items table (환자별 인수인계 항목)
+export const handoffItems = pgTable('handoff_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  handoffId: uuid('handoff_id').references(() => handoffs.id, { onDelete: 'cascade' }).notNull(),
+  patientIdentifier: text('patient_identifier').notNull(), // 환자 식별자
+  roomNumber: text('room_number').notNull(), // 병실 번호
+  bedNumber: text('bed_number'), // 침상 번호
+  priority: text('priority').notNull().default('medium'), // critical, high, medium, low
+
+  // SBAR (Situation, Background, Assessment, Recommendation)
+  situation: text('situation').notNull(), // 현재 상황
+  background: text('background').notNull(), // 배경 정보 (진단명, 입원일 등)
+  assessment: text('assessment').notNull(), // 평가 (활력징후, 의식수준, 통증 등)
+  recommendation: text('recommendation').notNull(), // 권고사항 (해야 할 일)
+
+  // 세부 정보
+  vitalSigns: jsonb('vital_signs').$type<{
+    bloodPressure?: string; // 혈압
+    heartRate?: number; // 심박수
+    temperature?: number; // 체온
+    respiratoryRate?: number; // 호흡수
+    oxygenSaturation?: number; // 산소포화도
+    consciousness?: string; // 의식수준
+    painScore?: number; // 통증 점수 (0-10)
+    recordedAt?: string;
+  }>(),
+
+  medications: jsonb('medications').$type<Array<{
+    name: string;
+    dose?: string;
+    time: string;
+    route: string; // 투약 경로 (PO, IV, IM 등)
+    note?: string;
+  }>>(),
+
+  scheduledProcedures: jsonb('scheduled_procedures').$type<Array<{
+    procedure: string;
+    scheduledTime: string;
+    preparation?: string;
+    note?: string;
+  }>>(),
+
+  alerts: jsonb('alerts').$type<Array<{
+    type: 'allergy' | 'fall_risk' | 'infection' | 'isolation' | 'dnr' | 'other';
+    description: string;
+    severity?: 'high' | 'medium' | 'low';
+  }>>(),
+
+  // 추적 및 협업
+  status: text('status').notNull().default('pending'), // pending, reviewed, acknowledged
+  reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+  acknowledgedAt: timestamp('acknowledged_at', { withTimezone: true }),
+  questions: jsonb('questions').$type<Array<{
+    id: string;
+    question: string;
+    answer?: string;
+    askedBy: string; // user id
+    askedAt: string;
+    answeredBy?: string;
+    answeredAt?: string;
+  }>>(),
+
+  attachments: jsonb('attachments').$type<Array<{
+    type: 'image' | 'document';
+    url: string;
+    description?: string;
+    uploadedAt: string;
+  }>>(),
+
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => ({
+  handoffIdx: index('handoff_items_handoff_id_idx').on(table.handoffId),
+  priorityIdx: index('handoff_items_priority_idx').on(table.priority),
+  statusIdx: index('handoff_items_status_idx').on(table.status),
+  roomIdx: index('handoff_items_room_number_idx').on(table.roomNumber),
+}));
+
+// Handoff templates table (인수인계 템플릿)
+export const handoffTemplates = pgTable('handoff_templates', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
+  departmentId: uuid('department_id').references(() => departments.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  description: text('description'),
+  isDefault: text('is_default').notNull().default('false'),
+  category: text('category'), // general, icu, er, ward 등
+  config: jsonb('config').$type<{
+    quickPhrases?: Array<{
+      category: string;
+      phrases: string[];
+    }>;
+    checklistItems?: string[];
+    priorityGuidelines?: {
+      critical: string;
+      high: string;
+      medium: string;
+      low: string;
+    };
+  }>(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => ({
+  tenantIdx: index('handoff_templates_tenant_id_idx').on(table.tenantId),
+  departmentIdx: index('handoff_templates_department_id_idx').on(table.departmentId),
+  isDefaultIdx: index('handoff_templates_is_default_idx').on(table.isDefault),
+}));
+
 // Alias for backward compatibility
 export { auditLog as auditLogs } from './system';
 
@@ -313,3 +474,9 @@ export type Attendance = typeof attendance.$inferSelect;
 export type NewAttendance = typeof attendance.$inferInsert;
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type NewPushSubscription = typeof pushSubscriptions.$inferInsert;
+export type Handoff = typeof handoffs.$inferSelect;
+export type NewHandoff = typeof handoffs.$inferInsert;
+export type HandoffItem = typeof handoffItems.$inferSelect;
+export type NewHandoffItem = typeof handoffItems.$inferInsert;
+export type HandoffTemplate = typeof handoffTemplates.$inferSelect;
+export type NewHandoffTemplate = typeof handoffTemplates.$inferInsert;
