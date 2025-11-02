@@ -1913,10 +1913,11 @@ export default function SchedulePage() {
 
         </div>
         )}
-        {/* Simplified Schedule Action Toolbar */}
+        {/* Simplified Schedule Action Toolbar - Only for managers */}
+        {canManageSchedules && (
         <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
           <div className="flex items-center justify-between">
-            {canManageSchedules ? (
+            {canManageSchedules && (
               <>
                 {/* Primary Actions - Only Essential Buttons */}
                 <div className="flex items-center gap-2">
@@ -2072,45 +2073,10 @@ export default function SchedulePage() {
                   </div>
                 </div>
               </>
-            ) : (
-              <div className="flex w-full flex-col gap-2 text-sm text-gray-600 dark:text-gray-300 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-2">
-                  <Lock className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                  <span>일반 권한은 스케줄 조회만 가능합니다.</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {isMember && schedule.length > 0 && (
-                    <button
-                      onClick={() => {
-                        setSwapMode(!swapMode);
-                        setSelectedSwapCell(null);
-                        setTargetSwapCell(null);
-                      }}
-                      className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                        swapMode
-                          ? 'bg-blue-600 text-white hover:bg-blue-700'
-                          : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                      }`}
-                      title="스케줄 교환 모드"
-                    >
-                      <ArrowLeftRight className="w-4 h-4" />
-                      {swapMode ? '교환 모드 종료' : '스케줄 교환'}
-                    </button>
-                  )}
-                  {memberDepartmentId ? (
-                    <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                      배정된 병동 스케줄만 표시됩니다.
-                    </span>
-                  ) : (
-                    <span className="text-xs sm:text-sm text-red-500 dark:text-red-400">
-                      배정된 병동 정보가 없어 스케줄을 조회할 수 없습니다.
-                    </span>
-                  )}
-                </div>
-              </div>
             )}
         </div>
         </div>
+        )}
 
         {/* View Tabs */}
         <ViewTabs
@@ -2172,6 +2138,8 @@ export default function SchedulePage() {
           filteredMembersCount={filteredMembers.length}
           selectedShiftTypesSize={filters.selectedShiftTypes.size}
           isMember={isMember}
+          swapMode={swapMode}
+          hasSchedule={schedule.length > 0}
           onPreviousMonth={handlePreviousMonth}
           onThisMonth={handleThisMonth}
           onNextMonth={handleNextMonth}
@@ -2179,6 +2147,11 @@ export default function SchedulePage() {
             setSelectedDepartment(deptId);
             setSchedule([]);
             setGenerationResult(null);
+          }}
+          onToggleSwapMode={() => {
+            setSwapMode(!swapMode);
+            setSelectedSwapCell(null);
+            setTargetSwapCell(null);
           }}
         />
 
