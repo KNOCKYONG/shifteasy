@@ -9,9 +9,10 @@ interface ManageSchedulesModalProps {
   isOpen: boolean;
   onClose: () => void;
   onScheduleDeleted?: () => void;
+  onScheduleLoad?: (scheduleId: string) => void;
 }
 
-export function ManageSchedulesModal({ isOpen, onClose, onScheduleDeleted }: ManageSchedulesModalProps) {
+export function ManageSchedulesModal({ isOpen, onClose, onScheduleDeleted, onScheduleLoad }: ManageSchedulesModalProps) {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Fetch schedules from database
@@ -105,7 +106,15 @@ export function ManageSchedulesModal({ isOpen, onClose, onScheduleDeleted }: Man
                     className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-md transition-all"
                   >
                     <div className="flex items-start justify-between">
-                      <div className="flex-1">
+                      <div
+                        className="flex-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/30 rounded-lg p-2 -m-2 transition-colors"
+                        onClick={() => {
+                          if (onScheduleLoad) {
+                            onScheduleLoad(schedule.id);
+                          }
+                        }}
+                        title="클릭하여 이 스케줄을 불러오기"
+                      >
                         <div className="flex items-center gap-3 mb-2">
                           <Calendar className="w-5 h-5 text-blue-500" />
                           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">

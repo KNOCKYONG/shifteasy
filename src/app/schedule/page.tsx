@@ -576,10 +576,8 @@ export default function SchedulePage() {
     }
   }, [canViewStaffPreferences, filters.activeView, filters.setActiveView]);
 
-  // Load custom shift types from tenant_configs API
-  const { data: shiftTypesConfig } = api.tenantConfigs.getByKey.useQuery({
-    configKey: 'customShiftTypes'
-  });
+  // Load shift types from shift_types table
+  const { data: shiftTypesFromDB } = api.shiftTypes.getAll.useQuery();
 
   // Load shift config (나이트 집중 근무 유급 휴가 설정 등)
   const { data: shiftConfigData } = api.tenantConfigs.getByKey.useQuery({
@@ -590,10 +588,18 @@ export default function SchedulePage() {
   const { data: dbTeams = [] } = api.teams.getAll.useQuery();
 
   useEffect(() => {
-    if (shiftTypesConfig) {
-      const shiftTypesData = shiftTypesConfig.configValue as any;
-      setCustomShiftTypes(shiftTypesData);
-      console.log('✅ Loaded custom shift types from DB:', shiftTypesData);
+    if (shiftTypesFromDB && shiftTypesFromDB.length > 0) {
+      // Transform from shift_types table format to CustomShiftType format
+      const transformedShiftTypes = shiftTypesFromDB.map(st => ({
+        code: st.code,
+        name: st.name,
+        startTime: st.startTime,
+        endTime: st.endTime,
+        color: st.color,
+        allowOvertime: false, // Default value for backward compatibility
+      }));
+      setCustomShiftTypes(transformedShiftTypes);
+      console.log('✅ Loaded custom shift types from shift_types table:', transformedShiftTypes);
     } else {
       // Fallback to localStorage for backward compatibility
       const savedShiftTypes = localStorage.getItem('customShiftTypes');
@@ -607,7 +613,7 @@ export default function SchedulePage() {
         }
       }
     }
-  }, [shiftTypesConfig]);
+  }, [shiftTypesFromDB]);
 
   // Convert customShiftTypes to Shift[] format
   const shifts = React.useMemo(() => {
@@ -1234,12 +1240,92 @@ export default function SchedulePage() {
     }
   };
 
+  // Load saved schedule from database
+  const handleLoadSchedule = async (scheduleId: string) => {
+    try {
+      console.log(`🔄 Loading schedule: ${scheduleId}`);
+
+      // Fetch schedule data using TRPC
+      const loadedSchedule = await utils.schedule.get.fetch({ id: scheduleId });
+
+      if (!loadedSchedule) {
+        console.warn('⚠️ Schedule not found');
+        alert('스케줄을 찾을 수 없습니다.');
+        return;
+      }
+
+      // Extract assignments from metadata
+      const assignments = loadedSchedule.metadata?.assignments || [];
+
+      if (assignments.length === 0) {
+        console.warn('⚠️ No assignments found in schedule');
+        alert('이 스케줄에는 배정 데이터가 없습니다.');
+        return;
+      }
+
+      // Convert assignments to ScheduleAssignment format
+      const convertedAssignments: ScheduleAssignment[] = assignments.map((a: any) => ({
+        id: `${a.employeeId}-${a.date}`,
+        employeeId: a.employeeId,
+        shiftId: a.shiftId,
+        date: new Date(a.date),
+        isLocked: a.isLocked || false,
+      }));
+
+      // Update schedule state
+      setSchedule(convertedAssignments);
+      setLoadedScheduleId(scheduleId);
+      setCurrentMonth(new Date(loadedSchedule.startDate));
+      setIsConfirmed(loadedSchedule.status === 'published');
+
+      // Set department filter if schedule has departmentId
+      if (loadedSchedule.departmentId && !isMember) {
+        setSelectedDepartment(loadedSchedule.departmentId);
+      }
+
+      // Switch to schedule view
+      filters.setActiveView('schedule');
+
+      // Close modal
+      modals.setShowManageModal(false);
+
+      console.log(`✅ Successfully loaded schedule with ${convertedAssignments.length} assignments`);
+    } catch (error) {
+      console.error('❌ Error loading schedule:', error);
+      console.error('Error details:', error instanceof Error ? error.message : String(error));
+      alert('스케줄 불러오기 중 오류가 발생했습니다.');
+    }
+  };
+
   // Confirm and publish schedule
   const handleConfirmSchedule = async () => {
     if (!canManageSchedules) {
       alert('스케줄 확정 권한이 없습니다.');
       return;
     }
+
+    // ✅ Validate departmentId before saving
+    let validDepartmentId = selectedDepartment;
+
+    if (selectedDepartment === 'all' || selectedDepartment === 'no-department') {
+      // For members and managers, use their departmentId
+      if (isMember || isManager) {
+        validDepartmentId = currentUser.dbUser?.departmentId || null;
+      } else {
+        // For admin/owner, require department selection
+        alert('스케줄을 저장하려면 부서를 선택해주세요.');
+        modals.setIsConfirming(false);
+        return;
+      }
+    }
+
+    if (!validDepartmentId) {
+      alert('부서 정보가 없습니다. 관리자에게 문의하세요.');
+      modals.setIsConfirming(false);
+      return;
+    }
+
+    console.log(`📋 Saving schedule to department: ${validDepartmentId}`);
 
     modals.setIsConfirming(true);
 
@@ -1257,7 +1343,7 @@ export default function SchedulePage() {
           scheduleId: schedulePayload.id,
           schedule: schedulePayload,
           month: format(monthStart, 'yyyy-MM-dd'),
-          departmentId: selectedDepartment,
+          departmentId: validDepartmentId,
           notifyEmployees: true,
           metadata: {
             createdBy: 'user-1', // 임시 사용자 ID
@@ -1308,10 +1394,18 @@ export default function SchedulePage() {
       let activeCustomShiftTypes = customShiftTypes;
       if (!activeCustomShiftTypes || activeCustomShiftTypes.length === 0) {
         console.warn('⚠️ customShiftTypes가 비어있음, DB/localStorage에서 재로드 시도');
-        // Try to reload from shiftTypesConfig
-        if (shiftTypesConfig) {
-          activeCustomShiftTypes = shiftTypesConfig.configValue as any;
-          console.log('✅ DB에서 재로드:', activeCustomShiftTypes);
+        // Try to reload from shift_types table
+        if (shiftTypesFromDB && shiftTypesFromDB.length > 0) {
+          // Transform from shift_types table format
+          activeCustomShiftTypes = shiftTypesFromDB.map(st => ({
+            code: st.code,
+            name: st.name,
+            startTime: st.startTime,
+            endTime: st.endTime,
+            color: st.color,
+            allowOvertime: false,
+          }));
+          console.log('✅ shift_types 테이블에서 재로드:', activeCustomShiftTypes);
         } else {
           // Try localStorage
           const savedShiftTypes = localStorage.getItem('customShiftTypes');
@@ -2542,6 +2636,7 @@ export default function SchedulePage() {
           setLoadedScheduleId(null);
           setGenerationResult(null);
         }}
+        onScheduleLoad={handleLoadSchedule}
       />
 
       {/* Validation Results Modal */}

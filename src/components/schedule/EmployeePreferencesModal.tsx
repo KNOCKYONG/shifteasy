@@ -194,6 +194,9 @@ export function EmployeePreferencesModal({
     },
   });
 
+  // Load shift types from shift_types table
+  const { data: shiftTypesFromDB } = api.shiftTypes.getAll.useQuery();
+
   // Teams query and mutations
   const { data: teams = [], refetch: refetchTeams } = api.teams.getAll.useQuery();
 
@@ -245,20 +248,50 @@ export function EmployeePreferencesModal({
     status: 'pending',
   });
 
-  // Load custom shift types from localStorage on mount
+  // Load custom shift types from shift_types table with fallback chain
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    let loadedShiftTypes: CustomShiftType[] = [];
+
+    // Try to load from shift_types table (DB) first
+    if (shiftTypesFromDB && shiftTypesFromDB.length > 0) {
+      // Transform from shift_types table format to CustomShiftType format
+      loadedShiftTypes = shiftTypesFromDB.map(st => ({
+        code: st.code,
+        name: st.name,
+        startTime: st.startTime,
+        endTime: st.endTime,
+        color: st.color,
+        allowOvertime: false, // Default value for backward compatibility
+      }));
+      console.log('✅ EmployeePreferencesModal: Loaded shift types from shift_types table:', loadedShiftTypes.length);
+    }
+    // Fallback to localStorage
+    else if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('customShiftTypes');
       if (stored) {
         try {
-          const parsed = JSON.parse(stored);
-          setCustomShiftTypes(parsed);
+          loadedShiftTypes = JSON.parse(stored);
+          console.log('✅ EmployeePreferencesModal: Loaded shift types from localStorage:', loadedShiftTypes.length);
         } catch (e) {
-          console.error('Failed to parse customShiftTypes:', e);
+          console.error('Failed to parse customShiftTypes from localStorage:', e);
         }
       }
     }
-  }, []);
+
+    // If still empty, use default shift types
+    if (!loadedShiftTypes || loadedShiftTypes.length === 0) {
+      console.warn('⚠️ EmployeePreferencesModal: Using default shift types');
+      loadedShiftTypes = [
+        { code: 'D', name: '주간', startTime: '08:00', endTime: '16:00', color: 'blue', allowOvertime: false },
+        { code: 'E', name: '저녁', startTime: '16:00', endTime: '24:00', color: 'amber', allowOvertime: false },
+        { code: 'N', name: '야간', startTime: '00:00', endTime: '08:00', color: 'purple', allowOvertime: false },
+        { code: 'O', name: '휴무', startTime: '00:00', endTime: '00:00', color: 'gray', allowOvertime: false },
+        { code: 'A', name: '행정', startTime: '09:00', endTime: '18:00', color: 'green', allowOvertime: false },
+      ];
+    }
+
+    setCustomShiftTypes(loadedShiftTypes);
+  }, [shiftTypesFromDB]);
 
   // Load existing shift requests when data is fetched
   useEffect(() => {
