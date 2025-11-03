@@ -10,6 +10,7 @@ interface Member {
 interface Assignment {
   employeeId: string;
   shiftId: string;
+  isSwapRequested?: boolean;
 }
 
 interface CurrentUser {
@@ -28,7 +29,7 @@ interface ScheduleCalendarViewProps {
   getScheduleForDay: (date: Date) => Assignment[];
   getShiftColor: (shiftId: string) => string;
   getShiftName: (shiftId: string) => string;
-  getShiftCode?: (shiftId: string) => string;
+  getShiftCode?: (assignment: Assignment) => string;
 }
 
 export function ScheduleCalendarView({
@@ -111,7 +112,7 @@ export function ScheduleCalendarView({
                   if (!member) return null;
 
                   const shiftDisplay = showCodeFormat && getShiftCode
-                    ? getShiftCode(assignment.shiftId)
+                    ? getShiftCode(assignment)
                     : getShiftName(assignment.shiftId);
 
                   return (

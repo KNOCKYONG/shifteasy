@@ -12,6 +12,7 @@ interface Member {
 interface Assignment {
   employeeId: string;
   shiftId: string;
+  isSwapRequested?: boolean;
 }
 
 interface ScheduleGridViewProps {
@@ -24,7 +25,7 @@ interface ScheduleGridViewProps {
   getScheduleForDay: (date: Date) => Assignment[];
   getShiftColor: (shiftId: string) => string;
   getShiftName: (shiftId: string) => string;
-  getShiftCode?: (shiftId: string) => string;
+  getShiftCode?: (assignment: Assignment) => string;
   enableSwapMode?: boolean;
   currentUserId?: string;
   selectedSwapCell?: { date: string; employeeId: string } | null;
@@ -129,7 +130,7 @@ export function ScheduleGridView({
                   >
                     {dayAssignments.map((assignment, i) => {
                       const shiftDisplay = showCodeFormat && getShiftCode
-                        ? getShiftCode(assignment.shiftId)
+                        ? getShiftCode(assignment)
                         : getShiftName(assignment.shiftId).charAt(0);
 
                       return (

@@ -41,6 +41,7 @@ import { useScheduleFilters } from "@/hooks/useScheduleFilters";
 // 스케줄 페이지에서 사용하는 확장된 ScheduleAssignment 타입
 interface ExtendedScheduleAssignment extends ScheduleAssignment {
   shiftType?: 'day' | 'evening' | 'night' | 'off' | 'leave' | 'custom';
+  isRequested?: boolean; // 직원이 요청한 근무인지 표시
 }
 
 // 기본 제약조건
@@ -629,6 +630,12 @@ export default function SchedulePage() {
       enabled: true,
     }
   );
+
+  // Load special requests for the current month
+  const { data: specialRequestsData } = api.specialRequests.getByDateRange.useQuery({
+    startDate: format(monthStart, 'yyyy-MM-dd'),
+    endDate: format(monthEnd, 'yyyy-MM-dd'),
+  });
 
   // Transform users data to match expected format
   // 전체 멤버 리스트 (필터링 없음 - 직원 선호사항 탭에서 사용)
@@ -1285,7 +1292,42 @@ export default function SchedulePage() {
     setGenerationResult(null);
 
     try {
-      // 0. Config 설정 불러오기 (나이트 집중 근무 유급 휴가 설정 포함)
+      // 0. customShiftTypes 확인 (비어있으면 다시 로드)
+      let activeCustomShiftTypes = customShiftTypes;
+      if (!activeCustomShiftTypes || activeCustomShiftTypes.length === 0) {
+        console.warn('⚠️ customShiftTypes가 비어있음, DB/localStorage에서 재로드 시도');
+        // Try to reload from shiftTypesConfig
+        if (shiftTypesConfig) {
+          activeCustomShiftTypes = shiftTypesConfig.configValue as any;
+          console.log('✅ DB에서 재로드:', activeCustomShiftTypes);
+        } else {
+          // Try localStorage
+          const savedShiftTypes = localStorage.getItem('customShiftTypes');
+          if (savedShiftTypes) {
+            try {
+              activeCustomShiftTypes = JSON.parse(savedShiftTypes);
+              console.log('✅ localStorage에서 재로드:', activeCustomShiftTypes);
+            } catch (error) {
+              console.error('❌ localStorage 파싱 실패:', error);
+            }
+          }
+        }
+
+        // If still empty, use default shift types
+        if (!activeCustomShiftTypes || activeCustomShiftTypes.length === 0) {
+          console.warn('⚠️ customShiftTypes를 로드할 수 없음, 기본값 사용');
+          activeCustomShiftTypes = [
+            { code: 'D', name: '주간', startTime: '08:00', endTime: '16:00' },
+            { code: 'E', name: '저녁', startTime: '16:00', endTime: '24:00' },
+            { code: 'N', name: '야간', startTime: '00:00', endTime: '08:00' },
+            { code: 'O', name: '휴무', startTime: '00:00', endTime: '00:00' },
+            { code: 'A', name: '행정', startTime: '09:00', endTime: '18:00' },
+          ];
+        }
+      }
+      console.log('📋 활성 customShiftTypes:', activeCustomShiftTypes.map((st: any) => ({ code: st.code, name: st.name })));
+
+      // 0.1. Config 설정 불러오기 (나이트 집중 근무 유급 휴가 설정 포함)
       let nightIntensivePaidLeaveDays = 0;
       try {
         if (shiftConfigData) {
@@ -1326,16 +1368,28 @@ export default function SchedulePage() {
           ? filteredMembers[0]?.departmentId
           : selectedDepartment;
 
+        console.log(`🔍 팀 패턴 조회 시작: departmentId=${targetDepartmentId}`);
+
         if (targetDepartmentId) {
           const teamPatternResponse = await fetch(`/api/team-patterns?departmentId=${targetDepartmentId}`);
           const teamPatternData = await teamPatternResponse.json();
+          console.log(`📦 팀 패턴 API 응답:`, teamPatternData);
+
           teamPattern = teamPatternData.pattern || teamPatternData.defaultPattern || teamPatternData;
+          console.log(`📊 최종 teamPattern:`, {
+            requiredStaffDay: teamPattern?.requiredStaffDay,
+            requiredStaffEvening: teamPattern?.requiredStaffEvening,
+            requiredStaffNight: teamPattern?.requiredStaffNight,
+            defaultPatterns: teamPattern?.defaultPatterns,
+          });
 
           if (teamPatternData.pattern) {
             console.log(`✅ 팀 패턴 로드: D=${teamPattern.requiredStaffDay}, E=${teamPattern.requiredStaffEvening}, N=${teamPattern.requiredStaffNight} (부서: ${targetDepartmentId})`);
           } else {
-            console.warn(`⚠️ 팀 패턴 없음 - 기본값 사용: D=${teamPattern.requiredStaffDay}, E=${teamPattern.requiredStaffEvening}, N=${teamPattern.requiredStaffNight} (부서: ${targetDepartmentId})`);
+            console.warn(`⚠️ 팀 패턴 없음 - 기본값 사용 (부서: ${targetDepartmentId})`);
           }
+        } else {
+          console.warn(`⚠️ targetDepartmentId가 없음`);
         }
       } catch (error) {
         console.warn('⚠️ Failed to load team pattern, will use default preferences:', error);
@@ -1503,14 +1557,36 @@ export default function SchedulePage() {
       console.log(`✅ Generated ${scheduleAssignments.length} schedule assignments`);
 
       // 8. SimpleScheduler 결과를 기존 형식으로 변환
+      console.log(`🔍 activeCustomShiftTypes:`, activeCustomShiftTypes.map((st: any) => ({ code: st.code, name: st.name })));
+
+      // 먼저 special requests Map 생성 (빠른 조회용)
+      const specialRequestsLookup = new Map<string, string>();
+      simpleSpecialRequests.forEach(req => {
+        if (req.requestType === 'shift_request' && req.shiftTypeCode) {
+          const key = `${req.employeeId}-${req.date}`;
+          // shiftTypeCode에서 ^ 제거하고 대문자로 (예: 'd^' -> 'D')
+          const cleanCode = req.shiftTypeCode.replace('^', '').toUpperCase();
+          specialRequestsLookup.set(key, cleanCode);
+        }
+      });
+
+      // 변환 전 시프트 분포 확인
+      const preConversionDistribution = scheduleAssignments.reduce((acc, a) => {
+        acc[a.shift] = (acc[a.shift] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      console.log(`📊 변환 전 시프트 분포 (SimpleScheduler 출력):`, preConversionDistribution);
+
       const convertedAssignments: ExtendedScheduleAssignment[] = scheduleAssignments.map(assignment => {
-        // customShiftTypes에서 shift code로 shiftId 찾기
+        // activeCustomShiftTypes에서 shift code로 shiftId 찾기
         let shiftId = 'shift-off'; // Default
         let shiftType: ExtendedScheduleAssignment['shiftType'] = 'off';
 
         if (assignment.shift === 'OFF') {
-          // OFF: customShiftTypes에서 "O" 코드를 찾거나 기본 'shift-off' 사용
-          const offShiftType = customShiftTypes.find(st => st.code === 'O' || st.code === 'OFF');
+          // OFF: activeCustomShiftTypes에서 "O" 코드를 찾거나 기본 'shift-off' 사용 (대소문자 구분 없이)
+          const offShiftType = activeCustomShiftTypes.find((st: any) =>
+            st.code.toUpperCase() === 'O' || st.code.toUpperCase() === 'OFF'
+          );
           if (offShiftType) {
             shiftId = `shift-${offShiftType.code.toLowerCase()}`;
           } else {
@@ -1518,21 +1594,26 @@ export default function SchedulePage() {
           }
           shiftType = 'off';
         } else if (assignment.shift === 'A') {
-          // 행정 근무 (평일 행정 업무)
-          const adminShiftType = customShiftTypes.find(st => st.code === 'A');
+          // 행정 근무 (평일 행정 업무) - 대소문자 구분 없이
+          const adminShiftType = activeCustomShiftTypes.find((st: any) => st.code.toUpperCase() === 'A');
           if (adminShiftType) {
             shiftId = `shift-${adminShiftType.code.toLowerCase()}`;
             shiftType = 'custom';
           } else {
-            // A 타입이 없으면 기본 주간 근무로 처리
-            shiftId = 'shift-d';
-            shiftType = 'day';
+            // A 타입이 없으면 shift-a로 (D와 구분 필요)
+            shiftId = 'shift-a';
+            shiftType = 'custom';
           }
         } else {
-          // D, E, N 시프트
-          const matchingShiftType = customShiftTypes.find(st => st.code === assignment.shift);
+          // D, E, N 시프트 - 대소문자 구분 없이 매칭
+          const matchingShiftType = activeCustomShiftTypes.find((st: any) =>
+            st.code.toUpperCase() === assignment.shift.toUpperCase()
+          );
           if (matchingShiftType) {
             shiftId = `shift-${matchingShiftType.code.toLowerCase()}`;
+          } else {
+            // activeCustomShiftTypes에 없으면 기본 shiftId 생성
+            shiftId = `shift-${assignment.shift.toLowerCase()}`;
           }
           shiftType = ((): ExtendedScheduleAssignment['shiftType'] => {
             switch (assignment.shift) {
@@ -1548,6 +1629,11 @@ export default function SchedulePage() {
           })();
         }
 
+        // Check if this assignment matches a special request
+        const requestKey = `${assignment.employeeId}-${assignment.date}`;
+        const requestedShift = specialRequestsLookup.get(requestKey);
+        const isRequested = requestedShift === assignment.shift;
+
         return {
           id: `${assignment.employeeId}-${assignment.date}`,
           employeeId: assignment.employeeId,
@@ -1555,8 +1641,27 @@ export default function SchedulePage() {
           date: new Date(assignment.date),
           isLocked: false,
           shiftType,
+          isRequested, // 직원이 요청한 근무인지 표시
         };
       });
+
+      // 요청 반영 통계 로그
+      const requestedCount = convertedAssignments.filter(a => a.isRequested).length;
+      if (requestedCount > 0) {
+        console.log(`✨ ${requestedCount}개의 직원 요청이 스케줄에 반영되었습니다!`);
+      }
+
+      // 변환 후 시프트 분포 확인
+      try {
+        const convertedDistribution = convertedAssignments.reduce((acc, a) => {
+          const key = a.shiftId;
+          acc[key] = (acc[key] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+        console.log(`📊 변환 후 시프트 분포:`, convertedDistribution);
+      } catch (error) {
+        console.error('❌ 변환 후 분포 계산 에러:', error);
+      }
 
       // 8.5. 나이트 집중 근무 유급 휴가 적용
       if (nightIntensivePaidLeaveDays > 0) {
@@ -1868,40 +1973,156 @@ export default function SchedulePage() {
 
   // 시프트별 색상 가져오기
   const getShiftColor = (shiftId: string) => {
+    // First try to find by ID in shifts array
     const shift = shifts.find(s => s.id === shiftId);
-    return shift?.color || '#9CA3AF';
+    if (shift) {
+      return shift.color;
+    }
+
+    // Extract shift code from shiftId (e.g., 'shift-d' -> 'd')
+    const shiftCode = shiftId.replace('shift-', '').toLowerCase();
+
+    // Map shift codes to colors
+    const codeColorMap: Record<string, string> = {
+      'd': '#3B82F6',   // day - blue
+      'e': '#F59E0B',   // evening - amber
+      'n': '#6366F1',   // night - indigo
+      'o': '#9CA3AF',   // off - gray
+      'a': '#10B981',   // administrative - green
+    };
+
+    if (codeColorMap[shiftCode]) {
+      return codeColorMap[shiftCode];
+    }
+
+    // Try to find in customShiftTypes by code
+    const shiftType = customShiftTypes.find(st =>
+      st.code.toLowerCase() === shiftCode
+    );
+    if (shiftType) {
+      // Map color name to hex
+      const colorMap: Record<string, string> = {
+        'blue': '#3B82F6',
+        'green': '#10B981',
+        'amber': '#F59E0B',
+        'red': '#EF4444',
+        'purple': '#8B5CF6',
+        'indigo': '#6366F1',
+        'pink': '#EC4899',
+        'gray': '#9CA3AF',
+      };
+      return colorMap[shiftType.color] || '#9CA3AF';
+    }
+
+    return '#9CA3AF';
   };
 
   // 시프트 이름 가져오기
   const getShiftName = (shiftId: string) => {
+    // First try to find by ID in shifts array
     const shift = shifts.find(s => s.id === shiftId);
-    return shift?.name || '?';
+    if (shift) {
+      return shift.name;
+    }
+
+    // Extract shift code from shiftId (e.g., 'shift-d' -> 'd')
+    const shiftCode = shiftId.replace('shift-', '').toLowerCase();
+
+    // Map shift codes to Korean display names
+    const codeNameMap: Record<string, string> = {
+      'd': '주간',      // day
+      'e': '저녁',      // evening
+      'n': '야간',      // night
+      'o': '휴무',      // off
+      'a': '행정',      // administrative
+    };
+
+    if (codeNameMap[shiftCode]) {
+      return codeNameMap[shiftCode];
+    }
+
+    // Try to find in customShiftTypes by code
+    const shiftType = customShiftTypes.find(st =>
+      st.code.toLowerCase() === shiftCode
+    );
+    if (shiftType) {
+      return shiftType.name;
+    }
+
+    return '?';
   };
 
+  // Create a map of special requests for quick lookup
+  // Key: `${employeeId}-${date}`, Value: shiftTypeCode
+  const specialRequestsMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    if (specialRequestsData) {
+      specialRequestsData.forEach((req: any) => {
+        if (req.requestType === 'shift_request' && req.shiftTypeCode) {
+          const key = `${req.employeeId}-${req.date}`;
+          map.set(key, req.shiftTypeCode);
+        }
+      });
+    }
+    return map;
+  }, [specialRequestsData]);
+
   // 시프트 코드 가져오기 (config에서 설정한 커스텀 shift types 기반)
-  const getShiftCode = (shiftId: string) => {
-    // shiftId format: 'shift-day', 'shift-evening', 'shift-night', 'shift-off', 'shift-o'
+  const getShiftCode = (assignment: ScheduleAssignment) => {
+    const shiftId = assignment.shiftId;
+    const extendedAssignment = assignment as ExtendedScheduleAssignment;
+
+    // shiftId format: 'shift-day', 'shift-evening', 'shift-night', 'shift-off', 'shift-o', 'shift-a'
     const codeMap: Record<string, string> = {
       'shift-off': 'O',
       'shift-o': 'O',
       'shift-leave': 'O',
+      'shift-a': 'A',  // 행정 근무
+      'shift-d': 'D',  // 주간
+      'shift-e': 'E',  // 저녁
+      'shift-n': 'N',  // 야간
     };
 
     // Check if it's a predefined code
+    let code: string;
     if (codeMap[shiftId]) {
-      return codeMap[shiftId];
+      code = codeMap[shiftId];
+    } else {
+      // Extract code from shiftId (e.g., 'shift-d' -> 'D')
+      const extractedCode = shiftId.replace('shift-', '').toUpperCase();
+
+      // Find in customShiftTypes
+      const shiftType = customShiftTypes.find(st => st.code.toUpperCase() === extractedCode);
+      if (shiftType) {
+        code = shiftType.code.toUpperCase();
+      } else {
+        code = extractedCode || '?';
+      }
     }
 
-    // Extract code from shiftId (e.g., 'shift-d' -> 'D')
-    const code = shiftId.replace('shift-', '').toUpperCase();
-
-    // Find in customShiftTypes
-    const shiftType = customShiftTypes.find(st => st.code.toUpperCase() === code);
-    if (shiftType) {
-      return shiftType.code.toUpperCase();
+    // Check if this assignment is marked as requested (from schedule generation)
+    if (extendedAssignment.isRequested) {
+      code = code + '^';
+      return code;
     }
 
-    return code || '?';
+    // Fallback: Check if this shift matches a special request (for loaded schedules)
+    const assignmentDate = format(new Date(assignment.date), 'yyyy-MM-dd');
+    const requestKey = `${assignment.employeeId}-${assignmentDate}`;
+    const requestedShiftCode = specialRequestsMap.get(requestKey);
+
+    // If there's a special request and it matches the current shift, add ^ suffix
+    if (requestedShiftCode) {
+      // Remove ^ from stored code if it exists (it's stored as 'd^')
+      const cleanRequestCode = requestedShiftCode.replace('^', '').toUpperCase();
+      const cleanCurrentCode = code.toUpperCase();
+
+      if (cleanRequestCode === cleanCurrentCode) {
+        code = code + '^';
+      }
+    }
+
+    return code;
   };
 
   return (

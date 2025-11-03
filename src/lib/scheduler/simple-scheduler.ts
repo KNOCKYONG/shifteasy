@@ -347,48 +347,71 @@ export class SimpleScheduler {
       const currentDayIndex = this.workDays.findIndex(d => format(d, 'yyyy-MM-dd') === dateStr);
       const progressRatio = (currentDayIndex + 1) / this.workDays.length;
 
-      // 휴무가 심각하게 부족한 사람들을 강제 OFF (최소 휴무일 확보)
-      const employeesNeedingOff: Employee[] = [];
+      // 오늘 필요한 총 인원
+      const totalRequiredToday = adjustedD + adjustedE + adjustedN;
+      const availableCount = unassignedShiftEmployees.length;
+
+      // 휴무가 심각하게 부족한 사람들 찾기
+      const employeesNeedingOff: { emp: Employee; deficit: number }[] = [];
       unassignedShiftEmployees.forEach(emp => {
         const currentOff = this.offCounts.get(emp.id) || 0;
         const currentWork = this.workCounts.get(emp.id) || 0;
         const totalAssigned = currentOff + currentWork;
 
         if (totalAssigned > 0) {
-          // 현재까지의 배정 기준 최소 휴무일 (주말/공휴일 개수 기반)
+          // 현재까지의 배정 기준 최소 휴무일
           const expectedMinOff = Math.ceil((totalAssigned / this.workDays.length) * this.minOffDaysPerMonth);
+          const deficit = expectedMinOff - currentOff;
 
-          // 심각하게 부족 (2일 이상 미달)
-          if (currentOff < expectedMinOff - 2) {
-            employeesNeedingOff.push(emp);
+          // 2일 이상 미달인 경우
+          if (deficit >= 2) {
+            employeesNeedingOff.push({ emp, deficit });
           }
         }
       });
 
-      // 휴무가 필요한 사람들을 강제 OFF로 배정
-      if (employeesNeedingOff.length > 0) {
-        const forcedOffNames = employeesNeedingOff.map(emp => emp.name).join(', ');
-        console.log(`      🚨 강제 휴무 (최소 휴무일 미달): ${forcedOffNames}`);
+      // ⚠️ 중요: 최소 커버리지를 유지하면서 휴무 배정
+      // 커버리지를 위반하지 않도록 휴무 가능한 최대 인원 계산
+      const maxPossibleOff = Math.max(0, availableCount - totalRequiredToday);
 
-        employeesNeedingOff.forEach(emp => {
+      // 휴무가 가장 필요한 순서대로 정렬
+      employeesNeedingOff.sort((a, b) => b.deficit - a.deficit);
+
+      // 커버리지를 유지하면서 휴무 배정
+      const actualForcedOff: Employee[] = [];
+      if (maxPossibleOff > 0 && employeesNeedingOff.length > 0) {
+        const numToForceOff = Math.min(maxPossibleOff, employeesNeedingOff.length);
+
+        for (let i = 0; i < numToForceOff; i++) {
+          const emp = employeesNeedingOff[i].emp;
+          actualForcedOff.push(emp);
           daySchedule.set(emp.id, 'OFF');
           this.offCounts.set(emp.id, (this.offCounts.get(emp.id) || 0) + 1);
           this.lastShift.set(emp.id, 'OFF');
           this.consecutiveShiftCounts.set(emp.id, 0);
-        });
+        }
+
+        const forcedOffNames = actualForcedOff.map(emp => emp.name).join(', ');
+        console.log(`      💤 휴무 배정 (최소 휴무일 확보): ${forcedOffNames}`);
+      }
+
+      // 커버리지 부족 경고
+      if (employeesNeedingOff.length > maxPossibleOff) {
+        const unableToRest = employeesNeedingOff.slice(maxPossibleOff).map(x => x.emp.name).join(', ');
+        console.log(`      ⚠️ 커버리지 부족으로 휴무 불가: ${unableToRest} (휴무 필요하나 인원 부족)`);
       }
 
       // 강제 OFF 후 남은 인원
       const afterForcedOff = unassignedShiftEmployees.filter(emp => !daySchedule.has(emp.id));
-      const totalRequiredToday = adjustedD + adjustedE + adjustedN;
-      const availableCount = afterForcedOff.length;
 
-      // If not enough staff, scale down proportionally
-      if (availableCount < totalRequiredToday) {
-        const ratio = availableCount / totalRequiredToday;
-        adjustedD = Math.max(0, Math.round(adjustedD * ratio));
-        adjustedE = Math.max(0, Math.round(adjustedE * ratio));
-        adjustedN = Math.max(0, availableCount - adjustedD - adjustedE);
+      // 최종 검증: 남은 인원이 필요 인원보다 적으면 에러 (이제 발생하지 않아야 함)
+      if (afterForcedOff.length < totalRequiredToday) {
+        console.error(`      🚨 심각: 필요 ${totalRequiredToday}명, 가용 ${afterForcedOff.length}명 - 커버리지 부족!`);
+        // Scale down은 최후의 수단으로만 사용
+        const ratio = afterForcedOff.length / totalRequiredToday;
+        adjustedD = Math.max(1, Math.round(adjustedD * ratio)); // 최소 1명
+        adjustedE = Math.max(1, Math.round(adjustedE * ratio));
+        adjustedN = Math.max(0, afterForcedOff.length - adjustedD - adjustedE);
       }
 
       // 3. 시프트 배치 (D, E, N 순서대로) - 강제 OFF 제외한 사람들만
