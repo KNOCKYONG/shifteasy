@@ -4,7 +4,7 @@
   "monthSchedule": "Monthly Schedule",
   "views": {
     "preferences": "Staff Preferences",
-    "today": "Today's Schedule",
+    "today": "Today's Shifts",
     "schedule": "View Schedule",
     "teamManagement": "Team Assignment"
   },
@@ -13,13 +13,14 @@
     "month": "Month"
   },
   "today": {
-    "title": "Today's Schedule",
+    "title": "Today's Shifts",
     "shiftTime": "Shift Time",
     "morning": "Morning (D)",
     "afternoon": "Afternoon (E)",
     "night": "Night (N)",
     "totalWorking": "Total Working Staff",
-    "team": "Team"
+    "team": "Team",
+    "selectDate": "Select Date"
   },
   "stats": {
     "totalStaff": "Total Staff",

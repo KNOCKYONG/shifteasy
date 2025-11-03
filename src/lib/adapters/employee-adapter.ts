@@ -104,17 +104,17 @@ export class EmployeeAdapter {
 
     if (unified.comprehensivePreferences) {
       const comp = unified.comprehensivePreferences;
-      workPatternType = comp.workPreferences.workPatternType as any;
+      workPatternType = comp.workPreferences?.workPatternType as any;
 
       // Map preferredShifts to numeric scores (0-10)
-      const prefs = comp.workPreferences.preferredShifts || [];
+      const prefs = comp.workPreferences?.preferredShifts || [];
       preferredShiftTypes = {
         D: prefs.includes('day') ? 10 : 0,
         E: prefs.includes('evening') ? 10 : 0,
         N: prefs.includes('night') ? 10 : 0,
       };
 
-      maxConsecutiveDaysPreferred = comp.workPreferences.maxConsecutiveDays;
+      maxConsecutiveDaysPreferred = comp.workPreferences?.maxConsecutiveDays;
       // maxConsecutiveNightsPreferred is optional, keep as undefined
     }
 
@@ -142,20 +142,20 @@ export class EmployeeAdapter {
   static convertComprehensiveToBasic(
     comprehensive: ComprehensivePreferences
   ): EmployeePreferences {
-    const workPrefs = comprehensive.workPreferences;
+    const workPrefs = comprehensive.workPreferences || {};
 
     // 통근 시간과 건강 상태를 고려한 시프트 선호도 조정
-    let adjustedPreferredShifts = [...workPrefs.preferredShifts];
-    let adjustedAvoidShifts: typeof workPrefs.preferredShifts = [];
+    let adjustedPreferredShifts = [...(workPrefs.preferredShifts || [])];
+    let adjustedAvoidShifts: Array<'day' | 'evening' | 'night'> = [];
 
     // 야간 교통 어려움이 있으면 야간 시프트 회피
-    if (comprehensive.commutePreferences.nightTransportDifficulty) {
+    if (comprehensive.commutePreferences?.nightTransportDifficulty) {
       adjustedAvoidShifts.push('night');
       adjustedPreferredShifts = adjustedPreferredShifts.filter(s => s !== 'night');
     }
 
     // 육아가 필요하면 주간 선호
-    if (comprehensive.personalCircumstances.hasYoungChildren) {
+    if (comprehensive.personalCircumstances?.hasYoungChildren) {
       if (!adjustedPreferredShifts.includes('day')) {
         adjustedPreferredShifts.push('day');
       }
@@ -163,25 +163,25 @@ export class EmployeeAdapter {
     }
 
     // 건강 문제가 있으면 야간 회피
-    if (comprehensive.healthConsiderations.hasChronicCondition ||
-        comprehensive.healthConsiderations.needsFrequentBreaks) {
+    if (comprehensive.healthConsiderations?.hasChronicCondition ||
+        comprehensive.healthConsiderations?.needsFrequentBreaks) {
       adjustedAvoidShifts.push('night');
     }
 
     // 학업 병행 시 특정 시간대 조정
-    if (comprehensive.personalCircumstances.isStudying) {
+    if (comprehensive.personalCircumstances?.isStudying) {
       // 학업 스케줄에 따라 조정 (상세 로직 필요)
       adjustedPreferredShifts = ['evening']; // 예시
     }
 
     // 휴무 패턴 선호도를 반영한 연속 근무일 조정
-    let adjustedMaxConsecutiveDays = workPrefs.maxConsecutiveDays;
+    let adjustedMaxConsecutiveDays = workPrefs.maxConsecutiveDays || 5;
     if (workPrefs.offDayPattern === 'short') {
       // 짧은 휴무 선호 - 연속 근무일을 줄임
-      adjustedMaxConsecutiveDays = Math.min(workPrefs.maxConsecutiveDays, 3);
+      adjustedMaxConsecutiveDays = Math.min(adjustedMaxConsecutiveDays, 3);
     } else if (workPrefs.offDayPattern === 'long') {
       // 긴 휴무 선호 - 연속 근무일을 늘려서 긴 휴무 확보
-      adjustedMaxConsecutiveDays = Math.max(workPrefs.maxConsecutiveDays, 5);
+      adjustedMaxConsecutiveDays = Math.max(adjustedMaxConsecutiveDays, 5);
     }
 
     return {
@@ -204,12 +204,12 @@ export class EmployeeAdapter {
     const daysOff: number[] = [];
 
     // 주말 선호도에 따라
-    if (comprehensive.workPreferences.weekendPreference === 'avoid') {
+    if (comprehensive.workPreferences?.weekendPreference === 'avoid') {
       daysOff.push(0, 6); // 일요일, 토요일
     }
 
     // 종교적 의무가 있는 경우
-    if (comprehensive.specialRequests.religiousObservances.needed) {
+    if (comprehensive.specialRequests?.religiousObservances?.needed) {
       // 예: 일요일 예배
       if (!daysOff.includes(0)) {
         daysOff.push(0);
@@ -217,7 +217,7 @@ export class EmployeeAdapter {
     }
 
     // 가족 시간 우선순위가 높은 경우
-    if (comprehensive.priorities.familyTime >= 8) {
+    if ((comprehensive.priorities?.familyTime ?? 0) >= 8) {
       if (!daysOff.includes(6)) {
         daysOff.push(6); // 토요일 추가
       }
@@ -239,14 +239,14 @@ export class EmployeeAdapter {
       const prefs = unified.comprehensivePreferences;
 
       // 임신/출산 상태에 따른 조정
-      if (prefs.personalCircumstances.pregnancyStatus === 'late' ||
-          prefs.personalCircumstances.pregnancyStatus === 'postpartum') {
+      if (prefs.personalCircumstances?.pregnancyStatus === 'late' ||
+          prefs.personalCircumstances?.pregnancyStatus === 'postpartum') {
         // 야간 근무 불가능한 날 추가
         // (실제 구현 시 더 상세한 로직 필요)
       }
 
       // 통근 시간이 긴 경우 조정
-      if (prefs.commutePreferences.commuteTime > 90) {
+      if ((prefs.commutePreferences?.commuteTime ?? 0) > 90) {
         // 연속 근무 제한 등
       }
     }

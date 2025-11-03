@@ -4,7 +4,7 @@
   "monthSchedule": "월간 스케줄",
   "views": {
     "preferences": "직원 선호사항",
-    "today": "오늘의 일정",
+    "today": "오늘의 근무",
     "schedule": "스케줄 보기",
     "teamManagement": "팀 배정"
   },
@@ -13,13 +13,14 @@
     "month": "월간"
   },
   "today": {
-    "title": "오늘의 일정",
+    "title": "오늘의 근무",
     "shiftTime": "근무 시간",
     "morning": "오전 (D)",
     "afternoon": "오후 (E)",
     "night": "야간 (N)",
     "totalWorking": "총 근무 인원",
-    "team": "팀"
+    "team": "팀",
+    "selectDate": "날짜 선택"
   },
   "stats": {
     "totalStaff": "총 직원",

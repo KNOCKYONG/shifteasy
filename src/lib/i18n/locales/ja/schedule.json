@@ -4,7 +4,7 @@
   "monthSchedule": "月間スケジュール",
   "views": {
     "preferences": "スタッフ選好",
-    "today": "今日のスケジュール",
+    "today": "今日の勤務",
     "schedule": "スケジュール表示",
     "teamManagement": "チーム配置"
   },
@@ -13,13 +13,14 @@
     "month": "月間"
   },
   "today": {
-    "title": "今日のスケジュール",
+    "title": "今日の勤務",
     "shiftTime": "勤務時間",
     "morning": "午前 (D)",
     "afternoon": "午後 (E)",
     "night": "夜間 (N)",
     "totalWorking": "総勤務人員",
-    "team": "チーム"
+    "team": "チーム",
+    "selectDate": "日付選択"
   },
   "stats": {
     "totalStaff": "総スタッフ",

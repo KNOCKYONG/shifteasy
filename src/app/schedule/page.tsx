@@ -32,6 +32,7 @@ import {
   ScheduleCalendarView,
   ScheduleStats
 } from "@/components/schedule/views";
+import { TeamFilter } from "@/components/schedule/views/TeamFilter";
 import { TodayScheduleBoard } from "@/components/schedule/TodayScheduleBoard";
 import { convertShiftTypesToShifts, type ShiftType } from "@/lib/utils/shift-utils";
 import { normalizeDate } from "@/lib/utils/date-utils";
@@ -415,6 +416,7 @@ export default function SchedulePage() {
   const [customShiftTypes, setCustomShiftTypes] = useState<ShiftType[]>([]); // Config의 근무 타입 데이터
   const [showMyPreferences, setShowMyPreferences] = useState(false);
   const [loadedScheduleId, setLoadedScheduleId] = useState<string | null>(null); // 이미 로드된 스케줄 ID
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date()); // 오늘의 근무 날짜 선택
 
   // Employee preferences modal state
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -583,6 +585,9 @@ export default function SchedulePage() {
   const { data: shiftConfigData } = api.tenantConfigs.getByKey.useQuery({
     configKey: 'shiftConfig'
   });
+
+  // Fetch teams from database
+  const { data: dbTeams = [] } = api.teams.getAll.useQuery();
 
   useEffect(() => {
     if (shiftTypesConfig) {
@@ -1074,6 +1079,13 @@ export default function SchedulePage() {
   // 시프트 타입별로 필터링된 직원 목록
   const getFilteredMembersForDisplay = () => {
     let result = filteredMembers;
+
+    // 팀 필터
+    if (filters.selectedTeams.size > 0) {
+      result = result.filter(member => {
+        return filters.selectedTeams.has(member.teamId || '');
+      });
+    }
 
     // 시프트 타입 필터
     if (filters.selectedShiftTypes.size > 0 && customShiftTypes.length > 0) {
@@ -2362,7 +2374,8 @@ export default function SchedulePage() {
             employees={allMembers}
             assignments={schedule}
             shiftTypes={customShiftTypes}
-            today={new Date()}
+            today={selectedDate}
+            onDateChange={setSelectedDate}
           />
         )}
 
@@ -2401,6 +2414,16 @@ export default function SchedulePage() {
           onToggleShiftType={filters.toggleShiftType}
           onClearFilters={filters.clearShiftTypeFilters}
         />
+
+        {/* Team Filter */}
+        {dbTeams.length > 0 && (
+          <TeamFilter
+            teams={dbTeams.map(team => ({ id: team.id, code: team.code, name: team.name, color: team.color }))}
+            selectedTeams={filters.selectedTeams}
+            onToggleTeam={filters.toggleTeam}
+            onClearFilters={filters.clearTeamFilters}
+          />
+        )}
 
         {/* Week Navigation & Department Filter */}
         <MonthNavigation

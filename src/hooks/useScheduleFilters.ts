@@ -11,6 +11,7 @@ export function useScheduleFilters() {
 
   // Filter State
   const [selectedShiftTypes, setSelectedShiftTypes] = useState<Set<string>>(new Set());
+  const [selectedTeams, setSelectedTeams] = useState<Set<string>>(new Set());
   const [showMyScheduleOnly, setShowMyScheduleOnly] = useState(false);
   const [showSameSchedule, setShowSameSchedule] = useState(false);
 
@@ -32,6 +33,24 @@ export function useScheduleFilters() {
     setSelectedShiftTypes(new Set());
   };
 
+  // Helper function: Toggle team
+  const toggleTeam = (teamId: string) => {
+    setSelectedTeams(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(teamId)) {
+        newSet.delete(teamId);
+      } else {
+        newSet.add(teamId);
+      }
+      return newSet;
+    });
+  };
+
+  // Helper function: Clear all team filters
+  const clearTeamFilters = () => {
+    setSelectedTeams(new Set());
+  };
+
   return {
     // View State
     activeView,
@@ -44,6 +63,8 @@ export function useScheduleFilters() {
     // Filter State
     selectedShiftTypes,
     setSelectedShiftTypes,
+    selectedTeams,
+    setSelectedTeams,
     showMyScheduleOnly,
     setShowMyScheduleOnly,
     showSameSchedule,
@@ -52,5 +73,7 @@ export function useScheduleFilters() {
     // Helper Functions
     toggleShiftType,
     clearShiftTypeFilters,
+    toggleTeam,
+    clearTeamFilters,
   };
 }
