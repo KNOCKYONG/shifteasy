@@ -265,6 +265,86 @@ export const tenantRouter = createTRPCRouter({
           user: result[0]
         };
       }),
+
+    update: protectedProcedure
+      .input(z.object({
+        userId: z.string(),
+        teamId: z.string().nullable().optional(),
+        departmentId: z.string().optional(),
+        position: z.string().optional(),
+        name: z.string().optional(),
+        employeeId: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        // Check if user has permission (owner, admin, or manager)
+        const currentUserRole = ctx.user?.role;
+        if (!currentUserRole || !['owner', 'admin', 'manager'].includes(currentUserRole)) {
+          throw new Error('권한이 없습니다. 관리자 또는 매니저만 사용자 정보를 변경할 수 있습니다.');
+        }
+
+        const tenantId = ctx.tenantId;
+        if (!tenantId) {
+          throw new Error('Tenant not found');
+        }
+
+        const existing = await ctx.db
+          .select()
+          .from(users)
+          .where(
+            and(
+              eq(users.id, input.userId),
+              eq(users.tenantId, tenantId)
+            )
+          )
+          .limit(1);
+
+        if (!existing || existing.length === 0) {
+          throw new Error('사용자를 찾을 수 없습니다.');
+        }
+
+        const targetUser = existing[0];
+
+        if (currentUserRole === 'manager') {
+          if (!ctx.user?.departmentId || targetUser.departmentId !== ctx.user.departmentId) {
+            throw new Error('권한이 없습니다. 담당 병동 팀원만 관리할 수 있습니다.');
+          }
+          if (['owner', 'admin', 'manager'].includes(targetUser.role) && targetUser.id !== ctx.user.id) {
+            throw new Error('권한이 없습니다. 관리자 계정은 수정할 수 없습니다.');
+          }
+        }
+
+        // Build update object with only provided fields
+        const updateData: any = {
+          updatedAt: new Date()
+        };
+
+        if (input.teamId !== undefined) updateData.teamId = input.teamId;
+        if (input.departmentId !== undefined) updateData.departmentId = input.departmentId;
+        if (input.position !== undefined) updateData.position = input.position;
+        if (input.name !== undefined) updateData.name = input.name;
+        if (input.employeeId !== undefined) updateData.employeeId = input.employeeId;
+
+        // Update user in database
+        const result = await ctx.db
+          .update(users)
+          .set(updateData)
+          .where(
+            and(
+              eq(users.id, input.userId),
+              eq(users.tenantId, tenantId)
+            )
+          )
+          .returning();
+
+        if (!result || result.length === 0) {
+          throw new Error('사용자를 찾을 수 없습니다.');
+        }
+
+        return {
+          success: true,
+          user: result[0]
+        };
+      }),
   }),
   
   departments: createTRPCRouter({
