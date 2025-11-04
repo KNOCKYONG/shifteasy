@@ -1,10 +1,10 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Trash2, Save, Upload, Download, Users, ChevronRight, Edit2, Mail, Phone, Calendar, Shield, Clock, Star, AlertCircle } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { AddTeamMemberModal } from "@/components/AddTeamMemberModal";
-import { TeamPatternPanel } from "@/components/team/TeamPatternPanel";
+import { TeamPatternTab } from "@/components/team/TeamPatternTab";
 import { DepartmentSelectModal } from "@/components/team/DepartmentSelectModal";
 import { api } from "@/lib/trpc/client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -12,6 +12,7 @@ import { RoleGuard } from "@/components/auth/RoleGuard";
 
 export default function TeamManagementPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const currentUser = useCurrentUser();
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -24,6 +25,17 @@ export default function TeamManagementPage() {
   const [statusFilterForApi, setStatusFilterForApi] = useState<'active' | 'on_leave' | undefined>();
   const [editingPositionId, setEditingPositionId] = useState<string | null>(null);
   const [editingPositionValue, setEditingPositionValue] = useState<string>("");
+
+  // URL 쿼리 파라미터에서 tab 읽기
+  const tabFromUrl = searchParams.get('tab') as 'pattern' | 'management' | null;
+  const [activeTab, setActiveTab] = useState<'pattern' | 'management'>(tabFromUrl || 'pattern');
+
+  // URL 변경 시 activeTab 업데이트
+  useEffect(() => {
+    if (tabFromUrl) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [tabFromUrl]);
 
   // Fetch users from TRPC
   const { data: usersData, isLoading: isLoadingUsers, refetch: refetchUsers } = api.tenant.users.list.useQuery({
@@ -242,16 +254,17 @@ const departments =
   return (
     <RoleGuard>
       <MainLayout>
-        {/* Team Pattern Section - 팀 패턴 설정 */}
-        <div className="mb-6 sm:mb-8">
-          <TeamPatternPanel
+
+        {/* Tab Content */}
+        {activeTab === 'pattern' ? (
+          <TeamPatternTab
             departmentId={selectedDepartment !== 'all' ? selectedDepartment : ''}
             departmentName={selectedDepartmentName}
             totalMembers={filteredTotalMembers}
             canEdit={currentUserRole === 'admin' || currentUserRole === 'manager'}
           />
-        </div>
-
+        ) : (
+          <>
         {/* Stats Cards - 모바일 스크롤 가능한 필터 카드들 */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4 mb-6 sm:mb-8">
           <button
@@ -534,8 +547,10 @@ const departments =
           )}
         </div>
         )}
+          </>
+        )}
 
-      {/* Add Team Member Modal */}
+        {/* Add Team Member Modal */}
       <AddTeamMemberModal
         isOpen={showAddForm}
         onClose={() => setShowAddForm(false)}

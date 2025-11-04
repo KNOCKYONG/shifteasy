@@ -1,12 +1,12 @@
 "use client";
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ProfileDropdown } from '@/components/ProfileDropdown';
 import { SettingsMenu } from '@/components/SettingsMenu';
 import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
-import { Menu, X, Bell } from 'lucide-react';
+import { Menu, X, Bell, ChevronDown } from 'lucide-react';
 import { getNavigationForRole, type Role } from '@/lib/permissions';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 
@@ -18,11 +18,26 @@ interface NavItem {
 
 export function NavigationHeader() {
   const pathname = usePathname();
+  const router = useRouter();
   const { t, ready } = useTranslation('common');
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
+  const [showTeamDropdown, setShowTeamDropdown] = useState(false);
+  const [showScheduleDropdown, setShowScheduleDropdown] = useState(false);
   const currentUser = useCurrentUser();
+
+  const teamSubMenuItems = [
+    { label: '팀 패턴', value: 'pattern' },
+    { label: '팀원 관리', value: 'management' },
+  ];
+
+  const scheduleSubMenuItems = [
+    { label: '스케줄 관리', href: '/schedule' },
+    { label: '설정', href: '/config' },
+  ];
+
+  const isManagerOrAdmin = currentUser.role === 'manager' || currentUser.role === 'admin';
 
   // 읽지 않은 알림 개수 조회 (임시 mock 데이터)
   const mockNotifications = [
@@ -47,6 +62,12 @@ export function NavigationHeader() {
       const target = event.target as HTMLElement;
       if (!target.closest('.notification-dropdown')) {
         setShowNotificationDropdown(false);
+      }
+      if (!target.closest('.team-dropdown')) {
+        setShowTeamDropdown(false);
+      }
+      if (!target.closest('.schedule-dropdown')) {
+        setShowScheduleDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -103,6 +124,103 @@ export function NavigationHeader() {
                 {navItems.map((item) => {
                   const isActive = pathname === item.href ||
                     (item.href !== '/' && pathname?.startsWith(item.href));
+
+                  // '스케줄' 항목 - manager/admin은 드롭다운, member는 일반 링크
+                  if (item.href === '/schedule') {
+                    if (isManagerOrAdmin) {
+                      const isScheduleOrConfigActive = pathname === '/schedule' || pathname === '/config' ||
+                        pathname?.startsWith('/schedule') || pathname?.startsWith('/config');
+
+                      return (
+                        <div key={item.href} className="relative schedule-dropdown">
+                          <button
+                            onClick={() => setShowScheduleDropdown(!showScheduleDropdown)}
+                            className={`flex items-center gap-1 text-sm font-medium transition-colors ${
+                              isScheduleOrConfigActive
+                                ? 'text-blue-600 dark:text-blue-400'
+                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+                            }`}
+                          >
+                            {item.i18nKey && ready ? t(item.i18nKey, { defaultValue: item.label }) : item.label}
+                            <ChevronDown className={`w-4 h-4 transition-transform ${showScheduleDropdown ? 'rotate-180' : ''}`} />
+                          </button>
+
+                          {/* Schedule Dropdown Menu */}
+                          {showScheduleDropdown && (
+                            <div className="absolute left-0 top-full mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-50 overflow-hidden">
+                              {scheduleSubMenuItems.map((subItem) => (
+                                <Link
+                                  key={subItem.href}
+                                  href={subItem.href}
+                                  onClick={() => setShowScheduleDropdown(false)}
+                                  className="block w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                >
+                                  {subItem.label}
+                                </Link>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    } else {
+                      // member는 일반 링크
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={`text-sm font-medium transition-colors ${
+                            isActive
+                              ? 'text-blue-600 dark:text-blue-400'
+                              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+                          }`}
+                        >
+                          {item.i18nKey && ready ? t(item.i18nKey, { defaultValue: item.label }) : item.label}
+                        </Link>
+                      );
+                    }
+                  }
+
+                  // '설정' 항목 - manager/admin은 숨김 (드롭다운에 포함), member는 표시
+                  if (item.href === '/config' && isManagerOrAdmin) {
+                    return null;
+                  }
+
+                  // '팀 관리' 항목에 드롭다운 추가
+                  if (item.href === '/team') {
+                    return (
+                      <div key={item.href} className="relative team-dropdown">
+                        <button
+                          onClick={() => setShowTeamDropdown(!showTeamDropdown)}
+                          className={`flex items-center gap-1 text-sm font-medium transition-colors ${
+                            isActive
+                              ? 'text-blue-600 dark:text-blue-400'
+                              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+                          }`}
+                        >
+                          {item.i18nKey && ready ? t(item.i18nKey, { defaultValue: item.label }) : item.label}
+                          <ChevronDown className={`w-4 h-4 transition-transform ${showTeamDropdown ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {/* Team Dropdown Menu */}
+                        {showTeamDropdown && (
+                          <div className="absolute left-0 top-full mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-50 overflow-hidden">
+                            {teamSubMenuItems.map((subItem) => (
+                              <button
+                                key={subItem.value}
+                                onClick={() => {
+                                  router.push(`/team?tab=${subItem.value}`);
+                                  setShowTeamDropdown(false);
+                                }}
+                                className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                              >
+                                {subItem.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
 
                   return (
                     <Link
@@ -237,6 +355,108 @@ export function NavigationHeader() {
           {navItems.map((item) => {
             const isActive = pathname === item.href ||
               (item.href !== '/' && pathname?.startsWith(item.href));
+
+            // '스케줄' 항목 - manager/admin은 드롭다운, member는 일반 링크
+            if (item.href === '/schedule') {
+              if (isManagerOrAdmin) {
+                const isScheduleOrConfigActive = pathname === '/schedule' || pathname === '/config' ||
+                  pathname?.startsWith('/schedule') || pathname?.startsWith('/config');
+
+                return (
+                  <div key={item.href}>
+                    <button
+                      onClick={() => setShowScheduleDropdown(!showScheduleDropdown)}
+                      className={`w-full flex items-center justify-between px-4 py-3 rounded-md text-sm font-medium transition-colors ${
+                        isScheduleOrConfigActive
+                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+                      }`}
+                    >
+                      {item.i18nKey && ready ? t(item.i18nKey, { defaultValue: item.label }) : item.label}
+                      <ChevronDown className={`w-4 h-4 transition-transform ${showScheduleDropdown ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {/* Mobile Schedule Submenu */}
+                    {showScheduleDropdown && (
+                      <div className="ml-4 mt-1 space-y-1">
+                        {scheduleSubMenuItems.map((subItem) => (
+                          <Link
+                            key={subItem.href}
+                            href={subItem.href}
+                            onClick={() => {
+                              setMobileMenuOpen(false);
+                              setShowScheduleDropdown(false);
+                            }}
+                            className="block w-full text-left px-4 py-2 rounded-md text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+                          >
+                            {subItem.label}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              } else {
+                // member는 일반 링크
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`px-4 py-3 rounded-md text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+                    }`}
+                  >
+                    {item.i18nKey && ready ? t(item.i18nKey, { defaultValue: item.label }) : item.label}
+                  </Link>
+                );
+              }
+            }
+
+            // '설정' 항목 - manager/admin은 숨김 (드롭다운에 포함), member는 표시
+            if (item.href === '/config' && isManagerOrAdmin) {
+              return null;
+            }
+
+            // '팀 관리' 항목에 서브메뉴 추가
+            if (item.href === '/team') {
+              return (
+                <div key={item.href}>
+                  <button
+                    onClick={() => setShowTeamDropdown(!showTeamDropdown)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-md text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+                    }`}
+                  >
+                    {item.i18nKey && ready ? t(item.i18nKey, { defaultValue: item.label }) : item.label}
+                    <ChevronDown className={`w-4 h-4 transition-transform ${showTeamDropdown ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Mobile Team Submenu */}
+                  {showTeamDropdown && (
+                    <div className="ml-4 mt-1 space-y-1">
+                      {teamSubMenuItems.map((subItem) => (
+                        <button
+                          key={subItem.value}
+                          onClick={() => {
+                            router.push(`/team?tab=${subItem.value}`);
+                            setMobileMenuOpen(false);
+                            setShowTeamDropdown(false);
+                          }}
+                          className="w-full text-left px-4 py-2 rounded-md text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+                        >
+                          {subItem.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
 
             return (
               <Link

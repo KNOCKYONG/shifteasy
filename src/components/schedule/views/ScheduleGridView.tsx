@@ -30,6 +30,7 @@ interface ScheduleGridViewProps {
   currentUserId?: string;
   selectedSwapCell?: { date: string; employeeId: string } | null;
   onCellClick?: (date: Date, employeeId: string, assignment: Assignment | null) => void;
+  enableManagerEdit?: boolean;
 }
 
 export function ScheduleGridView({
@@ -47,6 +48,7 @@ export function ScheduleGridView({
   currentUserId,
   selectedSwapCell,
   onCellClick,
+  enableManagerEdit = false,
 }: ScheduleGridViewProps) {
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-x-auto">
@@ -107,12 +109,12 @@ export function ScheduleGridView({
                 const dateStr = format(date, 'yyyy-MM-dd');
                 const isSelected = selectedSwapCell?.date === dateStr && selectedSwapCell?.employeeId === member.id;
                 const isMyCell = currentUserId === member.id;
-                const isClickable = enableSwapMode && (
+                const isClickable = enableManagerEdit || (enableSwapMode && (
                   // 자신의 셀은 항상 클릭 가능
                   isMyCell ||
                   // 또는 자신의 셀을 선택한 후 같은 날짜의 다른 사람 셀 클릭 가능
                   (selectedSwapCell && selectedSwapCell.date === dateStr && selectedSwapCell.employeeId !== member.id)
-                );
+                ));
 
                 return (
                   <div

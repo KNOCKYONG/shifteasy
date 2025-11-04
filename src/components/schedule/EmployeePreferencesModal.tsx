@@ -175,10 +175,18 @@ export function EmployeePreferencesModal({
   });
 
   // Load shift types from shift_types table
-  const { data: shiftTypesFromDB } = api.shiftTypes.getAll.useQuery();
+  const { data: shiftTypesFromDB } = api.shiftTypes.getAll.useQuery(undefined, {
+    staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지
+    cacheTime: 30 * 60 * 1000, // 30분 동안 캐시 유지
+    refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
+  });
 
   // Teams query
-  const { data: teams = [] } = api.teams.getAll.useQuery();
+  const { data: teams = [] } = api.teams.getAll.useQuery(undefined, {
+    staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지
+    cacheTime: 30 * 60 * 1000, // 30분 동안 캐시 유지
+    refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
+  });
 
   // Query to fetch existing special requests for the selected month
   const { data: existingRequests } = api.specialRequests.getByDateRange.useQuery({
@@ -186,6 +194,10 @@ export function EmployeePreferencesModal({
     endDate: format(endOfMonth(selectedMonth), 'yyyy-MM-dd'),
     employeeId: employee.id,
     status: 'pending',
+  }, {
+    staleTime: 2 * 60 * 1000, // 2분 동안 fresh 유지
+    cacheTime: 5 * 60 * 1000, // 5분 동안 캐시 유지
+    refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
 
   // Load custom shift types from shift_types table with fallback chain

@@ -443,6 +443,10 @@ export default function SchedulePage() {
   const { data: holidays } = api.holidays.getByDateRange.useQuery({
     startDate: format(calendarStart, 'yyyy-MM-dd'),
     endDate: format(calendarEnd, 'yyyy-MM-dd'),
+  }, {
+    staleTime: 5 * 60 * 1000, // 5분 동안 fresh 유지
+    cacheTime: 10 * 60 * 1000, // 10분 동안 캐시 유지
+    refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
 
   // Create a Set of holiday dates for quick lookup
@@ -457,6 +461,10 @@ export default function SchedulePage() {
     status: 'published',
     startDate: monthStart,
     endDate: monthEnd,
+  }, {
+    staleTime: 2 * 60 * 1000, // 2분 동안 fresh 유지 (스케줄은 자주 변경될 수 있음)
+    cacheTime: 5 * 60 * 1000, // 5분 동안 캐시 유지
+    refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
 
   // ✅ Track last loaded schedule ID and updatedAt
@@ -570,22 +578,37 @@ export default function SchedulePage() {
     setSelectedDepartment(prev => (prev === targetDepartment ? prev : targetDepartment));
   }, [isMember, memberDepartmentId]);
 
+  // member 권한은 '오늘의 근무' 탭을 기본으로 설정
   useEffect(() => {
-    if (!canViewStaffPreferences && filters.activeView !== 'schedule') {
-      filters.setActiveView('schedule');
+    if (isMember && filters.activeView === 'preferences') {
+      filters.setActiveView('today');
+    } else if (!canViewStaffPreferences && filters.activeView === 'preferences') {
+      filters.setActiveView('today');
     }
-  }, [canViewStaffPreferences, filters.activeView, filters.setActiveView]);
+  }, [isMember, canViewStaffPreferences, filters.activeView, filters.setActiveView]);
 
   // Load shift types from shift_types table
-  const { data: shiftTypesFromDB } = api.shiftTypes.getAll.useQuery();
+  const { data: shiftTypesFromDB } = api.shiftTypes.getAll.useQuery(undefined, {
+    staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지 (자주 변경되지 않음)
+    cacheTime: 30 * 60 * 1000, // 30분 동안 캐시 유지
+    refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
+  });
 
   // Load shift config (나이트 집중 근무 유급 휴가 설정 등)
   const { data: shiftConfigData } = api.tenantConfigs.getByKey.useQuery({
     configKey: 'shiftConfig'
+  }, {
+    staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지
+    cacheTime: 30 * 60 * 1000, // 30분 동안 캐시 유지
+    refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
 
   // Fetch teams from database
-  const { data: dbTeams = [] } = api.teams.getAll.useQuery();
+  const { data: dbTeams = [] } = api.teams.getAll.useQuery(undefined, {
+    staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지
+    cacheTime: 30 * 60 * 1000, // 30분 동안 캐시 유지
+    refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
+  });
 
   useEffect(() => {
     if (shiftTypesFromDB && shiftTypesFromDB.length > 0) {
@@ -639,6 +662,9 @@ export default function SchedulePage() {
     },
     {
       enabled: true,
+      staleTime: 3 * 60 * 1000, // 3분 동안 fresh 유지 (사용자 정보는 가끔 변경됨)
+      cacheTime: 10 * 60 * 1000, // 10분 동안 캐시 유지
+      refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
     }
   );
 
@@ -646,6 +672,10 @@ export default function SchedulePage() {
   const { data: specialRequestsData } = api.specialRequests.getByDateRange.useQuery({
     startDate: format(monthStart, 'yyyy-MM-dd'),
     endDate: format(monthEnd, 'yyyy-MM-dd'),
+  }, {
+    staleTime: 2 * 60 * 1000, // 2분 동안 fresh 유지 (요청은 자주 변경될 수 있음)
+    cacheTime: 5 * 60 * 1000, // 5분 동안 캐시 유지
+    refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
 
   // Transform users data to match expected format
@@ -1831,6 +1861,10 @@ export default function SchedulePage() {
   const [targetSwapCell, setTargetSwapCell] = useState<{ date: string; employeeId: string; assignment: any } | null>(null);
   const [showSwapModal, setShowSwapModal] = useState(false);
 
+  // Manager 셀 편집 관련 상태
+  const [showEditShiftModal, setShowEditShiftModal] = useState(false);
+  const [editingCell, setEditingCell] = useState<{ date: Date; employeeId: string; currentShift: any } | null>(null);
+
   // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = () => setShowMoreMenu(false);
@@ -1880,6 +1914,45 @@ export default function SchedulePage() {
       targetShiftId: targetSwapCell.assignment.shiftId,
       reason,
     });
+  };
+
+  // Manager 셀 편집 핸들러
+  const handleManagerCellClick = (date: Date, employeeId: string, assignment: any) => {
+    if (!isManager) return; // manager 권한 확인
+
+    setEditingCell({ date, employeeId, currentShift: assignment });
+    setShowEditShiftModal(true);
+  };
+
+  // 근무 변경 처리
+  const handleShiftChange = (newShiftId: string) => {
+    if (!editingCell) return;
+
+    const { date, employeeId, currentShift } = editingCell;
+
+    // 기존 근무 제거 또는 변경
+    setSchedule(prevSchedule => {
+      const updatedSchedule = prevSchedule.filter(
+        a => !(format(a.date, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd') && a.employeeId === employeeId)
+      );
+
+      // OFF가 아닌 경우에만 새 근무 추가
+      if (newShiftId !== 'off') {
+        const newAssignment: ScheduleAssignment = {
+          id: `${employeeId}-${format(date, 'yyyy-MM-dd')}-${Date.now()}`,
+          employeeId,
+          shiftId: newShiftId,
+          date: date,
+          isLocked: false,
+        };
+        updatedSchedule.push(newAssignment);
+      }
+
+      return updatedSchedule;
+    });
+
+    setShowEditShiftModal(false);
+    setEditingCell(null);
   };
 
   const handleSwapModalClose = () => {
@@ -2581,7 +2654,8 @@ export default function SchedulePage() {
                 enableSwapMode={isMember && swapMode}
                 currentUserId={currentUser.dbUser?.id}
                 selectedSwapCell={selectedSwapCell}
-                onCellClick={handleSwapCellClick}
+                onCellClick={isManager ? handleManagerCellClick : handleSwapCellClick}
+                enableManagerEdit={isManager}
               />
             ) : (
               <ScheduleCalendarView
@@ -2595,6 +2669,8 @@ export default function SchedulePage() {
                 getShiftColor={getShiftColor}
                 getShiftName={getShiftName}
                 getShiftCode={getShiftCode}
+                onCellClick={isManager ? handleManagerCellClick : undefined}
+                enableManagerEdit={isManager}
               />
             )}
 
@@ -2693,6 +2769,77 @@ export default function SchedulePage() {
             })(),
           }}
         />
+      )}
+
+      {/* Edit Shift Modal (Manager) */}
+      {showEditShiftModal && editingCell && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">근무 변경</h3>
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">
+                    {allMembers.find(m => m.id === editingCell.employeeId)?.name}
+                  </span>
+                  님의 {format(editingCell.date, 'M월 d일')} 근무
+                </p>
+                {editingCell.currentShift && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    현재: {getShiftName(editingCell.currentShift.shiftId)}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  변경할 근무 선택
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {shifts.map((shift) => (
+                    <button
+                      key={shift.id}
+                      onClick={() => handleShiftChange(shift.id)}
+                      className="px-4 py-3 rounded-lg border-2 transition-all text-left"
+                      style={{
+                        borderColor: shift.color,
+                        backgroundColor: `${shift.color}20`,
+                      }}
+                    >
+                      <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
+                        {shift.name}
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                        {shift.time.start}-{shift.time.end}
+                      </div>
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => handleShiftChange('off')}
+                    className="px-4 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 transition-all text-left"
+                  >
+                    <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
+                      휴무
+                    </div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                      OFF
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowEditShiftModal(false);
+                  setEditingCell(null);
+                }}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Employee Preferences Modal */}
