@@ -1187,12 +1187,17 @@ export default function SchedulePage() {
 
   // Convert off-balance data to Map for easy lookup
   const offBalanceMap = React.useMemo(() => {
-    const map = new Map<string, { accumulatedOffDays: number; offBalancePreference: 'accumulate' | 'allowance' }>();
+    const map = new Map<string, {
+      accumulatedOffDays: number;
+      allocatedToAccumulation: number;
+      allocatedToAllowance: number;
+    }>();
     if (offBalanceData) {
       offBalanceData.forEach(item => {
         map.set(item.nurseId, {
           accumulatedOffDays: item.accumulatedOffDays || 0,
-          offBalancePreference: (item.offBalancePreference as 'accumulate' | 'allowance') || 'accumulate',
+          allocatedToAccumulation: item.allocatedToAccumulation || 0,
+          allocatedToAllowance: item.allocatedToAllowance || 0,
         });
       });
     }

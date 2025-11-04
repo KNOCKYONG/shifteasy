@@ -152,9 +152,9 @@ export function EmployeePreferencesModal({
   // Off-balance data state
   const [offBalanceData, setOffBalanceData] = useState<{
     preferences: {
-      guaranteedOffDaysPerMonth: number;
-      offBalancePreference: 'accumulate' | 'allowance';
       accumulatedOffDays: number;
+      allocatedToAccumulation: number;
+      allocatedToAllowance: number;
     };
     history: Array<{
       id: string;
@@ -168,6 +168,10 @@ export function EmployeePreferencesModal({
     }>;
   } | null>(null);
 
+  // Local state for allocation inputs
+  const [allocToAccumulation, setAllocToAccumulation] = useState(0);
+  const [allocToAllowance, setAllocToAllowance] = useState(0);
+
   // Fetch off-balance data
   const { data: offBalance, refetch: refetchOffBalance } = api.offBalance.getByEmployee.useQuery(
     { employeeId: employee.id },
@@ -178,21 +182,29 @@ export function EmployeePreferencesModal({
   useEffect(() => {
     if (offBalance) {
       setOffBalanceData(offBalance);
+      // Initialize allocation inputs with current values
+      setAllocToAccumulation(offBalance.preferences.allocatedToAccumulation || 0);
+      setAllocToAllowance(offBalance.preferences.allocatedToAllowance || 0);
     }
   }, [offBalance]);
 
-  // Update preference mutation
-  const updatePreferenceMutation = api.offBalance.updatePreference.useMutation({
+  // Update allocation mutation
+  const updateAllocationMutation = api.offBalance.updateAllocation.useMutation({
     onSuccess: () => {
       refetchOffBalance();
+      alert('OFF 배분이 저장되었습니다');
+    },
+    onError: (error) => {
+      alert('저장 실패: ' + error.message);
     }
   });
 
-  // Handle preference change
-  const handleOffBalancePreferenceChange = (preference: 'accumulate' | 'allowance') => {
-    updatePreferenceMutation.mutate({
+  // Handle allocation save
+  const handleSaveAllocation = () => {
+    updateAllocationMutation.mutate({
       employeeId: employee.id,
-      preference
+      allocatedToAccumulation: allocToAccumulation,
+      allocatedToAllowance: allocToAllowance,
     });
   };
   const [showEditTeamModal, setShowEditTeamModal] = useState(false);
@@ -364,11 +376,14 @@ export function EmployeePreferencesModal({
       console.log('✅ Team assignment saved:', selectedTeam);
     } catch (error) {
       console.error('❌ Failed to save team assignment:', error);
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+      alert(`⚠️ 팀 배정 저장 실패:\n\n${errorMessage}`);
+      // Continue to save preferences even if team assignment fails
     }
 
     // Save preferences to database
     try {
-      await fetch('/api/preferences', {
+      const response = await fetch('/api/preferences', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -445,9 +460,26 @@ export function EmployeePreferencesModal({
           },
         }),
       });
+
+      // Check response status
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      // Parse response
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || '선호도 저장에 실패했습니다.');
+      }
+
       console.log('✅ Preferences saved to database for employee:', employee.id);
+      console.log('✅ API Response:', result);
     } catch (error) {
       console.error('❌ Failed to save preferences:', error);
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+      alert(`❌ 선호도 저장 실패:\n\n${errorMessage}\n\n콘솔을 확인하여 자세한 정보를 확인하세요.`);
+      return; // Don't proceed if preferences save failed
     }
 
     // Save preferences to parent component
@@ -487,6 +519,8 @@ export function EmployeePreferencesModal({
       }
     } catch (error) {
       console.error('❌ Failed to save shift requests:', error);
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+      alert(`⚠️ 시프트 요청 저장 실패:\n\n${errorMessage}\n\n선호도는 저장되었지만 시프트 요청은 저장되지 않았습니다.`);
     }
   };
 
@@ -1014,32 +1048,6 @@ export function EmployeePreferencesModal({
                 </div>
               </div>
 
-              {/* 월별 보장 OFF 일수 */}
-              <div>
-                <h3 className="font-semibold mb-3 text-gray-900 dark:text-white flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-green-500" />
-                  월별 보장 OFF 일수
-                </h3>
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-700 dark:text-gray-300">근무 패턴에 따른 보장 OFF</span>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        min="0"
-                        max="31"
-                        value={offBalanceData?.preferences.guaranteedOffDaysPerMonth || 8}
-                        className="w-20 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-center"
-                        readOnly
-                      />
-                      <span className="text-gray-600 dark:text-gray-400">일/월</span>
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                    현재 근무 패턴(3교대)에 따라 자동으로 설정됩니다
-                  </p>
-                </div>
-              </div>
 
               {/* 현재 적립된 OFF 잔액 */}
               <div>
@@ -1059,52 +1067,104 @@ export function EmployeePreferencesModal({
                 </div>
               </div>
 
-              {/* 보상 방식 선택 */}
+              {/* OFF 배분 설정 */}
               <div>
                 <h3 className="font-semibold mb-3 text-gray-900 dark:text-white flex items-center gap-2">
                   <CheckCircle className="w-5 h-5 text-blue-500" />
-                  잔여 OFF 보상 방식
+                  OFF 배분 설정
                 </h3>
-                <div className="space-y-3">
-                  <label className="flex items-start gap-3 p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:border-blue-500 dark:hover:border-blue-500 transition-colors bg-white dark:bg-gray-800">
-                    <input
-                      type="radio"
-                      name="offBalancePreference"
-                      value="accumulate"
-                      checked={offBalanceData?.preferences.offBalancePreference === 'accumulate'}
-                      onChange={() => handleOffBalancePreferenceChange('accumulate')}
-                      className="mt-1"
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900 dark:text-white mb-1">
-                        OFF 적립 (추천)
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        잔여 OFF를 적립하여 다음 스케줄에서 추가 OFF로 사용할 수 있습니다.
-                        원하는 날짜에 유연하게 휴무를 배정받을 수 있습니다.
-                      </p>
-                    </div>
-                  </label>
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-4">
+                  {/* 설명 */}
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    적립된 OFF를 미래 사용(적립)과 수당 지급으로 자유롭게 분배할 수 있습니다.
+                  </p>
 
-                  <label className="flex items-start gap-3 p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:border-blue-500 dark:hover:border-blue-500 transition-colors bg-white dark:bg-gray-800">
-                    <input
-                      type="radio"
-                      name="offBalancePreference"
-                      value="allowance"
-                      checked={offBalanceData?.preferences.offBalancePreference === 'allowance'}
-                      onChange={() => handleOffBalancePreferenceChange('allowance')}
-                      className="mt-1"
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900 dark:text-white mb-1">
-                        수당 지급
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        잔여 OFF를 다음 달 급여에 수당으로 받습니다.
-                        추가 휴무보다 금전적 보상을 선호하는 경우 선택하세요.
-                      </p>
+                  {/* OFF 적립 입력 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      OFF 적립 (다음 스케줄에서 사용)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="0"
+                        max={offBalanceData?.preferences.accumulatedOffDays || 0}
+                        value={allocToAccumulation}
+                        onChange={(e) => setAllocToAccumulation(Number(e.target.value))}
+                        className="w-24 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-center"
+                      />
+                      <span className="text-gray-600 dark:text-gray-400">일</span>
                     </div>
-                  </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      원하는 날짜에 유연하게 휴무를 배정받을 수 있습니다
+                    </p>
+                  </div>
+
+                  {/* 수당 지급 입력 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      수당 지급 (금전적 보상)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="0"
+                        max={offBalanceData?.preferences.accumulatedOffDays || 0}
+                        value={allocToAllowance}
+                        onChange={(e) => setAllocToAllowance(Number(e.target.value))}
+                        className="w-24 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-center"
+                      />
+                      <span className="text-gray-600 dark:text-gray-400">일</span>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      다음 달 급여에 수당으로 받습니다
+                    </p>
+                  </div>
+
+                  {/* 배분 현황 */}
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span className="text-gray-600 dark:text-gray-400">총 적립 OFF:</span>
+                      <span className="font-medium text-gray-900 dark:text-gray-100">
+                        {offBalanceData?.preferences.accumulatedOffDays || 0}일
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span className="text-gray-600 dark:text-gray-400">배분된 OFF:</span>
+                      <span className="font-medium text-gray-900 dark:text-gray-100">
+                        {allocToAccumulation + allocToAllowance}일
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600 dark:text-gray-400">미배분 OFF:</span>
+                      <span className={`font-medium ${
+                        (offBalanceData?.preferences.accumulatedOffDays || 0) - (allocToAccumulation + allocToAllowance) < 0
+                          ? 'text-red-600 dark:text-red-400'
+                          : 'text-green-600 dark:text-green-400'
+                      }`}>
+                        {(offBalanceData?.preferences.accumulatedOffDays || 0) - (allocToAccumulation + allocToAllowance)}일
+                      </span>
+                    </div>
+
+                    {/* 경고 메시지 */}
+                    {(allocToAccumulation + allocToAllowance) > (offBalanceData?.preferences.accumulatedOffDays || 0) && (
+                      <div className="mt-3 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-sm text-red-600 dark:text-red-400">
+                        ⚠️ 배분된 OFF 일수가 총 적립 OFF를 초과할 수 없습니다
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 저장 버튼 */}
+                  <button
+                    onClick={handleSaveAllocation}
+                    disabled={
+                      updateAllocationMutation.isPending ||
+                      (allocToAccumulation + allocToAllowance) > (offBalanceData?.preferences.accumulatedOffDays || 0)
+                    }
+                    className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
+                  >
+                    {updateAllocationMutation.isPending ? '저장 중...' : '배분 설정 저장'}
+                  </button>
                 </div>
               </div>
 

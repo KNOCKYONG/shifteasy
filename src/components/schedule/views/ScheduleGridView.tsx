@@ -17,7 +17,8 @@ interface Assignment {
 
 interface OffBalanceInfo {
   accumulatedOffDays: number;
-  offBalancePreference: 'accumulate' | 'allowance';
+  allocatedToAccumulation: number;
+  allocatedToAllowance: number;
 }
 
 interface ScheduleGridViewProps {
@@ -180,14 +181,15 @@ export function ScheduleGridView({
               {showOffBalance && (
                 <div className="p-2 border-l border-gray-100 dark:border-gray-800 flex flex-col items-center justify-center">
                   {offBalanceData?.get(member.id) ? (
-                    <>
-                      <div className="text-xs font-medium text-blue-600 dark:text-blue-400">
-                        {offBalanceData.get(member.id)!.accumulatedOffDays}일
-                      </div>
-                      <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
-                        {offBalanceData.get(member.id)!.offBalancePreference === 'accumulate' ? '적립' : '수당'}
-                      </div>
-                    </>
+                    <div className="text-[10px] text-center leading-tight">
+                      <span className="text-red-600 dark:text-red-400">
+                        {offBalanceData.get(member.id)!.allocatedToAccumulation}일 적립
+                      </span>
+                      <span className="text-gray-400 dark:text-gray-500"> / </span>
+                      <span className="text-blue-600 dark:text-blue-400">
+                        {offBalanceData.get(member.id)!.allocatedToAllowance}일 수당
+                      </span>
+                    </div>
                   ) : (
                     <div className="text-[10px] text-gray-400 dark:text-gray-500">-</div>
                   )}

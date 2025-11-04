@@ -293,15 +293,15 @@ export const scheduleRouter = createTRPCRouter({
               offShiftIds.includes(a.shiftId)
             ).length;
 
-            // Get guaranteed OFF days from preferences (default 8 if not set)
-            const preferences = preferencesMap.get(employeeId);
-            const guaranteedOffDays = preferences?.guaranteedOffDaysPerMonth || 8;
-            const offBalancePreference = preferences?.offBalancePreference || 'accumulate';
+            // Calculate guaranteed OFF days for this specific month
+            // TODO: Implement dynamic calculation based on work pattern, holidays, weekends
+            // For now, use a default value of 8 days
+            const guaranteedOffDays = 8;
 
             // Calculate remaining OFF days
             const remainingOffDays = guaranteedOffDays - actualOffDays;
 
-            // Only create ledger record if there are remaining OFF days
+            // Only create ledger record and update balance if there are remaining OFF days
             if (remainingOffDays > 0) {
               offBalanceRecords.push({
                 tenantId,
@@ -313,26 +313,27 @@ export const scheduleRouter = createTRPCRouter({
                 guaranteedOffDays,
                 actualOffDays,
                 remainingOffDays,
-                compensationType: null, // Will be processed later
+                compensationType: null, // Will be determined by user allocation
                 status: 'pending',
                 scheduleId: schedule.id,
               });
 
-              // If preference is 'accumulate', update accumulated OFF balance
-              if (offBalancePreference === 'accumulate') {
-                const currentBalance = preferences?.accumulatedOffDays || 0;
-                await db.update(
-                  nursePreferences,
-                  {
-                    accumulatedOffDays: currentBalance + remainingOffDays,
-                    updatedAt: new Date(),
-                  },
-                  and(
-                    eq(nursePreferences.nurseId, employeeId),
-                    eq(nursePreferences.tenantId, tenantId)
-                  )
-                );
-              }
+              // Automatically add remaining OFF days to accumulated balance
+              // User will later allocate between accumulation and allowance
+              const preferences = preferencesMap.get(employeeId);
+              const currentBalance = preferences?.accumulatedOffDays || 0;
+
+              await db.update(
+                nursePreferences,
+                {
+                  accumulatedOffDays: currentBalance + remainingOffDays,
+                  updatedAt: new Date(),
+                },
+                and(
+                  eq(nursePreferences.nurseId, employeeId),
+                  eq(nursePreferences.tenantId, tenantId)
+                )
+              );
             }
           }
 

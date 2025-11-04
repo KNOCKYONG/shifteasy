@@ -111,14 +111,14 @@ export const nursePreferences = pgTable('nurse_preferences', {
   // Off-Balance System (잔여 OFF 관리)
   // ==========================================
 
-  // Guaranteed OFF days per month based on contract/work pattern
-  guaranteedOffDaysPerMonth: integer('guaranteed_off_days_per_month').default(8),
-
-  // Preference for unused OFF compensation: 'allowance' (monetary) or 'accumulate' (bank for future use)
-  offBalancePreference: text('off_balance_preference').default('accumulate'), // 'allowance' | 'accumulate'
-
-  // Current accumulated OFF days balance (can be used in future schedules)
+  // Total accumulated OFF days (remaining OFF from published schedules)
   accumulatedOffDays: integer('accumulated_off_days').default(0),
+
+  // How accumulated OFF days are allocated
+  allocatedToAccumulation: integer('allocated_to_accumulation').default(0), // Days saved for future use
+  allocatedToAllowance: integer('allocated_to_allowance').default(0), // Days to be paid as monetary allowance
+
+  // Validation: allocatedToAccumulation + allocatedToAllowance <= accumulatedOffDays
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

@@ -16,12 +16,12 @@ export const offBalanceRouter = createTRPCRouter({
         throw new Error('Tenant not found');
       }
 
-      // Get nurse preferences (guaranteed off days & current balance)
+      // Get nurse preferences (current balance and allocation)
       const [preferences] = await ctx.db
         .select({
-          guaranteedOffDaysPerMonth: nursePreferences.guaranteedOffDaysPerMonth,
-          offBalancePreference: nursePreferences.offBalancePreference,
           accumulatedOffDays: nursePreferences.accumulatedOffDays,
+          allocatedToAccumulation: nursePreferences.allocatedToAccumulation,
+          allocatedToAllowance: nursePreferences.allocatedToAllowance,
         })
         .from(nursePreferences)
         .where(
@@ -47,19 +47,20 @@ export const offBalanceRouter = createTRPCRouter({
 
       return {
         preferences: preferences || {
-          guaranteedOffDaysPerMonth: 8,
-          offBalancePreference: 'accumulate',
           accumulatedOffDays: 0,
+          allocatedToAccumulation: 0,
+          allocatedToAllowance: 0,
         },
         history,
       };
     }),
 
-  // Update off-balance preference
-  updatePreference: protectedProcedure
+  // Update off-balance allocation
+  updateAllocation: protectedProcedure
     .input(z.object({
       employeeId: z.string(),
-      preference: z.enum(['accumulate', 'allowance']),
+      allocatedToAccumulation: z.number().min(0),
+      allocatedToAllowance: z.number().min(0),
     }))
     .mutation(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId;
@@ -80,26 +81,21 @@ export const offBalanceRouter = createTRPCRouter({
         .limit(1);
 
       if (!existing) {
-        // Create new preferences record
-        const [created] = await ctx.db
-          .insert(nursePreferences)
-          .values({
-            tenantId,
-            nurseId: input.employeeId,
-            offBalancePreference: input.preference,
-            guaranteedOffDaysPerMonth: 8,
-            accumulatedOffDays: 0,
-          })
-          .returning();
-
-        return created;
+        throw new Error('Employee preferences not found');
       }
 
-      // Update existing preferences
+      // Validate: total allocation cannot exceed accumulated OFF days
+      const totalAllocation = input.allocatedToAccumulation + input.allocatedToAllowance;
+      if (totalAllocation > (existing.accumulatedOffDays || 0)) {
+        throw new Error(`Total allocation (${totalAllocation}) cannot exceed accumulated OFF days (${existing.accumulatedOffDays || 0})`);
+      }
+
+      // Update allocation
       const [updated] = await ctx.db
         .update(nursePreferences)
         .set({
-          offBalancePreference: input.preference,
+          allocatedToAccumulation: input.allocatedToAccumulation,
+          allocatedToAllowance: input.allocatedToAllowance,
           updatedAt: new Date(),
         })
         .where(
@@ -163,7 +159,8 @@ export const offBalanceRouter = createTRPCRouter({
         .select({
           nurseId: nursePreferences.nurseId,
           accumulatedOffDays: nursePreferences.accumulatedOffDays,
-          offBalancePreference: nursePreferences.offBalancePreference,
+          allocatedToAccumulation: nursePreferences.allocatedToAccumulation,
+          allocatedToAllowance: nursePreferences.allocatedToAllowance,
         })
         .from(nursePreferences)
         .where(
