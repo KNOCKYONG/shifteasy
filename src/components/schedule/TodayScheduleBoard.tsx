@@ -45,7 +45,11 @@ export function TodayScheduleBoard({
   const dateLocale = i18n.language === 'ko' ? koLocale : i18n.language === 'ja' ? jaLocale : enLocale;
 
   // Fetch teams from database
-  const { data: dbTeams = [] } = api.teams.getAll.useQuery();
+  const { data: dbTeams = [] } = api.teams.getAll.useQuery(undefined, {
+    staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지
+    cacheTime: 30 * 60 * 1000, // 30분 동안 캐시 유지
+    refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
+  });
 
   // Close calendar when clicking outside
   useEffect(() => {

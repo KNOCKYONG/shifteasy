@@ -37,6 +37,7 @@ interface ScheduleGridViewProps {
   onCellClick?: (date: Date, employeeId: string, assignment: Assignment | null) => void;
   offBalanceData?: Map<string, OffBalanceInfo>;
   showOffBalance?: boolean;
+  enableManagerEdit?: boolean;
 }
 
 export function ScheduleGridView({
@@ -56,6 +57,7 @@ export function ScheduleGridView({
   onCellClick,
   offBalanceData,
   showOffBalance = true,
+  enableManagerEdit = false,
 }: ScheduleGridViewProps) {
   // 잔여 OFF 컬럼을 포함한 그리드 템플릿 계산
   const gridTemplateWithOffBalance = showOffBalance
@@ -129,12 +131,12 @@ export function ScheduleGridView({
                 const dateStr = format(date, 'yyyy-MM-dd');
                 const isSelected = selectedSwapCell?.date === dateStr && selectedSwapCell?.employeeId === member.id;
                 const isMyCell = currentUserId === member.id;
-                const isClickable = enableSwapMode && (
+                const isClickable = enableManagerEdit || (enableSwapMode && (
                   // 자신의 셀은 항상 클릭 가능
                   isMyCell ||
                   // 또는 자신의 셀을 선택한 후 같은 날짜의 다른 사람 셀 클릭 가능
                   (selectedSwapCell && selectedSwapCell.date === dateStr && selectedSwapCell.employeeId !== member.id)
-                );
+                ));
 
                 return (
                   <div

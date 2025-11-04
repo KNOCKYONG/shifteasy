@@ -30,6 +30,8 @@ interface ScheduleCalendarViewProps {
   getShiftColor: (shiftId: string) => string;
   getShiftName: (shiftId: string) => string;
   getShiftCode?: (assignment: Assignment) => string;
+  onCellClick?: (date: Date, employeeId: string, assignment: Assignment | null) => void;
+  enableManagerEdit?: boolean;
 }
 
 export function ScheduleCalendarView({
@@ -43,6 +45,8 @@ export function ScheduleCalendarView({
   getShiftColor,
   getShiftName,
   getShiftCode,
+  onCellClick,
+  enableManagerEdit = false,
 }: ScheduleCalendarViewProps) {
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -118,7 +122,14 @@ export function ScheduleCalendarView({
                   return (
                     <div
                       key={i}
-                      className="text-[10px] px-1 py-0.5 rounded text-white truncate"
+                      onClick={() => {
+                        if (enableManagerEdit && onCellClick) {
+                          onCellClick(date, assignment.employeeId, assignment);
+                        }
+                      }}
+                      className={`text-[10px] px-1 py-0.5 rounded text-white truncate ${
+                        enableManagerEdit ? 'cursor-pointer hover:opacity-80' : ''
+                      }`}
                       style={{ backgroundColor: getShiftColor(assignment.shiftId) }}
                       title={`${member.name} - ${getShiftName(assignment.shiftId)}`}
                     >
