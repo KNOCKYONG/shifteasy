@@ -6,9 +6,6 @@ import { useTranslation } from "react-i18next";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { ShiftTypesTab } from "./ShiftTypesTab";
-import { DepartmentsTab } from "./DepartmentsTab";
-import { ContractTypesTab } from "./ContractTypesTab";
-import { EmployeeStatusTab } from "./EmployeeStatusTab";
 import { PositionGroupsTab } from "./PositionGroupsTab";
 import { SecretCodeTab } from "./SecretCodeTab";
 import { TeamsTab } from "./TeamsTab";
@@ -37,7 +34,7 @@ export default function ConfigPage() {
   const { data: allConfigs, isLoading: configsLoading, refetch: refetchConfigs } = trpc.tenantConfigs.getAll.useQuery();
   const setConfigMutation = trpc.tenantConfigs.set.useMutation();
 
-  const [activeTab, setActiveTab] = useState<"preferences" | "positions" | "positionGroups" | "shifts" | "departments" | "contracts" | "statuses" | "teams" | "secretCode">("preferences");
+  const [activeTab, setActiveTab] = useState<"preferences" | "positions" | "positionGroups" | "shifts" | "teams" | "secretCode">("preferences");
   const [currentUser, setCurrentUser] = useState<{ role: string } | null>(null);
   const [positions, setPositions] = useState<{value: string; label: string; level: number}[]>([]);
   const [newPosition, setNewPosition] = useState({ value: '', label: '', level: 1 });
@@ -276,46 +273,18 @@ export default function ConfigPage() {
             >
               {t('tabs.shifts', { ns: 'config', defaultValue: '근무 타입' })}
             </button>
-            <button
-              onClick={() => setActiveTab("departments")}
-              className={`pb-3 px-1 text-sm border-b-2 transition-colors ${
-                activeTab === "departments"
-                  ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
-                  : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
-              }`}
-            >
-              {t('tabs.departments', { ns: 'config', defaultValue: '부서/병동' })}
-            </button>
-            <button
-              onClick={() => setActiveTab("contracts")}
-              className={`pb-3 px-1 text-sm border-b-2 transition-colors ${
-                activeTab === "contracts"
-                  ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
-                  : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
-              }`}
-            >
-              {t('tabs.contracts', { ns: 'config', defaultValue: '계약 유형' })}
-            </button>
-            <button
-              onClick={() => setActiveTab("statuses")}
-              className={`pb-3 px-1 text-sm border-b-2 transition-colors ${
-                activeTab === "statuses"
-                  ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
-                  : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
-              }`}
-            >
-              {t('tabs.statuses', { ns: 'config', defaultValue: '직원 상태' })}
-            </button>
-            <button
-              onClick={() => setActiveTab("teams")}
-              className={`pb-3 px-1 text-sm border-b-2 transition-colors ${
-                activeTab === "teams"
-                  ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
-                  : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
-              }`}
-            >
-              {t('tabs.teams', { ns: 'config', defaultValue: '팀 관리' })}
-            </button>
+            {currentUser && (currentUser.role === 'manager' || currentUser.role === 'admin' || currentUser.role === 'owner') && (
+              <button
+                onClick={() => setActiveTab("teams")}
+                className={`pb-3 px-1 text-sm border-b-2 transition-colors ${
+                  activeTab === "teams"
+                    ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
+                    : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
+                }`}
+              >
+                {t('tabs.teams', { ns: 'config', defaultValue: '팀 배정' })}
+              </button>
+            )}
             {currentUser && (currentUser.role === 'manager' || currentUser.role === 'admin' || currentUser.role === 'owner') && (
               <button
                 onClick={() => setActiveTab("secretCode")}
@@ -561,41 +530,6 @@ export default function ConfigPage() {
         )}
 
         {/* Departments Tab */}
-        {activeTab === "departments" && (
-          <DepartmentsTab
-            departments={departments}
-            setDepartments={setDepartments}
-            newDepartment={newDepartment}
-            setNewDepartment={setNewDepartment}
-            editingDepartment={editingDepartment}
-            setEditingDepartment={setEditingDepartment}
-          />
-        )}
-
-        {/* Contracts Tab */}
-        {activeTab === "contracts" && (
-          <ContractTypesTab
-            contractTypes={contractTypes}
-            setContractTypes={setContractTypes}
-            newContractType={newContractType}
-            setNewContractType={setNewContractType}
-            editingContractType={editingContractType}
-            setEditingContractType={setEditingContractType}
-          />
-        )}
-
-        {/* Statuses Tab */}
-        {activeTab === "statuses" && (
-          <EmployeeStatusTab
-            employeeStatuses={employeeStatuses}
-            setEmployeeStatuses={setEmployeeStatuses}
-            newEmployeeStatus={newEmployeeStatus}
-            setNewEmployeeStatus={setNewEmployeeStatus}
-            editingEmployeeStatus={editingEmployeeStatus}
-            setEditingEmployeeStatus={setEditingEmployeeStatus}
-          />
-        )}
-
         {/* Teams Tab */}
         {activeTab === "teams" && <TeamsTab />}
 

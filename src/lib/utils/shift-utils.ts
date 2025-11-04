@@ -45,12 +45,35 @@ export function convertShiftTypesToShifts(customShiftTypes: ShiftType[]): Shift[
     else if (shiftType.code === 'O' || shiftType.code === 'OFF') type = 'off';
     else if (shiftType.code === 'A') type = 'custom'; // 행정 근무 (administrative work)
 
+    // Determine color: Try multiple approaches
+    let color = '#6B7280'; // Default gray
+
+    // 1. If color is already a hex code, use it
+    if (shiftType.color && shiftType.color.startsWith('#')) {
+      color = shiftType.color;
+    }
+    // 2. Try mapping from SHIFT_COLOR_MAP (case-insensitive)
+    else if (shiftType.color && SHIFT_COLOR_MAP[shiftType.color.toLowerCase()]) {
+      color = SHIFT_COLOR_MAP[shiftType.color.toLowerCase()];
+    }
+    // 3. Fall back to code-based colors
+    else {
+      const codeColorMap: Record<string, string> = {
+        'D': '#EAB308',   // day - yellow
+        'E': '#F59E0B',   // evening - amber
+        'N': '#6366F1',   // night - indigo
+        'O': '#9CA3AF',   // off - gray
+        'A': '#10B981',   // administrative - green
+      };
+      color = codeColorMap[shiftType.code.toUpperCase()] || '#6B7280';
+    }
+
     return {
       id: `shift-${shiftType.code.toLowerCase()}`,
       type,
       name: shiftType.name,
       time: { start: shiftType.startTime, end: shiftType.endTime, hours },
-      color: SHIFT_COLOR_MAP[shiftType.color] || '#6B7280',
+      color,
       requiredStaff: shiftType.code === 'D' ? 5 : shiftType.code === 'E' ? 4 : shiftType.code === 'N' ? 3 : 1,
       minStaff: shiftType.code === 'D' ? 4 : shiftType.code === 'E' ? 3 : shiftType.code === 'N' ? 2 : 1,
       maxStaff: shiftType.code === 'D' ? 6 : shiftType.code === 'E' ? 5 : shiftType.code === 'N' ? 4 : 3,

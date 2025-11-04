@@ -1116,15 +1116,26 @@ export default function SchedulePage() {
       result = result.filter(member => membersWithSelectedShifts.has(member.id));
     }
 
-    // Member인 경우 자신의 스케줄을 최상단으로 정렬
-    if (isMember && currentUser.dbUser?.id) {
-      const currentUserId = currentUser.dbUser.id;
-      result = result.sort((a, b) => {
+    // 팀별로 정렬 (팀이 없는 직원은 마지막에 배치)
+    result = result.sort((a, b) => {
+      // Member인 경우 자신의 스케줄을 최상단으로
+      if (isMember && currentUser.dbUser?.id) {
+        const currentUserId = currentUser.dbUser.id;
         if (a.id === currentUserId) return -1;
         if (b.id === currentUserId) return 1;
-        return 0;
-      });
-    }
+      }
+
+      // 팀별로 정렬
+      const aTeamId = a.teamId || 'zzz'; // 팀이 없는 경우 마지막으로
+      const bTeamId = b.teamId || 'zzz';
+
+      if (aTeamId !== bTeamId) {
+        return aTeamId.localeCompare(bTeamId);
+      }
+
+      // 같은 팀 내에서는 이름순으로 정렬
+      return a.name.localeCompare(b.name, 'ko');
+    });
 
     return result;
   };
