@@ -1,6 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
-import { Plus, Edit2, Trash2, Users, Save, X, ChevronDown, ChevronRight } from "lucide-react";
+import { useState } from "react";
+import { Plus, Edit2, Trash2, Users, Save } from "lucide-react";
 import { api } from "@/lib/trpc/client";
 
 interface Team {
@@ -22,14 +22,6 @@ interface Department {
   code: string;
 }
 
-interface TeamMember {
-  id: string;
-  name: string;
-  email: string;
-  position: string | null;
-  teamId: string | null;
-}
-
 const COLOR_OPTIONS = [
   '#3B82F6', // blue
   '#10B981', // green
@@ -43,7 +35,6 @@ const COLOR_OPTIONS = [
 
 export function TeamsTab() {
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
-  const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
@@ -65,13 +56,6 @@ export function TeamsTab() {
   const { data: teams = [], refetch: refetchTeams } = api.teams.getAll.useQuery(
     selectedDepartment !== 'all' ? { departmentId: selectedDepartment } : undefined
   );
-
-  // Fetch all users
-  const { data: usersData } = api.tenant.users.list.useQuery({
-    limit: 1000,
-    offset: 0,
-  });
-  const allUsers = usersData?.items || [];
 
   // Mutations
   const createTeam = api.teams.create.useMutation({
@@ -110,28 +94,6 @@ export function TeamsTab() {
     },
   });
 
-  const updateUserTeam = api.tenant.users.update.useMutation({
-    onSuccess: () => {
-      alert('직원이 팀에 배정되었습니다');
-    },
-    onError: (error) => {
-      alert('팀 배정 실패: ' + error.message);
-    },
-  });
-
-  // Get team members for each team
-  const getTeamMembers = (teamId: string): TeamMember[] => {
-    return allUsers.filter(user => user.teamId === teamId);
-  };
-
-  // Get unassigned members for selected department
-  const getUnassignedMembers = (): TeamMember[] => {
-    if (selectedDepartment === 'all') {
-      return allUsers.filter(user => !user.teamId);
-    }
-    return allUsers.filter(user => user.departmentId === selectedDepartment && !user.teamId);
-  };
-
   const handleCreateTeam = () => {
     if (!newTeam.name.trim() || !newTeam.code.trim()) {
       alert('팀 이름과 코드를 입력해주세요');
@@ -162,30 +124,6 @@ export function TeamsTab() {
     deleteTeam.mutate({ id: deletingTeam.id });
   };
 
-  const handleAssignToTeam = (userId: string, teamId: string) => {
-    updateUserTeam.mutate({
-      userId: userId,
-      teamId: teamId,
-    });
-  };
-
-  const handleUnassignFromTeam = (userId: string) => {
-    updateUserTeam.mutate({
-      userId: userId,
-      teamId: null,
-    });
-  };
-
-  const toggleTeamExpand = (teamId: string) => {
-    const newExpanded = new Set(expandedTeams);
-    if (newExpanded.has(teamId)) {
-      newExpanded.delete(teamId);
-    } else {
-      newExpanded.add(teamId);
-    }
-    setExpandedTeams(newExpanded);
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -193,7 +131,7 @@ export function TeamsTab() {
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">팀 관리</h3>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            부서별 팀을 생성하고 직원을 배정할 수 있습니다
+            부서별 팀을 생성하고 관리할 수 있습니다
           </p>
         </div>
         <button
@@ -231,145 +169,53 @@ export function TeamsTab() {
           </div>
         ) : (
           teams.map((team) => {
-            const teamMembers = getTeamMembers(team.id);
-            const isExpanded = expandedTeams.has(team.id);
             const department = departments.find(d => d.id === team.departmentId);
 
             return (
-              <div key={team.id} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                {/* Team Header */}
-                <div className="bg-gray-50 dark:bg-gray-800 p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => toggleTeamExpand(team.id)}
-                        className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
-                      >
-                        {isExpanded ? (
-                          <ChevronDown className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                        ) : (
-                          <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                        )}
-                      </button>
-                      <div
-                        className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-semibold"
-                        style={{ backgroundColor: team.color }}
-                      >
-                        {team.code}
-                      </div>
-                      <div>
-                        <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                          {team.name}
-                        </h4>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {department ? `${department.name} (${department.code})` : '전체 부서'} · {teamMembers.length}명
-                        </p>
-                      </div>
+              <div key={team.id} className="border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-semibold"
+                      style={{ backgroundColor: team.color }}
+                    >
+                      {team.code}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          setEditingTeam(team);
-                          setShowEditModal(true);
-                        }}
-                        className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setDeletingTeam(team);
-                          setShowDeleteConfirm(true);
-                        }}
-                        className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    <div>
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                        {team.name}
+                      </h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {department ? `${department.name} (${department.code})` : '전체 부서'}
+                      </p>
                     </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setEditingTeam(team);
+                        setShowEditModal(true);
+                      }}
+                      className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setDeletingTeam(team);
+                        setShowDeleteConfirm(true);
+                      }}
+                      className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
-
-                {/* Team Members (Expanded) */}
-                {isExpanded && (
-                  <div className="p-4 bg-white dark:bg-gray-900">
-                    <div className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-                      팀원 목록 ({teamMembers.length}명)
-                    </div>
-                    {teamMembers.length === 0 ? (
-                      <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-                        배정된 직원이 없습니다
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {teamMembers.map((member) => (
-                          <div
-                            key={member.id}
-                            className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-                          >
-                            <div>
-                              <div className="font-medium text-gray-900 dark:text-gray-100">{member.name}</div>
-                              <div className="text-sm text-gray-500 dark:text-gray-400">
-                                {member.position || '직책 미지정'} · {member.email}
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => handleUnassignFromTeam(member.id)}
-                              className="px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
-                            >
-                              배정 해제
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             );
           })
         )}
       </div>
-
-      {/* Unassigned Members Section */}
-      {getUnassignedMembers().length > 0 && (
-        <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-amber-50 dark:bg-amber-900/10">
-          <div className="mb-3 flex items-center gap-2 text-amber-700 dark:text-amber-400">
-            <Users className="w-5 h-5" />
-            <span className="font-medium">팀 미배정 직원 ({getUnassignedMembers().length}명)</span>
-          </div>
-          <div className="space-y-2">
-            {getUnassignedMembers().map((member) => (
-              <div
-                key={member.id}
-                className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg"
-              >
-                <div>
-                  <div className="font-medium text-gray-900 dark:text-gray-100">{member.name}</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    {member.position || '직책 미지정'} · {member.email}
-                  </div>
-                </div>
-                <select
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      handleAssignToTeam(member.id, e.target.value);
-                    }
-                  }}
-                  className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                  defaultValue=""
-                >
-                  <option value="">팀 선택...</option>
-                  {teams.map((team) => (
-                    <option key={team.id} value={team.id}>
-                      {team.name} ({team.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Add Team Modal */}
       {showAddModal && (

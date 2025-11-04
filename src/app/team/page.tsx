@@ -46,6 +46,12 @@ export default function TeamManagementPage() {
     offset: 0,
   });
 
+  // Fetch teams from TRPC
+  const { data: teamsData } = api.teams.getAll.useQuery(
+    selectedDepartment !== 'all' ? { departmentId: selectedDepartment } : undefined
+  );
+  const teams = teamsData || [];
+
   // Fetch tenant stats
   const { data: statsData } = api.tenant.stats.summary.useQuery();
 
@@ -87,14 +93,16 @@ const departments =
           {
             id: managerDepartmentId,
             name: managerDepartmentName || '내 병동',
+            code: (departmentsData?.items as any[] || []).find((dept: any) => dept.id === managerDepartmentId)?.code || '',
           },
         ]
       : []
     : [
-        { id: 'all', name: '전체' },
+        { id: 'all', name: '전체', code: '' },
         ...((departmentsData?.items as any[] || []).map((dept: any) => ({
           id: dept.id,
           name: dept.name,
+          code: dept.code,
         })) || []),
       ];
 
@@ -397,10 +405,49 @@ const departments =
           </div>
         )}
 
-        {/* Team Members Grid - 모바일 최적화 */}
+        {/* Team Members Grid - 부서별 그룹화 및 모바일 최적화 */}
         {!isLoadingUsers && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-          {teamMembers.map((member) => (
+        <div className="space-y-6">
+          {/* 부서별로 그룹화 */}
+          {departments.filter(d => d.id !== 'all').map((dept) => {
+            // 해당 부서의 팀원들 필터링
+            const deptMembers = teamMembers.filter(member => member.departmentId === dept.id);
+            // 해당 부서의 팀들 필터링
+            const deptTeams = teams.filter(team => team.departmentId === dept.id);
+
+            if (deptMembers.length === 0) return null;
+
+            return (
+              <div key={dept.id} className="space-y-4">
+                {/* 부서 헤더 */}
+                <div className="flex items-center gap-3 pb-2 border-b-2 border-gray-200 dark:border-gray-700">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                    {dept.name} ({dept.code})
+                  </h3>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {deptMembers.length}명
+                  </span>
+                </div>
+
+                {/* 팀 정보 표시 */}
+                {deptTeams.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {deptTeams.map((team) => (
+                      <div
+                        key={team.id}
+                        className="px-3 py-1.5 rounded-lg text-sm font-medium text-white flex items-center gap-2"
+                        style={{ backgroundColor: team.color }}
+                      >
+                        <span>{team.name}</span>
+                        <span className="text-xs opacity-80">({team.code})</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* 팀원 카드 그리드 */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  {deptMembers.map((member) => (
             <div key={member.id} className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6 hover:shadow-md dark:hover:shadow-gray-900/50 transition-shadow">
               <div className="flex items-start justify-between mb-3 sm:mb-4">
                 <div className="flex items-center gap-2 sm:gap-3">
@@ -523,7 +570,11 @@ const departments =
                 </div>
               </div>
             </div>
-          ))}
+                  ))}
+                </div>
+              </div>
+            );
+          })}
 
           {teamMembers.length === 0 && (
             <div className="col-span-full text-center py-12">
@@ -535,26 +586,25 @@ const departments =
         </div>
         )}
 
-      {/* Add Team Member Modal */}
-      <AddTeamMemberModal
-        isOpen={showAddForm}
-        onClose={() => setShowAddForm(false)}
-        onAdd={handleAddMember}
-        departments={departments}
-        currentUserRole={currentUserRole}
-        managerDepartmentId={currentUserRole === 'manager' ? managerDepartmentId : undefined}
-      />
+        {/* Add Team Member Modal */}
+        <AddTeamMemberModal
+          isOpen={showAddForm}
+          onClose={() => setShowAddForm(false)}
+          onAdd={handleAddMember}
+          departments={departments}
+          currentUserRole={currentUserRole}
+          managerDepartmentId={currentUserRole === 'manager' ? managerDepartmentId : undefined}
+        />
 
-      {/* Department Select Modal */}
-      <DepartmentSelectModal
-        isOpen={showDepartmentModal}
-        onClose={() => setShowDepartmentModal(false)}
-        departments={departments}
-        selectedDepartmentId={selectedDepartment}
-        onSelect={setSelectedDepartment}
-      />
-
-    </MainLayout>
+        {/* Department Select Modal */}
+        <DepartmentSelectModal
+          isOpen={showDepartmentModal}
+          onClose={() => setShowDepartmentModal(false)}
+          departments={departments}
+          selectedDepartmentId={selectedDepartment}
+          onSelect={setSelectedDepartment}
+        />
+      </MainLayout>
     </RoleGuard>
   );
 }

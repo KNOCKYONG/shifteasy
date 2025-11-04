@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { User, Heart, Calendar, Clock, Users, Shield, X, Save, AlertCircle, Star, UserCheck, UserMinus, ChevronLeft, ChevronRight, Info, CheckCircle, Edit2, Trash2 } from "lucide-react";
+import { User, Heart, Calendar, Clock, Users, Shield, X, Save, AlertCircle, Star, UserCheck, UserMinus, ChevronLeft, ChevronRight, Info, CheckCircle, Edit2, Trash2, Wallet } from "lucide-react";
 import { type Employee, type EmployeePreferences, type ShiftType } from "@/lib/scheduler/types";
 import { validatePattern as validatePatternUtil, describePattern, EXAMPLE_PATTERNS, KEYWORD_DESCRIPTIONS, type ShiftToken } from "@/lib/utils/pattern-validator";
 import { api } from "@/lib/trpc/client";
@@ -137,7 +137,7 @@ export function EmployeePreferencesModal({
     } as ExtendedEmployeePreferences;
   });
 
-  const [activeTab, setActiveTab] = useState<'basic' | 'personal' | 'team' | 'request'>('basic');
+  const [activeTab, setActiveTab] = useState<'basic' | 'personal' | 'team' | 'request' | 'off-balance'>('basic');
   const [selectedTeam, setSelectedTeam] = useState<string>((employee as any).teamId || '');
   const [showConstraintForm, setShowConstraintForm] = useState(false);
 
@@ -148,6 +148,53 @@ export function EmployeePreferencesModal({
   const [customPatternInput, setCustomPatternInput] = useState('');
   const [patternValidation, setPatternValidation] = useState<ReturnType<typeof validatePatternUtil> | null>(null);
   const [showPatternHelp, setShowPatternHelp] = useState(false);
+
+  // Off-balance data state
+  const [offBalanceData, setOffBalanceData] = useState<{
+    preferences: {
+      guaranteedOffDaysPerMonth: number;
+      offBalancePreference: 'accumulate' | 'allowance';
+      accumulatedOffDays: number;
+    };
+    history: Array<{
+      id: string;
+      year: number;
+      month: number;
+      guaranteedOffDays: number;
+      actualOffDays: number;
+      remainingOffDays: number;
+      compensationType: string | null;
+      status: string;
+    }>;
+  } | null>(null);
+
+  // Fetch off-balance data
+  const { data: offBalance, refetch: refetchOffBalance } = api.offBalance.getByEmployee.useQuery(
+    { employeeId: employee.id },
+    { enabled: activeTab === 'off-balance' }
+  );
+
+  // Update offBalanceData when query data changes
+  useEffect(() => {
+    if (offBalance) {
+      setOffBalanceData(offBalance);
+    }
+  }, [offBalance]);
+
+  // Update preference mutation
+  const updatePreferenceMutation = api.offBalance.updatePreference.useMutation({
+    onSuccess: () => {
+      refetchOffBalance();
+    }
+  });
+
+  // Handle preference change
+  const handleOffBalancePreferenceChange = (preference: 'accumulate' | 'allowance') => {
+    updatePreferenceMutation.mutate({
+      employeeId: employee.id,
+      preference
+    });
+  };
   const [showEditTeamModal, setShowEditTeamModal] = useState(false);
   const [editingTeam, setEditingTeam] = useState<any>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -596,6 +643,7 @@ export function EmployeePreferencesModal({
             {[
               { id: 'basic', label: '기본 선호도', icon: Clock },
               { id: 'personal', label: '개인 사정', icon: Calendar },
+              { id: 'off-balance', label: '잔여 OFF', icon: Wallet },
               { id: 'request', label: 'Request', icon: Star },
               ...(canManageTeams ? [{ id: 'team', label: '팀 배정', icon: Users }] : []),
             ].map((tab) => (
@@ -944,6 +992,198 @@ export function EmployeePreferencesModal({
                     ))}
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'off-balance' && (
+            <div className="space-y-6">
+              {/* 잔여 OFF 시스템 안내 */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-1">
+                      잔여 OFF 시스템이란?
+                    </h4>
+                    <p className="text-sm text-blue-800 dark:text-blue-200">
+                      매월 보장받은 OFF 일수만큼 스케줄에 OFF가 배정되지 않으면 잔여 OFF가 발생합니다.
+                      잔여 OFF는 다음 달에 수당으로 받거나, OFF를 추가로 사용할 수 있도록 적립할 수 있습니다.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 월별 보장 OFF 일수 */}
+              <div>
+                <h3 className="font-semibold mb-3 text-gray-900 dark:text-white flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-green-500" />
+                  월별 보장 OFF 일수
+                </h3>
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-700 dark:text-gray-300">근무 패턴에 따른 보장 OFF</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="0"
+                        max="31"
+                        value={offBalanceData?.preferences.guaranteedOffDaysPerMonth || 8}
+                        className="w-20 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-center"
+                        readOnly
+                      />
+                      <span className="text-gray-600 dark:text-gray-400">일/월</span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    현재 근무 패턴(3교대)에 따라 자동으로 설정됩니다
+                  </p>
+                </div>
+              </div>
+
+              {/* 현재 적립된 OFF 잔액 */}
+              <div>
+                <h3 className="font-semibold mb-3 text-gray-900 dark:text-white flex items-center gap-2">
+                  <Wallet className="w-5 h-5 text-purple-500" />
+                  현재 적립된 OFF 잔액
+                </h3>
+                <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-lg border border-purple-200 dark:border-purple-800 p-6">
+                  <div className="text-center">
+                    <div className="text-4xl font-bold text-purple-600 dark:text-purple-400 mb-2">
+                      {offBalanceData?.preferences.accumulatedOffDays || 0}<span className="text-2xl ml-1">일</span>
+                    </div>
+                    <p className="text-sm text-purple-700 dark:text-purple-300">
+                      다음 스케줄 작성 시 사용 가능합니다
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 보상 방식 선택 */}
+              <div>
+                <h3 className="font-semibold mb-3 text-gray-900 dark:text-white flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-blue-500" />
+                  잔여 OFF 보상 방식
+                </h3>
+                <div className="space-y-3">
+                  <label className="flex items-start gap-3 p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:border-blue-500 dark:hover:border-blue-500 transition-colors bg-white dark:bg-gray-800">
+                    <input
+                      type="radio"
+                      name="offBalancePreference"
+                      value="accumulate"
+                      checked={offBalanceData?.preferences.offBalancePreference === 'accumulate'}
+                      onChange={() => handleOffBalancePreferenceChange('accumulate')}
+                      className="mt-1"
+                    />
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900 dark:text-white mb-1">
+                        OFF 적립 (추천)
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        잔여 OFF를 적립하여 다음 스케줄에서 추가 OFF로 사용할 수 있습니다.
+                        원하는 날짜에 유연하게 휴무를 배정받을 수 있습니다.
+                      </p>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-3 p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:border-blue-500 dark:hover:border-blue-500 transition-colors bg-white dark:bg-gray-800">
+                    <input
+                      type="radio"
+                      name="offBalancePreference"
+                      value="allowance"
+                      checked={offBalanceData?.preferences.offBalancePreference === 'allowance'}
+                      onChange={() => handleOffBalancePreferenceChange('allowance')}
+                      className="mt-1"
+                    />
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900 dark:text-white mb-1">
+                        수당 지급
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        잔여 OFF를 다음 달 급여에 수당으로 받습니다.
+                        추가 휴무보다 금전적 보상을 선호하는 경우 선택하세요.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* 최근 잔여 OFF 내역 */}
+              <div>
+                <h3 className="font-semibold mb-3 text-gray-900 dark:text-white flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-gray-500" />
+                  최근 잔여 OFF 내역
+                </h3>
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                  {offBalanceData?.history && offBalanceData.history.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                              기간
+                            </th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                              보장 OFF
+                            </th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                              배정 OFF
+                            </th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                              잔여 OFF
+                            </th>
+                            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                              상태
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                          {offBalanceData.history.map((record) => (
+                            <tr key={record.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                              <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                                {record.year}년 {record.month}월
+                              </td>
+                              <td className="px-4 py-3 text-sm text-center text-gray-900 dark:text-gray-100">
+                                {record.guaranteedOffDays}일
+                              </td>
+                              <td className="px-4 py-3 text-sm text-center text-gray-900 dark:text-gray-100">
+                                {record.actualOffDays}일
+                              </td>
+                              <td className="px-4 py-3 text-sm text-center">
+                                <span className={`font-medium ${
+                                  record.remainingOffDays > 0
+                                    ? 'text-orange-600 dark:text-orange-400'
+                                    : 'text-green-600 dark:text-green-400'
+                                }`}>
+                                  {record.remainingOffDays > 0 ? '+' : ''}{record.remainingOffDays}일
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-center">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                  record.status === 'pending'
+                                    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                    : record.status === 'processed'
+                                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                    : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
+                                }`}>
+                                  {record.status === 'pending' ? '대기중' : record.status === 'processed' ? '처리완료' : record.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <Wallet className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                      <p className="text-gray-500 dark:text-gray-400">아직 기록이 없습니다</p>
+                      <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+                        스케줄이 확정되면 잔여 OFF 내역이 여기에 표시됩니다
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

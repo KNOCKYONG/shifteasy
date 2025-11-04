@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, protectedProcedure, adminProcedure } from '../trpc';
 import { scopedDb, createAuditLog } from '@/lib/db-helpers';
-import { schedules, users, shiftTypes, departments } from '@/db/schema';
+import { schedules, users, shiftTypes, departments, nursePreferences, offBalanceLedger } from '@/db/schema';
 import { eq, and, gte, lte, desc, inArray, isNull, ne, or } from 'drizzle-orm';
 import { db } from '@/db';
 
@@ -247,6 +247,104 @@ export const scheduleRouter = createTRPCRouter({
         before: schedule,
         after: updated,
       });
+
+      // Calculate off-balance for all employees
+      try {
+        const tenantId = (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d');
+
+        // Get all shift types to identify OFF shifts
+        const allShiftTypes = await db.query(shiftTypes, eq(shiftTypes.tenantId, tenantId));
+        const offShiftIds = allShiftTypes.filter(st => st.code === 'O').map(st => st.id);
+
+        // Get schedule assignments from metadata
+        const assignments = (schedule.metadata as any)?.assignments || [];
+
+        if (assignments.length > 0 && offShiftIds.length > 0) {
+          // Get all unique employee IDs from assignments
+          const employeeIds = [...new Set(assignments.map((a: any) => a.employeeId))];
+
+          // Get nurse preferences for all employees
+          const employeePreferences = await db.query(
+            nursePreferences,
+            and(
+              eq(nursePreferences.tenantId, tenantId),
+              inArray(nursePreferences.nurseId, employeeIds)
+            )
+          );
+
+          // Create a map for quick lookup
+          const preferencesMap = new Map(
+            employeePreferences.map(p => [p.nurseId, p])
+          );
+
+          // Calculate period boundaries
+          const periodStart = schedule.startDate;
+          const periodEnd = schedule.endDate;
+          const year = periodStart.getFullYear();
+          const month = periodStart.getMonth() + 1;
+
+          // Process each employee
+          const offBalanceRecords = [];
+
+          for (const employeeId of employeeIds) {
+            // Count actual OFF days assigned to this employee
+            const employeeAssignments = assignments.filter((a: any) => a.employeeId === employeeId);
+            const actualOffDays = employeeAssignments.filter((a: any) =>
+              offShiftIds.includes(a.shiftId)
+            ).length;
+
+            // Get guaranteed OFF days from preferences (default 8 if not set)
+            const preferences = preferencesMap.get(employeeId);
+            const guaranteedOffDays = preferences?.guaranteedOffDaysPerMonth || 8;
+            const offBalancePreference = preferences?.offBalancePreference || 'accumulate';
+
+            // Calculate remaining OFF days
+            const remainingOffDays = guaranteedOffDays - actualOffDays;
+
+            // Only create ledger record if there are remaining OFF days
+            if (remainingOffDays > 0) {
+              offBalanceRecords.push({
+                tenantId,
+                nurseId: employeeId,
+                year,
+                month,
+                periodStart,
+                periodEnd,
+                guaranteedOffDays,
+                actualOffDays,
+                remainingOffDays,
+                compensationType: null, // Will be processed later
+                status: 'pending',
+                scheduleId: schedule.id,
+              });
+
+              // If preference is 'accumulate', update accumulated OFF balance
+              if (offBalancePreference === 'accumulate') {
+                const currentBalance = preferences?.accumulatedOffDays || 0;
+                await db.update(
+                  nursePreferences,
+                  {
+                    accumulatedOffDays: currentBalance + remainingOffDays,
+                    updatedAt: new Date(),
+                  },
+                  and(
+                    eq(nursePreferences.nurseId, employeeId),
+                    eq(nursePreferences.tenantId, tenantId)
+                  )
+                );
+              }
+            }
+          }
+
+          // Bulk insert off-balance ledger records
+          if (offBalanceRecords.length > 0) {
+            await db.insert(offBalanceLedger, offBalanceRecords);
+          }
+        }
+      } catch (error) {
+        console.error('Error calculating off-balance:', error);
+        // Don't fail the publish if off-balance calculation fails
+      }
 
       // TODO: Send notifications to affected users
 

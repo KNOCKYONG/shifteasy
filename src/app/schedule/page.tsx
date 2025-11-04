@@ -1131,6 +1131,33 @@ export default function SchedulePage() {
 
   const displayMembers = getFilteredMembersForDisplay();
 
+  // Extract employee IDs for off-balance query
+  const displayMemberIds = React.useMemo(() =>
+    displayMembers.map(m => m.id),
+    [displayMembers]
+  );
+
+  // Fetch off-balance data for all displayed employees
+  const { data: offBalanceData } = api.offBalance.getBulkCurrentBalance.useQuery({
+    employeeIds: displayMemberIds,
+  }, {
+    enabled: displayMemberIds.length > 0,
+  });
+
+  // Convert off-balance data to Map for easy lookup
+  const offBalanceMap = React.useMemo(() => {
+    const map = new Map<string, { accumulatedOffDays: number; offBalancePreference: 'accumulate' | 'allowance' }>();
+    if (offBalanceData) {
+      offBalanceData.forEach(item => {
+        map.set(item.nurseId, {
+          accumulatedOffDays: item.accumulatedOffDays || 0,
+          offBalancePreference: (item.offBalancePreference as 'accumulate' | 'allowance') || 'accumulate',
+        });
+      });
+    }
+    return map;
+  }, [offBalanceData]);
+
   // Validate current schedule
   const handleValidateSchedule = async () => {
     if (!canManageSchedules) {
@@ -2571,6 +2598,8 @@ export default function SchedulePage() {
                 currentUserId={currentUser.dbUser?.id}
                 selectedSwapCell={selectedSwapCell}
                 onCellClick={handleSwapCellClick}
+                offBalanceData={offBalanceMap}
+                showOffBalance={true}
               />
             ) : (
               <ScheduleCalendarView

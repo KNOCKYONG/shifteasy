@@ -13,6 +13,7 @@ import { tenantConfigsRouter } from './routers/tenant-configs';
 import { shiftTypesRouter } from './routers/shift-types';
 import { handoffRouter } from './routers/handoff';
 import { teamsRouter } from './routers/teams';
+import { offBalanceRouter } from './routers/off-balance';
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -29,6 +30,7 @@ export const appRouter = createTRPCRouter({
   shiftTypes: shiftTypesRouter,
   handoff: handoffRouter,
   teams: teamsRouter,
+  offBalance: offBalanceRouter,
 });
 
 export type AppRouter = typeof appRouter;

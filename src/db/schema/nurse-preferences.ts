@@ -107,6 +107,19 @@ export const nursePreferences = pgTable('nurse_preferences', {
     flexibilityLevel: 'none' | 'low' | 'medium' | 'high';
   }>(),
 
+  // ==========================================
+  // Off-Balance System (잔여 OFF 관리)
+  // ==========================================
+
+  // Guaranteed OFF days per month based on contract/work pattern
+  guaranteedOffDaysPerMonth: integer('guaranteed_off_days_per_month').default(8),
+
+  // Preference for unused OFF compensation: 'allowance' (monetary) or 'accumulate' (bank for future use)
+  offBalancePreference: text('off_balance_preference').default('accumulate'), // 'allowance' | 'accumulate'
+
+  // Current accumulated OFF days balance (can be used in future schedules)
+  accumulatedOffDays: integer('accumulated_off_days').default(0),
+
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
@@ -200,6 +213,48 @@ export const preferenceHistory = pgTable('preference_history', {
 }));
 
 // ==========================================
+// Off-Balance Ledger (잔여 OFF 기록)
+// ==========================================
+
+export const offBalanceLedger = pgTable('off_balance_ledger', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  nurseId: uuid('nurse_id').notNull().references(() => users.id),
+
+  // Period information
+  year: integer('year').notNull(), // 연도: 2024
+  month: integer('month').notNull(), // 월: 1-12
+  periodStart: timestamp('period_start').notNull(), // 기간 시작일
+  periodEnd: timestamp('period_end').notNull(), // 기간 종료일
+
+  // OFF day tracking
+  guaranteedOffDays: integer('guaranteed_off_days').notNull(), // 보장 받은 OFF 일수
+  actualOffDays: integer('actual_off_days').notNull().default(0), // 실제 배정된 OFF 일수
+  remainingOffDays: integer('remaining_off_days').notNull().default(0), // 잔여 OFF 일수 (보장 - 실제)
+
+  // Compensation details
+  compensationType: text('compensation_type'), // 'allowance' | 'accumulate' | null (not yet processed)
+  compensationAmount: integer('compensation_amount'), // 수당 금액 (compensationType이 'allowance'인 경우)
+  compensationProcessedAt: timestamp('compensation_processed_at'), // 보상 처리 일시
+
+  // Status tracking
+  status: text('status').default('pending'), // 'pending', 'processed', 'cancelled'
+  scheduleId: uuid('schedule_id'), // 연관된 스케줄 ID (있는 경우)
+
+  // Metadata
+  notes: text('notes'), // 메모 또는 특이사항
+  processedBy: uuid('processed_by').references(() => users.id), // 처리한 관리자 ID
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  nurseIdx: index('off_balance_ledger_nurse_idx').on(table.nurseId),
+  tenantIdx: index('off_balance_ledger_tenant_idx').on(table.tenantId),
+  periodIdx: index('off_balance_ledger_period_idx').on(table.year, table.month),
+  statusIdx: index('off_balance_ledger_status_idx').on(table.status),
+}));
+
+// ==========================================
 // Relations
 // ==========================================
 
@@ -237,6 +292,17 @@ export const preferenceHistoryRelations = relations(preferenceHistory, ({ one })
   }),
   changedBy: one(users, {
     fields: [preferenceHistory.changedBy],
+    references: [users.id],
+  }),
+}));
+
+export const offBalanceLedgerRelations = relations(offBalanceLedger, ({ one }) => ({
+  nurse: one(users, {
+    fields: [offBalanceLedger.nurseId],
+    references: [users.id],
+  }),
+  processedBy: one(users, {
+    fields: [offBalanceLedger.processedBy],
     references: [users.id],
   }),
 }));

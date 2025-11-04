@@ -1,7 +1,7 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { Users } from 'lucide-react';
+import { Users, Wallet } from 'lucide-react';
 
 interface Member {
   id: string;
@@ -13,6 +13,11 @@ interface Assignment {
   employeeId: string;
   shiftId: string;
   isSwapRequested?: boolean;
+}
+
+interface OffBalanceInfo {
+  accumulatedOffDays: number;
+  offBalancePreference: 'accumulate' | 'allowance';
 }
 
 interface ScheduleGridViewProps {
@@ -30,6 +35,8 @@ interface ScheduleGridViewProps {
   currentUserId?: string;
   selectedSwapCell?: { date: string; employeeId: string } | null;
   onCellClick?: (date: Date, employeeId: string, assignment: Assignment | null) => void;
+  offBalanceData?: Map<string, OffBalanceInfo>;
+  showOffBalance?: boolean;
 }
 
 export function ScheduleGridView({
@@ -47,13 +54,20 @@ export function ScheduleGridView({
   currentUserId,
   selectedSwapCell,
   onCellClick,
+  offBalanceData,
+  showOffBalance = true,
 }: ScheduleGridViewProps) {
+  // 잔여 OFF 컬럼을 포함한 그리드 템플릿 계산
+  const gridTemplateWithOffBalance = showOffBalance
+    ? `${scheduleGridTemplate} 140px`
+    : scheduleGridTemplate;
+
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-x-auto">
       <div className="min-w-max">
         <div
           className="grid border-b border-gray-200 dark:border-gray-700"
-          style={{ gridTemplateColumns: scheduleGridTemplate }}
+          style={{ gridTemplateColumns: gridTemplateWithOffBalance }}
         >
           <div className="p-2 bg-gray-50 dark:bg-gray-800 font-medium text-xs text-gray-700 dark:text-gray-300 flex items-center">
             직원
@@ -88,6 +102,14 @@ export function ScheduleGridView({
               </div>
             );
           })}
+          {showOffBalance && (
+            <div className="py-1 px-2 bg-gray-50 dark:bg-gray-800 text-center border-l border-gray-200 dark:border-gray-700">
+              <div className="font-medium text-[10px] text-gray-700 dark:text-gray-300 flex items-center justify-center gap-1">
+                <Wallet className="w-3 h-3" />
+                잔여 OFF
+              </div>
+            </div>
+          )}
         </div>
 
         <div>
@@ -95,7 +117,7 @@ export function ScheduleGridView({
             <div
               key={member.id}
               className="grid border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50"
-              style={{ gridTemplateColumns: scheduleGridTemplate }}
+              style={{ gridTemplateColumns: gridTemplateWithOffBalance }}
             >
               <div className="p-2 flex flex-col justify-center border-r border-gray-100 dark:border-gray-800">
                 <div className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">{member.name}</div>
@@ -152,6 +174,23 @@ export function ScheduleGridView({
                   </div>
                 );
               })}
+
+              {showOffBalance && (
+                <div className="p-2 border-l border-gray-100 dark:border-gray-800 flex flex-col items-center justify-center">
+                  {offBalanceData?.get(member.id) ? (
+                    <>
+                      <div className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                        {offBalanceData.get(member.id)!.accumulatedOffDays}일
+                      </div>
+                      <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                        {offBalanceData.get(member.id)!.offBalancePreference === 'accumulate' ? '적립' : '수당'}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-[10px] text-gray-400 dark:text-gray-500">-</div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
 
