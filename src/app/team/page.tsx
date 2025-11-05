@@ -61,6 +61,13 @@ export default function TeamManagementPage() {
   // Fetch tenant stats
   const { data: statsData } = api.tenant.stats.summary.useQuery();
 
+  // Fetch shift types from shift_types table
+  const { data: shiftTypesData } = api.shiftTypes.getAll.useQuery(undefined, {
+    staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지
+    cacheTime: 30 * 60 * 1000, // 30분 동안 캐시 유지
+    refetchOnWindowFocus: false,
+  });
+
   // Mutations
   const inviteUserMutation = api.tenant.users.invite.useMutation({
     onSuccess: () => {
@@ -262,6 +269,7 @@ const departments =
             departmentName={selectedDepartmentName}
             totalMembers={filteredTotalMembers}
             canEdit={currentUserRole === 'admin' || currentUserRole === 'manager'}
+            shiftTypes={shiftTypesData || []}
           />
         ) : (
           <>

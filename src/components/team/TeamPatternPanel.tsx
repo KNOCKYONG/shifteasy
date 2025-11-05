@@ -29,18 +29,29 @@ import {
   type ShiftToken
 } from '@/lib/utils/pattern-validator';
 
+interface ShiftType {
+  id: string;
+  code: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  color: string;
+}
+
 interface TeamPatternPanelProps {
   departmentId: string;
   departmentName?: string;
   totalMembers: number;
   canEdit: boolean;
+  shiftTypes: ShiftType[];
 }
 
 export function TeamPatternPanel({
   departmentId,
   departmentName,
   totalMembers,
-  canEdit
+  canEdit,
+  shiftTypes
 }: TeamPatternPanelProps) {
   const [pattern, setPattern] = useState<Partial<TeamPattern>>({
     departmentId,
@@ -599,9 +610,11 @@ export function TeamPatternPanel({
                         'bg-gray-50 border-gray-300 text-gray-700'
                       } disabled:opacity-50`}
                     >
-                      <option value="D">D</option>
-                      <option value="E">E</option>
-                      <option value="N">N</option>
+                      {shiftTypes.map((st) => (
+                        <option key={st.id} value={st.code}>
+                          {st.code}
+                        </option>
+                      ))}
                       <option value="OFF">OFF</option>
                     </select>
                     {canEdit && patternArray.length > 1 && (
@@ -697,9 +710,11 @@ export function TeamPatternPanel({
                           'bg-gray-100 border-gray-400 text-gray-800'
                         } disabled:opacity-50`}
                       >
-                        <option value="D">D</option>
-                        <option value="E">E</option>
-                        <option value="N">N</option>
+                        {shiftTypes.map((st) => (
+                          <option key={st.id} value={st.code}>
+                            {st.code}
+                          </option>
+                        ))}
                       </select>
                       {canEdit && avoidArray.length > 2 && (
                         <button
