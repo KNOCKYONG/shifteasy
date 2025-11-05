@@ -2720,7 +2720,6 @@ export default function SchedulePage() {
           showMyScheduleOnly={filters.showMyScheduleOnly}
           showSameSchedule={filters.showSameSchedule}
           viewMode={filters.viewMode}
-          showCodeFormat={filters.showCodeFormat}
           onToggleMySchedule={(value) => {
             filters.setShowMyScheduleOnly(value);
             if (value) {
@@ -2735,7 +2734,6 @@ export default function SchedulePage() {
             }
           }}
           onToggleViewMode={filters.setViewMode}
-          onToggleCodeFormat={filters.setShowCodeFormat}
         />
 
         {/* Shift Type Filters - Now inside schedule view */}
