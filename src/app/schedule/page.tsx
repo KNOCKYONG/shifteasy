@@ -624,6 +624,8 @@ export default function SchedulePage() {
   });
 
   useEffect(() => {
+    console.log('📥 shiftTypesConfig changed:', shiftTypesConfig);
+
     if (shiftTypesConfig?.value && Array.isArray(shiftTypesConfig.value) && shiftTypesConfig.value.length > 0) {
       // Transform from tenant_configs format to CustomShiftType format
       const transformedShiftTypes = shiftTypesConfig.value.map((st: any) => ({
@@ -636,7 +638,9 @@ export default function SchedulePage() {
       }));
       setCustomShiftTypes(transformedShiftTypes);
       console.log('✅ Loaded custom shift types from tenant_configs:', transformedShiftTypes);
+      console.log('📊 Total shift types loaded:', transformedShiftTypes.length);
     } else {
+      console.log('⚠️ shiftTypesConfig is empty or invalid, trying localStorage');
       // Fallback to localStorage for backward compatibility
       const savedShiftTypes = localStorage.getItem('customShiftTypes');
       if (savedShiftTypes) {
@@ -647,6 +651,8 @@ export default function SchedulePage() {
         } catch (error) {
           console.error('Failed to load custom shift types:', error);
         }
+      } else {
+        console.log('❌ No shift types found in localStorage either');
       }
     }
   }, [shiftTypesConfig]);
@@ -654,9 +660,12 @@ export default function SchedulePage() {
   // Convert customShiftTypes to Shift[] format
   const shifts = React.useMemo(() => {
     if (customShiftTypes.length > 0) {
-      return convertShiftTypesToShifts(customShiftTypes);
+      const convertedShifts = convertShiftTypesToShifts(customShiftTypes);
+      console.log('🔄 Converted shifts for modal:', convertedShifts);
+      return convertedShifts;
     }
     // Fallback to default if not loaded yet
+    console.log('⚠️ No custom shift types, returning empty array');
     return [];
   }, [customShiftTypes]);
 
