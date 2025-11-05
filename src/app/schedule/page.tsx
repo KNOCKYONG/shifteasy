@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isWeekend } from "date-fns";
 import { ko } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCcw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings, FolderOpen, ArrowLeftRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCcw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings, FolderOpen, ArrowLeftRight, Save } from "lucide-react";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { SimpleScheduler, type Employee as SimpleEmployee, type Holiday, type SpecialRequest as SimpleSpecialRequest, type ScheduleAssignment as SimpleAssignment } from "../../lib/scheduler/simple-scheduler";
 import { api } from "../../lib/trpc/client";
@@ -458,7 +458,7 @@ export default function SchedulePage() {
   const { data: savedSchedules } = api.schedule.list.useQuery({
     departmentId: (isManager || isMember) && memberDepartmentId ? memberDepartmentId :
                   selectedDepartment !== 'all' && selectedDepartment !== 'no-department' ? selectedDepartment : undefined,
-    status: 'published',
+    status: isMember ? 'published' : undefined, // Members only see published, managers/admins see all including drafts
     startDate: monthStart,
     endDate: monthEnd,
   }, {
@@ -469,9 +469,17 @@ export default function SchedulePage() {
 
   // ✅ Track last loaded schedule ID and updatedAt
   const lastLoadedRef = React.useRef<{ id: string; updatedAt: string } | null>(null);
+  // ✅ Prevent auto-load after saving
+  const skipAutoLoadRef = React.useRef<boolean>(false);
 
   // ✅ Load schedule from DB when month/department changes OR when schedule is updated (swap)
   useEffect(() => {
+    // Skip auto-load if we just saved (to prevent overwriting current edits)
+    if (skipAutoLoadRef.current) {
+      skipAutoLoadRef.current = false;
+      return;
+    }
+
     if (!savedSchedules || savedSchedules.length === 0) {
       // No saved schedule, clear loaded ID
       setLoadedScheduleId(null);
@@ -480,9 +488,16 @@ export default function SchedulePage() {
     }
 
     // Find the most recent published schedule for this month
-    const currentMonthSchedule = savedSchedules
+    let currentMonthSchedule = savedSchedules
       .filter(s => s.status === 'published')
       .sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime())[0];
+
+    // If no published schedule found and user can manage schedules, try to load most recent draft
+    if (!currentMonthSchedule && canManageSchedules) {
+      currentMonthSchedule = savedSchedules
+        .filter(s => s.status === 'draft')
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0];
+    }
 
     if (!currentMonthSchedule) {
       setLoadedScheduleId(null);
@@ -514,12 +529,12 @@ export default function SchedulePage() {
 
       setSchedule(convertedAssignments);
       setOriginalSchedule(convertedAssignments);
-      setIsConfirmed(true);
+      setIsConfirmed(currentMonthSchedule.status === 'published'); // Only confirmed if published
       setLoadedScheduleId(currentMonthSchedule.id);
       lastLoadedRef.current = { id: currentMonthSchedule.id, updatedAt: currentUpdatedAt };
-      console.log(`✅ Loaded ${convertedAssignments.length} assignments from saved schedule ${currentMonthSchedule.id} (updated: ${currentMonthSchedule.updatedAt})`);
+      console.log(`✅ Loaded ${convertedAssignments.length} assignments from ${currentMonthSchedule.status} schedule ${currentMonthSchedule.id} (updated: ${currentMonthSchedule.updatedAt})`);
     }
-  }, [savedSchedules, monthStart]);
+  }, [savedSchedules, monthStart, canManageSchedules]);
 
   const currentWeek = monthStart;
   const buildSchedulePayload = () => {
@@ -1445,6 +1460,88 @@ export default function SchedulePage() {
       alert('스케줄 확정 중 오류가 발생했습니다.');
     } finally {
       modals.setIsConfirming(false);
+    }
+  };
+
+  // Save schedule as draft (임시 저장)
+  const handleSaveDraft = async () => {
+    if (!canManageSchedules) {
+      alert('스케줄 저장 권한이 없습니다.');
+      return;
+    }
+
+    // Validate departmentId before saving
+    let validDepartmentId = selectedDepartment;
+
+    if (selectedDepartment === 'all' || selectedDepartment === 'no-department') {
+      // For members and managers, use their departmentId
+      if (isMember || isManager) {
+        validDepartmentId = currentUser.dbUser?.departmentId || null;
+      } else {
+        // For admin/owner, require department selection
+        alert('스케줄을 저장하려면 부서를 선택해주세요.');
+        return;
+      }
+    }
+
+    if (!validDepartmentId) {
+      alert('부서 정보가 없습니다. 관리자에게 문의하세요.');
+      return;
+    }
+
+    if (schedule.length === 0) {
+      alert('저장할 스케줄이 없습니다.');
+      return;
+    }
+
+    console.log(`📋 Saving draft schedule to department: ${validDepartmentId}`);
+
+    try {
+      const schedulePayload = buildSchedulePayload();
+
+      const response = await fetch('/api/schedule/save-draft', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          schedule: schedulePayload,
+          month: format(monthStart, 'yyyy-MM-dd'),
+          departmentId: validDepartmentId,
+          name: `임시 저장 - ${format(monthStart, 'yyyy년 MM월')}`,
+          metadata: {
+            createdBy: currentUserId,
+            createdAt: new Date().toISOString(),
+          },
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Set the loaded schedule ID to prevent re-loading on next render
+        const savedScheduleId = result.schedule?.id;
+        if (savedScheduleId) {
+          setLoadedScheduleId(savedScheduleId);
+          lastLoadedRef.current = {
+            id: savedScheduleId,
+            updatedAt: result.schedule.updatedAt?.toString() || new Date().toISOString()
+          };
+        }
+
+        // Skip auto-load on next render to keep current screen state
+        skipAutoLoadRef.current = true;
+
+        // Invalidate schedule cache to refresh the list (for ManageSchedulesModal)
+        await utils.schedule.list.invalidate();
+
+        alert('스케줄이 임시 저장되었습니다.\n다른 멤버들에게는 보이지 않으며, 스케줄 보기에서 확인할 수 있습니다.');
+      } else {
+        alert('임시 저장에 실패했습니다: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Save draft error:', error);
+      alert('임시 저장 중 오류가 발생했습니다.');
     }
   };
 
@@ -2464,6 +2561,17 @@ export default function SchedulePage() {
                         <CheckCircle className="w-4 h-4" />
                         <span className="hidden sm:inline">검증</span>
                       </button>
+
+                      {canManageSchedules && (
+                        <button
+                          onClick={handleSaveDraft}
+                          className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 dark:text-blue-400 rounded-lg border border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                          title="스케줄 임시 저장 (멤버에게는 보이지 않음)"
+                        >
+                          <Save className="w-4 h-4" />
+                          <span className="hidden sm:inline">임시 저장</span>
+                        </button>
+                      )}
 
                       <button
                         onClick={() => modals.setShowConfirmDialog(true)}
