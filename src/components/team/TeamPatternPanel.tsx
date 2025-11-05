@@ -58,7 +58,7 @@ export function TeamPatternPanel({
     requiredStaffDay: 5,
     requiredStaffEvening: 4,
     requiredStaffNight: 3,
-    defaultPatterns: [['D', 'D', 'D', 'OFF', 'OFF']],
+    defaultPatterns: [['D', 'D', 'D', 'O', 'O']],
     avoidPatterns: [], // 기피 패턴 초기화
     totalMembers,
   });
@@ -126,7 +126,7 @@ export function TeamPatternPanel({
       ...prev,
       defaultPatterns: [
         ...(prev.defaultPatterns || []),
-        ['D', 'OFF']
+        ['D', 'O']
       ],
     }));
   };
@@ -157,7 +157,7 @@ export function TeamPatternPanel({
   const addDayToPattern = (patternIndex: number) => {
     setPattern(prev => {
       const newPatterns = [...(prev.defaultPatterns || [])];
-      newPatterns[patternIndex] = [...newPatterns[patternIndex], 'OFF'];
+      newPatterns[patternIndex] = [...newPatterns[patternIndex], 'O'];
 
       return {
         ...prev,
@@ -199,9 +199,7 @@ export function TeamPatternPanel({
     }
 
     // 검증된 토큰을 패턴 배열에 추가
-    const newPatternArray = patternValidation.tokens.map(token =>
-      token === 'O' ? 'OFF' : token
-    ) as ShiftType[];
+    const newPatternArray = patternValidation.tokens as ShiftType[];
 
     setPattern(prev => ({
       ...prev,
@@ -258,7 +256,7 @@ export function TeamPatternPanel({
             requiredStaffDay: pattern.requiredStaffDay || 5,
             requiredStaffEvening: pattern.requiredStaffEvening || 4,
             requiredStaffNight: pattern.requiredStaffNight || 3,
-            defaultPatterns: pattern.defaultPatterns || [['D', 'D', 'D', 'OFF', 'OFF']],
+            defaultPatterns: pattern.defaultPatterns || [['D', 'D', 'D', 'O', 'O']],
             avoidPatterns: pattern.avoidPatterns || [], // 기피 패턴 포함
             totalMembers,
           };
@@ -473,7 +471,7 @@ export function TeamPatternPanel({
                   패턴 직접 입력
                 </label>
                 <p className="text-xs text-gray-500 mb-2">
-                  하이픈(-), 쉼표(,), 공백으로 구분하여 입력하세요. 예: N-N-N-OFF-OFF
+                  하이픈(-), 쉼표(,), 공백으로 구분하여 입력하세요. 예: N-N-N-O-O
                 </p>
               </div>
               <button
@@ -531,7 +529,7 @@ export function TeamPatternPanel({
                       applyPatternInput();
                     }
                   }}
-                  placeholder="예: N-N-N-OFF-OFF 또는 D,D,D,OFF,OFF (Enter로 추가)"
+                  placeholder="예: N-N-N-O-O 또는 D,D,D,O,O (Enter로 추가)"
                   className={`w-full px-3 py-2 border rounded-md font-mono text-sm ${
                     patternValidation?.isValid
                       ? 'border-green-300 bg-green-50 focus:ring-green-500'
@@ -615,7 +613,6 @@ export function TeamPatternPanel({
                           {st.code}
                         </option>
                       ))}
-                      <option value="OFF">OFF</option>
                     </select>
                     {canEdit && patternArray.length > 1 && (
                       <button
