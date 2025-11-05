@@ -241,20 +241,17 @@ function ConfigPageContent() {
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-3">
             <Settings className="w-7 h-7 text-gray-400 dark:text-gray-500" />
-            {activeTab === 'teams' ? '팀 배정' : t('title', { ns: 'config' })}
+            {t('title', { ns: 'config' })}
           </h2>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
-            {activeTab === 'teams' ? '팀을 생성하고 직원을 배정할 수 있습니다' : t('subtitle', { ns: 'config' })}
-          </p>
+          <p className="mt-2 text-gray-600 dark:text-gray-400">{t('subtitle', { ns: 'config' })}</p>
         </div>
 
-        {/* Tabs - 팀 배정일 때는 탭 숨김 */}
-        {activeTab !== 'teams' && (
-          <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
-            <div className="mb-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-4 text-sm text-blue-800 dark:text-blue-300">
-              3교대(주간/저녁/야간) 패턴을 기준으로 스케줄이 생성되며, 근무 패턴은 변경할 수 없습니다.
-            </div>
-            <nav className="flex gap-8">
+        {/* Tabs */}
+        <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="mb-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-4 text-sm text-blue-800 dark:text-blue-300">
+            3교대(주간/저녁/야간) 패턴을 기준으로 스케줄이 생성되며, 근무 패턴은 변경할 수 없습니다.
+          </div>
+          <nav className="flex gap-8">
             <button
               onClick={() => setActiveTab("preferences")}
               className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
@@ -309,7 +306,6 @@ function ConfigPageContent() {
             )}
           </nav>
         </div>
-        )}
 
         {/* Tab Content */}
         {activeTab === "preferences" && (
@@ -549,24 +545,22 @@ function ConfigPageContent() {
           <SecretCodeTab currentUserRole={currentUser.role} />
         )}
 
-        {/* Action Buttons - 팀 배정일 때는 저장 버튼 숨김 */}
-        {activeTab !== 'teams' && (
-          <div className="mt-8 flex justify-between">
-            <button
-              onClick={() => router.push("/team")}
-              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
-            >
-              {t('actions.previousStep', { ns: 'config' })}
-            </button>
-            <button
-              onClick={handleSave}
-              className="inline-flex items-center gap-2 px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-            >
-              <Save className="w-4 h-4" />
-              저장
-            </button>
-          </div>
-        )}
+        {/* Action Buttons */}
+        <div className="mt-8 flex justify-between">
+          <button
+            onClick={() => router.push("/team")}
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            {t('actions.previousStep', { ns: 'config' })}
+          </button>
+          <button
+            onClick={handleSave}
+            className="inline-flex items-center gap-2 px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+          >
+            <Save className="w-4 h-4" />
+            저장
+          </button>
+        </div>
     </MainLayout>
     </RoleGuard>
   );
