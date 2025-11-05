@@ -88,7 +88,8 @@ export const users = pgTable('users', {
   teamIdx: index('users_team_id_idx').on(table.teamId),
 }));
 
-// Shift Types table
+// Shift Types table - DEPRECATED: Now stored in tenant_configs table with configKey='shift_types'
+// Keeping this for backward compatibility and migration purposes
 export const shiftTypes = pgTable('shift_types', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }).notNull(),

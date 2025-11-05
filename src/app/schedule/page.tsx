@@ -445,7 +445,6 @@ export default function SchedulePage() {
     endDate: format(calendarEnd, 'yyyy-MM-dd'),
   }, {
     staleTime: 5 * 60 * 1000, // 5분 동안 fresh 유지
-    cacheTime: 10 * 60 * 1000, // 10분 동안 캐시 유지
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
 
@@ -463,7 +462,6 @@ export default function SchedulePage() {
     endDate: monthEnd,
   }, {
     staleTime: 2 * 60 * 1000, // 2분 동안 fresh 유지 (스케줄은 자주 변경될 수 있음)
-    cacheTime: 5 * 60 * 1000, // 5분 동안 캐시 유지
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
 
@@ -605,7 +603,6 @@ export default function SchedulePage() {
   // Load shift types from shift_types table
   const { data: shiftTypesFromDB } = api.shiftTypes.getAll.useQuery(undefined, {
     staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지 (자주 변경되지 않음)
-    cacheTime: 30 * 60 * 1000, // 30분 동안 캐시 유지
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
 
@@ -614,14 +611,12 @@ export default function SchedulePage() {
     configKey: 'shiftConfig'
   }, {
     staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지
-    cacheTime: 30 * 60 * 1000, // 30분 동안 캐시 유지
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
 
   // Fetch teams from database
   const { data: dbTeams = [] } = api.teams.getAll.useQuery(undefined, {
     staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지
-    cacheTime: 30 * 60 * 1000, // 30분 동안 캐시 유지
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
 
@@ -678,7 +673,6 @@ export default function SchedulePage() {
     {
       enabled: true,
       staleTime: 3 * 60 * 1000, // 3분 동안 fresh 유지 (사용자 정보는 가끔 변경됨)
-      cacheTime: 10 * 60 * 1000, // 10분 동안 캐시 유지
       refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
     }
   );
@@ -689,7 +683,6 @@ export default function SchedulePage() {
     endDate: format(monthEnd, 'yyyy-MM-dd'),
   }, {
     staleTime: 2 * 60 * 1000, // 2분 동안 fresh 유지 (요청은 자주 변경될 수 있음)
-    cacheTime: 5 * 60 * 1000, // 5분 동안 캐시 유지
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
 
@@ -1393,7 +1386,7 @@ export default function SchedulePage() {
     }
 
     // ✅ Validate departmentId before saving
-    let validDepartmentId = selectedDepartment;
+    let validDepartmentId: string | null = selectedDepartment;
 
     if (selectedDepartment === 'all' || selectedDepartment === 'no-department') {
       // For members and managers, use their departmentId
@@ -1471,7 +1464,7 @@ export default function SchedulePage() {
     }
 
     // Validate departmentId before saving
-    let validDepartmentId = selectedDepartment;
+    let validDepartmentId: string | null = selectedDepartment;
 
     if (selectedDepartment === 'all' || selectedDepartment === 'no-department') {
       // For members and managers, use their departmentId
@@ -1593,11 +1586,11 @@ export default function SchedulePage() {
         if (!activeCustomShiftTypes || activeCustomShiftTypes.length === 0) {
           console.warn('⚠️ customShiftTypes를 로드할 수 없음, 기본값 사용');
           activeCustomShiftTypes = [
-            { code: 'D', name: '주간', startTime: '08:00', endTime: '16:00' },
-            { code: 'E', name: '저녁', startTime: '16:00', endTime: '24:00' },
-            { code: 'N', name: '야간', startTime: '00:00', endTime: '08:00' },
-            { code: 'O', name: '휴무', startTime: '00:00', endTime: '00:00' },
-            { code: 'A', name: '행정', startTime: '09:00', endTime: '18:00' },
+            { code: 'D', name: '주간', startTime: '08:00', endTime: '16:00', color: '#EAB308', allowOvertime: false },
+            { code: 'E', name: '저녁', startTime: '16:00', endTime: '24:00', color: '#F59E0B', allowOvertime: false },
+            { code: 'N', name: '야간', startTime: '00:00', endTime: '08:00', color: '#6366F1', allowOvertime: false },
+            { code: 'O', name: '휴무', startTime: '00:00', endTime: '00:00', color: '#9CA3AF', allowOvertime: false },
+            { code: 'A', name: '행정', startTime: '09:00', endTime: '18:00', color: '#10B981', allowOvertime: false },
           ];
         }
       }
@@ -2089,7 +2082,6 @@ export default function SchedulePage() {
       // OFF가 아닌 경우에만 새 근무 추가
       if (newShiftId !== 'off') {
         const newAssignment: ScheduleAssignment = {
-          id: `${employeeId}-${format(date, 'yyyy-MM-dd')}-${Date.now()}`,
           employeeId,
           shiftId: newShiftId,
           date: date,

@@ -1,8 +1,22 @@
 import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { db } from '@/db';
-import { shiftTypes } from '@/db/schema/tenants';
-import { eq, and, or, isNull } from 'drizzle-orm';
+import { tenantConfigs } from '@/db/schema/tenant-configs';
+import { eq, and } from 'drizzle-orm';
+
+// ShiftType interface matching the config structure
+interface ShiftType {
+  id: string;
+  code: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  duration?: number;
+  color: string;
+  breakMinutes?: number;
+  sortOrder?: number;
+  departmentId?: string | null;
+}
 
 export const shiftTypesRouter = createTRPCRouter({
   // Get all shift types for a department
@@ -13,21 +27,30 @@ export const shiftTypesRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
 
-      // Get global shift types (department_id = NULL) + department-specific shift types
-      const result = await db.select()
-        .from(shiftTypes)
+      // Get shift types from tenant_configs
+      const configResult = await db.select()
+        .from(tenantConfigs)
         .where(and(
-          eq(shiftTypes.tenantId, tenantId),
-          input.departmentId
-            ? or(
-                isNull(shiftTypes.departmentId), // Global
-                eq(shiftTypes.departmentId, input.departmentId) // Department-specific
-              )
-            : isNull(shiftTypes.departmentId) // Only global if no department specified
+          eq(tenantConfigs.tenantId, tenantId),
+          eq(tenantConfigs.configKey, 'shift_types')
         ))
-        .orderBy(shiftTypes.sortOrder);
+        .limit(1);
 
-      return result;
+      if (!configResult[0]) {
+        return [];
+      }
+
+      const shiftTypes = configResult[0].configValue as ShiftType[];
+
+      // Filter by department if specified
+      if (input.departmentId) {
+        return shiftTypes.filter(st =>
+          !st.departmentId || st.departmentId === input.departmentId
+        );
+      }
+
+      // Return only global shift types (no departmentId)
+      return shiftTypes.filter(st => !st.departmentId);
     }),
 
   // Get all shift types for tenant
@@ -35,12 +58,20 @@ export const shiftTypesRouter = createTRPCRouter({
     .query(async ({ ctx }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
 
-      const result = await db.select()
-        .from(shiftTypes)
-        .where(eq(shiftTypes.tenantId, tenantId))
-        .orderBy(shiftTypes.sortOrder);
+      // Get shift types from tenant_configs
+      const configResult = await db.select()
+        .from(tenantConfigs)
+        .where(and(
+          eq(tenantConfigs.tenantId, tenantId),
+          eq(tenantConfigs.configKey, 'shift_types')
+        ))
+        .limit(1);
 
-      return result;
+      if (!configResult[0]) {
+        return [];
+      }
+
+      return configResult[0].configValue as ShiftType[];
     }),
 
   // Create or update shift type (upsert based on department_id + code)
@@ -51,7 +82,7 @@ export const shiftTypesRouter = createTRPCRouter({
       name: z.string(),
       startTime: z.string(), // HH:mm format
       endTime: z.string(), // HH:mm format
-      duration: z.number(), // minutes
+      duration: z.number().optional(), // minutes
       color: z.string(),
       breakMinutes: z.number().optional(),
       sortOrder: z.number().optional(),
@@ -59,64 +90,69 @@ export const shiftTypesRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
 
-      // Check if shift type already exists for this tenant + department + code
-      const conditions = [
-        eq(shiftTypes.tenantId, tenantId),
-        eq(shiftTypes.code, input.code),
-      ];
-
-      // Handle department_id (NULL or UUID)
-      if (input.departmentId) {
-        conditions.push(eq(shiftTypes.departmentId, input.departmentId));
-      } else {
-        conditions.push(isNull(shiftTypes.departmentId));
-      }
-
-      const existing = await db.select()
-        .from(shiftTypes)
-        .where(and(...conditions))
+      // Get current shift types
+      const configResult = await db.select()
+        .from(tenantConfigs)
+        .where(and(
+          eq(tenantConfigs.tenantId, tenantId),
+          eq(tenantConfigs.configKey, 'shift_types')
+        ))
         .limit(1);
 
-      let result;
+      let shiftTypes: ShiftType[] = [];
 
-      if (existing.length > 0) {
-        // Update existing shift type
-        const updated = await db.update(shiftTypes)
-          .set({
-            name: input.name,
-            startTime: input.startTime,
-            endTime: input.endTime,
-            duration: input.duration,
-            color: input.color,
-            breakMinutes: input.breakMinutes ?? 0,
-            sortOrder: input.sortOrder ?? existing[0].sortOrder,
-            updatedAt: new Date(),
-          })
-          .where(eq(shiftTypes.id, existing[0].id))
-          .returning();
-
-        result = updated[0];
-      } else {
-        // Insert new shift type
-        const inserted = await db.insert(shiftTypes)
-          .values({
-            tenantId,
-            departmentId: input.departmentId ?? null,
-            code: input.code,
-            name: input.name,
-            startTime: input.startTime,
-            endTime: input.endTime,
-            duration: input.duration,
-            color: input.color,
-            breakMinutes: input.breakMinutes ?? 0,
-            sortOrder: input.sortOrder ?? 0,
-          })
-          .returning();
-
-        result = inserted[0];
+      if (configResult[0]) {
+        shiftTypes = configResult[0].configValue as ShiftType[];
       }
 
-      return result;
+      // Find existing shift type with same code and departmentId
+      const existingIndex = shiftTypes.findIndex(st =>
+        st.code === input.code &&
+        ((!st.departmentId && !input.departmentId) || st.departmentId === input.departmentId)
+      );
+
+      const newShiftType: ShiftType = {
+        id: existingIndex >= 0 ? shiftTypes[existingIndex].id : crypto.randomUUID(),
+        code: input.code,
+        name: input.name,
+        startTime: input.startTime,
+        endTime: input.endTime,
+        duration: input.duration,
+        color: input.color,
+        breakMinutes: input.breakMinutes ?? 0,
+        sortOrder: input.sortOrder ?? (existingIndex >= 0 ? shiftTypes[existingIndex].sortOrder : 0),
+        departmentId: input.departmentId ?? null,
+      };
+
+      if (existingIndex >= 0) {
+        // Update existing
+        shiftTypes[existingIndex] = newShiftType;
+      } else {
+        // Add new
+        shiftTypes.push(newShiftType);
+      }
+
+      // Save back to tenant_configs
+      if (configResult[0]) {
+        await db.update(tenantConfigs)
+          .set({
+            configValue: shiftTypes,
+            updatedAt: new Date(),
+          })
+          .where(and(
+            eq(tenantConfigs.tenantId, tenantId),
+            eq(tenantConfigs.configKey, 'shift_types')
+          ));
+      } else {
+        await db.insert(tenantConfigs)
+          .values({
+            tenantId,
+            configKey: 'shift_types',
+            configValue: shiftTypes,
+          });
+      }
+
+      return newShiftType;
     }),
 
   // Delete shift type
@@ -127,10 +163,33 @@ export const shiftTypesRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
 
-      await db.delete(shiftTypes)
+      // Get current shift types
+      const configResult = await db.select()
+        .from(tenantConfigs)
         .where(and(
-          eq(shiftTypes.id, input.id),
-          eq(shiftTypes.tenantId, tenantId)
+          eq(tenantConfigs.tenantId, tenantId),
+          eq(tenantConfigs.configKey, 'shift_types')
+        ))
+        .limit(1);
+
+      if (!configResult[0]) {
+        return { success: false };
+      }
+
+      let shiftTypes = configResult[0].configValue as ShiftType[];
+
+      // Remove the shift type
+      shiftTypes = shiftTypes.filter(st => st.id !== input.id);
+
+      // Save back
+      await db.update(tenantConfigs)
+        .set({
+          configValue: shiftTypes,
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(tenantConfigs.tenantId, tenantId),
+          eq(tenantConfigs.configKey, 'shift_types')
         ));
 
       return { success: true };

@@ -276,6 +276,8 @@ export async function PUT(request: NextRequest) {
     const updatedData = {
       ...pattern,
       ...data,
+      // null을 undefined로 변환
+      avoidPatterns: (data.avoidPatterns ?? pattern.avoidPatterns) || undefined,
     };
 
     // 비즈니스 로직 검증

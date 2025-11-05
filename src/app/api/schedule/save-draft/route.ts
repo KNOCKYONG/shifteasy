@@ -101,8 +101,8 @@ export async function POST(request: NextRequest) {
         startDate: new Date(schedule.startDate),
         endDate: new Date(schedule.endDate),
         status: 'draft',
-        name: name || `Draft - ${new Date().toLocaleDateString('ko-KR')}`,
         metadata: {
+          name: name || `Draft - ${new Date().toLocaleDateString('ko-KR')}`,
           savedAt: new Date().toISOString(),
           savedBy: user.id,
           assignments: schedule.assignments,

@@ -64,7 +64,6 @@ export default function TeamManagementPage() {
   // Fetch shift types from shift_types table
   const { data: shiftTypesData } = api.shiftTypes.getAll.useQuery(undefined, {
     staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지
-    cacheTime: 30 * 60 * 1000, // 30분 동안 캐시 유지
     refetchOnWindowFocus: false,
   });
 

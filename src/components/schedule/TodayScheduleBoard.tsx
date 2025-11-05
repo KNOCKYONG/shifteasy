@@ -47,7 +47,6 @@ export function TodayScheduleBoard({
   // Fetch teams from database
   const { data: dbTeams = [] } = api.teams.getAll.useQuery(undefined, {
     staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지
-    cacheTime: 30 * 60 * 1000, // 30분 동안 캐시 유지
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
 
