@@ -1710,6 +1710,27 @@ export default function SchedulePage() {
         maxConsecutiveNightsPreferred: emp.maxConsecutiveNightsPreferred,
       }));
 
+      // 🔍 디버깅: 직원 workPatternType 분포 확인
+      const empPatternDistribution: Record<string, string[]> = {
+        'weekday-only': [],
+        'three-shift': [],
+        'night-intensive': [],
+        'undefined': [],
+      };
+      simpleEmployees.forEach(emp => {
+        const pattern = emp.workPatternType || 'undefined';
+        if (!empPatternDistribution[pattern]) {
+          empPatternDistribution[pattern] = [];
+        }
+        empPatternDistribution[pattern].push(emp.name);
+      });
+      console.log('📋 직원 근무 패턴 분류:');
+      Object.entries(empPatternDistribution).forEach(([pattern, names]) => {
+        if (names.length > 0) {
+          console.log(`   ${pattern} (${names.length}명): ${names.slice(0, 5).join(', ')}${names.length > 5 ? ` 외 ${names.length - 5}명` : ''}`);
+        }
+      });
+
       // 6. SimpleSchedulerConfig 생성
       const schedulerConfig = {
         year: currentMonth.getFullYear(),

@@ -274,6 +274,23 @@ export class SimpleScheduler {
     console.log(`   👥 직원 구성: 행정 ${weekdayOnlyEmployees.length}명, 교대 ${shiftEmployees.length}명`);
     console.log(`   📊 필요 인원: D=${requiredPerShift.D}, E=${requiredPerShift.E}, N=${requiredPerShift.N}`);
 
+    // 🔍 디버깅: workPatternType이 없는 직원 확인
+    const noPatternEmployees = this.config.employees.filter(emp => !emp.workPatternType);
+    if (noPatternEmployees.length > 0) {
+      console.warn(`   ⚠️ workPatternType 미설정 직원 ${noPatternEmployees.length}명:`,
+        noPatternEmployees.map(e => ({ name: e.name, id: e.id.slice(0, 8) }))
+      );
+      console.warn(`   💡 이 직원들은 교대 근무자로 분류되지만, workPatternType 설정이 필요합니다.`);
+    }
+
+    // 🔍 디버깅: 각 workPatternType 분포 확인
+    const patternDistribution: Record<string, number> = {};
+    this.config.employees.forEach(emp => {
+      const pattern = emp.workPatternType || 'undefined';
+      patternDistribution[pattern] = (patternDistribution[pattern] || 0) + 1;
+    });
+    console.log(`   📈 workPatternType 분포:`, patternDistribution);
+
     // Check if we have enough staff
     const totalRequired = requiredPerShift.D + requiredPerShift.E + requiredPerShift.N;
     if (shiftEmployees.length < totalRequired) {

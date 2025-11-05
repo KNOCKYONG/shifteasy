@@ -103,19 +103,36 @@ export class EmployeeAdapter {
     let maxConsecutiveNightsPreferred: number | undefined;
 
     if (unified.comprehensivePreferences) {
-      const comp = unified.comprehensivePreferences;
-      workPatternType = comp.workPreferences?.workPatternType as any;
+      const comp = unified.comprehensivePreferences as any;
 
-      // Map preferredShifts to numeric scores (0-10)
-      const prefs = comp.workPreferences?.preferredShifts || [];
-      preferredShiftTypes = {
-        D: prefs.includes('day') ? 10 : 0,
-        E: prefs.includes('evening') ? 10 : 0,
-        N: prefs.includes('night') ? 10 : 0,
-      };
+      // 🔧 지원: flat 구조와 nested 구조 모두 처리
+      // DB에서 로드된 preferences는 flat 구조일 수 있음
+      workPatternType = comp.workPatternType || comp.workPreferences?.workPatternType as any;
 
-      maxConsecutiveDaysPreferred = comp.workPreferences?.maxConsecutiveDays;
+      // 🔍 디버깅: workPatternType 추출 확인 (weekday-only 직원만)
+      if (workPatternType === 'weekday-only') {
+        console.log(`   📋 ${unified.name}: workPatternType="${workPatternType}" 추출 성공 (행정 근무자)`);
+      }
+
+      // preferredShiftTypes: flat 구조 우선, nested 구조 대체
+      if (comp.preferredShiftTypes) {
+        // Flat 구조: {D: 0, E: 0, N: 0}
+        preferredShiftTypes = comp.preferredShiftTypes;
+      } else {
+        // Nested 구조: workPreferences.preferredShifts = ['day', 'evening', 'night']
+        const prefs = comp.workPreferences?.preferredShifts || [];
+        preferredShiftTypes = {
+          D: prefs.includes('day') ? 10 : 0,
+          E: prefs.includes('evening') ? 10 : 0,
+          N: prefs.includes('night') ? 10 : 0,
+        };
+      }
+
+      // maxConsecutiveDaysPreferred: flat 구조 우선
+      maxConsecutiveDaysPreferred = comp.maxConsecutiveDaysPreferred || comp.workPreferences?.maxConsecutiveDays;
+
       // maxConsecutiveNightsPreferred is optional, keep as undefined
+      maxConsecutiveNightsPreferred = comp.maxConsecutiveNightsPreferred;
     }
 
     return {

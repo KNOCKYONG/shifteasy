@@ -16,6 +16,10 @@ export const teamPatterns = pgTable('team_patterns', {
     ['D', 'D', 'D', 'OFF', 'OFF']
   ]),
 
+  // 기피 근무 패턴 (JSON 배열로 저장) - 스케줄 생성 시 피해야 할 연속 시프트 조합
+  // 예: [['N', 'N', 'D']] = 야간 2일 후 바로 주간 근무는 피해야 함
+  avoidPatterns: jsonb('avoid_patterns').$type<string[][]>().default([]),
+
   // 메타 정보
   totalMembers: integer('total_members').notNull().default(15),
   isActive: text('is_active').notNull().default('true'),

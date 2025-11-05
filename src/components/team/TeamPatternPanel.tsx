@@ -48,6 +48,7 @@ export function TeamPatternPanel({
     requiredStaffEvening: 4,
     requiredStaffNight: 3,
     defaultPatterns: [['D', 'D', 'D', 'OFF', 'OFF']],
+    avoidPatterns: [], // 기피 패턴 초기화
     totalMembers,
   });
 
@@ -237,6 +238,7 @@ export function TeamPatternPanel({
             requiredStaffEvening: pattern.requiredStaffEvening,
             requiredStaffNight: pattern.requiredStaffNight,
             defaultPatterns: pattern.defaultPatterns,
+            avoidPatterns: pattern.avoidPatterns || [], // 기피 패턴 포함
             totalMembers: pattern.totalMembers,
           }
         : {
@@ -246,6 +248,7 @@ export function TeamPatternPanel({
             requiredStaffEvening: pattern.requiredStaffEvening || 4,
             requiredStaffNight: pattern.requiredStaffNight || 3,
             defaultPatterns: pattern.defaultPatterns || [['D', 'D', 'D', 'OFF', 'OFF']],
+            avoidPatterns: pattern.avoidPatterns || [], // 기피 패턴 포함
             totalMembers,
           };
 
@@ -261,6 +264,7 @@ export function TeamPatternPanel({
       console.log('   - 야간(N) 필요 인원:', body.requiredStaffNight || pattern.requiredStaffNight, '명');
       console.log('   - 전체 인원:', body.totalMembers || totalMembers, '명');
       console.log('   - 기본 패턴 개수:', (body.defaultPatterns || pattern.defaultPatterns)?.length || 0, '개');
+      console.log('   - 기피 패턴 개수:', (body.avoidPatterns || pattern.avoidPatterns || []).length, '개');
       console.log('\n📦 전체 요청 본문:', JSON.stringify(body, null, 2));
       console.log('🌐 API URL:', url);
       console.log('📡 HTTP Method:', pattern.id ? 'PUT' : 'POST');
@@ -636,6 +640,140 @@ export function TeamPatternPanel({
           <p className="text-xs text-blue-700">
             * 개인 선호도가 입력되지 않은 직원은 위 기본 패턴이 자동으로 적용됩니다.
           </p>
+        </div>
+      </div>
+
+      {/* 기피 근무 패턴 */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="text-sm font-medium text-gray-700 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-500" />
+              기피 근무 패턴 (선택사항)
+            </h3>
+            <p className="text-xs text-gray-500 mt-1">
+              피해야 할 연속 시프트 조합을 설정하세요. 예: 야간 2일 후 주간 근무
+            </p>
+          </div>
+          {canEdit && (
+            <button
+              onClick={() => setPattern(prev => ({
+                ...prev,
+                avoidPatterns: [
+                  ...(prev.avoidPatterns || []),
+                  ['N', 'D']
+                ],
+              }))}
+              className="text-sm text-red-600 hover:text-red-700 flex items-center gap-1"
+            >
+              <Plus className="w-4 h-4" />
+              기피 패턴 추가
+            </button>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          {pattern.avoidPatterns && pattern.avoidPatterns.length > 0 ? (
+            pattern.avoidPatterns.map((avoidArray, patternIndex) => (
+              <div key={patternIndex} className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                <div className="flex-1 flex items-center gap-1 flex-wrap">
+                  {avoidArray.map((shift, dayIndex) => (
+                    <div key={dayIndex} className="inline-flex items-center gap-0.5 group">
+                      <select
+                        value={shift}
+                        onChange={(e) => {
+                          setPattern(prev => {
+                            const newPatterns = [...(prev.avoidPatterns || [])];
+                            newPatterns[patternIndex] = [...newPatterns[patternIndex]];
+                            newPatterns[patternIndex][dayIndex] = e.target.value as ShiftType;
+                            return { ...prev, avoidPatterns: newPatterns };
+                          });
+                        }}
+                        disabled={!canEdit}
+                        className={`px-2 py-1 border rounded text-sm font-medium ${
+                          shift === 'D' ? 'bg-blue-100 border-blue-400 text-blue-800' :
+                          shift === 'E' ? 'bg-purple-100 border-purple-400 text-purple-800' :
+                          shift === 'N' ? 'bg-indigo-100 border-indigo-400 text-indigo-800' :
+                          'bg-gray-100 border-gray-400 text-gray-800'
+                        } disabled:opacity-50`}
+                      >
+                        <option value="D">D</option>
+                        <option value="E">E</option>
+                        <option value="N">N</option>
+                      </select>
+                      {canEdit && avoidArray.length > 2 && (
+                        <button
+                          onClick={() => {
+                            setPattern(prev => {
+                              const newPatterns = [...(prev.avoidPatterns || [])];
+                              newPatterns[patternIndex] = newPatterns[patternIndex].filter((_, i) => i !== dayIndex);
+                              return { ...prev, avoidPatterns: newPatterns };
+                            });
+                          }}
+                          className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-red-100 rounded transition-opacity"
+                          title="이 시프트 제거"
+                        >
+                          <span className="text-xs text-red-700">✕</span>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {canEdit && (
+                    <button
+                      onClick={() => {
+                        setPattern(prev => {
+                          const newPatterns = [...(prev.avoidPatterns || [])];
+                          newPatterns[patternIndex] = [...newPatterns[patternIndex], 'D'];
+                          return { ...prev, avoidPatterns: newPatterns };
+                        });
+                      }}
+                      className="p-1 text-red-600 hover:text-red-700"
+                      title="시프트 추가"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+                {canEdit && (
+                  <button
+                    onClick={() => {
+                      setPattern(prev => ({
+                        ...prev,
+                        avoidPatterns: prev.avoidPatterns?.filter((_, i) => i !== patternIndex) || [],
+                      }));
+                    }}
+                    className="p-1 text-red-700 hover:text-red-800"
+                    title="기피 패턴 삭제"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="p-4 bg-gray-50 border border-gray-200 rounded-md text-center">
+              <p className="text-sm text-gray-500">
+                설정된 기피 패턴이 없습니다. 필요한 경우 위 버튼으로 추가하세요.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-md">
+          <div className="flex items-start gap-2">
+            <Info className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+            <div className="text-xs text-amber-800">
+              <p className="font-medium mb-1">기피 패턴 사용 예시:</p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li><span className="font-mono">N-D</span>: 야간 근무 직후 주간 근무는 피함</li>
+                <li><span className="font-mono">N-N-D</span>: 야간 2일 후 주간 근무는 피함</li>
+                <li><span className="font-mono">D-D-D-D-D-D</span>: 주간 6일 연속 근무는 피함</li>
+              </ul>
+              <p className="mt-2 text-amber-700">
+                * 스케줄 생성 시 이 패턴들이 발생하지 않도록 조정됩니다.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 

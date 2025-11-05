@@ -15,6 +15,7 @@ const CreateTeamPatternSchema = z.object({
   requiredStaffEvening: z.number().min(1),
   requiredStaffNight: z.number().min(1),
   defaultPatterns: z.array(z.array(z.string())).min(1),
+  avoidPatterns: z.array(z.array(z.string())).optional().default([]), // 기피 근무 패턴 (선택사항)
   totalMembers: z.number().min(3),
 });
 
@@ -23,6 +24,7 @@ const UpdateTeamPatternSchema = z.object({
   requiredStaffEvening: z.number().min(1).optional(),
   requiredStaffNight: z.number().min(1).optional(),
   defaultPatterns: z.array(z.array(z.string())).min(1).optional(),
+  avoidPatterns: z.array(z.array(z.string())).optional(), // 기피 근무 패턴 (선택사항)
   totalMembers: z.number().min(3).optional(),
   isActive: z.boolean().transform(val => val ? 'true' : 'false').optional(),
 });
