@@ -174,7 +174,16 @@ export default function ConfigPage() {
 
     // Load from API or use defaults
     setPositions(allConfigs.positions || defaultPositions);
-    setShiftTypes(allConfigs.shift_types || defaultShiftTypes);
+
+    // Merge saved shift types with defaults (add missing defaults)
+    if (allConfigs.shift_types) {
+      const savedCodes = new Set(allConfigs.shift_types.map((st: any) => st.code));
+      const missingDefaults = defaultShiftTypes.filter(dst => !savedCodes.has(dst.code));
+      setShiftTypes([...allConfigs.shift_types, ...missingDefaults]);
+    } else {
+      setShiftTypes(defaultShiftTypes);
+    }
+
     setDepartments(allConfigs.departments || defaultDepartments);
     setContractTypes(allConfigs.contract_types || defaultContractTypes);
     setEmployeeStatuses(allConfigs.employee_statuses || defaultEmployeeStatuses);
