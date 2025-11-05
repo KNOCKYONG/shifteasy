@@ -181,10 +181,27 @@ export function EmployeePreferencesModal({
   // Update offBalanceData when query data changes
   useEffect(() => {
     if (offBalance) {
-      setOffBalanceData(offBalance);
+      // Transform null values to 0 for type safety
+      setOffBalanceData({
+        preferences: {
+          accumulatedOffDays: offBalance.preferences.accumulatedOffDays ?? 0,
+          allocatedToAccumulation: offBalance.preferences.allocatedToAccumulation ?? 0,
+          allocatedToAllowance: offBalance.preferences.allocatedToAllowance ?? 0,
+        },
+        history: offBalance.history.map(record => ({
+          id: record.id,
+          year: record.year,
+          month: record.month,
+          guaranteedOffDays: record.guaranteedOffDays ?? 0,
+          actualOffDays: record.actualOffDays ?? 0,
+          remainingOffDays: record.remainingOffDays ?? 0,
+          compensationType: record.compensationType,
+          status: record.status ?? 'pending',
+        })),
+      });
       // Initialize allocation inputs with current values
-      setAllocToAccumulation(offBalance.preferences.allocatedToAccumulation || 0);
-      setAllocToAllowance(offBalance.preferences.allocatedToAllowance || 0);
+      setAllocToAccumulation(offBalance.preferences.allocatedToAccumulation ?? 0);
+      setAllocToAllowance(offBalance.preferences.allocatedToAllowance ?? 0);
     }
   }, [offBalance]);
 

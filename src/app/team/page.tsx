@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Trash2, Save, Upload, Download, Users, ChevronRight, Edit2, Mail, Phone, Calendar, Shield, Clock, Star, AlertCircle } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
@@ -10,7 +10,7 @@ import { api } from "@/lib/trpc/client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 
-export default function TeamManagementPage() {
+function TeamManagementPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const currentUser = useCurrentUser();
@@ -578,5 +578,13 @@ const departments =
 
     </MainLayout>
     </RoleGuard>
+  );
+}
+
+export default function TeamManagementPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <TeamManagementPageContent />
+    </Suspense>
   );
 }

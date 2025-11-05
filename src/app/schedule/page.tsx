@@ -2412,9 +2412,13 @@ export default function SchedulePage() {
   }, [specialRequestsData]);
 
   // 시프트 코드 가져오기 (config에서 설정한 커스텀 shift types 기반)
-  const getShiftCode = (assignment: ScheduleAssignment) => {
+  const getShiftCode = (assignment: {
+    shiftId: string;
+    date?: Date;
+    employeeId?: string;
+    isRequested?: boolean;
+  }) => {
     const shiftId = assignment.shiftId;
-    const extendedAssignment = assignment as ExtendedScheduleAssignment;
 
     // shiftId format: 'shift-day', 'shift-evening', 'shift-night', 'shift-off', 'shift-o', 'shift-a'
     const codeMap: Record<string, string> = {
@@ -2445,24 +2449,26 @@ export default function SchedulePage() {
     }
 
     // Check if this assignment is marked as requested (from schedule generation)
-    if (extendedAssignment.isRequested) {
+    if (assignment.isRequested) {
       code = code + '^';
       return code;
     }
 
     // Fallback: Check if this shift matches a special request (for loaded schedules)
-    const assignmentDate = format(new Date(assignment.date), 'yyyy-MM-dd');
-    const requestKey = `${assignment.employeeId}-${assignmentDate}`;
-    const requestedShiftCode = specialRequestsMap.get(requestKey);
+    if (assignment.date && assignment.employeeId) {
+      const assignmentDate = format(new Date(assignment.date), 'yyyy-MM-dd');
+      const requestKey = `${assignment.employeeId}-${assignmentDate}`;
+      const requestedShiftCode = specialRequestsMap.get(requestKey);
 
-    // If there's a special request and it matches the current shift, add ^ suffix
-    if (requestedShiftCode) {
-      // Remove ^ from stored code if it exists (it's stored as 'd^')
-      const cleanRequestCode = requestedShiftCode.replace('^', '').toUpperCase();
-      const cleanCurrentCode = code.toUpperCase();
+      // If there's a special request and it matches the current shift, add ^ suffix
+      if (requestedShiftCode) {
+        // Remove ^ from stored code if it exists (it's stored as 'd^')
+        const cleanRequestCode = requestedShiftCode.replace('^', '').toUpperCase();
+        const cleanCurrentCode = code.toUpperCase();
 
-      if (cleanRequestCode === cleanCurrentCode) {
-        code = code + '^';
+        if (cleanRequestCode === cleanCurrentCode) {
+          code = code + '^';
+        }
       }
     }
 

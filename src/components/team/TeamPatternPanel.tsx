@@ -17,8 +17,7 @@ import {
   TeamPattern,
   validateTeamPattern,
   DEFAULT_PATTERNS,
-  SHIFT_TYPES,
-  type ShiftType
+  SHIFT_TYPES
 } from '@/lib/types/team-pattern';
 import {
   validatePattern,
@@ -140,7 +139,7 @@ export function TeamPatternPanel({
   };
 
   // 패턴 수정
-  const updatePattern = (patternIndex: number, dayIndex: number, value: ShiftType) => {
+  const updatePattern = (patternIndex: number, dayIndex: number, value: string) => {
     setPattern(prev => {
       const newPatterns = [...(prev.defaultPatterns || [])];
       newPatterns[patternIndex] = [...newPatterns[patternIndex]];
@@ -199,7 +198,7 @@ export function TeamPatternPanel({
     }
 
     // 검증된 토큰을 패턴 배열에 추가
-    const newPatternArray = patternValidation.tokens as ShiftType[];
+    const newPatternArray = patternValidation.tokens as string[];
 
     setPattern(prev => ({
       ...prev,
@@ -599,7 +598,7 @@ export function TeamPatternPanel({
                   <div key={dayIndex} className="inline-flex items-center gap-0.5 group">
                     <select
                       value={shift}
-                      onChange={(e) => updatePattern(patternIndex, dayIndex, e.target.value as ShiftType)}
+                      onChange={(e) => updatePattern(patternIndex, dayIndex, e.target.value)}
                       disabled={!canEdit}
                       className={`px-2 py-1 border rounded text-sm font-medium ${
                         shift === 'D' ? 'bg-blue-50 border-blue-300 text-blue-700' :
@@ -695,7 +694,7 @@ export function TeamPatternPanel({
                           setPattern(prev => {
                             const newPatterns = [...(prev.avoidPatterns || [])];
                             newPatterns[patternIndex] = [...newPatterns[patternIndex]];
-                            newPatterns[patternIndex][dayIndex] = e.target.value as ShiftType;
+                            newPatterns[patternIndex][dayIndex] = e.target.value;
                             return { ...prev, avoidPatterns: newPatterns };
                           });
                         }}

@@ -1,5 +1,6 @@
 import { pgTable, uuid, text, timestamp, jsonb, integer, index } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
+import { teams } from './teams';
 
 // Tenants table - Multi-tenant structure
 export const tenants = pgTable('tenants', {
@@ -199,9 +200,9 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     fields: [users.departmentId],
     references: [departments.id],
   }),
-  team: one(() => require('./teams').teams, {
+  team: one(teams, {
     fields: [users.teamId],
-    references: [(require('./teams').teams as any).id],
+    references: [teams.id],
   }),
   publishedSchedules: many(schedules),
 }));
