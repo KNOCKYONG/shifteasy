@@ -7,7 +7,6 @@ import { MainLayout } from "../../components/layout/MainLayout";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { ShiftTypesTab } from "./ShiftTypesTab";
 import { PositionGroupsTab } from "./PositionGroupsTab";
-import { SecretCodeTab } from "./SecretCodeTab";
 import { api as trpc } from "@/lib/trpc/client";
 
 interface ContractType {
@@ -291,18 +290,6 @@ function ConfigPageContent() {
             >
               {t('tabs.shifts', { ns: 'config', defaultValue: '근무 타입' })}
             </button>
-            {currentUser && (currentUser.role === 'manager' || currentUser.role === 'admin' || currentUser.role === 'owner') && (
-              <button
-                onClick={() => setActiveTab("secretCode")}
-                className={`pb-3 px-1 text-sm border-b-2 transition-colors ${
-                  activeTab === "secretCode"
-                    ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
-                    : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
-                }`}
-              >
-                {t('tabs.secretCode', { ns: 'config', defaultValue: '시크릿 코드' })}
-              </button>
-            )}
           </nav>
         </div>
 
@@ -536,11 +523,6 @@ function ConfigPageContent() {
         )}
 
         {/* Departments Tab */}
-
-        {/* Secret Code Tab */}
-        {activeTab === "secretCode" && currentUser && (
-          <SecretCodeTab currentUserRole={currentUser.role} />
-        )}
 
         {/* Action Buttons */}
         <div className="mt-8 flex justify-between">
