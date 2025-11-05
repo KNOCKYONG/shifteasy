@@ -626,9 +626,9 @@ export default function SchedulePage() {
   useEffect(() => {
     console.log('📥 shiftTypesConfig changed:', shiftTypesConfig);
 
-    if (shiftTypesConfig?.value && Array.isArray(shiftTypesConfig.value) && shiftTypesConfig.value.length > 0) {
+    if (shiftTypesConfig?.configValue && Array.isArray(shiftTypesConfig.configValue) && shiftTypesConfig.configValue.length > 0) {
       // Transform from tenant_configs format to CustomShiftType format
-      const transformedShiftTypes = shiftTypesConfig.value.map((st: any) => ({
+      const transformedShiftTypes = shiftTypesConfig.configValue.map((st: any) => ({
         code: st.code,
         name: st.name,
         startTime: st.startTime,
