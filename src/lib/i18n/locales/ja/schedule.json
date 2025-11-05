@@ -20,7 +20,8 @@
     "night": "夜間 (N)",
     "totalWorking": "総勤務人員",
     "team": "チーム",
-    "selectDate": "日付選択"
+    "selectDate": "日付選択",
+    "noShifts": "この日に割り当てられた勤務がありません"
   },
   "stats": {
     "totalStaff": "総スタッフ",
