@@ -1569,18 +1569,18 @@ export default function SchedulePage() {
       let activeCustomShiftTypes = customShiftTypes;
       if (!activeCustomShiftTypes || activeCustomShiftTypes.length === 0) {
         console.warn('⚠️ customShiftTypes가 비어있음, DB/localStorage에서 재로드 시도');
-        // Try to reload from shift_types table
-        if (shiftTypesFromDB && shiftTypesFromDB.length > 0) {
-          // Transform from shift_types table format
-          activeCustomShiftTypes = shiftTypesFromDB.map(st => ({
+        // Try to reload from tenant_configs
+        if (shiftTypesConfig?.configValue && Array.isArray(shiftTypesConfig.configValue) && shiftTypesConfig.configValue.length > 0) {
+          // Transform from tenant_configs format
+          activeCustomShiftTypes = shiftTypesConfig.configValue.map((st: any) => ({
             code: st.code,
             name: st.name,
             startTime: st.startTime,
             endTime: st.endTime,
             color: st.color,
-            allowOvertime: false,
+            allowOvertime: st.allowOvertime ?? false,
           }));
-          console.log('✅ shift_types 테이블에서 재로드:', activeCustomShiftTypes);
+          console.log('✅ tenant_configs에서 재로드:', activeCustomShiftTypes);
         } else {
           // Try localStorage
           const savedShiftTypes = localStorage.getItem('customShiftTypes');
