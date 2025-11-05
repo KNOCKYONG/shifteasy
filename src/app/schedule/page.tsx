@@ -604,8 +604,9 @@ export default function SchedulePage() {
   const { data: shiftTypesConfig } = api.tenantConfigs.getByKey.useQuery({
     configKey: 'shift_types'
   }, {
-    staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지 (자주 변경되지 않음)
-    refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
+    staleTime: 0, // 항상 최신 데이터 가져오기
+    refetchOnWindowFocus: true, // 탭 전환 시 refetch 활성화
+    refetchOnMount: true, // 마운트 시 항상 refetch
   });
 
   // Load shift config (나이트 집중 근무 유급 휴가 설정 등)
