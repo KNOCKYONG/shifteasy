@@ -600,8 +600,10 @@ export default function SchedulePage() {
     }
   }, [isMember, canViewStaffPreferences, filters.activeView, filters.setActiveView]);
 
-  // Load shift types from shift_types table
-  const { data: shiftTypesFromDB } = api.shiftTypes.getAll.useQuery(undefined, {
+  // Load shift types from tenant_configs table
+  const { data: shiftTypesConfig } = api.tenantConfigs.getByKey.useQuery({
+    configKey: 'shift_types'
+  }, {
     staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지 (자주 변경되지 않음)
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
@@ -621,18 +623,18 @@ export default function SchedulePage() {
   });
 
   useEffect(() => {
-    if (shiftTypesFromDB && shiftTypesFromDB.length > 0) {
-      // Transform from shift_types table format to CustomShiftType format
-      const transformedShiftTypes = shiftTypesFromDB.map(st => ({
+    if (shiftTypesConfig?.value && Array.isArray(shiftTypesConfig.value) && shiftTypesConfig.value.length > 0) {
+      // Transform from tenant_configs format to CustomShiftType format
+      const transformedShiftTypes = shiftTypesConfig.value.map((st: any) => ({
         code: st.code,
         name: st.name,
         startTime: st.startTime,
         endTime: st.endTime,
         color: st.color,
-        allowOvertime: false, // Default value for backward compatibility
+        allowOvertime: st.allowOvertime ?? false, // Default value for backward compatibility
       }));
       setCustomShiftTypes(transformedShiftTypes);
-      console.log('✅ Loaded custom shift types from shift_types table:', transformedShiftTypes);
+      console.log('✅ Loaded custom shift types from tenant_configs:', transformedShiftTypes);
     } else {
       // Fallback to localStorage for backward compatibility
       const savedShiftTypes = localStorage.getItem('customShiftTypes');
@@ -646,7 +648,7 @@ export default function SchedulePage() {
         }
       }
     }
-  }, [shiftTypesFromDB]);
+  }, [shiftTypesConfig]);
 
   // Convert customShiftTypes to Shift[] format
   const shifts = React.useMemo(() => {
