@@ -36,7 +36,7 @@ export function NavigationHeader() {
   const teamSubMenuItems: SubMenuItem[] = [
     { label: '팀 패턴', value: 'pattern' },
     { label: '팀원 관리', value: 'management' },
-    { label: '팀 배정', href: '/config?tab=teams' },
+    { label: '팀 배정', value: 'assignment' },
   ];
 
   const scheduleSubMenuItems = [

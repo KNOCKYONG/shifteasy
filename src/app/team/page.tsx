@@ -6,6 +6,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { AddTeamMemberModal } from "@/components/AddTeamMemberModal";
 import { TeamPatternTab } from "@/components/team/TeamPatternTab";
 import { DepartmentSelectModal } from "@/components/team/DepartmentSelectModal";
+import { TeamsTab } from "@/app/config/TeamsTab";
 import { api } from "@/lib/trpc/client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { RoleGuard } from "@/components/auth/RoleGuard";
@@ -27,8 +28,8 @@ function TeamManagementPageContent() {
   const [editingPositionValue, setEditingPositionValue] = useState<string>("");
 
   // URL 쿼리 파라미터에서 tab 읽기
-  const tabFromUrl = searchParams.get('tab') as 'pattern' | 'management' | null;
-  const [activeTab, setActiveTab] = useState<'pattern' | 'management'>(tabFromUrl || 'pattern');
+  const tabFromUrl = searchParams.get('tab') as 'pattern' | 'management' | 'assignment' | null;
+  const [activeTab, setActiveTab] = useState<'pattern' | 'management' | 'assignment'>(tabFromUrl || 'pattern');
 
   // URL 변경 시 activeTab 업데이트
   useEffect(() => {
@@ -270,6 +271,8 @@ const departments =
             canEdit={currentUserRole === 'admin' || currentUserRole === 'manager'}
             shiftTypes={shiftTypesData || []}
           />
+        ) : activeTab === 'assignment' ? (
+          <TeamsTab />
         ) : (
           <>
         {/* Stats Cards - 모바일 스크롤 가능한 필터 카드들 */}

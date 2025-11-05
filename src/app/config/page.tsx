@@ -8,7 +8,6 @@ import { RoleGuard } from "@/components/auth/RoleGuard";
 import { ShiftTypesTab } from "./ShiftTypesTab";
 import { PositionGroupsTab } from "./PositionGroupsTab";
 import { SecretCodeTab } from "./SecretCodeTab";
-import { TeamsTab } from "./TeamsTab";
 import { api as trpc } from "@/lib/trpc/client";
 
 interface ContractType {
@@ -36,8 +35,8 @@ function ConfigPageContent() {
   const setConfigMutation = trpc.tenantConfigs.set.useMutation();
 
   // URL 파라미터에서 tab 읽기
-  const tabFromUrl = searchParams.get('tab') as "preferences" | "positions" | "positionGroups" | "shifts" | "teams" | "secretCode" | null;
-  const [activeTab, setActiveTab] = useState<"preferences" | "positions" | "positionGroups" | "shifts" | "teams" | "secretCode">(tabFromUrl || "preferences");
+  const tabFromUrl = searchParams.get('tab') as "preferences" | "positions" | "positionGroups" | "shifts" | "secretCode" | null;
+  const [activeTab, setActiveTab] = useState<"preferences" | "positions" | "positionGroups" | "shifts" | "secretCode">(tabFromUrl || "preferences");
   const [currentUser, setCurrentUser] = useState<{ role: string } | null>(null);
   const [positions, setPositions] = useState<{value: string; label: string; level: number}[]>([]);
   const [newPosition, setNewPosition] = useState({ value: '', label: '', level: 1 });
@@ -537,8 +536,6 @@ function ConfigPageContent() {
         )}
 
         {/* Departments Tab */}
-        {/* Teams Tab */}
-        {activeTab === "teams" && <TeamsTab />}
 
         {/* Secret Code Tab */}
         {activeTab === "secretCode" && currentUser && (
