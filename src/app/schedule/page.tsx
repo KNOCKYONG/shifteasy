@@ -2968,17 +2968,6 @@ export default function SchedulePage() {
                       </div>
                     </button>
                   ))}
-                  <button
-                    onClick={() => handleShiftChange('off')}
-                    className="px-4 py-3 rounded-lg border-2 border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 transition-all text-left"
-                  >
-                    <div className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
-                      휴무
-                    </div>
-                    <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
-                      OFF
-                    </div>
-                  </button>
                 </div>
               </div>
             </div>
