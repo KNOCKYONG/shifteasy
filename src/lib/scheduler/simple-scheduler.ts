@@ -39,6 +39,7 @@ export interface SpecialRequest {
 
 export interface TeamPattern {
   pattern: string[]; // Example: ['D', 'D', 'E', 'E', 'N', 'N', 'OFF', 'OFF']
+  avoidPatterns?: string[][]; // 기피 근무 패턴 (예: [['N', 'N', 'D']])
 }
 
 export interface ScheduleAssignment {
@@ -59,6 +60,7 @@ export interface SimpleSchedulerConfig {
     E: number;
     N: number;
   };
+  avoidPatterns?: string[][]; // 전역 기피 근무 패턴 (예: [['N', 'N', 'D'], ['E', 'E', 'N']])
 }
 
 export class SimpleScheduler {
@@ -72,6 +74,7 @@ export class SimpleScheduler {
   private consecutiveShiftCounts: Map<string, number>; // employeeId -> consecutive days of same shift
   private minOffDaysPerMonth: number; // 월별 최소 휴무일 (주말/공휴일 개수 기반)
   private weekendAndHolidayCount: number; // 해당 월의 주말/공휴일 개수
+  private avoidPatternViolationCount: number; // 기피 패턴으로 인한 배정 제외 건수
 
   constructor(config: SimpleSchedulerConfig) {
     this.config = config;
@@ -82,6 +85,7 @@ export class SimpleScheduler {
     this.offCounts = new Map();
     this.lastShift = new Map();
     this.consecutiveShiftCounts = new Map();
+    this.avoidPatternViolationCount = 0;
 
     // Calculate weekend and holiday count for the month
     this.weekendAndHolidayCount = this.calculateWeekendAndHolidayCount();
@@ -129,6 +133,17 @@ export class SimpleScheduler {
     console.log(`📆 주말/공휴일 합계: ${this.weekendAndHolidayCount}일`);
     console.log(`💤 최소 보장 휴무일: ${this.minOffDaysPerMonth}일 (주말/공휴일 기준)`);
 
+    // 기피 패턴 설정 로그
+    if (this.config.avoidPatterns && this.config.avoidPatterns.length > 0) {
+      console.log(`\n🚫 기피 근무 패턴 설정: ${this.config.avoidPatterns.length}개`);
+      this.config.avoidPatterns.forEach((pattern, idx) => {
+        console.log(`   패턴 ${idx + 1}: [${pattern.join(' → ')}]`);
+      });
+      console.log(`   ⚠️ 우선순위: 특별요청 > 기본패턴 > 기피패턴 (request는 기피패턴 무시)`);
+    } else {
+      console.log(`\n🚫 기피 근무 패턴: 설정 없음`);
+    }
+
     // Step 1: Calculate work days
     console.log('\n📊 Step 1: 근무일 계산 중...');
     this.calculateWorkDays();
@@ -150,6 +165,19 @@ export class SimpleScheduler {
     console.log('\n✅ ===== 스케줄 생성 완료 =====');
     console.log(`📊 총 배정: ${stats.totalAssignments}건`);
     console.log(`📈 시프트 분포: D=${stats.shiftDistribution.D}, E=${stats.shiftDistribution.E}, N=${stats.shiftDistribution.N}, OFF=${stats.shiftDistribution.OFF}, A=${stats.shiftDistribution.A || 0}`);
+
+    // 기피 패턴 통계
+    if (this.config.avoidPatterns && this.config.avoidPatterns.length > 0) {
+      console.log(`\n🚫 기피 패턴 적용 통계:`);
+      console.log(`   설정된 패턴: ${this.config.avoidPatterns.length}개`);
+      console.log(`   패턴 위반으로 배정 제외: ${this.avoidPatternViolationCount}건`);
+      if (this.avoidPatternViolationCount > 0) {
+        console.log(`   💡 기피 패턴이 성공적으로 적용되었습니다.`);
+      } else {
+        console.log(`   ℹ️ 기피 패턴 위반 없음 (모든 배정이 패턴 준수)`);
+      }
+    }
+
     console.log('=============================\n');
 
     // Convert to array format
@@ -432,7 +460,8 @@ export class SimpleScheduler {
       }
 
       // 3. 시프트 배치 (D, E, N 순서대로) - 강제 OFF 제외한 사람들만
-      this.assignShiftWithExperienceBalance(afterForcedOff, daySchedule, 'D', adjustedD, isSpecialDay);
+      // skipAvoidPatterns=false (기피 패턴 적용)
+      this.assignShiftWithExperienceBalance(afterForcedOff, daySchedule, 'D', adjustedD, isSpecialDay, day, false);
       const dAssignments = afterForcedOff
         .filter(emp => daySchedule.get(emp.id) === 'D')
         .map(emp => `${emp.name}(${emp.role})`)
@@ -442,7 +471,7 @@ export class SimpleScheduler {
       }
 
       const afterD = afterForcedOff.filter(emp => !daySchedule.has(emp.id));
-      this.assignShiftWithExperienceBalance(afterD, daySchedule, 'E', adjustedE, isSpecialDay);
+      this.assignShiftWithExperienceBalance(afterD, daySchedule, 'E', adjustedE, isSpecialDay, day, false);
       const eAssignments = afterD
         .filter(emp => daySchedule.get(emp.id) === 'E')
         .map(emp => `${emp.name}(${emp.role})`)
@@ -452,7 +481,7 @@ export class SimpleScheduler {
       }
 
       const afterE = afterD.filter(emp => !daySchedule.has(emp.id));
-      this.assignShiftWithExperienceBalance(afterE, daySchedule, 'N', adjustedN, isSpecialDay);
+      this.assignShiftWithExperienceBalance(afterE, daySchedule, 'N', adjustedN, isSpecialDay, day, false);
       const nAssignments = afterE
         .filter(emp => daySchedule.get(emp.id) === 'N')
         .map(emp => `${emp.name}(${emp.role})`)
@@ -494,6 +523,83 @@ export class SimpleScheduler {
   }
 
   /**
+   * 직원의 최근 N일 시프트 이력 조회 (OFF 제외, 연속 근무만)
+   */
+  private getRecentShifts(employeeId: string, lookbackDays: number, currentDate: Date): string[] {
+    const shifts: string[] = [];
+
+    for (let i = 1; i <= lookbackDays; i++) {
+      const checkDate = new Date(currentDate);
+      checkDate.setDate(checkDate.getDate() - i);
+      const dateStr = format(checkDate, 'yyyy-MM-dd');
+
+      const daySchedule = this.schedule.get(dateStr);
+      if (!daySchedule) continue;
+
+      const shift = daySchedule.get(employeeId);
+      if (shift && shift !== 'OFF' && shift !== 'A') {
+        shifts.unshift(shift); // 오래된 것부터 최근 순서로
+      } else {
+        // OFF나 A 또는 배정 없으면 연속성 끊김
+        break;
+      }
+    }
+
+    return shifts;
+  }
+
+  /**
+   * 기피 패턴 매칭 체크
+   */
+  private matchesAvoidPattern(
+    recentShifts: string[],
+    newShift: string,
+    avoidPattern: string[]
+  ): boolean {
+    // 새 시프트를 추가한 전체 시퀀스
+    const fullSequence = [...recentShifts, newShift];
+
+    // avoidPattern이 fullSequence 안에 연속으로 포함되는지 체크
+    const patternLength = avoidPattern.length;
+
+    for (let i = 0; i <= fullSequence.length - patternLength; i++) {
+      const slice = fullSequence.slice(i, i + patternLength);
+      if (JSON.stringify(slice) === JSON.stringify(avoidPattern)) {
+        return true; // 기피 패턴 발견
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * 직원이 특정 시프트 배정 가능한지 체크 (기피 패턴 고려)
+   */
+  private canAssignWithAvoidPatterns(
+    employeeId: string,
+    shift: string,
+    currentDate: Date,
+    avoidPatterns: string[][]
+  ): { canAssign: boolean; violatedPattern?: string[] } {
+    if (!avoidPatterns || avoidPatterns.length === 0) {
+      return { canAssign: true };
+    }
+
+    // 최대 패턴 길이 계산
+    const maxPatternLength = Math.max(...avoidPatterns.map(p => p.length));
+    const recentShifts = this.getRecentShifts(employeeId, maxPatternLength - 1, currentDate);
+
+    // 모든 기피 패턴에 대해 체크
+    for (const pattern of avoidPatterns) {
+      if (this.matchesAvoidPattern(recentShifts, shift, pattern)) {
+        return { canAssign: false, violatedPattern: pattern };
+      }
+    }
+
+    return { canAssign: true };
+  }
+
+  /**
    * Helper: Assign shift with fair rotation and experience balance
    * 공정한 순환 배치: 적게 일한 사람부터 우선 배치
    */
@@ -502,7 +608,9 @@ export class SimpleScheduler {
     daySchedule: Map<string, 'D' | 'E' | 'N' | 'OFF' | 'A'>,
     shift: 'D' | 'E' | 'N',
     requiredCount: number,
-    isSpecialDay: boolean
+    isSpecialDay: boolean,
+    currentDate: Date,
+    skipAvoidPatterns: boolean = false
   ): void {
     const MAX_CONSECUTIVE_SAME_SHIFT = 3; // 같은 시프트 최대 연속 일수
     const totalDaysInMonth = this.workDays.length;
@@ -531,6 +639,27 @@ export class SimpleScheduler {
       }
       return true;
     });
+
+    // 3. 기피 패턴 체크 (skipAvoidPatterns=true인 경우 제외, 즉 특별요청은 무시)
+    if (!skipAvoidPatterns && this.config.avoidPatterns && this.config.avoidPatterns.length > 0) {
+      available = available.filter(emp => {
+        const result = this.canAssignWithAvoidPatterns(emp.id, shift, currentDate, this.config.avoidPatterns!);
+        if (!result.canAssign) {
+          const empName = emp.name;
+          const violatedPattern = result.violatedPattern!.join(' → ');
+          const recentShifts = this.getRecentShifts(
+            emp.id,
+            Math.max(...this.config.avoidPatterns!.map(p => p.length)) - 1,
+            currentDate
+          );
+          console.log(`      ⚠️ ${empName}: ${shift} 배정 불가 (기피 패턴 위반)`);
+          console.log(`         최근 이력: [${recentShifts.join(', ')}] + ${shift} = [${violatedPattern}]`);
+          this.avoidPatternViolationCount++; // 전역 카운터 증가
+          return false;
+        }
+        return true;
+      });
+    }
 
     // Sort by workload fairness FIRST, then experience/preference
     const sorted = available.sort((a, b) => {

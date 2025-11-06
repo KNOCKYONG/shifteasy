@@ -1746,6 +1746,7 @@ export default function SchedulePage() {
           E: teamPattern.requiredStaffEvening || 4,
           N: teamPattern.requiredStaffNight || 3,
         } : { D: 5, E: 4, N: 3 },
+        avoidPatterns: teamPattern?.avoidPatterns || [], // 기피 근무 패턴
       };
 
       console.log(`📋 스케줄러 설정: ${schedulerConfig.employees.length}명, 필요인원 D${schedulerConfig.requiredStaffPerShift.D}/E${schedulerConfig.requiredStaffPerShift.E}/N${schedulerConfig.requiredStaffPerShift.N}`);
