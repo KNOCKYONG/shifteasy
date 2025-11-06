@@ -125,13 +125,16 @@ class NotificationService {
 
       // Send via SSE for real-time delivery
       try {
+        const targetClientIds = sseManager.getClientIdsByUserId(userId);
+        console.log(`[NotificationService] sendToUser - Broadcasting to ${targetClientIds.length} clients for userId ${userId}`);
+
         sseManager.broadcast({
           type: 'notification',
           data: fullNotification,
           userId,
           timestamp: Date.now(),
         }, (clientId) => {
-          return clientId.includes(userId);
+          return targetClientIds.includes(clientId);
         });
         console.log(`[NotificationService] sendToUser - SSE broadcast sent`, { userId, notificationId: created.id });
       } catch (sseError) {
@@ -436,6 +439,9 @@ class NotificationService {
 
       // Send SSE update
       try {
+        const targetClientIds = sseManager.getClientIdsByUserId(userId);
+        console.log(`[NotificationService] markAsRead - Broadcasting to ${targetClientIds.length} clients for userId ${userId}`);
+
         sseManager.broadcast({
           type: 'notification',
           data: {
@@ -444,7 +450,7 @@ class NotificationService {
           },
           userId,
           timestamp: Date.now(),
-        }, (clientId) => clientId.includes(userId));
+        }, (clientId) => targetClientIds.includes(clientId));
       } catch (sseError) {
         console.error('[NotificationService] markAsRead - SSE update failed', { error: sseError });
       }

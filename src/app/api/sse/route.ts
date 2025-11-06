@@ -11,8 +11,8 @@ export async function GET(req: NextRequest) {
   // SSE 응답 스트림 생성
   const stream = new ReadableStream({
     start(controller) {
-      // 클라이언트 등록
-      sseManager.addClient(clientId, controller);
+      // 클라이언트 등록 (userId 포함)
+      sseManager.addClient(clientId, controller, userId);
 
       // 초기 연결 메시지
       const welcomeMessage = `event: connected\ndata: ${JSON.stringify({

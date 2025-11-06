@@ -19,9 +19,15 @@ export interface SSEEvent {
 class SSEManager {
   private clients: Map<string, ReadableStreamDefaultController> = new Map();
   private heartbeatIntervals: Map<string, NodeJS.Timeout> = new Map();
+  private clientUserMap: Map<string, string> = new Map(); // clientId -> userId 매핑
 
-  addClient(clientId: string, controller: ReadableStreamDefaultController) {
+  addClient(clientId: string, controller: ReadableStreamDefaultController, userId?: string) {
     this.clients.set(clientId, controller);
+
+    // userId 매핑 저장
+    if (userId) {
+      this.clientUserMap.set(clientId, userId);
+    }
 
     // Heartbeat 설정 (30초마다 ping)
     const interval = setInterval(() => {
@@ -42,6 +48,18 @@ class SSEManager {
       this.heartbeatIntervals.delete(clientId);
     }
     this.clients.delete(clientId);
+    this.clientUserMap.delete(clientId); // userId 매핑도 제거
+  }
+
+  // 특정 userId에 해당하는 모든 clientId를 찾기
+  getClientIdsByUserId(userId: string): string[] {
+    const clientIds: string[] = [];
+    this.clientUserMap.forEach((mappedUserId, clientId) => {
+      if (mappedUserId === userId) {
+        clientIds.push(clientId);
+      }
+    });
+    return clientIds;
   }
 
   sendToClient(clientId: string, event: SSEEvent) {
