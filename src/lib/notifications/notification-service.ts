@@ -1,8 +1,12 @@
 /**
- * Unified Notification Service for real-time events
+ * Unified Notification Service with Supabase persistence
+ * All operations are logged for debugging and monitoring
  */
 
-import { sseManager, notifyScheduleUpdate, notifySwapRequest, notifySwapApproval } from '@/lib/sse/sseManager';
+import { db } from '@/db';
+import { notifications } from '@/db/schema';
+import { eq, and, isNull, desc } from 'drizzle-orm';
+import { sseManager } from '@/lib/sse/sseManager';
 import { pushSubscriptionManager } from '@/lib/push/subscription-manager';
 
 export type NotificationType =
@@ -24,12 +28,14 @@ export interface Notification {
   title: string;
   message: string;
   data?: any;
-  userId?: string;
+  userId?: string | null;
   tenantId: string;
-  topic?: string;
+  departmentId?: string | null;
+  topic?: string | null;
   createdAt: Date;
-  readAt?: Date;
-  actionUrl?: string;
+  readAt?: Date | null;
+  deliveredAt?: Date | null;
+  actionUrl?: string | null;
   actions?: NotificationAction[];
 }
 
@@ -50,10 +56,10 @@ export interface NotificationInbox {
 
 class NotificationService {
   private static instance: NotificationService;
-  private inboxes: Map<string, NotificationInbox> = new Map();
-  private notificationQueue: Map<string, Notification[]> = new Map();
 
-  private constructor() {}
+  private constructor() {
+    console.log('[NotificationService] Initialized with Supabase backend');
+  }
 
   static getInstance(): NotificationService {
     if (!NotificationService.instance) {
@@ -68,33 +74,87 @@ class NotificationService {
   async sendToUser(
     tenantId: string,
     userId: string,
-    notification: Omit<Notification, 'id' | 'createdAt' | 'tenantId'>
-  ): Promise<void> {
-    const fullNotification: Notification = {
-      ...notification,
-      id: this.generateNotificationId(),
+    notification: Omit<Notification, 'id' | 'createdAt' | 'tenantId' | 'userId'>
+  ): Promise<Notification | null> {
+    const startTime = Date.now();
+    console.log(`[NotificationService] sendToUser - Start`, {
       tenantId,
       userId,
-      createdAt: new Date(),
-    };
-
-    // Add to inbox
-    this.addToInbox(tenantId, userId, fullNotification);
-
-    // Send via SSE
-    sseManager.broadcast({
-      type: 'notification',
-      data: fullNotification,
-      userId,
-      timestamp: Date.now(),
-    }, (clientId) => {
-      // Filter by user ID (would need proper client-user mapping)
-      return clientId.includes(userId);
+      type: notification.type,
+      priority: notification.priority,
+      title: notification.title,
     });
 
-    // Queue for push notification
-    if (notification.priority === 'high' || notification.priority === 'urgent') {
-      await this.sendPushNotification(tenantId, userId, fullNotification);
+    try {
+      // Insert notification into database
+      const [created] = await db.insert(notifications).values({
+        tenantId,
+        userId,
+        type: notification.type,
+        priority: notification.priority,
+        title: notification.title,
+        message: notification.message,
+        actionUrl: notification.actionUrl,
+        topic: notification.topic,
+        departmentId: notification.departmentId,
+        data: notification.data,
+        actions: notification.actions,
+        deliveredAt: new Date(),
+      }).returning();
+
+      if (!created) {
+        console.error('[NotificationService] sendToUser - Failed to create notification in database');
+        return null;
+      }
+
+      const fullNotification: Notification = {
+        ...created,
+        type: created.type as NotificationType,
+        priority: created.priority as NotificationPriority,
+        data: created.data,
+        actions: created.actions as NotificationAction[] | undefined,
+      };
+
+      const duration = Date.now() - startTime;
+      console.log(`[NotificationService] sendToUser - Success`, {
+        notificationId: created.id,
+        duration: `${duration}ms`,
+        tenantId,
+        userId,
+      });
+
+      // Send via SSE for real-time delivery
+      try {
+        sseManager.broadcast({
+          type: 'notification',
+          data: fullNotification,
+          userId,
+          timestamp: Date.now(),
+        }, (clientId) => {
+          return clientId.includes(userId);
+        });
+        console.log(`[NotificationService] sendToUser - SSE broadcast sent`, { userId, notificationId: created.id });
+      } catch (sseError) {
+        console.error('[NotificationService] sendToUser - SSE broadcast failed', { error: sseError, userId });
+      }
+
+      // Queue for push notification if high priority
+      if (notification.priority === 'high' || notification.priority === 'urgent') {
+        await this.sendPushNotification(tenantId, userId, fullNotification);
+      }
+
+      return fullNotification;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error('[NotificationService] sendToUser - Error', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        duration: `${duration}ms`,
+        tenantId,
+        userId,
+        notificationType: notification.type,
+      });
+      return null;
     }
   }
 
@@ -105,28 +165,75 @@ class NotificationService {
     tenantId: string,
     topic: string,
     notification: Omit<Notification, 'id' | 'createdAt' | 'tenantId' | 'topic'>
-  ): Promise<void> {
-    const fullNotification: Notification = {
-      ...notification,
-      id: this.generateNotificationId(),
+  ): Promise<boolean> {
+    const startTime = Date.now();
+    console.log(`[NotificationService] sendToTopic - Start`, {
       tenantId,
       topic,
-      createdAt: new Date(),
-    };
-
-    // Send via SSE to topic subscribers
-    sseManager.broadcast({
-      type: 'notification',
-      data: fullNotification,
-      timestamp: Date.now(),
-    }, (clientId) => {
-      // Filter by topic subscription (would need proper implementation)
-      return true;
+      type: notification.type,
+      priority: notification.priority,
     });
 
-    // Send push notifications to topic subscribers
-    if (notification.priority === 'high' || notification.priority === 'urgent') {
-      await this.sendPushToTopic(tenantId, topic, fullNotification);
+    try {
+      // Insert notification without specific userId (topic-based)
+      const [created] = await db.insert(notifications).values({
+        tenantId,
+        userId: null,
+        topic,
+        type: notification.type,
+        priority: notification.priority,
+        title: notification.title,
+        message: notification.message,
+        actionUrl: notification.actionUrl,
+        departmentId: notification.departmentId,
+        data: notification.data,
+        actions: notification.actions,
+        deliveredAt: new Date(),
+      }).returning();
+
+      if (!created) {
+        console.error('[NotificationService] sendToTopic - Failed to create notification');
+        return false;
+      }
+
+      const fullNotification: Notification = {
+        ...created,
+        type: created.type as NotificationType,
+        priority: created.priority as NotificationPriority,
+        data: created.data,
+        actions: created.actions as NotificationAction[] | undefined,
+      };
+
+      // Broadcast via SSE to all subscribers of this topic
+      try {
+        sseManager.broadcast({
+          type: 'notification',
+          data: fullNotification,
+          timestamp: Date.now(),
+        });
+        console.log(`[NotificationService] sendToTopic - SSE broadcast sent`, { topic, notificationId: created.id });
+      } catch (sseError) {
+        console.error('[NotificationService] sendToTopic - SSE broadcast failed', { error: sseError, topic });
+      }
+
+      const duration = Date.now() - startTime;
+      console.log(`[NotificationService] sendToTopic - Success`, {
+        notificationId: created.id,
+        duration: `${duration}ms`,
+        topic,
+      });
+
+      return true;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error('[NotificationService] sendToTopic - Error', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        duration: `${duration}ms`,
+        tenantId,
+        topic,
+      });
+      return false;
     }
   }
 
@@ -136,278 +243,323 @@ class NotificationService {
   async broadcast(
     tenantId: string,
     notification: Omit<Notification, 'id' | 'createdAt' | 'tenantId'>
-  ): Promise<void> {
-    const fullNotification: Notification = {
-      ...notification,
-      id: this.generateNotificationId(),
+  ): Promise<boolean> {
+    const startTime = Date.now();
+    console.log(`[NotificationService] broadcast - Start`, {
       tenantId,
-      createdAt: new Date(),
-    };
-
-    // Send via SSE
-    sseManager.broadcast({
-      type: 'notification',
-      data: fullNotification,
-      timestamp: Date.now(),
+      type: notification.type,
+      priority: notification.priority,
     });
 
-    // For urgent notifications, send push to all
-    if (notification.priority === 'urgent') {
-      await this.sendPushBroadcast(tenantId, fullNotification);
+    try {
+      // Insert broadcast notification
+      const [created] = await db.insert(notifications).values({
+        tenantId,
+        userId: null,
+        type: notification.type,
+        priority: notification.priority,
+        title: notification.title,
+        message: notification.message,
+        actionUrl: notification.actionUrl,
+        departmentId: notification.departmentId,
+        data: notification.data,
+        actions: notification.actions,
+        deliveredAt: new Date(),
+      }).returning();
+
+      if (!created) {
+        console.error('[NotificationService] broadcast - Failed to create notification');
+        return false;
+      }
+
+      const fullNotification: Notification = {
+        ...created,
+        type: created.type as NotificationType,
+        priority: created.priority as NotificationPriority,
+        data: created.data,
+        actions: created.actions as NotificationAction[] | undefined,
+      };
+
+      // Broadcast via SSE
+      try {
+        sseManager.broadcast({
+          type: 'notification',
+          data: fullNotification,
+          timestamp: Date.now(),
+        });
+        console.log(`[NotificationService] broadcast - SSE broadcast sent`, { notificationId: created.id });
+      } catch (sseError) {
+        console.error('[NotificationService] broadcast - SSE broadcast failed', { error: sseError });
+      }
+
+      const duration = Date.now() - startTime;
+      console.log(`[NotificationService] broadcast - Success`, {
+        notificationId: created.id,
+        duration: `${duration}ms`,
+        tenantId,
+      });
+
+      return true;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error('[NotificationService] broadcast - Error', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        duration: `${duration}ms`,
+        tenantId,
+      });
+      return false;
     }
   }
 
   /**
-   * Schedule published event
+   * Get user inbox from database
    */
-  async notifySchedulePublished(
-    tenantId: string,
-    scheduleId: string,
-    period: { start: Date; end: Date },
-    affectedUsers: string[]
-  ): Promise<void> {
-    const notification = {
-      type: 'schedule_published' as NotificationType,
-      priority: 'high' as NotificationPriority,
-      title: 'New Schedule Published',
-      message: `Your schedule for ${period.start.toLocaleDateString()} - ${period.end.toLocaleDateString()} is now available`,
-      data: { scheduleId, period },
-      actionUrl: '/schedule',
-    };
+  async getUserInbox(tenantId: string, userId: string): Promise<NotificationInbox> {
+    const startTime = Date.now();
+    console.log(`[NotificationService] getUserInbox - Start`, { tenantId, userId });
 
-    // Notify affected users
-    for (const userId of affectedUsers) {
-      await this.sendToUser(tenantId, userId, notification);
-    }
+    try {
+      // Query notifications for this user
+      const userNotifications = await db
+        .select()
+        .from(notifications)
+        .where(
+          and(
+            eq(notifications.tenantId, tenantId),
+            eq(notifications.userId, userId)
+          )
+        )
+        .orderBy(desc(notifications.createdAt))
+        .limit(100);
 
-    // Update via SSE
-    notifyScheduleUpdate(scheduleId, { published: true, period });
-  }
+      // Count unread notifications
+      const unreadCount = userNotifications.filter(n => !n.readAt).length;
 
-  /**
-   * Swap request event
-   */
-  async notifySwapRequested(
-    tenantId: string,
-    swapData: {
-      requestId: string;
-      requesterId: string;
-      targetId: string;
-      date: Date;
-      shift: string;
-      reason?: string;
-    }
-  ): Promise<void> {
-    // Notify target user
-    await this.sendToUser(tenantId, swapData.targetId, {
-      type: 'swap_requested',
-      priority: 'high',
-      title: 'Shift Swap Request',
-      message: `You have a new shift swap request for ${swapData.date.toLocaleDateString()}`,
-      data: swapData,
-      actionUrl: `/swaps/${swapData.requestId}`,
-      actions: [
-        {
-          id: 'approve',
-          label: 'Approve',
-          action: 'approve_swap',
-          style: 'primary',
-        },
-        {
-          id: 'reject',
-          label: 'Reject',
-          action: 'reject_swap',
-          style: 'secondary',
-        },
-      ],
-    });
+      const inbox: NotificationInbox = {
+        userId,
+        tenantId,
+        notifications: userNotifications.map(n => ({
+          ...n,
+          type: n.type as NotificationType,
+          priority: n.priority as NotificationPriority,
+          data: n.data,
+          actions: n.actions as NotificationAction[] | undefined,
+        })),
+        unreadCount,
+      };
 
-    // Update via SSE
-    notifySwapRequest(swapData);
-  }
+      const duration = Date.now() - startTime;
+      console.log(`[NotificationService] getUserInbox - Success`, {
+        duration: `${duration}ms`,
+        tenantId,
+        userId,
+        totalNotifications: userNotifications.length,
+        unreadCount,
+      });
 
-  /**
-   * Swap approval event
-   */
-  async notifySwapApproved(
-    tenantId: string,
-    swapId: string,
-    requesterId: string,
-    approverId: string
-  ): Promise<void> {
-    // Notify requester
-    await this.sendToUser(tenantId, requesterId, {
-      type: 'swap_approved',
-      priority: 'medium',
-      title: 'Shift Swap Approved',
-      message: 'Your shift swap request has been approved',
-      data: { swapId, approverId },
-      actionUrl: `/swaps/${swapId}`,
-    });
+      return inbox;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error('[NotificationService] getUserInbox - Error', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        duration: `${duration}ms`,
+        tenantId,
+        userId,
+      });
 
-    // Update via SSE
-    notifySwapApproval(swapId, approverId);
-  }
-
-  /**
-   * Emergency call event
-   */
-  async notifyEmergencyCall(
-    tenantId: string,
-    wardId: string,
-    message: string,
-    targetUsers: string[]
-  ): Promise<void> {
-    const notification = {
-      type: 'emergency_call' as NotificationType,
-      priority: 'urgent' as NotificationPriority,
-      title: '🚨 Emergency Call',
-      message,
-      data: { wardId },
-      actions: [
-        {
-          id: 'accept',
-          label: 'Accept',
-          action: 'accept_emergency',
-          style: 'danger' as const,
-        },
-      ],
-    };
-
-    // Send to all target users
-    for (const userId of targetUsers) {
-      await this.sendToUser(tenantId, userId, notification);
-    }
-
-    // Also broadcast to ward topic
-    await this.sendToTopic(tenantId, `ward:${wardId}:emergency`, notification);
-  }
-
-  /**
-   * Get user inbox
-   */
-  getUserInbox(tenantId: string, userId: string): NotificationInbox {
-    const key = `${tenantId}:${userId}`;
-    let inbox = this.inboxes.get(key);
-
-    if (!inbox) {
-      inbox = {
+      // Return empty inbox on error
+      return {
         userId,
         tenantId,
         notifications: [],
         unreadCount: 0,
       };
-      this.inboxes.set(key, inbox);
     }
-
-    return inbox;
   }
 
   /**
    * Mark notification as read
    */
-  markAsRead(tenantId: string, userId: string, notificationId: string): void {
-    const inbox = this.getUserInbox(tenantId, userId);
-    const notification = inbox.notifications.find(n => n.id === notificationId);
+  async markAsRead(tenantId: string, userId: string, notificationId: string): Promise<boolean> {
+    const startTime = Date.now();
+    console.log(`[NotificationService] markAsRead - Start`, {
+      tenantId,
+      userId,
+      notificationId,
+    });
 
-    if (notification && !notification.readAt) {
-      notification.readAt = new Date();
-      inbox.unreadCount = Math.max(0, inbox.unreadCount - 1);
+    try {
+      // Verify notification belongs to user
+      const [notification] = await db
+        .select()
+        .from(notifications)
+        .where(
+          and(
+            eq(notifications.id, notificationId),
+            eq(notifications.tenantId, tenantId),
+            eq(notifications.userId, userId)
+          )
+        )
+        .limit(1);
 
-      // Send update via SSE
-      sseManager.broadcast({
-        type: 'notification',
-        data: {
-          action: 'mark_read',
+      if (!notification) {
+        console.warn('[NotificationService] markAsRead - Notification not found or access denied', {
           notificationId,
-        },
+          userId,
+          tenantId,
+        });
+        return false;
+      }
+
+      if (notification.readAt) {
+        console.log('[NotificationService] markAsRead - Already read', {
+          notificationId,
+          readAt: notification.readAt,
+        });
+        return true;
+      }
+
+      // Update readAt timestamp
+      await db
+        .update(notifications)
+        .set({ readAt: new Date() })
+        .where(eq(notifications.id, notificationId));
+
+      const duration = Date.now() - startTime;
+      console.log(`[NotificationService] markAsRead - Success`, {
+        duration: `${duration}ms`,
+        notificationId,
         userId,
-        timestamp: Date.now(),
-      }, (clientId) => clientId.includes(userId));
+      });
+
+      // Send SSE update
+      try {
+        sseManager.broadcast({
+          type: 'notification',
+          data: {
+            action: 'mark_read',
+            notificationId,
+          },
+          userId,
+          timestamp: Date.now(),
+        }, (clientId) => clientId.includes(userId));
+      } catch (sseError) {
+        console.error('[NotificationService] markAsRead - SSE update failed', { error: sseError });
+      }
+
+      return true;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error('[NotificationService] markAsRead - Error', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        duration: `${duration}ms`,
+        notificationId,
+        userId,
+      });
+      return false;
     }
   }
 
   /**
-   * Clear user notifications
+   * Clear user notifications (soft delete by marking as read)
    */
-  clearUserNotifications(tenantId: string, userId: string): void {
-    const key = `${tenantId}:${userId}`;
-    const inbox = this.inboxes.get(key);
+  async clearUserNotifications(tenantId: string, userId: string): Promise<number> {
+    const startTime = Date.now();
+    console.log(`[NotificationService] clearUserNotifications - Start`, {
+      tenantId,
+      userId,
+    });
 
-    if (inbox) {
-      inbox.notifications = [];
-      inbox.unreadCount = 0;
+    try {
+      // First, get count of unread notifications
+      const unreadNotifs = await db
+        .select()
+        .from(notifications)
+        .where(
+          and(
+            eq(notifications.tenantId, tenantId),
+            eq(notifications.userId, userId),
+            isNull(notifications.readAt)
+          )
+        );
+
+      const clearedCount = unreadNotifs.length;
+
+      if (clearedCount > 0) {
+        // Mark all unread notifications as read
+        await db
+          .update(notifications)
+          .set({ readAt: new Date() })
+          .where(
+            and(
+              eq(notifications.tenantId, tenantId),
+              eq(notifications.userId, userId),
+              isNull(notifications.readAt)
+            )
+          );
+      }
+
+      const duration = Date.now() - startTime;
+      console.log(`[NotificationService] clearUserNotifications - Success`, {
+        duration: `${duration}ms`,
+        tenantId,
+        userId,
+        clearedCount,
+      });
+
+      return clearedCount;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error('[NotificationService] clearUserNotifications - Error', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        duration: `${duration}ms`,
+        tenantId,
+        userId,
+      });
+      return 0;
     }
   }
 
   /**
-   * Add notification to inbox
-   */
-  private addToInbox(tenantId: string, userId: string, notification: Notification): void {
-    const inbox = this.getUserInbox(tenantId, userId);
-
-    // Add to beginning of array (newest first)
-    inbox.notifications.unshift(notification);
-    inbox.unreadCount++;
-
-    // Keep only last 100 notifications
-    if (inbox.notifications.length > 100) {
-      inbox.notifications = inbox.notifications.slice(0, 100);
-    }
-  }
-
-  /**
-   * Send push notification
+   * Send push notification (placeholder for future implementation)
    */
   private async sendPushNotification(
     tenantId: string,
     userId: string,
     notification: Notification
   ): Promise<void> {
-    const subscriptions = pushSubscriptionManager.getUserSubscriptions(tenantId, userId);
+    console.log(`[NotificationService] sendPushNotification - Start`, {
+      tenantId,
+      userId,
+      notificationId: notification.id,
+      priority: notification.priority,
+    });
 
-    for (const subscription of subscriptions) {
+    try {
+      const subscriptions = pushSubscriptionManager.getUserSubscriptions(tenantId, userId);
+
+      if (subscriptions.length === 0) {
+        console.log(`[NotificationService] sendPushNotification - No push subscriptions found`, { userId });
+        return;
+      }
+
       // In production, would send actual push notification
-      console.log(`Would send push to ${subscription.endpoint}:`, notification);
+      console.log(`[NotificationService] sendPushNotification - Would send to ${subscriptions.length} subscriptions`, {
+        userId,
+        notificationId: notification.id,
+        subscriptionCount: subscriptions.length,
+      });
+    } catch (error) {
+      console.error('[NotificationService] sendPushNotification - Error', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        userId,
+        notificationId: notification.id,
+      });
     }
-  }
-
-  /**
-   * Send push to topic
-   */
-  private async sendPushToTopic(
-    tenantId: string,
-    topic: string,
-    notification: Notification
-  ): Promise<void> {
-    const subscriptions = pushSubscriptionManager.getTopicSubscriptions(tenantId, topic);
-
-    for (const subscription of subscriptions) {
-      // In production, would send actual push notification
-      console.log(`Would send push to topic ${topic}:`, notification);
-    }
-  }
-
-  /**
-   * Send push broadcast
-   */
-  private async sendPushBroadcast(
-    tenantId: string,
-    notification: Notification
-  ): Promise<void> {
-    const subscriptions = pushSubscriptionManager.getTenantSubscriptions(tenantId);
-
-    for (const subscription of subscriptions) {
-      // In production, would send actual push notification
-      console.log(`Would broadcast push:`, notification);
-    }
-  }
-
-  /**
-   * Generate notification ID
-   */
-  private generateNotificationId(): string {
-    return `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 }
 

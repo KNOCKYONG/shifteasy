@@ -336,6 +336,12 @@ async function sendScheduleNotifications(schedule: any, assignments: any[]) {
 
   // Send notification to each employee
   const notificationPromises = Array.from(uniqueEmployees).map(async (employeeId) => {
+    const notifStartTime = Date.now();
+    console.log(`[Schedule Confirm] Sending notification to employee ${employeeId}`, {
+      scheduleId: schedule.id,
+      type: 'schedule_published',
+    });
+
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/notifications`, {
         method: 'POST',
@@ -360,14 +366,33 @@ async function sendScheduleNotifications(schedule: any, assignments: any[]) {
         }),
       });
 
+      const duration = Date.now() - notifStartTime;
+
       if (!response.ok) {
-        console.error(`Failed to send notification to employee ${employeeId}`);
+        console.error(`[Schedule Confirm] Failed to send notification`, {
+          employeeId,
+          scheduleId: schedule.id,
+          status: response.status,
+          duration: `${duration}ms`,
+        });
         return { employeeId, success: false };
       }
 
+      console.log(`[Schedule Confirm] Notification sent successfully`, {
+        employeeId,
+        scheduleId: schedule.id,
+        duration: `${duration}ms`,
+      });
+
       return { employeeId, success: true };
     } catch (error) {
-      console.error(`Error sending notification to employee ${employeeId}:`, error);
+      const duration = Date.now() - notifStartTime;
+      console.error(`[Schedule Confirm] Error sending notification`, {
+        employeeId,
+        scheduleId: schedule.id,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        duration: `${duration}ms`,
+      });
       return { employeeId, success: false };
     }
   });

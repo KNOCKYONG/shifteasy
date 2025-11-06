@@ -37,18 +37,37 @@ const sendNotificationSchema = z.object({
 
 // GET - Get user notifications inbox
 export async function GET(request: NextRequest) {
-  try {
-    const tenantId = request.headers.get('x-tenant-id') || 'default-tenant';
-    const userId = request.headers.get('x-user-id') || 'anonymous';
+  const startTime = Date.now();
+  const tenantId = request.headers.get('x-tenant-id') || 'default-tenant';
+  const userId = request.headers.get('x-user-id') || 'anonymous';
 
-    const inbox = notificationService.getUserInbox(tenantId, userId);
+  console.log('[API /notifications] GET - Start', { tenantId, userId });
+
+  try {
+    const inbox = await notificationService.getUserInbox(tenantId, userId);
+
+    const duration = Date.now() - startTime;
+    console.log('[API /notifications] GET - Success', {
+      duration: `${duration}ms`,
+      tenantId,
+      userId,
+      notificationCount: inbox.notifications.length,
+      unreadCount: inbox.unreadCount,
+    });
 
     return NextResponse.json({
       success: true,
       inbox,
     });
   } catch (error) {
-    console.error('Get notifications error:', error);
+    const duration = Date.now() - startTime;
+    console.error('[API /notifications] GET - Error', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      duration: `${duration}ms`,
+      tenantId,
+      userId,
+    });
     return NextResponse.json(
       {
         success: false,
@@ -61,48 +80,81 @@ export async function GET(request: NextRequest) {
 
 // POST - Send notification
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  const tenantId = request.headers.get('x-tenant-id') || 'default-tenant';
+
+  console.log('[API /notifications] POST - Start', { tenantId });
+
   try {
-    const tenantId = request.headers.get('x-tenant-id') || 'default-tenant';
     const body = await request.json();
+    console.log('[API /notifications] POST - Request body', {
+      type: body.type,
+      priority: body.priority,
+      userId: body.userId,
+      topic: body.topic,
+    });
+
     const validatedData = sendNotificationSchema.parse(body);
 
+    let result: any;
     if (validatedData.userId) {
       // Send to specific user
       const { userId, ...notificationData } = validatedData;
-      await notificationService.sendToUser(
+      console.log('[API /notifications] POST - Sending to user', { userId, type: validatedData.type });
+      result = await notificationService.sendToUser(
         tenantId,
         userId,
         notificationData
       );
     } else if (validatedData.topic) {
       // Send to topic
-      await notificationService.sendToTopic(
+      console.log('[API /notifications] POST - Sending to topic', { topic: validatedData.topic, type: validatedData.type });
+      result = await notificationService.sendToTopic(
         tenantId,
         validatedData.topic,
         validatedData
       );
     } else {
       // Broadcast to all
-      await notificationService.broadcast(tenantId, validatedData);
+      console.log('[API /notifications] POST - Broadcasting', { type: validatedData.type });
+      result = await notificationService.broadcast(tenantId, validatedData);
     }
+
+    const duration = Date.now() - startTime;
+    console.log('[API /notifications] POST - Success', {
+      duration: `${duration}ms`,
+      result: result ? 'created' : 'failed',
+    });
 
     return NextResponse.json({
       success: true,
       message: 'Notification sent successfully',
+      data: result,
     });
   } catch (error) {
+    const duration = Date.now() - startTime;
+
     if (error instanceof z.ZodError) {
+      console.error('[API /notifications] POST - Validation error', {
+        errors: error.issues,
+        duration: `${duration}ms`,
+      });
       return NextResponse.json(
         {
           success: false,
           error: 'Invalid notification data',
-          details: (error as any).errors,
+          details: error.issues,
         },
         { status: 400 }
       );
     }
 
-    console.error('Send notification error:', error);
+    console.error('[API /notifications] POST - Error', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      duration: `${duration}ms`,
+      tenantId,
+    });
     return NextResponse.json(
       {
         success: false,
@@ -115,14 +167,18 @@ export async function POST(request: NextRequest) {
 
 // PATCH - Mark notification as read
 export async function PATCH(request: NextRequest) {
-  try {
-    const tenantId = request.headers.get('x-tenant-id') || 'default-tenant';
-    const userId = request.headers.get('x-user-id') || 'anonymous';
+  const startTime = Date.now();
+  const tenantId = request.headers.get('x-tenant-id') || 'default-tenant';
+  const userId = request.headers.get('x-user-id') || 'anonymous';
 
+  console.log('[API /notifications] PATCH - Start', { tenantId, userId });
+
+  try {
     const body = await request.json();
     const { notificationId } = body;
 
     if (!notificationId) {
+      console.warn('[API /notifications] PATCH - Missing notificationId');
       return NextResponse.json(
         {
           success: false,
@@ -132,14 +188,45 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    notificationService.markAsRead(tenantId, userId, notificationId);
+    console.log('[API /notifications] PATCH - Marking as read', { notificationId, userId });
+    const success = await notificationService.markAsRead(tenantId, userId, notificationId);
+
+    const duration = Date.now() - startTime;
+
+    if (!success) {
+      console.warn('[API /notifications] PATCH - Failed to mark as read', {
+        duration: `${duration}ms`,
+        notificationId,
+        userId,
+      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Notification not found or already read',
+        },
+        { status: 404 }
+      );
+    }
+
+    console.log('[API /notifications] PATCH - Success', {
+      duration: `${duration}ms`,
+      notificationId,
+      userId,
+    });
 
     return NextResponse.json({
       success: true,
       message: 'Notification marked as read',
     });
   } catch (error) {
-    console.error('Mark notification read error:', error);
+    const duration = Date.now() - startTime;
+    console.error('[API /notifications] PATCH - Error', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      duration: `${duration}ms`,
+      tenantId,
+      userId,
+    });
     return NextResponse.json(
       {
         success: false,
@@ -152,18 +239,37 @@ export async function PATCH(request: NextRequest) {
 
 // DELETE - Clear all notifications
 export async function DELETE(request: NextRequest) {
-  try {
-    const tenantId = request.headers.get('x-tenant-id') || 'default-tenant';
-    const userId = request.headers.get('x-user-id') || 'anonymous';
+  const startTime = Date.now();
+  const tenantId = request.headers.get('x-tenant-id') || 'default-tenant';
+  const userId = request.headers.get('x-user-id') || 'anonymous';
 
-    notificationService.clearUserNotifications(tenantId, userId);
+  console.log('[API /notifications] DELETE - Start', { tenantId, userId });
+
+  try {
+    const clearedCount = await notificationService.clearUserNotifications(tenantId, userId);
+
+    const duration = Date.now() - startTime;
+    console.log('[API /notifications] DELETE - Success', {
+      duration: `${duration}ms`,
+      tenantId,
+      userId,
+      clearedCount,
+    });
 
     return NextResponse.json({
       success: true,
       message: 'Notifications cleared successfully',
+      clearedCount,
     });
   } catch (error) {
-    console.error('Clear notifications error:', error);
+    const duration = Date.now() - startTime;
+    console.error('[API /notifications] DELETE - Error', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      duration: `${duration}ms`,
+      tenantId,
+      userId,
+    });
     return NextResponse.json(
       {
         success: false,
