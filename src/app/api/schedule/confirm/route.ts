@@ -4,6 +4,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { db } from '@/db';
 import { schedules } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { notificationService } from '@/lib/notifications/notification-service';
 
 export const dynamic = 'force-dynamic';
 
@@ -334,7 +335,7 @@ async function sendScheduleNotifications(schedule: any, assignments: any[]) {
     day: 'numeric'
   });
 
-  // Send notification to each employee
+  // Send notification to each employee using notificationService directly
   const notificationPromises = Array.from(uniqueEmployees).map(async (employeeId) => {
     const notifStartTime = Date.now();
     console.log(`[Schedule Confirm] Sending notification to employee ${employeeId}`, {
@@ -343,14 +344,10 @@ async function sendScheduleNotifications(schedule: any, assignments: any[]) {
     });
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/notifications`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-tenant-id': schedule.tenantId,
-        },
-        body: JSON.stringify({
-          userId: employeeId,
+      const result = await notificationService.sendToUser(
+        schedule.tenantId,
+        employeeId,
+        {
           type: 'schedule_published',
           priority: 'high',
           title: '새로운 스케줄이 확정되었습니다',
@@ -363,16 +360,15 @@ async function sendScheduleNotifications(schedule: any, assignments: any[]) {
             endDate: schedule.endDate,
             publishedBy: schedule.publishedBy,
           },
-        }),
-      });
+        }
+      );
 
       const duration = Date.now() - notifStartTime;
 
-      if (!response.ok) {
+      if (!result) {
         console.error(`[Schedule Confirm] Failed to send notification`, {
           employeeId,
           scheduleId: schedule.id,
-          status: response.status,
           duration: `${duration}ms`,
         });
         return { employeeId, success: false };
@@ -381,6 +377,7 @@ async function sendScheduleNotifications(schedule: any, assignments: any[]) {
       console.log(`[Schedule Confirm] Notification sent successfully`, {
         employeeId,
         scheduleId: schedule.id,
+        notificationId: result.id,
         duration: `${duration}ms`,
       });
 

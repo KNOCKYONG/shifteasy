@@ -105,11 +105,34 @@ export function NavigationHeader() {
       }
     };
 
+    // Initial load
     loadNotifications();
 
-    // Poll for new notifications every 30 seconds
-    const interval = setInterval(loadNotifications, 30000);
-    return () => clearInterval(interval);
+    // Setup SSE for real-time notifications
+    if (!userInfo) return;
+
+    const eventSource = new EventSource(`/api/sse?userId=${userInfo.id}`);
+
+    eventSource.addEventListener('notification', (event) => {
+      console.log('[NavigationHeader] Received notification via SSE');
+      // Reload notifications when new notification arrives
+      loadNotifications();
+    });
+
+    eventSource.addEventListener('notification_read', (event) => {
+      console.log('[NavigationHeader] Notification marked as read via SSE');
+      // Reload notifications when notification is read
+      loadNotifications();
+    });
+
+    eventSource.onerror = (error) => {
+      console.error('[NavigationHeader] SSE connection error:', error);
+      eventSource.close();
+    };
+
+    return () => {
+      eventSource.close();
+    };
   }, [userInfo]);
 
   // Format time ago helper

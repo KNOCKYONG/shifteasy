@@ -1,7 +1,6 @@
 // Core multi-tenant schema
 export * from './tenants';
 export * from './system';
-export * from './notifications';
 
 // Domain schemas
 export * from './nurse-preferences';
