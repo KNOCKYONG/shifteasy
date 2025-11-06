@@ -235,7 +235,7 @@ export class ConstraintValidator {
     }
 
     // 직원 개인 선호 최대 연속 근무일 검증
-    if (employee.preferences.maxConsecutiveDays) {
+    if (employee.preferences?.maxConsecutiveDays) {
       consecutiveDays = 1;
       for (let i = 1; i < sortedAssignments.length; i++) {
         const dayDiff = this.getDayDifference(
@@ -474,7 +474,7 @@ export class ConstraintValidator {
     shifts: Map<string, Shift>
   ): ConstraintViolation[] {
     const violations: ConstraintViolation[] = [];
-    const preferredShifts = employee.preferences.preferredShifts;
+    const preferredShifts = employee.preferences?.preferredShifts || [];
 
     if (preferredShifts.length === 0) return violations;
 
@@ -508,7 +508,7 @@ export class ConstraintValidator {
     shifts: Map<string, Shift>
   ): ConstraintViolation[] {
     const violations: ConstraintViolation[] = [];
-    const avoidShifts = employee.preferences.avoidShifts;
+    const avoidShifts = employee.preferences?.avoidShifts || [];
 
     if (avoidShifts.length === 0) return violations;
 
@@ -541,7 +541,7 @@ export class ConstraintValidator {
     assignments: ScheduleAssignment[]
   ): ConstraintViolation[] {
     const violations: ConstraintViolation[] = [];
-    const preferredDaysOff = employee.preferences.preferredDaysOff;
+    const preferredDaysOff = employee.preferences?.preferredDaysOff || [];
 
     if (preferredDaysOff.length === 0) return violations;
 
@@ -617,7 +617,7 @@ export class ConstraintValidator {
     const nightRatio = totalDays > 0 ? nightShiftCount / totalDays : 0;
 
     // 야간 근무를 선호하지 않는 직원이 30% 이상 야간 근무 시 경고
-    if (!employee.preferences.preferNightShift && nightRatio > 0.3) {
+    if (!employee.preferences?.preferNightShift && nightRatio > 0.3) {
       violations.push({
         constraintId: 'night-shift-fairness',
         constraintName: '야간 근무 과다',

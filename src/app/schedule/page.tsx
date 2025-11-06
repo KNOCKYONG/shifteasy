@@ -1237,6 +1237,30 @@ export default function SchedulePage() {
     try {
       const schedulePayload = buildSchedulePayload();
 
+      // Fetch nurse_preferences for all employees
+      console.log('🔍 Fetching nurse_preferences for validation...');
+      const preferencesResponse = await fetch('/api/preferences');
+      const preferencesData = await preferencesResponse.json();
+
+      console.log('📦 Preferences data:', preferencesData);
+
+      // Merge preferences into employee data
+      const employeesWithPreferences = filteredMembers.map(emp => {
+        const empPrefs = preferencesData.data?.[emp.id];
+        return {
+          ...emp,
+          preferences: empPrefs ? {
+            maxConsecutiveDays: empPrefs.workPreferences?.maxConsecutiveDays || 5,
+            preferredShifts: empPrefs.workPreferences?.preferredShifts || [],
+            avoidShifts: empPrefs.workPreferences?.avoidShifts || [],
+            preferredDaysOff: [], // TODO: Map from preferences if available
+            preferNightShift: empPrefs.workPreferences?.preferredShifts?.includes('night') || false,
+          } : undefined,
+        };
+      });
+
+      console.log('✅ Employees with preferences:', employeesWithPreferences.length);
+
       const response = await fetch('/api/schedule/validate', {
         method: 'POST',
         headers: {
@@ -1246,7 +1270,7 @@ export default function SchedulePage() {
         },
         body: JSON.stringify({
           schedule: schedulePayload,
-          employees: filteredMembers,
+          employees: employeesWithPreferences,
           shifts: shifts,
           constraints: DEFAULT_CONSTRAINTS,
         }),
@@ -1662,6 +1686,7 @@ export default function SchedulePage() {
             requiredStaffEvening: teamPattern?.requiredStaffEvening,
             requiredStaffNight: teamPattern?.requiredStaffNight,
             defaultPatterns: teamPattern?.defaultPatterns,
+            avoidPatterns: teamPattern?.avoidPatterns,
           });
 
           if (teamPatternData.pattern) {
@@ -1852,6 +1877,7 @@ export default function SchedulePage() {
       };
 
       console.log(`📋 스케줄러 설정: ${schedulerConfig.employees.length}명, 필요인원 D${schedulerConfig.requiredStaffPerShift.D}/E${schedulerConfig.requiredStaffPerShift.E}/N${schedulerConfig.requiredStaffPerShift.N}`);
+      console.log(`🚫 기피 패턴 설정:`, schedulerConfig.avoidPatterns?.length || 0, '개', schedulerConfig.avoidPatterns);
 
       // 7. 스케줄 생성
       const scheduler = new SimpleScheduler(schedulerConfig);
