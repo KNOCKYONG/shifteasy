@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { Menu, X, Bell, ChevronDown } from 'lucide-react';
 import { getNavigationForRole, type Role } from '@/lib/permissions';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useUser } from '@clerk/nextjs';
 
 interface NavItem {
   href: string;
@@ -22,6 +23,17 @@ interface SubMenuItem {
   href?: string;
 }
 
+interface Notification {
+  id: string;
+  type: string;
+  priority: string;
+  title: string;
+  message: string;
+  createdAt: Date;
+  readAt?: Date | null;
+  actionUrl?: string | null;
+}
+
 export function NavigationHeader() {
   const pathname = usePathname();
   const router = useRouter();
@@ -32,6 +44,10 @@ export function NavigationHeader() {
   const [showTeamDropdown, setShowTeamDropdown] = useState(false);
   const [showScheduleDropdown, setShowScheduleDropdown] = useState(false);
   const currentUser = useCurrentUser();
+  const { user: clerkUser } = useUser();
+  const [userInfo, setUserInfo] = useState<{ id: string; tenantId: string } | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const teamSubMenuItems: SubMenuItem[] = [
     { label: '팀 패턴', value: 'pattern' },
@@ -46,13 +62,67 @@ export function NavigationHeader() {
 
   const isManagerOrAdmin = currentUser.role === 'manager' || currentUser.role === 'admin';
 
-  // 읽지 않은 알림 개수 조회 (임시 mock 데이터)
-  const mockNotifications = [
-    { id: '1', message: '새로운 근무 스케줄이 배정되었습니다.', time: '5분 전', isRead: false },
-    { id: '2', message: '김철수님의 휴가 신청이 승인되었습니다.', time: '1시간 전', isRead: false },
-    { id: '3', message: '이번 주 근무 일정이 변경되었습니다.', time: '3시간 전', isRead: false },
-  ];
-  const unreadCount = mockNotifications.filter(n => !n.isRead).length;
+  // Fetch user info
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      if (!clerkUser) return;
+
+      try {
+        const response = await fetch('/api/users/me');
+        if (response.ok) {
+          const data = await response.json();
+          setUserInfo({ id: data.id, tenantId: data.tenantId });
+        }
+      } catch (err) {
+        console.error('Failed to fetch user info:', err);
+      }
+    };
+
+    fetchUserInfo();
+  }, [clerkUser]);
+
+  // Fetch notifications from API
+  useEffect(() => {
+    const loadNotifications = async () => {
+      if (!userInfo) return;
+
+      try {
+        const response = await fetch('/api/notifications', {
+          headers: {
+            'x-tenant-id': userInfo.tenantId,
+            'x-user-id': userInfo.id,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const recentNotifications = data.inbox?.notifications.slice(0, 5) || [];
+          setNotifications(recentNotifications);
+          setUnreadCount(data.inbox?.unreadCount || 0);
+        }
+      } catch (err) {
+        console.error('Failed to load notifications:', err);
+      }
+    };
+
+    loadNotifications();
+
+    // Poll for new notifications every 30 seconds
+    const interval = setInterval(loadNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [userInfo]);
+
+  // Format time ago helper
+  const formatTimeAgo = (date: Date) => {
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - new Date(date).getTime()) / 1000);
+
+    if (diffInSeconds < 60) return '방금 전';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}분 전`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}시간 전`;
+    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}일 전`;
+    return new Date(date).toLocaleDateString('ko-KR');
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -277,14 +347,31 @@ export function NavigationHeader() {
 
                     {/* Notification List */}
                     <div className="max-h-96 overflow-y-auto">
-                      {mockNotifications.length > 0 ? (
-                        mockNotifications.map((notification) => (
+                      {notifications.length > 0 ? (
+                        notifications.map((notification) => (
                           <div
                             key={notification.id}
-                            className="p-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                            onClick={() => {
+                              if (notification.actionUrl) {
+                                router.push(notification.actionUrl);
+                                setShowNotificationDropdown(false);
+                              }
+                            }}
+                            className={`p-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer ${
+                              !notification.readAt ? 'bg-blue-50 dark:bg-blue-900/10' : ''
+                            }`}
                           >
-                            <p className="text-sm text-gray-900 dark:text-gray-100">{notification.message}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{notification.time}</p>
+                            <p className={`text-sm text-gray-900 dark:text-gray-100 ${
+                              !notification.readAt ? 'font-semibold' : ''
+                            }`}>
+                              {notification.title}
+                            </p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                              {notification.message}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                              {formatTimeAgo(notification.createdAt)}
+                            </p>
                           </div>
                         ))
                       ) : (
