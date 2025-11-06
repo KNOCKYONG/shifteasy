@@ -240,18 +240,47 @@ export const schedulesRelations = relations(schedules, ({ one }) => ({
 export const notifications = pgTable('notifications', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
+  departmentId: uuid('department_id').references(() => departments.id, { onDelete: 'cascade' }),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+
+  // Core notification fields
+  type: text('type').notNull().default('general'),
+  // Notification types: schedule_published, schedule_updated, swap_requested, swap_approved,
+  // swap_rejected, emergency_call, shift_reminder, general
+  priority: text('priority').notNull().default('medium'), // low, medium, high, urgent
   title: text('title').notNull(),
   message: text('message').notNull(),
-  type: text('type').notNull().default('info'), // info, warning, error, success
-  read: text('read').notNull().default('false'),
-  metadata: jsonb('metadata').$type<any>(),
+
+  // Optional fields
+  topic: text('topic'), // For topic-based subscriptions (e.g., 'ward:123:emergency')
+  actionUrl: text('action_url'), // URL to navigate when notification is clicked
+
+  // Rich data storage
+  data: jsonb('data').$type<any>(), // Additional notification data
+  actions: jsonb('actions').$type<Array<{
+    id: string;
+    label: string;
+    url?: string;
+    action?: string;
+    style?: 'primary' | 'secondary' | 'danger';
+  }>>(), // Action buttons for notification
+
+  // Status tracking
+  readAt: timestamp('read_at', { withTimezone: true }), // When notification was read (null = unread)
+  deliveredAt: timestamp('delivered_at', { withTimezone: true }), // When notification was delivered
+
+  // Timestamps
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
   tenantIdx: index('notifications_tenant_id_idx').on(table.tenantId),
+  departmentIdx: index('notifications_department_id_idx').on(table.departmentId),
   userIdx: index('notifications_user_id_idx').on(table.userId),
-  readIdx: index('notifications_read_idx').on(table.read),
+  typeIdx: index('notifications_type_idx').on(table.type),
+  priorityIdx: index('notifications_priority_idx').on(table.priority),
+  readAtIdx: index('notifications_read_at_idx').on(table.readAt),
+  topicIdx: index('notifications_topic_idx').on(table.topic),
+  createdAtIdx: index('notifications_created_at_idx').on(table.createdAt),
 }));
 
 // Swap requests table

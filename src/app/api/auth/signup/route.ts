@@ -208,11 +208,14 @@ export async function POST(req: NextRequest) {
       await db.insert(notifications).values({
         tenantId,
         userId: finalUser[0].id,
-        type: 'welcome',
+        type: 'general',
+        priority: 'medium',
         title: 'ShiftEasy에 오신 것을 환영합니다!',
         message: `${validation.tenant?.name}에 성공적으로 가입되었습니다. 이제 스케줄을 확인하고 관리할 수 있습니다.`,
-        metadata: {
+        actionUrl: '/schedule',
+        data: {
           action: 'view_schedule',
+          welcomeMessage: true,
         },
       });
     } catch (notifError) {

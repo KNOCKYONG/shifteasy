@@ -318,21 +318,66 @@ export async function DELETE(request: NextRequest) {
 
 // Helper function to send notifications
 async function sendScheduleNotifications(schedule: any, assignments: any[]) {
-  // In production, this would integrate with a notification service
   const uniqueEmployees = new Set(assignments.map(a => a.employeeId));
 
   console.log(`Sending notifications to ${uniqueEmployees.size} employees for schedule ${schedule.id}`);
 
-  // Simulate notification sending
-  const notifications = Array.from(uniqueEmployees).map(employeeId => ({
-    employeeId,
-    type: 'schedule_published',
-    scheduleId: schedule.id,
-    period: `${schedule.startDate} - ${schedule.endDate}`,
-    sentAt: new Date().toISOString(),
-  }));
+  // Format dates for Korean users
+  const startDate = new Date(schedule.startDate).toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+  const endDate = new Date(schedule.endDate).toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
 
-  return notifications;
+  // Send notification to each employee
+  const notificationPromises = Array.from(uniqueEmployees).map(async (employeeId) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/notifications`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-id': schedule.tenantId,
+        },
+        body: JSON.stringify({
+          userId: employeeId,
+          type: 'schedule_published',
+          priority: 'high',
+          title: '새로운 스케줄이 확정되었습니다',
+          message: `${startDate} ~ ${endDate} 스케줄이 확정되어 공개되었습니다. 확인해주세요.`,
+          actionUrl: '/schedule',
+          data: {
+            scheduleId: schedule.id,
+            departmentId: schedule.departmentId,
+            startDate: schedule.startDate,
+            endDate: schedule.endDate,
+            publishedBy: schedule.publishedBy,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        console.error(`Failed to send notification to employee ${employeeId}`);
+        return { employeeId, success: false };
+      }
+
+      return { employeeId, success: true };
+    } catch (error) {
+      console.error(`Error sending notification to employee ${employeeId}:`, error);
+      return { employeeId, success: false };
+    }
+  });
+
+  const results = await Promise.all(notificationPromises);
+  const successCount = results.filter(r => r.success).length;
+
+  console.log(`Successfully sent ${successCount}/${uniqueEmployees.size} notifications for schedule ${schedule.id}`);
+
+  return results;
 }
 
 // Helper function to generate confirmation report
