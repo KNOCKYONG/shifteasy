@@ -39,7 +39,7 @@ export default function NotificationsPage() {
         const response = await fetch('/api/users/me');
         if (response.ok) {
           const data = await response.json();
-          setUserInfo({ id: data.user.id, tenantId: data.user.tenantId });
+          setUserInfo({ id: data.id, tenantId: data.tenantId });
         }
       } catch (err) {
         console.error('Failed to fetch user info:', err);

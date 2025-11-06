@@ -21,6 +21,7 @@ export async function GET() {
     const [user] = await db
       .select({
         id: users.id,
+        tenantId: users.tenantId,
         name: users.name,
         email: users.email,
         role: users.role,
