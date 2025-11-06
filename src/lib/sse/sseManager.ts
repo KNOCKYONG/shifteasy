@@ -57,12 +57,18 @@ class SSEManager {
 
   // 특정 userId에 해당하는 모든 clientId를 찾기
   getClientIdsByUserId(userId: string): string[] {
+    console.log(`[SSEManager] getClientIdsByUserId called for userId: ${userId}`);
+    console.log(`[SSEManager] Current clientUserMap:`, Array.from(this.clientUserMap.entries()));
+    console.log(`[SSEManager] Total clients in map: ${this.clients.size}, Total userId mappings: ${this.clientUserMap.size}`);
+
     const clientIds: string[] = [];
     this.clientUserMap.forEach((mappedUserId, clientId) => {
       if (mappedUserId === userId) {
         clientIds.push(clientId);
       }
     });
+
+    console.log(`[SSEManager] Found ${clientIds.length} clients for userId ${userId}:`, clientIds);
     return clientIds;
   }
 
