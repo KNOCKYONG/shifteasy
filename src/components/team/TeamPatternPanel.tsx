@@ -72,6 +72,11 @@ export function TeamPatternPanel({
   const [patternValidation, setPatternValidation] = useState<ReturnType<typeof validatePattern> | null>(null);
   const [showPatternHelp, setShowPatternHelp] = useState(false);
 
+  // 기피 패턴 텍스트 입력 관련 상태
+  const [avoidPatternInput, setAvoidPatternInput] = useState('');
+  const [avoidPatternValidation, setAvoidPatternValidation] = useState<ReturnType<typeof validatePattern> | null>(null);
+  const [showAvoidPatternHelp, setShowAvoidPatternHelp] = useState(false);
+
   // Team Pattern 불러오기
   useEffect(() => {
     // departmentId가 유효할 때만 fetch
@@ -218,6 +223,66 @@ export function TeamPatternPanel({
     setPatternInput(examplePattern);
     const validation = validatePattern(examplePattern);
     setPatternValidation(validation);
+  };
+
+  // 기피 패턴 텍스트 입력 핸들러
+  const handleAvoidPatternInputChange = (value: string) => {
+    setAvoidPatternInput(value);
+
+    // 실시간 검증
+    if (value.trim()) {
+      const validation = validatePattern(value);
+      // 기피 패턴은 OFF를 포함할 수 없음 - 추가 검증
+      if (validation.isValid && validation.tokens.includes('O')) {
+        setAvoidPatternValidation({
+          ...validation,
+          isValid: false,
+          errors: ['기피 패턴에는 OFF(O)를 포함할 수 없습니다. 근무 시프트만 조합하세요.'],
+        });
+      } else {
+        setAvoidPatternValidation(validation);
+      }
+    } else {
+      setAvoidPatternValidation(null);
+    }
+  };
+
+  // 기피 패턴 텍스트를 적용
+  const applyAvoidPatternInput = () => {
+    if (!avoidPatternValidation || !avoidPatternValidation.isValid) {
+      return;
+    }
+
+    // 검증된 토큰을 기피 패턴 배열에 추가
+    const newPatternArray = avoidPatternValidation.tokens as string[];
+
+    setPattern(prev => ({
+      ...prev,
+      avoidPatterns: [
+        ...(prev.avoidPatterns || []),
+        newPatternArray,
+      ],
+    }));
+
+    // 입력 초기화
+    setAvoidPatternInput('');
+    setAvoidPatternValidation(null);
+  };
+
+  // 기피 패턴 예시 적용
+  const applyAvoidExamplePattern = (examplePattern: string) => {
+    setAvoidPatternInput(examplePattern);
+    const validation = validatePattern(examplePattern);
+    // OFF 체크
+    if (validation.isValid && validation.tokens.includes('O')) {
+      setAvoidPatternValidation({
+        ...validation,
+        isValid: false,
+        errors: ['기피 패턴에는 OFF(O)를 포함할 수 없습니다. 근무 시프트만 조합하세요.'],
+      });
+    } else {
+      setAvoidPatternValidation(validation);
+    }
   };
 
   // 저장
@@ -680,6 +745,160 @@ export function TeamPatternPanel({
             </button>
           )}
         </div>
+
+        {/* 텍스트 입력으로 기피 패턴 추가 */}
+        {canEdit && (
+          <div className="mb-4 p-4 bg-red-50 rounded-lg border border-red-200">
+            <div className="flex items-start gap-2 mb-2">
+              <Keyboard className="w-5 h-5 text-red-600 mt-0.5" />
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  기피 패턴 직접 입력
+                </label>
+                <p className="text-xs text-gray-500 mb-2">
+                  하이픈(-), 쉼표(,), 공백으로 구분하여 입력하세요. 예: N-N-D (야간 2일 후 주간 금지)
+                </p>
+              </div>
+              <button
+                onClick={() => setShowAvoidPatternHelp(!showAvoidPatternHelp)}
+                className="p-1 text-gray-400 hover:text-gray-600"
+                title="도움말"
+              >
+                <Info className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* 도움말 */}
+            {showAvoidPatternHelp && (
+              <div className="mb-3 p-3 bg-red-100 border border-red-300 rounded-md">
+                <div className="text-xs text-red-900 space-y-2">
+                  <div>
+                    <p className="font-medium mb-1">✅ 유효한 키워드 (OFF 제외):</p>
+                    <div className="grid grid-cols-2 gap-1 ml-2">
+                      <div key="D" className="flex items-center gap-1">
+                        <span className="font-mono font-bold">D:</span>
+                        <span className="text-gray-700">주간 근무</span>
+                      </div>
+                      <div key="E" className="flex items-center gap-1">
+                        <span className="font-mono font-bold">E:</span>
+                        <span className="text-gray-700">저녁 근무</span>
+                      </div>
+                      <div key="N" className="flex items-center gap-1">
+                        <span className="font-mono font-bold">N:</span>
+                        <span className="text-gray-700">야간 근무</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="font-medium mb-1">📝 예시 (클릭하여 적용):</p>
+                    <div className="ml-2 space-y-1">
+                      <button
+                        onClick={() => applyAvoidExamplePattern('N-D')}
+                        className="block w-full text-left hover:bg-red-200 px-2 py-1 rounded transition-colors"
+                      >
+                        <span className="font-mono">N-D</span>
+                        <span className="text-gray-700 ml-2">→ 야간 직후 주간 금지</span>
+                      </button>
+                      <button
+                        onClick={() => applyAvoidExamplePattern('N-N-D')}
+                        className="block w-full text-left hover:bg-red-200 px-2 py-1 rounded transition-colors"
+                      >
+                        <span className="font-mono">N-N-D</span>
+                        <span className="text-gray-700 ml-2">→ 야간 2일 후 주간 금지</span>
+                      </button>
+                      <button
+                        onClick={() => applyAvoidExamplePattern('E-E-N')}
+                        className="block w-full text-left hover:bg-red-200 px-2 py-1 rounded transition-colors"
+                      >
+                        <span className="font-mono">E-E-N</span>
+                        <span className="text-gray-700 ml-2">→ 저녁 2일 후 야간 금지</span>
+                      </button>
+                      <button
+                        onClick={() => applyAvoidExamplePattern('D-D-D-D-D-D')}
+                        className="block w-full text-left hover:bg-red-200 px-2 py-1 rounded transition-colors"
+                      >
+                        <span className="font-mono">D-D-D-D-D-D</span>
+                        <span className="text-gray-700 ml-2">→ 주간 6일 연속 금지</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 입력 필드 */}
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  value={avoidPatternInput}
+                  onChange={(e) => handleAvoidPatternInputChange(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && avoidPatternValidation?.isValid) {
+                      applyAvoidPatternInput();
+                    }
+                  }}
+                  placeholder="예: N-N-D 또는 E,E,N (Enter로 추가)"
+                  className={`w-full px-3 py-2 border rounded-md font-mono text-sm ${
+                    avoidPatternValidation?.isValid
+                      ? 'border-green-300 bg-green-50 focus:ring-green-500'
+                      : avoidPatternValidation?.errors.length
+                      ? 'border-red-300 bg-red-50 focus:ring-red-500'
+                      : 'border-gray-300 focus:ring-red-500'
+                  } focus:outline-none focus:ring-2`}
+                />
+
+                {/* 실시간 검증 피드백 */}
+                {avoidPatternValidation && (
+                  <div className="mt-2 space-y-1">
+                    {/* 에러 메시지 */}
+                    {avoidPatternValidation.errors.length > 0 && (
+                      <div className="flex items-start gap-1 text-xs text-red-600">
+                        <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                        <div>
+                          {avoidPatternValidation.errors.map((err, idx) => (
+                            <div key={idx}>{err}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 경고 메시지 */}
+                    {avoidPatternValidation.warnings.length > 0 && (
+                      <div className="flex items-start gap-1 text-xs text-amber-600">
+                        <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                        <div>
+                          {avoidPatternValidation.warnings.map((warn, idx) => (
+                            <div key={idx}>{warn}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 성공 메시지 */}
+                    {avoidPatternValidation.isValid && (
+                      <div className="flex items-center gap-1 text-xs text-green-600">
+                        <CheckCircle className="w-3 h-3" />
+                        <span>
+                          유효한 기피 패턴: {describePattern(avoidPatternValidation.tokens)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={applyAvoidPatternInput}
+                disabled={!avoidPatternValidation?.isValid}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+              >
+                <Plus className="w-4 h-4" />
+                추가
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-3">
           {pattern.avoidPatterns && pattern.avoidPatterns.length > 0 ? (

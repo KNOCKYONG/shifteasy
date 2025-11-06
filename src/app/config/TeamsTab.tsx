@@ -60,7 +60,7 @@ export function TeamsTab() {
   });
 
   // Fetch all users
-  const { data: usersData } = api.tenant.users.list.useQuery({
+  const { data: usersData, refetch: refetchUsers } = api.tenant.users.list.useQuery({
     limit: 100,
     offset: 0,
   }, {
@@ -108,7 +108,8 @@ export function TeamsTab() {
 
   const updateUserTeam = api.tenant.users.update.useMutation({
     onSuccess: () => {
-      alert('직원이 팀에 배정되었습니다');
+      // UI에 즉각 반영 - alert 대신 자동 refetch
+      refetchUsers();
     },
     onError: (error) => {
       alert('팀 배정 실패: ' + error.message);
