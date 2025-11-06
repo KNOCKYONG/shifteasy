@@ -7,6 +7,7 @@ import { User, Shield, Bell, Key, Copy, Save, Loader2, AlertCircle, CheckCircle2
 import { useTranslation } from "react-i18next";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { RoleGuard } from "@/components/auth/RoleGuard";
+import { SecretCodeTab } from "@/app/config/SecretCodeTab";
 
 // Force dynamic rendering to prevent build-time errors
 export const dynamic = 'force-dynamic';
@@ -28,7 +29,7 @@ function SettingsContent() {
   const { t } = useTranslation(['settings', 'common']);
   const searchParams = useSearchParams();
   const { user } = useUser();
-  const [activeTab, setActiveTab] = useState<"profile" | "security" | "notifications" | "department">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "security" | "notifications" | "secretCode" | "department">("profile");
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
   // Department secret code state (admin/owner only)
@@ -67,6 +68,8 @@ function SettingsContent() {
       setActiveTab('security');
     } else if (tab === 'notifications') {
       setActiveTab('notifications');
+    } else if (tab === 'secretCode') {
+      setActiveTab('secretCode');
     } else if (tab === 'department') {
       setActiveTab('department');
     } else {
@@ -229,6 +232,9 @@ function SettingsContent() {
     }
   };
 
+  // Show secret code tab for managers, admins and owners
+  const showSecretCodeTab = currentUser && (currentUser.role === 'manager' || currentUser.role === 'admin' || currentUser.role === 'owner');
+
   // Show department tab only for admins and owners (managers use /config page)
   const showDepartmentTab = currentUser && (currentUser.role === 'admin' || currentUser.role === 'owner');
 
@@ -283,6 +289,19 @@ function SettingsContent() {
                 <Bell className="w-4 h-4" />
                 {t('tabs.notifications', { ns: 'settings', defaultValue: '알림' })}
               </button>
+              {showSecretCodeTab && (
+                <button
+                  onClick={() => setActiveTab("secretCode")}
+                  className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+                    activeTab === "secretCode"
+                      ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
+                      : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
+                  }`}
+                >
+                  <Key className="w-4 h-4" />
+                  {t('tabs.secretCode', { ns: 'settings', defaultValue: '시크릿 코드' })}
+                </button>
+              )}
               {showDepartmentTab && (
                 <button
                   onClick={() => setActiveTab("department")}
@@ -658,6 +677,12 @@ function SettingsContent() {
                     </label>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {activeTab === "secretCode" && showSecretCodeTab && currentUser && (
+              <div className="p-6">
+                <SecretCodeTab currentUserRole={currentUser.role} />
               </div>
             )}
 

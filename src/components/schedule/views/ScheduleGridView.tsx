@@ -161,7 +161,7 @@ export function ScheduleGridView({
                       return (
                         <div
                           key={i}
-                          className="w-full px-0.5 py-1 rounded text-[9px] font-medium text-white text-center"
+                          className="w-full px-1 py-1 rounded text-[10px] font-medium text-white text-center whitespace-nowrap"
                           style={{ backgroundColor: getShiftColor(assignment.shiftId) }}
                           title={getShiftName(assignment.shiftId)}
                         >

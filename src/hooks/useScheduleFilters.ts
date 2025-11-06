@@ -7,7 +7,7 @@ export function useScheduleFilters() {
   // View State
   const [activeView, setActiveView] = useState<'preferences' | 'today' | 'schedule'>('preferences');
   const [viewMode, setViewMode] = useState<'grid' | 'calendar'>('grid');
-  const [showCodeFormat, setShowCodeFormat] = useState(false);
+  const [showCodeFormat, setShowCodeFormat] = useState(true);
 
   // Filter State
   const [selectedShiftTypes, setSelectedShiftTypes] = useState<Set<string>>(new Set());

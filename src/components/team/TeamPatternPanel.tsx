@@ -17,8 +17,7 @@ import {
   TeamPattern,
   validateTeamPattern,
   DEFAULT_PATTERNS,
-  SHIFT_TYPES,
-  type ShiftType
+  SHIFT_TYPES
 } from '@/lib/types/team-pattern';
 import {
   validatePattern,
@@ -29,25 +28,36 @@ import {
   type ShiftToken
 } from '@/lib/utils/pattern-validator';
 
+interface ShiftType {
+  id: string;
+  code: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  color: string;
+}
+
 interface TeamPatternPanelProps {
   departmentId: string;
   departmentName?: string;
   totalMembers: number;
   canEdit: boolean;
+  shiftTypes: ShiftType[];
 }
 
 export function TeamPatternPanel({
   departmentId,
   departmentName,
   totalMembers,
-  canEdit
+  canEdit,
+  shiftTypes
 }: TeamPatternPanelProps) {
   const [pattern, setPattern] = useState<Partial<TeamPattern>>({
     departmentId,
     requiredStaffDay: 5,
     requiredStaffEvening: 4,
     requiredStaffNight: 3,
-    defaultPatterns: [['D', 'D', 'D', 'OFF', 'OFF']],
+    defaultPatterns: [['D', 'D', 'D', 'O', 'O']],
     avoidPatterns: [], // 기피 패턴 초기화
     totalMembers,
   });
@@ -115,7 +125,7 @@ export function TeamPatternPanel({
       ...prev,
       defaultPatterns: [
         ...(prev.defaultPatterns || []),
-        ['D', 'OFF']
+        ['D', 'O']
       ],
     }));
   };
@@ -129,7 +139,7 @@ export function TeamPatternPanel({
   };
 
   // 패턴 수정
-  const updatePattern = (patternIndex: number, dayIndex: number, value: ShiftType) => {
+  const updatePattern = (patternIndex: number, dayIndex: number, value: string) => {
     setPattern(prev => {
       const newPatterns = [...(prev.defaultPatterns || [])];
       newPatterns[patternIndex] = [...newPatterns[patternIndex]];
@@ -146,7 +156,7 @@ export function TeamPatternPanel({
   const addDayToPattern = (patternIndex: number) => {
     setPattern(prev => {
       const newPatterns = [...(prev.defaultPatterns || [])];
-      newPatterns[patternIndex] = [...newPatterns[patternIndex], 'OFF'];
+      newPatterns[patternIndex] = [...newPatterns[patternIndex], 'O'];
 
       return {
         ...prev,
@@ -188,9 +198,7 @@ export function TeamPatternPanel({
     }
 
     // 검증된 토큰을 패턴 배열에 추가
-    const newPatternArray = patternValidation.tokens.map(token =>
-      token === 'O' ? 'OFF' : token
-    ) as ShiftType[];
+    const newPatternArray = patternValidation.tokens as string[];
 
     setPattern(prev => ({
       ...prev,
@@ -247,7 +255,7 @@ export function TeamPatternPanel({
             requiredStaffDay: pattern.requiredStaffDay || 5,
             requiredStaffEvening: pattern.requiredStaffEvening || 4,
             requiredStaffNight: pattern.requiredStaffNight || 3,
-            defaultPatterns: pattern.defaultPatterns || [['D', 'D', 'D', 'OFF', 'OFF']],
+            defaultPatterns: pattern.defaultPatterns || [['D', 'D', 'D', 'O', 'O']],
             avoidPatterns: pattern.avoidPatterns || [], // 기피 패턴 포함
             totalMembers,
           };
@@ -462,7 +470,7 @@ export function TeamPatternPanel({
                   패턴 직접 입력
                 </label>
                 <p className="text-xs text-gray-500 mb-2">
-                  하이픈(-), 쉼표(,), 공백으로 구분하여 입력하세요. 예: N-N-N-OFF-OFF
+                  하이픈(-), 쉼표(,), 공백으로 구분하여 입력하세요. 예: N-N-N-O-O
                 </p>
               </div>
               <button
@@ -520,7 +528,7 @@ export function TeamPatternPanel({
                       applyPatternInput();
                     }
                   }}
-                  placeholder="예: N-N-N-OFF-OFF 또는 D,D,D,OFF,OFF (Enter로 추가)"
+                  placeholder="예: N-N-N-O-O 또는 D,D,D,O,O (Enter로 추가)"
                   className={`w-full px-3 py-2 border rounded-md font-mono text-sm ${
                     patternValidation?.isValid
                       ? 'border-green-300 bg-green-50 focus:ring-green-500'
@@ -590,7 +598,7 @@ export function TeamPatternPanel({
                   <div key={dayIndex} className="inline-flex items-center gap-0.5 group">
                     <select
                       value={shift}
-                      onChange={(e) => updatePattern(patternIndex, dayIndex, e.target.value as ShiftType)}
+                      onChange={(e) => updatePattern(patternIndex, dayIndex, e.target.value)}
                       disabled={!canEdit}
                       className={`px-2 py-1 border rounded text-sm font-medium ${
                         shift === 'D' ? 'bg-blue-50 border-blue-300 text-blue-700' :
@@ -599,10 +607,11 @@ export function TeamPatternPanel({
                         'bg-gray-50 border-gray-300 text-gray-700'
                       } disabled:opacity-50`}
                     >
-                      <option value="D">D</option>
-                      <option value="E">E</option>
-                      <option value="N">N</option>
-                      <option value="OFF">OFF</option>
+                      {shiftTypes.map((st) => (
+                        <option key={st.id} value={st.code}>
+                          {st.code}
+                        </option>
+                      ))}
                     </select>
                     {canEdit && patternArray.length > 1 && (
                       <button
@@ -685,7 +694,7 @@ export function TeamPatternPanel({
                           setPattern(prev => {
                             const newPatterns = [...(prev.avoidPatterns || [])];
                             newPatterns[patternIndex] = [...newPatterns[patternIndex]];
-                            newPatterns[patternIndex][dayIndex] = e.target.value as ShiftType;
+                            newPatterns[patternIndex][dayIndex] = e.target.value;
                             return { ...prev, avoidPatterns: newPatterns };
                           });
                         }}
@@ -697,9 +706,11 @@ export function TeamPatternPanel({
                           'bg-gray-100 border-gray-400 text-gray-800'
                         } disabled:opacity-50`}
                       >
-                        <option value="D">D</option>
-                        <option value="E">E</option>
-                        <option value="N">N</option>
+                        {shiftTypes.map((st) => (
+                          <option key={st.id} value={st.code}>
+                            {st.code}
+                          </option>
+                        ))}
                       </select>
                       {canEdit && avoidArray.length > 2 && (
                         <button

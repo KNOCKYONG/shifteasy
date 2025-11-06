@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, ListChecks, Calendar, Code2 } from 'lucide-react';
+import { Users, ListChecks, Calendar } from 'lucide-react';
 
 interface ViewTogglesProps {
   isMember: boolean;
@@ -7,11 +7,9 @@ interface ViewTogglesProps {
   showMyScheduleOnly: boolean;
   showSameSchedule: boolean;
   viewMode: 'grid' | 'calendar';
-  showCodeFormat: boolean;
   onToggleMySchedule: (value: boolean) => void;
   onToggleSameSchedule: (value: boolean) => void;
   onToggleViewMode: (mode: 'grid' | 'calendar') => void;
-  onToggleCodeFormat: (value: boolean) => void;
 }
 
 export function ViewToggles({
@@ -20,11 +18,9 @@ export function ViewToggles({
   showMyScheduleOnly,
   showSameSchedule,
   viewMode,
-  showCodeFormat,
   onToggleMySchedule,
   onToggleSameSchedule,
   onToggleViewMode,
-  onToggleCodeFormat,
 }: ViewTogglesProps) {
   return (
     <div className="mb-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 divide-y md:divide-y-0 md:divide-x divide-gray-200 dark:divide-gray-700 flex flex-col md:flex-row">
@@ -152,45 +148,6 @@ export function ViewToggles({
         </p>
       </div>
 
-      {/* 코드 형식으로 보기 토글 */}
-      <div className={`flex-1 p-3 transition-opacity ${showSameSchedule ? 'opacity-50' : ''}`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Code2 className={`w-4 h-4 ${showSameSchedule ? 'text-gray-400 dark:text-gray-600' : 'text-orange-600 dark:text-orange-400'}`} />
-            <span className={`text-sm font-medium ${showSameSchedule ? 'text-gray-500 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'}`}>
-              코드 형식으로 보기
-            </span>
-          </div>
-          <button
-            onClick={() => {
-              if (!showSameSchedule) {
-                onToggleCodeFormat(!showCodeFormat);
-              }
-            }}
-            disabled={showSameSchedule}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
-              showSameSchedule
-                ? 'bg-gray-200 dark:bg-gray-700 cursor-not-allowed'
-                : showCodeFormat
-                  ? 'bg-orange-600'
-                  : 'bg-gray-300 dark:bg-gray-600'
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                showCodeFormat ? 'translate-x-6' : 'translate-x-1'
-              }`}
-            />
-          </button>
-        </div>
-        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-          {showSameSchedule
-            ? '※ 나와 같은 스케줄 보기가 활성화되어 있습니다.'
-            : showCodeFormat
-              ? '스케줄을 코드 형식으로 표시합니다.'
-              : '스케줄을 근무명으로 표시됩니다.'}
-        </p>
-      </div>
     </div>
   );
 }

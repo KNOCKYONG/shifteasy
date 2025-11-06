@@ -20,7 +20,8 @@
     "night": "Night (N)",
     "totalWorking": "Total Working Staff",
     "team": "Team",
-    "selectDate": "Select Date"
+    "selectDate": "Select Date",
+    "noShifts": "No shifts assigned for this date"
   },
   "stats": {
     "totalStaff": "Total Staff",

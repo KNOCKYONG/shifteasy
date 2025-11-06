@@ -2,11 +2,21 @@
 
 import { TeamPatternPanel } from "./TeamPatternPanel";
 
+interface ShiftType {
+  id: string;
+  code: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  color: string;
+}
+
 interface TeamPatternTabProps {
   departmentId: string;
   departmentName: string;
   totalMembers: number;
   canEdit: boolean;
+  shiftTypes: ShiftType[];
 }
 
 export function TeamPatternTab({
@@ -14,6 +24,7 @@ export function TeamPatternTab({
   departmentName,
   totalMembers,
   canEdit,
+  shiftTypes,
 }: TeamPatternTabProps) {
   return (
     <div className="space-y-6">
@@ -29,6 +40,7 @@ export function TeamPatternTab({
         departmentName={departmentName}
         totalMembers={totalMembers}
         canEdit={canEdit}
+        shiftTypes={shiftTypes}
       />
     </div>
   );

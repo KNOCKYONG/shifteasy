@@ -1,14 +1,12 @@
 "use client";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Settings, Save, AlertCircle, Clock, Users, ChevronRight, Database, Trash2, Activity, Plus, Edit2, Briefcase, Building, FileText, UserCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { ShiftTypesTab } from "./ShiftTypesTab";
 import { PositionGroupsTab } from "./PositionGroupsTab";
-import { SecretCodeTab } from "./SecretCodeTab";
-import { TeamsTab } from "./TeamsTab";
 import { api as trpc } from "@/lib/trpc/client";
 
 interface ContractType {
@@ -26,15 +24,18 @@ interface ConfigData {
   };
 }
 
-export default function ConfigPage() {
+function ConfigPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { t, ready } = useTranslation(['config', 'common']);
 
   // tRPC queries for fetching configs
   const { data: allConfigs, isLoading: configsLoading, refetch: refetchConfigs } = trpc.tenantConfigs.getAll.useQuery();
   const setConfigMutation = trpc.tenantConfigs.set.useMutation();
 
-  const [activeTab, setActiveTab] = useState<"preferences" | "positions" | "positionGroups" | "shifts" | "teams" | "secretCode">("preferences");
+  // URL 파라미터에서 tab 읽기
+  const tabFromUrl = searchParams.get('tab') as "preferences" | "positions" | "positionGroups" | "shifts" | "secretCode" | null;
+  const [activeTab, setActiveTab] = useState<"preferences" | "positions" | "positionGroups" | "shifts" | "secretCode">(tabFromUrl || "preferences");
   const [currentUser, setCurrentUser] = useState<{ role: string } | null>(null);
   const [positions, setPositions] = useState<{value: string; label: string; level: number}[]>([]);
   const [newPosition, setNewPosition] = useState({ value: '', label: '', level: 1 });
@@ -131,6 +132,13 @@ export default function ConfigPage() {
       .catch(err => console.error('Error fetching user:', err));
   }, []);
 
+  // URL 파라미터 변경 시 activeTab 업데이트
+  useEffect(() => {
+    if (tabFromUrl) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [tabFromUrl]);
+
   useEffect(() => {
     if (!allConfigs) return; // Wait for API data
 
@@ -174,7 +182,16 @@ export default function ConfigPage() {
 
     // Load from API or use defaults
     setPositions(allConfigs.positions || defaultPositions);
-    setShiftTypes(allConfigs.shift_types || defaultShiftTypes);
+
+    // Merge saved shift types with defaults (add missing defaults)
+    if (allConfigs.shift_types) {
+      const savedCodes = new Set(allConfigs.shift_types.map((st: any) => st.code));
+      const missingDefaults = defaultShiftTypes.filter(dst => !savedCodes.has(dst.code));
+      setShiftTypes([...allConfigs.shift_types, ...missingDefaults]);
+    } else {
+      setShiftTypes(defaultShiftTypes);
+    }
+
     setDepartments(allConfigs.departments || defaultDepartments);
     setContractTypes(allConfigs.contract_types || defaultContractTypes);
     setEmployeeStatuses(allConfigs.employee_statuses || defaultEmployeeStatuses);
@@ -273,30 +290,6 @@ export default function ConfigPage() {
             >
               {t('tabs.shifts', { ns: 'config', defaultValue: '근무 타입' })}
             </button>
-            {currentUser && (currentUser.role === 'manager' || currentUser.role === 'admin' || currentUser.role === 'owner') && (
-              <button
-                onClick={() => setActiveTab("teams")}
-                className={`pb-3 px-1 text-sm border-b-2 transition-colors ${
-                  activeTab === "teams"
-                    ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
-                    : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
-                }`}
-              >
-                {t('tabs.teams', { ns: 'config', defaultValue: '팀 배정' })}
-              </button>
-            )}
-            {currentUser && (currentUser.role === 'manager' || currentUser.role === 'admin' || currentUser.role === 'owner') && (
-              <button
-                onClick={() => setActiveTab("secretCode")}
-                className={`pb-3 px-1 text-sm border-b-2 transition-colors ${
-                  activeTab === "secretCode"
-                    ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
-                    : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
-                }`}
-              >
-                {t('tabs.secretCode', { ns: 'config', defaultValue: '시크릿 코드' })}
-              </button>
-            )}
           </nav>
         </div>
 
@@ -530,13 +523,6 @@ export default function ConfigPage() {
         )}
 
         {/* Departments Tab */}
-        {/* Teams Tab */}
-        {activeTab === "teams" && <TeamsTab />}
-
-        {/* Secret Code Tab */}
-        {activeTab === "secretCode" && currentUser && (
-          <SecretCodeTab currentUserRole={currentUser.role} />
-        )}
 
         {/* Action Buttons */}
         <div className="mt-8 flex justify-between">
@@ -556,5 +542,13 @@ export default function ConfigPage() {
         </div>
     </MainLayout>
     </RoleGuard>
+  );
+}
+
+export default function ConfigPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ConfigPageContent />
+    </Suspense>
   );
 }

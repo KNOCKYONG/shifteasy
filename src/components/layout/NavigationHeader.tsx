@@ -16,6 +16,12 @@ interface NavItem {
   i18nKey?: string;
 }
 
+interface SubMenuItem {
+  label: string;
+  value?: string;
+  href?: string;
+}
+
 export function NavigationHeader() {
   const pathname = usePathname();
   const router = useRouter();
@@ -27,9 +33,10 @@ export function NavigationHeader() {
   const [showScheduleDropdown, setShowScheduleDropdown] = useState(false);
   const currentUser = useCurrentUser();
 
-  const teamSubMenuItems = [
+  const teamSubMenuItems: SubMenuItem[] = [
     { label: '팀 패턴', value: 'pattern' },
     { label: '팀원 관리', value: 'management' },
+    { label: '팀 배정', value: 'assignment' },
   ];
 
   const scheduleSubMenuItems = [
@@ -206,9 +213,13 @@ export function NavigationHeader() {
                           <div className="absolute left-0 top-full mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-50 overflow-hidden">
                             {teamSubMenuItems.map((subItem) => (
                               <button
-                                key={subItem.value}
+                                key={subItem.value || subItem.href}
                                 onClick={() => {
-                                  router.push(`/team?tab=${subItem.value}`);
+                                  if (subItem.href) {
+                                    router.push(subItem.href);
+                                  } else {
+                                    router.push(`/team?tab=${subItem.value}`);
+                                  }
                                   setShowTeamDropdown(false);
                                 }}
                                 className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -441,9 +452,13 @@ export function NavigationHeader() {
                     <div className="ml-4 mt-1 space-y-1">
                       {teamSubMenuItems.map((subItem) => (
                         <button
-                          key={subItem.value}
+                          key={subItem.value || subItem.href}
                           onClick={() => {
-                            router.push(`/team?tab=${subItem.value}`);
+                            if (subItem.href) {
+                              router.push(subItem.href);
+                            } else {
+                              router.push(`/team?tab=${subItem.value}`);
+                            }
                             setMobileMenuOpen(false);
                             setShowTeamDropdown(false);
                           }}

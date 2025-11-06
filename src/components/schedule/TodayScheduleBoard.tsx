@@ -47,7 +47,6 @@ export function TodayScheduleBoard({
   // Fetch teams from database
   const { data: dbTeams = [] } = api.teams.getAll.useQuery(undefined, {
     staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지
-    cacheTime: 30 * 60 * 1000, // 30분 동안 캐시 유지
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
 
@@ -83,12 +82,30 @@ export function TodayScheduleBoard({
     ? dbTeams.map(team => ({ id: team.id, code: team.code, name: team.name, color: team.color }))
     : [{ id: 'unassigned', code: '-', name: '-', color: '#6B7280' }];
 
-  // Group shift types by time of day (오전/D, 오후/E, 야간/N)
-  const shiftGroups = [
-    { label: t('today.morning'), codes: ['D', 'day'], color: 'bg-yellow-50' },
-    { label: t('today.afternoon'), codes: ['E', 'evening'], color: 'bg-orange-50' },
-    { label: t('today.night'), codes: ['N', 'night'], color: 'bg-indigo-50' },
-  ];
+  // Get unique shift types used in today's assignments (excluding 'A' and 'O')
+  const usedShiftCodes = new Set(
+    todayAssignments
+      .map(a => a.shiftId.replace('shift-', '').toUpperCase())
+      .filter(code => code !== 'A' && code !== 'O') // Exclude administrative and off shifts
+  );
+
+  // Get shift types for today, sorted by start time
+  const todayShiftTypes = shiftTypes
+    .filter(st => usedShiftCodes.has(st.code.toUpperCase()))
+    .sort((a, b) => {
+      // Convert time strings to comparable numbers (HH:MM -> HHMM)
+      const timeA = parseInt(a.startTime.replace(':', ''));
+      const timeB = parseInt(b.startTime.replace(':', ''));
+      return timeA - timeB;
+    });
+
+  // Create shift groups dynamically from today's shift types
+  const shiftGroups = todayShiftTypes.map(shift => ({
+    label: `${shift.code}\n${shift.name}`,
+    codes: [shift.code, shift.code.toLowerCase()],
+    color: 'bg-gray-50',
+    shift: shift,
+  }));
 
   // Get employees working in each team/shift combination
   const getEmployeesForTeamAndShift = (teamId: string, shiftCodes: string[]) => {
@@ -344,64 +361,70 @@ export function TodayScheduleBoard({
         </div>
 
         {/* Shift Rows */}
-        {shiftGroups.map((shiftGroup) => {
-          const shiftTime = shiftTypes.find((s) => shiftGroup.codes.includes(s.code));
-
-          return (
-            <div key={shiftGroup.label} className="flex gap-3 mb-3 overflow-x-auto items-stretch">
-              {/* Shift Time Label */}
-              <div className="min-w-[120px] flex-shrink-0">
-                <div
-                  className={`h-full ${shiftGroup.color} dark:bg-gray-800 rounded-lg p-3 flex flex-col items-center justify-center border-2 border-gray-200 dark:border-gray-700`}
-                  style={{ minHeight: '100px' }}
-                >
-                  <div className="font-semibold text-gray-900 dark:text-gray-100 text-center">
-                    {shiftGroup.label}
-                  </div>
-                  {shiftTime && (
-                    <div className="text-xs text-gray-600 dark:text-gray-400 mt-1 text-center">
-                      {shiftTime.startTime}-{shiftTime.endTime}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Team Shift Cells */}
-              {teams.map((team) => {
-                const shiftEmployees = getEmployeesForTeamAndShift(team.id, shiftGroup.codes);
-
-                return (
+        {shiftGroups.length > 0 ? (
+          shiftGroups.map((shiftGroup) => {
+            return (
+              <div key={shiftGroup.shift.code} className="flex gap-3 mb-3 overflow-x-auto items-stretch">
+                {/* Shift Time Label */}
+                <div className="min-w-[120px] flex-shrink-0">
                   <div
-                    key={team.id}
-                    className="flex-1 min-w-[200px]"
+                    className={`h-full ${shiftGroup.color} dark:bg-gray-800 rounded-lg p-3 flex flex-col items-center justify-center border-2 border-gray-200 dark:border-gray-700`}
+                    style={{ minHeight: '100px' }}
                   >
-                    <div className="h-full bg-white dark:bg-gray-800 rounded-lg p-3 border-2 border-gray-200 dark:border-gray-700" style={{ minHeight: '100px' }}>
-                      {/* Employees */}
-                      <div className="space-y-1.5">
-                        {shiftEmployees.length > 0 ? (
-                          shiftEmployees.map(({ employee, shift }) => (
-                            <div
-                              key={employee.id}
-                              className="flex items-center p-2 bg-gray-50 dark:bg-gray-700 rounded shadow-sm"
-                            >
-                              <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                                {employee.name}
-                              </span>
+                    <div className="font-bold text-lg text-gray-900 dark:text-gray-100 text-center mb-1">
+                      {shiftGroup.shift.code}
+                    </div>
+                    <div className="font-medium text-sm text-gray-800 dark:text-gray-200 text-center mb-1">
+                      {shiftGroup.shift.name}
+                    </div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400 text-center whitespace-nowrap">
+                      {shiftGroup.shift.startTime} - {shiftGroup.shift.endTime}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Team Shift Cells */}
+                {teams.map((team) => {
+                  const shiftEmployees = getEmployeesForTeamAndShift(team.id, shiftGroup.codes);
+
+                  return (
+                    <div
+                      key={team.id}
+                      className="flex-1 min-w-[200px]"
+                    >
+                      <div className="h-full bg-white dark:bg-gray-800 rounded-lg p-3 border-2 border-gray-200 dark:border-gray-700" style={{ minHeight: '100px' }}>
+                        {/* Employees */}
+                        <div className="space-y-1.5">
+                          {shiftEmployees.length > 0 ? (
+                            shiftEmployees.map(({ employee, shift }) => (
+                              <div
+                                key={employee.id}
+                                className="flex items-center p-2 bg-gray-50 dark:bg-gray-700 rounded shadow-sm"
+                              >
+                                <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                                  {employee.name}
+                                </span>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="h-full flex items-center justify-center text-xs text-gray-400 dark:text-gray-500 py-8">
+                              -
                             </div>
-                          ))
-                        ) : (
-                          <div className="h-full flex items-center justify-center text-xs text-gray-400 dark:text-gray-500 py-8">
-                            -
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })}
+                  );
+                })}
+              </div>
+            );
+          })
+        ) : (
+          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+            <Clock className="w-12 h-12 mx-auto mb-3 opacity-50" />
+            <p className="text-sm">{t('today.noShifts')}</p>
+          </div>
+        )}
       </div>
 
       {/* Footer - Summary */}

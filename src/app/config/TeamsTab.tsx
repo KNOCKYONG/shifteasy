@@ -56,7 +56,6 @@ export function TeamsTab() {
   // Fetch teams
   const { data: teams = [], refetch: refetchTeams } = api.teams.getAll.useQuery(undefined, {
     staleTime: 3 * 60 * 1000, // 3분 동안 fresh 유지 (팀 정보는 가끔 변경됨)
-    cacheTime: 10 * 60 * 1000, // 10분 동안 캐시 유지
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
 
@@ -66,7 +65,6 @@ export function TeamsTab() {
     offset: 0,
   }, {
     staleTime: 3 * 60 * 1000, // 3분 동안 fresh 유지
-    cacheTime: 10 * 60 * 1000, // 10분 동안 캐시 유지
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
   const allUsers = usersData?.items || [];

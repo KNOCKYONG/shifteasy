@@ -261,7 +261,7 @@ export const scheduleRouter = createTRPCRouter({
 
         if (assignments.length > 0 && offShiftIds.length > 0) {
           // Get all unique employee IDs from assignments
-          const employeeIds = [...new Set(assignments.map((a: any) => a.employeeId))];
+          const employeeIds = [...new Set(assignments.map((a: any) => a.employeeId as string))] as string[];
 
           // Get nurse preferences for all employees
           const employeePreferences = await db.query(

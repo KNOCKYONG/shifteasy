@@ -1,16 +1,17 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Trash2, Save, Upload, Download, Users, ChevronRight, Edit2, Mail, Phone, Calendar, Shield, Clock, Star, AlertCircle } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { AddTeamMemberModal } from "@/components/AddTeamMemberModal";
 import { TeamPatternTab } from "@/components/team/TeamPatternTab";
 import { DepartmentSelectModal } from "@/components/team/DepartmentSelectModal";
+import { TeamsTab } from "@/app/config/TeamsTab";
 import { api } from "@/lib/trpc/client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 
-export default function TeamManagementPage() {
+function TeamManagementPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const currentUser = useCurrentUser();
@@ -27,8 +28,8 @@ export default function TeamManagementPage() {
   const [editingPositionValue, setEditingPositionValue] = useState<string>("");
 
   // URL 쿼리 파라미터에서 tab 읽기
-  const tabFromUrl = searchParams.get('tab') as 'pattern' | 'management' | null;
-  const [activeTab, setActiveTab] = useState<'pattern' | 'management'>(tabFromUrl || 'pattern');
+  const tabFromUrl = searchParams.get('tab') as 'pattern' | 'management' | 'assignment' | null;
+  const [activeTab, setActiveTab] = useState<'pattern' | 'management' | 'assignment'>(tabFromUrl || 'pattern');
 
   // URL 변경 시 activeTab 업데이트
   useEffect(() => {
@@ -60,6 +61,12 @@ export default function TeamManagementPage() {
 
   // Fetch tenant stats
   const { data: statsData } = api.tenant.stats.summary.useQuery();
+
+  // Fetch shift types from shift_types table
+  const { data: shiftTypesData } = api.shiftTypes.getAll.useQuery(undefined, {
+    staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지
+    refetchOnWindowFocus: false,
+  });
 
   // Mutations
   const inviteUserMutation = api.tenant.users.invite.useMutation({
@@ -262,7 +269,10 @@ const departments =
             departmentName={selectedDepartmentName}
             totalMembers={filteredTotalMembers}
             canEdit={currentUserRole === 'admin' || currentUserRole === 'manager'}
+            shiftTypes={shiftTypesData || []}
           />
+        ) : activeTab === 'assignment' ? (
+          <TeamsTab />
         ) : (
           <>
         {/* Stats Cards - 모바일 스크롤 가능한 필터 카드들 */}
@@ -571,5 +581,13 @@ const departments =
 
     </MainLayout>
     </RoleGuard>
+  );
+}
+
+export default function TeamManagementPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <TeamManagementPageContent />
+    </Suspense>
   );
 }

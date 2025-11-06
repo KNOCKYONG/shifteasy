@@ -20,7 +20,8 @@
     "night": "야간 (N)",
     "totalWorking": "총 근무 인원",
     "team": "팀",
-    "selectDate": "날짜 선택"
+    "selectDate": "날짜 선택",
+    "noShifts": "이 날짜에 배정된 근무가 없습니다"
   },
   "stats": {
     "totalStaff": "총 직원",
