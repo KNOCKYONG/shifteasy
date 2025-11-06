@@ -27,6 +27,9 @@ class SSEManager {
     // userId 매핑 저장
     if (userId) {
       this.clientUserMap.set(clientId, userId);
+      console.log(`[SSEManager] Client registered - clientId: ${clientId}, userId: ${userId}, total clients: ${this.clients.size}`);
+    } else {
+      console.log(`[SSEManager] Client registered without userId - clientId: ${clientId}, total clients: ${this.clients.size}`);
     }
 
     // Heartbeat 설정 (30초마다 ping)
@@ -49,6 +52,7 @@ class SSEManager {
     }
     this.clients.delete(clientId);
     this.clientUserMap.delete(clientId); // userId 매핑도 제거
+    console.log(`[SSEManager] Client removed - clientId: ${clientId}, remaining clients: ${this.clients.size}`);
   }
 
   // 특정 userId에 해당하는 모든 clientId를 찾기

@@ -8,10 +8,13 @@ export async function GET(req: NextRequest) {
   const clientId = req.headers.get('x-client-id') || `client-${Date.now()}`;
   const userId = req.nextUrl.searchParams.get('userId') || 'dev-user-id';
 
+  console.log(`[SSE Route] New connection request - clientId: ${clientId}, userId: ${userId}`);
+
   // SSE 응답 스트림 생성
   const stream = new ReadableStream({
     start(controller) {
       // 클라이언트 등록 (userId 포함)
+      console.log(`[SSE Route] Registering client - clientId: ${clientId}, userId: ${userId}`);
       sseManager.addClient(clientId, controller, userId);
 
       // 초기 연결 메시지
