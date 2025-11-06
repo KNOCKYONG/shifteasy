@@ -99,8 +99,17 @@ class SSEManager {
   }
 }
 
-// 전역 SSE 매니저 인스턴스
-export const sseManager = new SSEManager();
+// 전역 SSE 매니저 인스턴스 (HMR 및 서버리스 환경에서도 유지)
+const globalForSSE = globalThis as unknown as {
+  sseManager: SSEManager | undefined;
+};
+
+export const sseManager = globalForSSE.sseManager ?? new SSEManager();
+
+// 개발 환경에서 HMR 시에도 인스턴스 유지
+if (process.env.NODE_ENV !== 'production') {
+  globalForSSE.sseManager = sseManager;
+}
 
 // 이벤트 발송 헬퍼 함수들
 export function notifyScheduleUpdate(scheduleId: string, changes: any) {
