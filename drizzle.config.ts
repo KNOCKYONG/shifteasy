@@ -13,5 +13,5 @@ export default defineConfig({
     url: process.env.SESSION_URL || process.env.DIRECT_URL!,
   },
   verbose: true,
-  strict: true,
+  strict: false,
 });
