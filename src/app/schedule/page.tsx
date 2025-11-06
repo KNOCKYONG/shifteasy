@@ -2920,6 +2920,7 @@ export default function SchedulePage() {
           setSchedule([]);
           setLoadedScheduleId(null);
           setGenerationResult(null);
+          setIsConfirmed(false); // Reset confirmed state
         }}
         onScheduleLoad={handleLoadSchedule}
       />

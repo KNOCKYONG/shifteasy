@@ -83,9 +83,9 @@ export function NavigationHeader() {
 
   // Fetch notifications from API
   useEffect(() => {
-    const loadNotifications = async () => {
-      if (!userInfo) return;
+    if (!userInfo) return;
 
+    const loadNotifications = async () => {
       try {
         const response = await fetch('/api/notifications', {
           headers: {
@@ -101,7 +101,7 @@ export function NavigationHeader() {
           setUnreadCount(data.inbox?.unreadCount || 0);
         }
       } catch (err) {
-        console.error('Failed to load notifications:', err);
+        console.error('[NavigationHeader] Failed to load notifications:', err);
       }
     };
 
@@ -109,28 +109,31 @@ export function NavigationHeader() {
     loadNotifications();
 
     // Setup SSE for real-time notifications
-    if (!userInfo) return;
-
+    console.log('[NavigationHeader] Setting up SSE connection for userId:', userInfo.id);
     const eventSource = new EventSource(`/api/sse?userId=${userInfo.id}`);
 
+    eventSource.addEventListener('connected', (event) => {
+      console.log('[NavigationHeader] SSE connected:', event.data);
+    });
+
     eventSource.addEventListener('notification', (event) => {
-      console.log('[NavigationHeader] Received notification via SSE');
+      console.log('[NavigationHeader] Received notification via SSE:', event.data);
       // Reload notifications when new notification arrives
       loadNotifications();
     });
 
     eventSource.addEventListener('notification_read', (event) => {
-      console.log('[NavigationHeader] Notification marked as read via SSE');
+      console.log('[NavigationHeader] Notification marked as read via SSE:', event.data);
       // Reload notifications when notification is read
       loadNotifications();
     });
 
     eventSource.onerror = (error) => {
       console.error('[NavigationHeader] SSE connection error:', error);
-      eventSource.close();
     };
 
     return () => {
+      console.log('[NavigationHeader] Closing SSE connection');
       eventSource.close();
     };
   }, [userInfo]);
