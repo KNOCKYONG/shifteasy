@@ -57,7 +57,7 @@ export function TeamPatternPanel({
     requiredStaffDay: 5,
     requiredStaffEvening: 4,
     requiredStaffNight: 3,
-    defaultPatterns: [['D', 'D', 'D', 'O', 'O']],
+    defaultPatterns: [['D', 'D', 'D', 'OFF', 'OFF']],
     avoidPatterns: [], // 기피 패턴 초기화
     totalMembers,
   });
