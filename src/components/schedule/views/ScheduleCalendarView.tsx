@@ -34,7 +34,7 @@ interface ScheduleCalendarViewProps {
   enableManagerEdit?: boolean;
 }
 
-export function ScheduleCalendarView({
+export const ScheduleCalendarView = React.memo(function ScheduleCalendarView({
   currentMonth,
   displayMembers,
   holidayDates,
@@ -144,4 +144,4 @@ export function ScheduleCalendarView({
       </div>
     </div>
   );
-}
+});

@@ -41,7 +41,7 @@ interface ScheduleGridViewProps {
   enableManagerEdit?: boolean;
 }
 
-export function ScheduleGridView({
+export const ScheduleGridView = React.memo(function ScheduleGridView({
   daysInMonth,
   displayMembers,
   selectedShiftTypesSize,
@@ -212,4 +212,4 @@ export function ScheduleGridView({
       </div>
     </div>
   );
-}
+});
