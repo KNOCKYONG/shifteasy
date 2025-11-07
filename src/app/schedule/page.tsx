@@ -1148,33 +1148,50 @@ export default function SchedulePage() {
     );
   };
 
-  // 시프트 타입별로 필터링된 직원 목록
-  const getFilteredMembersForDisplay = () => {
+  // ✅ OPTIMIZED: Pre-compute shift ID to name mapping to avoid repeated .find() calls
+  const shiftIdToNameMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    shifts.forEach(shift => {
+      map.set(shift.id, shift.name);
+    });
+    return map;
+  }, [shifts]);
+
+  // ✅ OPTIMIZED: Pre-compute shift code to name mapping
+  const shiftCodeToNameMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    customShiftTypes.forEach(shiftType => {
+      map.set(shiftType.code, shiftType.name);
+    });
+    return map;
+  }, [customShiftTypes]);
+
+  // ✅ OPTIMIZED: Memoized filtered and sorted members list
+  // Uses deferred filter values to prevent UI blocking during rapid filter changes
+  const displayMembers = React.useMemo(() => {
     let result = filteredMembers;
 
-    // 팀 필터
-    if (filters.selectedTeams.size > 0) {
-      result = result.filter(member => {
-        return filters.selectedTeams.has(member.teamId || '');
-      });
+    // ✅ OPTIMIZED: Use deferred team filter for non-blocking updates
+    if (filters.deferredTeams.size > 0) {
+      result = result.filter(member => filters.deferredTeams.has(member.teamId || ''));
     }
 
-    // 시프트 타입 필터
-    if (filters.selectedShiftTypes.size > 0 && customShiftTypes.length > 0) {
-      // 선택된 코드들의 근무명 추출
+    // ✅ OPTIMIZED: 시프트 타입 필터 - O(n) instead of O(n²)
+    if (filters.deferredShiftTypes.size > 0 && customShiftTypes.length > 0) {
+      // Pre-compute selected shift names using the map
       const selectedShiftNames = new Set<string>();
-      filters.selectedShiftTypes.forEach(code => {
-        const shiftType = customShiftTypes.find(st => st.code === code);
-        if (shiftType) {
-          selectedShiftNames.add(shiftType.name);
+      filters.deferredShiftTypes.forEach(code => {
+        const shiftName = shiftCodeToNameMap.get(code);
+        if (shiftName) {
+          selectedShiftNames.add(shiftName);
         }
       });
 
-      // 선택된 근무명에 해당하는 배정이 있는 직원만 표시
+      // Build employee set in single pass using the shift ID map
       const membersWithSelectedShifts = new Set<string>();
       schedule.forEach(assignment => {
-        const shift = shifts.find(s => s.id === assignment.shiftId);
-        if (shift && selectedShiftNames.has(shift.name)) {
+        const shiftName = shiftIdToNameMap.get(assignment.shiftId);
+        if (shiftName && selectedShiftNames.has(shiftName)) {
           membersWithSelectedShifts.add(assignment.employeeId);
         }
       });
@@ -1182,8 +1199,8 @@ export default function SchedulePage() {
       result = result.filter(member => membersWithSelectedShifts.has(member.id));
     }
 
-    // 팀별로 정렬 (팀이 없는 직원은 마지막에 배치)
-    result = result.sort((a, b) => {
+    // ✅ OPTIMIZED: Sort only once when dependencies change
+    return result.sort((a, b) => {
       // Member인 경우 자신의 스케줄을 최상단으로
       if (isMember && currentUser.dbUser?.id) {
         const currentUserId = currentUser.dbUser.id;
@@ -1202,11 +1219,17 @@ export default function SchedulePage() {
       // 같은 팀 내에서는 이름순으로 정렬
       return a.name.localeCompare(b.name, 'ko');
     });
-
-    return result;
-  };
-
-  const displayMembers = getFilteredMembersForDisplay();
+  }, [
+    filteredMembers,
+    filters.deferredTeams,
+    filters.deferredShiftTypes,
+    customShiftTypes,
+    shiftCodeToNameMap,
+    shiftIdToNameMap,
+    schedule,
+    isMember,
+    currentUser.dbUser?.id
+  ]);
 
   // Extract employee IDs for off-balance query
   const displayMemberIds = React.useMemo(() =>

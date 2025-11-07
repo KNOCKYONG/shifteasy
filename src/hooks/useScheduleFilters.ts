@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useDeferredValue } from 'react';
 
 /**
  * 스케줄 페이지의 필터 및 뷰 상태를 관리하는 커스텀 훅
+ * ✅ OPTIMIZED: useDeferredValue를 사용하여 필터 변경 시 UI 블로킹 방지
  */
 export function useScheduleFilters() {
   // View State
@@ -9,11 +10,15 @@ export function useScheduleFilters() {
   const [viewMode, setViewMode] = useState<'grid' | 'calendar'>('grid');
   const [showCodeFormat, setShowCodeFormat] = useState(true);
 
-  // Filter State
+  // Filter State (immediate updates)
   const [selectedShiftTypes, setSelectedShiftTypes] = useState<Set<string>>(new Set());
   const [selectedTeams, setSelectedTeams] = useState<Set<string>>(new Set());
   const [showMyScheduleOnly, setShowMyScheduleOnly] = useState(false);
   const [showSameSchedule, setShowSameSchedule] = useState(false);
+
+  // ✅ OPTIMIZED: Deferred values for non-blocking UI updates
+  const deferredShiftTypes = useDeferredValue(selectedShiftTypes);
+  const deferredTeams = useDeferredValue(selectedTeams);
 
   // Helper function: Toggle shift type
   const toggleShiftType = (shiftType: string) => {
@@ -60,7 +65,7 @@ export function useScheduleFilters() {
     showCodeFormat,
     setShowCodeFormat,
 
-    // Filter State
+    // Filter State (immediate for UI feedback)
     selectedShiftTypes,
     setSelectedShiftTypes,
     selectedTeams,
@@ -69,6 +74,10 @@ export function useScheduleFilters() {
     setShowMyScheduleOnly,
     showSameSchedule,
     setShowSameSchedule,
+
+    // ✅ OPTIMIZED: Deferred values for filtering logic (non-blocking)
+    deferredShiftTypes,
+    deferredTeams,
 
     // Helper Functions
     toggleShiftType,
