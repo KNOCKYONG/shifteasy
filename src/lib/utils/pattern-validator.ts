@@ -49,8 +49,13 @@ export interface PatternValidationResult {
 
 /**
  * 패턴 문자열을 파싱하고 검증
+ * @param input 입력 패턴 문자열
+ * @param customKeywords 커스텀 키워드 매핑 (옵션, tenant_configs에서 가져온 shift_types 기반)
  */
-export function validatePattern(input: string): PatternValidationResult {
+export function validatePattern(
+  input: string,
+  customKeywords?: Record<string, string>
+): PatternValidationResult {
   const result: PatternValidationResult = {
     isValid: false,
     tokens: [],
@@ -58,6 +63,9 @@ export function validatePattern(input: string): PatternValidationResult {
     warnings: [],
     originalInput: input,
   };
+
+  // 사용할 키워드 매핑 (커스텀이 있으면 우선 사용)
+  const keywordsToUse = customKeywords || VALID_KEYWORDS;
 
   // 빈 입력 체크
   if (!input || input.trim() === '') {
@@ -82,8 +90,8 @@ export function validatePattern(input: string): PatternValidationResult {
   const invalidTokens: string[] = [];
 
   rawTokens.forEach((token, index) => {
-    if (token in VALID_KEYWORDS) {
-      validTokens.push(VALID_KEYWORDS[token]);
+    if (token in keywordsToUse) {
+      validTokens.push(keywordsToUse[token] as ShiftToken);
     } else {
       invalidTokens.push(token);
       result.errors.push(`"${token}"는 유효하지 않은 키워드입니다 (위치: ${index + 1})`);
@@ -92,7 +100,7 @@ export function validatePattern(input: string): PatternValidationResult {
 
   // 유효하지 않은 토큰이 있으면 실패
   if (invalidTokens.length > 0) {
-    result.errors.push(`유효한 키워드: ${Object.keys(VALID_KEYWORDS).join(', ')}`);
+    result.errors.push(`유효한 키워드: ${Object.keys(keywordsToUse).join(', ')}`);
     return result;
   }
 

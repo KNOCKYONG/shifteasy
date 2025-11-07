@@ -188,13 +188,45 @@ export function TeamPatternPanel({
     });
   };
 
+  // shiftTypes 기반으로 커스텀 키워드 맵 생성
+  const customKeywords = React.useMemo(() => {
+    if (!shiftTypes || shiftTypes.length === 0) return undefined;
+
+    const keywords: Record<string, string> = {};
+    shiftTypes.forEach(st => {
+      // code를 키워드로 등록
+      keywords[st.code.toUpperCase()] = st.code;
+
+      // name도 키워드로 등록 (예: DAY, EVENING, NIGHT)
+      keywords[st.name.toUpperCase()] = st.code;
+    });
+
+    console.log('[TeamPatternPanel] Generated custom keywords:', keywords);
+    return keywords;
+  }, [shiftTypes]);
+
+  // shiftTypes 기반으로 색상 스타일 가져오기
+  const getShiftColorStyle = React.useCallback((shiftCode: string) => {
+    const shiftType = shiftTypes.find(st => st.code === shiftCode);
+    if (!shiftType?.color) {
+      return 'bg-gray-50 border-gray-300 text-gray-700';
+    }
+
+    // Tailwind 색상을 인라인 스타일로 변환
+    return {
+      backgroundColor: `${shiftType.color}20`, // 20% opacity for background
+      borderColor: shiftType.color,
+      color: shiftType.color,
+    };
+  }, [shiftTypes]);
+
   // 패턴 텍스트 입력 핸들러
   const handlePatternInputChange = (value: string) => {
     setPatternInput(value);
 
-    // 실시간 검증
+    // 실시간 검증 (커스텀 키워드 사용)
     if (value.trim()) {
-      const validation = validatePattern(value);
+      const validation = validatePattern(value, customKeywords);
       setPatternValidation(validation);
     } else {
       setPatternValidation(null);
@@ -234,9 +266,9 @@ export function TeamPatternPanel({
   const handleAvoidPatternInputChange = (value: string) => {
     setAvoidPatternInput(value);
 
-    // 실시간 검증
+    // 실시간 검증 (커스텀 키워드 사용)
     if (value.trim()) {
-      const validation = validatePattern(value);
+      const validation = validatePattern(value, customKeywords);
       // 기피 패턴은 OFF를 포함할 수 없음 - 추가 검증
       if (validation.isValid && validation.tokens.includes('O')) {
         setAvoidPatternValidation({
@@ -664,18 +696,20 @@ export function TeamPatternPanel({
           {pattern.defaultPatterns?.map((patternArray, patternIndex) => (
             <div key={patternIndex} className="flex items-center gap-2">
               <div className="flex-1 flex items-center gap-1 flex-wrap">
-                {patternArray.map((shift, dayIndex) => (
+                {patternArray.map((shift, dayIndex) => {
+                  const colorStyle = getShiftColorStyle(shift);
+                  const isStyleObject = typeof colorStyle === 'object';
+
+                  return (
                   <div key={dayIndex} className="inline-flex items-center gap-0.5 group">
                     <select
                       value={shift}
                       onChange={(e) => updatePattern(patternIndex, dayIndex, e.target.value)}
                       disabled={!canEdit}
-                      className={`px-2 py-1 border rounded text-sm font-medium ${
-                        shift === 'D' ? 'bg-blue-50 border-blue-300 text-blue-700' :
-                        shift === 'E' ? 'bg-purple-50 border-purple-300 text-purple-700' :
-                        shift === 'N' ? 'bg-indigo-50 border-indigo-300 text-indigo-700' :
-                        'bg-gray-50 border-gray-300 text-gray-700'
-                      } disabled:opacity-50`}
+                      className={`px-2 py-1 border rounded text-sm font-medium disabled:opacity-50 ${
+                        isStyleObject ? '' : colorStyle
+                      }`}
+                      style={isStyleObject ? colorStyle as React.CSSProperties : undefined}
                     >
                       {shiftTypes.map((st) => (
                         <option key={st.id} value={st.code}>
@@ -693,7 +727,8 @@ export function TeamPatternPanel({
                       </button>
                     )}
                   </div>
-                ))}
+                  );
+                })}
                 {canEdit && (
                   <button
                     onClick={() => addDayToPattern(patternIndex)}
@@ -910,7 +945,17 @@ export function TeamPatternPanel({
             pattern.avoidPatterns.map((avoidArray, patternIndex) => (
               <div key={patternIndex} className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-md">
                 <div className="flex-1 flex items-center gap-1 flex-wrap">
-                  {avoidArray.map((shift, dayIndex) => (
+                  {avoidArray.map((shift, dayIndex) => {
+                    const colorStyle = getShiftColorStyle(shift);
+                    const isStyleObject = typeof colorStyle === 'object';
+                    // 기피 패턴은 좀 더 진한 색상 사용
+                    const avoidColorStyle = isStyleObject ? {
+                      backgroundColor: `${(colorStyle as any).borderColor}30`, // 30% opacity for more emphasis
+                      borderColor: (colorStyle as any).borderColor,
+                      color: (colorStyle as any).color,
+                    } : colorStyle.replace('50', '100').replace('300', '400').replace('700', '800');
+
+                    return (
                     <div key={dayIndex} className="inline-flex items-center gap-0.5 group">
                       <select
                         value={shift}
@@ -923,12 +968,10 @@ export function TeamPatternPanel({
                           });
                         }}
                         disabled={!canEdit}
-                        className={`px-2 py-1 border rounded text-sm font-medium ${
-                          shift === 'D' ? 'bg-blue-100 border-blue-400 text-blue-800' :
-                          shift === 'E' ? 'bg-purple-100 border-purple-400 text-purple-800' :
-                          shift === 'N' ? 'bg-indigo-100 border-indigo-400 text-indigo-800' :
-                          'bg-gray-100 border-gray-400 text-gray-800'
-                        } disabled:opacity-50`}
+                        className={`px-2 py-1 border rounded text-sm font-medium disabled:opacity-50 ${
+                          isStyleObject ? '' : avoidColorStyle
+                        }`}
+                        style={isStyleObject ? avoidColorStyle as React.CSSProperties : undefined}
                       >
                         {shiftTypes.map((st) => (
                           <option key={st.id} value={st.code}>
@@ -952,7 +995,8 @@ export function TeamPatternPanel({
                         </button>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                   {canEdit && (
                     <button
                       onClick={() => {
