@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isWeekend } from "date-fns";
 import { ko } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCcw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings, FolderOpen, ArrowLeftRight, Save } from "lucide-react";
@@ -400,6 +401,7 @@ export default function SchedulePage() {
   const canViewStaffPreferences = canManageSchedules && !isMember;
   const currentUserId = currentUser.userId || "user-1";
   const currentUserName = currentUser.name || "사용자";
+  const searchParams = useSearchParams();
 
   // Custom hooks for state management
   const filters = useScheduleFilters();
@@ -599,6 +601,14 @@ export default function SchedulePage() {
       filters.setActiveView('today');
     }
   }, [isMember, canViewStaffPreferences, filters.activeView, filters.setActiveView]);
+
+  // URL 파라미터로부터 view 설정
+  useEffect(() => {
+    const view = searchParams.get('view');
+    if (view && (view === 'preferences' || view === 'today' || view === 'schedule')) {
+      filters.setActiveView(view as 'preferences' | 'today' | 'schedule');
+    }
+  }, [searchParams, filters.setActiveView]);
 
   // Load shift types from tenant_configs table
   const { data: shiftTypesConfig } = api.tenantConfigs.getByKey.useQuery({

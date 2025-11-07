@@ -81,6 +81,34 @@ export function NavigationHeader() {
     fetchUserInfo();
   }, [clerkUser]);
 
+  // Function to mark notification as read
+  const markNotificationAsRead = async (notificationId: string) => {
+    if (!userInfo) return;
+
+    try {
+      console.log('[NavigationHeader] Marking notification as read:', notificationId);
+
+      const response = await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-id': userInfo.tenantId,
+          'x-user-id': userInfo.id,
+        },
+        body: JSON.stringify({ notificationId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to mark notification as read');
+      }
+
+      const data = await response.json();
+      console.log('[NavigationHeader] Notification marked as read:', data);
+    } catch (err) {
+      console.error('[NavigationHeader] Failed to mark notification as read:', err);
+    }
+  };
+
   // Fetch notifications from API
   useEffect(() => {
     if (!userInfo) return;
@@ -377,7 +405,13 @@ export function NavigationHeader() {
                         notifications.map((notification) => (
                           <div
                             key={notification.id}
-                            onClick={() => {
+                            onClick={async () => {
+                              // Mark as read if unread
+                              if (!notification.readAt) {
+                                await markNotificationAsRead(notification.id);
+                              }
+
+                              // Navigate to action URL
                               if (notification.actionUrl) {
                                 router.push(notification.actionUrl);
                                 setShowNotificationDropdown(false);

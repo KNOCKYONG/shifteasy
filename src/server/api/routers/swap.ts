@@ -2,9 +2,10 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, protectedProcedure, adminProcedure } from '../trpc';
 import { scopedDb, createAuditLog } from '@/lib/db-helpers';
-import { swapRequests, notifications, users, schedules } from '@/db/schema';
+import { swapRequests, users, schedules } from '@/db/schema';
 import { eq, and, or, gte, lte } from 'drizzle-orm';
 import { format } from 'date-fns';
+import { notificationService } from '@/lib/notifications/notification-service';
 
 export const swapRouter = createTRPCRouter({
   list: protectedProcedure
@@ -138,13 +139,18 @@ export const swapRouter = createTRPCRouter({
 
       // Create notification for target user
       if (input.targetUserId) {
-        await db.insert(notifications, {
-          userId: input.targetUserId,
-          type: 'swap_requested',
-          title: 'New Swap Request',
-          message: `${ctx.user!.email} has requested to swap shifts with you`,
-          payload: { swapRequestId: swapRequest.id },
-        });
+        await notificationService.sendToUser(
+          ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d',
+          input.targetUserId,
+          {
+            type: 'swap_requested',
+            priority: 'high',
+            title: '새로운 근무 교환 요청',
+            message: `${currentUser.name}님이 근무 교환을 요청했습니다`,
+            data: { swapRequestId: swapRequest.id },
+            actionUrl: '/schedule?view=today',
+          }
+        );
       }
 
       // Notify all managers in the same department
@@ -156,15 +162,21 @@ export const swapRouter = createTRPCRouter({
         ));
 
         if (managers.length > 0) {
-          const managerNotifications = managers.map(manager => ({
-            userId: manager.id,
-            type: 'swap_requested' as const,
-            title: 'New Swap Request from Team Member',
-            message: `${currentUser.name} has requested a schedule swap and needs approval`,
-            payload: { swapRequestId: swapRequest.id },
-          }));
-
-          await db.insert(notifications, managerNotifications);
+          // Send notification to each manager
+          for (const manager of managers) {
+            await notificationService.sendToUser(
+              ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d',
+              manager.id,
+              {
+                type: 'swap_requested',
+                priority: 'high',
+                title: '팀원의 근무 교환 요청',
+                message: `${currentUser.name}님이 스케줄 교환을 요청했습니다. 승인이 필요합니다`,
+                data: { swapRequestId: swapRequest.id },
+                actionUrl: '/schedule?view=today',
+              }
+            );
+          }
         }
       }
 
@@ -211,13 +223,18 @@ export const swapRouter = createTRPCRouter({
       });
 
       // Notify requester
-      await db.insert(notifications, {
-        userId: swapRequest.requesterId,
-        type: input.accept ? 'swap_accepted' : 'swap_rejected',
-        title: input.accept ? 'Swap Request Accepted' : 'Swap Request Rejected',
-        message: `Your swap request has been ${input.accept ? 'accepted' : 'rejected'}`,
-        payload: { swapRequestId: input.id },
-      });
+      await notificationService.sendToUser(
+        ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d',
+        swapRequest.requesterId,
+        {
+          type: input.accept ? 'swap_approved' : 'swap_rejected',
+          priority: 'high',
+          title: input.accept ? '근무 교환 요청 수락됨' : '근무 교환 요청 거절됨',
+          message: `근무 교환 요청이 ${input.accept ? '수락' : '거절'}되었습니다`,
+          data: { swapRequestId: input.id },
+          actionUrl: '/schedule?view=today',
+        }
+      );
 
       return updated;
     }),
@@ -421,22 +438,33 @@ export const swapRouter = createTRPCRouter({
       });
 
       // Notify both users
-      await db.insert(notifications, [
+      await notificationService.sendToUser(
+        ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d',
+        swapRequest.requesterId,
         {
-          userId: swapRequest.requesterId,
           type: 'swap_approved',
-          title: 'Swap Request Approved',
-          message: 'Your swap request has been approved by management',
-          payload: { swapRequestId: input.id },
-        },
-        {
-          userId: swapRequest.targetUserId!,
-          type: 'swap_approved',
-          title: 'Swap Request Approved',
-          message: 'The swap request you accepted has been approved',
-          payload: { swapRequestId: input.id },
-        },
-      ]);
+          priority: 'high',
+          title: '근무 교환 승인됨',
+          message: '관리자가 근무 교환 요청을 승인했습니다',
+          data: { swapRequestId: input.id },
+          actionUrl: '/schedule?view=today',
+        }
+      );
+
+      if (swapRequest.targetUserId) {
+        await notificationService.sendToUser(
+          ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d',
+          swapRequest.targetUserId,
+          {
+            type: 'swap_approved',
+            priority: 'high',
+            title: '근무 교환 승인됨',
+            message: '수락한 근무 교환 요청이 승인되었습니다',
+            data: { swapRequestId: input.id },
+            actionUrl: '/schedule?view=today',
+          }
+        );
+      }
 
       return updated;
     }),
