@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Clock, CheckCircle, XCircle, AlertCircle, Calendar, User, ArrowLeftRight, Eye } from 'lucide-react';
 import { api } from '@/lib/trpc/client';
@@ -39,8 +40,19 @@ interface SwapRequest {
 
 export default function RequestsPage() {
   const { isLoaded, dbUser, role } = useCurrentUser();
-  const [selectedTab, setSelectedTab] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
+  const searchParams = useSearchParams();
+
+  // Initialize tab from URL parameter
+  const statusParam = searchParams.get('status') as 'pending' | 'approved' | 'rejected' | 'all' | null;
+  const [selectedTab, setSelectedTab] = useState<'pending' | 'approved' | 'rejected' | 'all'>(statusParam || 'pending');
   const [previewRequest, setPreviewRequest] = useState<SwapRequest | null>(null);
+
+  // Update tab when URL parameter changes
+  useEffect(() => {
+    if (statusParam && ['pending', 'approved', 'rejected', 'all'].includes(statusParam)) {
+      setSelectedTab(statusParam);
+    }
+  }, [statusParam]);
 
   // Get utils for cache invalidation
   const utils = api.useUtils();
@@ -99,16 +111,21 @@ export default function RequestsPage() {
 
   const swapRequests = (swapRequestsData?.items || []) as SwapRequest[];
 
+  // Filter requests - member only sees their own requests
+  const userFilteredRequests = role === 'member'
+    ? swapRequests.filter(req => req.requesterId === dbUser?.id || req.targetUserId === dbUser?.id)
+    : swapRequests;
+
   // Filter requests by status
-  const filteredRequests = swapRequests.filter(req => {
+  const filteredRequests = userFilteredRequests.filter(req => {
     if (selectedTab === 'all') return true;
     return req.status === selectedTab;
   });
 
-  // Calculate stats
-  const pendingCount = swapRequests.filter(r => r.status === 'pending').length;
-  const approvedCount = swapRequests.filter(r => r.status === 'approved').length;
-  const rejectedCount = swapRequests.filter(r => r.status === 'rejected').length;
+  // Calculate stats - use user-filtered requests for member
+  const pendingCount = userFilteredRequests.filter(r => r.status === 'pending').length;
+  const approvedCount = userFilteredRequests.filter(r => r.status === 'approved').length;
+  const rejectedCount = userFilteredRequests.filter(r => r.status === 'rejected').length;
 
   const isManager = role === 'manager' || role === 'admin';
 
@@ -206,7 +223,7 @@ export default function RequestsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">전체</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{swapRequests.length}</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{userFilteredRequests.length}</p>
               </div>
               <AlertCircle className="w-8 h-8 text-blue-500" />
             </div>
@@ -253,7 +270,7 @@ export default function RequestsPage() {
                 : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
             }`}
           >
-            전체 ({swapRequests.length})
+            전체 ({userFilteredRequests.length})
           </button>
         </div>
 
@@ -366,10 +383,26 @@ export default function RequestsPage() {
                     <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex gap-3 justify-end">
                       <button
                         onClick={() => handleShowPreview(request)}
-                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
                       >
                         <Eye className="w-4 h-4" />
-                        변경사항 미리보기
+                        미리보기
+                      </button>
+                      <button
+                        onClick={() => handleReject(request.id)}
+                        disabled={rejectMutation.isPending}
+                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50 transition-colors"
+                      >
+                        <XCircle className="w-4 h-4" />
+                        거부
+                      </button>
+                      <button
+                        onClick={() => handleApprove(request.id)}
+                        disabled={approveMutation.isPending}
+                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        승인
                       </button>
                     </div>
                   )}
