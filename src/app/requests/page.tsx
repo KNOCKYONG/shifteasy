@@ -2,11 +2,12 @@
 
 import React, { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { Clock, CheckCircle, XCircle, AlertCircle, Calendar, User, ArrowLeftRight } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, AlertCircle, Calendar, User, ArrowLeftRight, Eye } from 'lucide-react';
 import { api } from '@/lib/trpc/client';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { SwapPreviewModal } from '@/components/schedule/modals/SwapPreviewModal';
 
 interface SwapRequest {
   id: string;
@@ -39,6 +40,7 @@ interface SwapRequest {
 export default function RequestsPage() {
   const { isLoaded, dbUser, role } = useCurrentUser();
   const [selectedTab, setSelectedTab] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
+  const [previewRequest, setPreviewRequest] = useState<SwapRequest | null>(null);
 
   // Get utils for cache invalidation
   const utils = api.useUtils();
@@ -110,9 +112,11 @@ export default function RequestsPage() {
 
   const isManager = role === 'manager' || role === 'admin';
 
-  const handleApprove = async (requestId: string) => {
-    if (!confirm('이 교환 요청을 승인하시겠습니까?')) return;
+  const handleShowPreview = (request: SwapRequest) => {
+    setPreviewRequest(request);
+  };
 
+  const handleApprove = async (requestId: string) => {
     await approveMutation.mutateAsync({
       id: requestId,
       approvalNotes: '승인됨',
@@ -361,20 +365,11 @@ export default function RequestsPage() {
                   {isManager && request.status === 'pending' && (
                     <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex gap-3 justify-end">
                       <button
-                        onClick={() => handleReject(request.id)}
-                        disabled={rejectMutation.isPending}
-                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50 transition-colors"
+                        onClick={() => handleShowPreview(request)}
+                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
                       >
-                        <XCircle className="w-4 h-4" />
-                        거부
-                      </button>
-                      <button
-                        onClick={() => handleApprove(request.id)}
-                        disabled={approveMutation.isPending}
-                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
-                      >
-                        <CheckCircle className="w-4 h-4" />
-                        승인
+                        <Eye className="w-4 h-4" />
+                        변경사항 미리보기
                       </button>
                     </div>
                   )}
@@ -398,6 +393,16 @@ export default function RequestsPage() {
           )}
         </div>
       </div>
+
+      {/* Swap Preview Modal */}
+      {previewRequest && (
+        <SwapPreviewModal
+          request={previewRequest}
+          onClose={() => setPreviewRequest(null)}
+          onApprove={handleApprove}
+          onReject={handleReject}
+        />
+      )}
     </MainLayout>
   );
 }
