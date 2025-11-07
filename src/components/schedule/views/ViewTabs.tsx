@@ -5,9 +5,9 @@ import { Calendar, Heart, Clock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 interface ViewTabsProps {
-  activeView: 'preferences' | 'today' | 'schedule';
+  activeView: 'preferences' | 'today' | 'schedule' | 'calendar';
   canViewStaffPreferences: boolean;
-  onViewChange: (view: 'preferences' | 'today' | 'schedule') => void;
+  onViewChange: (view: 'preferences' | 'today' | 'schedule' | 'calendar') => void;
 }
 
 export function ViewTabs({ activeView, canViewStaffPreferences, onViewChange }: ViewTabsProps) {
