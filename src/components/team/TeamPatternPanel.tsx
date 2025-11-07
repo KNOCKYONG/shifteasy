@@ -100,6 +100,11 @@ export function TeamPatternPanel({
       } else if (data.defaultPattern) {
         setPattern({ ...data.defaultPattern, totalMembers });
       }
+
+      // API에서 받은 shiftTypes가 있으면 로그 출력 (디버깅용)
+      if (data.shiftTypes) {
+        console.log('[TeamPatternPanel] Received shiftTypes from API:', data.shiftTypes);
+      }
     } catch (error) {
       console.error('Failed to fetch team pattern:', error);
     } finally {

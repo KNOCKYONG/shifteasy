@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentUser } from '@/lib/auth';
 import { db } from '@/db';
-import { teamPatterns } from '@/db/schema';
+import { teamPatterns, tenantConfigs, departments } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { validateTeamPattern } from '@/lib/types/team-pattern';
 
@@ -79,10 +79,34 @@ export async function GET(request: NextRequest) {
 
     console.log('[GET] Found patterns:', patterns.length);
 
+    // 부서 정보를 통해 tenantId 가져오기
+    const departmentInfo = await db
+      .select()
+      .from(departments)
+      .where(eq(departments.id, departmentId))
+      .limit(1);
+
+    const tenantId = departmentInfo[0]?.tenantId || user.tenantId;
+
+    // tenant_configs에서 shift_types 가져오기
+    const shiftTypesConfig = await db
+      .select()
+      .from(tenantConfigs)
+      .where(
+        and(
+          eq(tenantConfigs.tenantId, tenantId),
+          eq(tenantConfigs.configKey, 'shift_types')
+        )
+      )
+      .limit(1);
+
+    const shiftTypes = shiftTypesConfig[0]?.configValue || [];
+
     if (patterns.length === 0) {
       // 기본값 반환
       return NextResponse.json({
         pattern: null,
+        shiftTypes, // shift_types 추가
         defaultPattern: {
           departmentId,
           requiredStaffDay: 5,
@@ -94,7 +118,10 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({ pattern: patterns[0] });
+    return NextResponse.json({
+      pattern: patterns[0],
+      shiftTypes // shift_types 추가
+    });
   } catch (error) {
     console.error('Error fetching team pattern:', error);
     console.error('Error details:', {
