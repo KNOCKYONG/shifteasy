@@ -1,5 +1,8 @@
 "use client";
-import React, { useState, useEffect } from "react";
+
+export const dynamic = 'force-dynamic';
+
+import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isWeekend } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -390,7 +393,7 @@ function createDefaultPreferencesFromTeamPattern(
   };
 }
 
-export default function SchedulePage() {
+function SchedulePageContent() {
   const utils = api.useUtils();
   const currentUser = useCurrentUser();
   const userRole = (currentUser.dbUser?.role ?? currentUser.role) as string | undefined;
@@ -3083,5 +3086,20 @@ export default function SchedulePage() {
       )}
 
     </MainLayout>
+  );
+}
+
+// Main page component with Suspense boundary
+export default function SchedulePage() {
+  return (
+    <Suspense fallback={
+      <MainLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-gray-600 dark:text-gray-400">로딩 중...</div>
+        </div>
+      </MainLayout>
+    }>
+      <SchedulePageContent />
+    </Suspense>
   );
 }

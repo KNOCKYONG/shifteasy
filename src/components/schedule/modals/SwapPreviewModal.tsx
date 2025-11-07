@@ -61,11 +61,11 @@ export const SwapPreviewModal = React.memo(function SwapPreviewModal({
   });
 
   const users = usersData?.items || [];
-  const customShiftTypes = shiftTypesConfig?.configValue?.shiftTypes || [];
+  const customShiftTypes = (shiftTypesConfig?.configValue as any)?.shiftTypes || [];
 
   // Find the published schedule for this month
-  const publishedSchedule = schedulesData?.items?.[0];
-  const assignments = publishedSchedule?.assignments || [];
+  const publishedSchedule = schedulesData?.[0];
+  const assignments = (publishedSchedule?.metadata as any)?.assignments || [];
 
   // Get assignments for the swap date
   const dateStr = format(requestDate, 'yyyy-MM-dd');
