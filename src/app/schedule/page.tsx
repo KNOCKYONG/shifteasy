@@ -1501,6 +1501,9 @@ function SchedulePageContent() {
     try {
       const schedulePayload = buildSchedulePayload();
 
+      // 스케줄 명이 입력되지 않은 경우 기본값 설정
+      const finalScheduleName = scheduleName.trim() || `${format(monthStart, 'yyyy년 M월')} 스케줄`;
+
       const response = await fetch('/api/schedule/confirm', {
         method: 'POST',
         headers: {
@@ -1511,6 +1514,7 @@ function SchedulePageContent() {
         body: JSON.stringify({
           scheduleId: schedulePayload.id,
           schedule: schedulePayload,
+          scheduleName: finalScheduleName, // 스케줄 명 추가
           month: format(monthStart, 'yyyy-MM-dd'),
           departmentId: validDepartmentId,
           notifyEmployees: true,
@@ -1528,6 +1532,7 @@ function SchedulePageContent() {
         setScheduleStatus('confirmed');
         setIsConfirmed(true);
         modals.setShowConfirmDialog(false);
+        setScheduleName(''); // 스케줄 명 초기화
 
         // ✅ Invalidate schedule cache to reload from DB
         await utils.schedule.list.invalidate();
@@ -2088,6 +2093,7 @@ function SchedulePageContent() {
   // Additional local state not covered by hooks
   const [scheduleStatus, setScheduleStatus] = useState<'draft' | 'confirmed'>('draft');
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [scheduleName, setScheduleName] = useState<string>(''); // 스케줄 명 상태 추가
 
   // Swap 관련 상태
   const [swapMode, setSwapMode] = useState(false);
@@ -2985,6 +2991,9 @@ function SchedulePageContent() {
         onConfirm={handleConfirmSchedule}
         isConfirming={modals.isConfirming}
         validationScore={modals.validationScore}
+        scheduleName={scheduleName}
+        onScheduleNameChange={setScheduleName}
+        defaultScheduleName={`${format(monthStart, 'yyyy년 M월')} 스케줄`}
       />
 
       {/* Swap Request Modal */}

@@ -23,6 +23,7 @@ const ConfirmScheduleSchema = z.object({
     })),
     status: z.enum(['draft', 'published', 'archived']).optional(),
   }),
+  scheduleName: z.string().optional(), // 스케줄 명 추가
   validationScore: z.number().optional(),
   approverNotes: z.string().optional(),
   notifyEmployees: z.boolean().optional(),
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { scheduleId, schedule, validationScore, approverNotes, notifyEmployees } = validationResult.data;
+    const { scheduleId, schedule, scheduleName, validationScore, approverNotes, notifyEmployees } = validationResult.data;
 
     // ✅ Manager department permission check using request body departmentId
     const requestDepartmentId = schedule.departmentId;
@@ -111,6 +112,7 @@ export async function POST(request: NextRequest) {
         publishedAt: new Date(),
         publishedBy: user.id,
         metadata: {
+          name: scheduleName, // 스케줄 명 추가
           confirmedAt: new Date().toISOString(),
           confirmedBy: user.id,
           approverNotes,

@@ -7,6 +7,9 @@ interface ConfirmationDialogProps {
   onConfirm: () => void;
   isConfirming: boolean;
   validationScore: number | null;
+  scheduleName: string;
+  onScheduleNameChange: (name: string) => void;
+  defaultScheduleName: string;
 }
 
 export function ConfirmationDialog({
@@ -15,6 +18,9 @@ export function ConfirmationDialog({
   onConfirm,
   isConfirming,
   validationScore,
+  scheduleName,
+  onScheduleNameChange,
+  defaultScheduleName,
 }: ConfirmationDialogProps) {
   if (!isOpen) return null;
 
@@ -41,6 +47,28 @@ export function ConfirmationDialog({
             <p className="text-gray-700 dark:text-gray-300 mb-4">
               현재 스케줄을 확정하시겠습니까?
             </p>
+
+            {/* 스케줄 명 입력 필드 */}
+            <div className="mb-4">
+              <label htmlFor="scheduleName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                스케줄 명
+              </label>
+              <input
+                type="text"
+                id="scheduleName"
+                value={scheduleName}
+                onChange={(e) => onScheduleNameChange(e.target.value)}
+                placeholder={defaultScheduleName}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
+                         bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
+                         placeholder-gray-400 dark:placeholder-gray-500
+                         focus:ring-2 focus:ring-purple-500 focus:border-transparent
+                         transition-colors"
+              />
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                입력하지 않으면 "{defaultScheduleName}"로 저장됩니다.
+              </p>
+            </div>
 
             {validationScore !== null && (
               <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-4">
