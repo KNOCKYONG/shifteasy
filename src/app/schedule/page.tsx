@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isWeekend } from "date-fns";
+import { useSearchParams } from "next/navigation";
+import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isWeekend, parseISO } from "date-fns";
 import { ko } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCcw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings, FolderOpen, ArrowLeftRight, Save } from "lucide-react";
 import { MainLayout } from "../../components/layout/MainLayout";
@@ -406,7 +407,18 @@ export default function SchedulePage() {
   const modals = useScheduleModals();
 
   // Core schedule state (not extracted to hooks due to complex interdependencies)
-  const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()));
+  const searchParams = useSearchParams();
+  const dateParam = searchParams.get('date');
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    if (dateParam) {
+      try {
+        return startOfMonth(parseISO(dateParam));
+      } catch (e) {
+        return startOfMonth(new Date());
+      }
+    }
+    return startOfMonth(new Date());
+  });
   const [schedule, setSchedule] = useState<ScheduleAssignment[]>([]);
   const [originalSchedule, setOriginalSchedule] = useState<ScheduleAssignment[]>([]); // 원본 스케줄 저장
   const [isConfirmed, setIsConfirmed] = useState(false);

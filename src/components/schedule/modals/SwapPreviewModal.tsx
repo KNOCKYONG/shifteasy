@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, ArrowRight, Calendar, User, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { X, ArrowRight, Calendar, User, Users, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { api } from '@/lib/trpc/client';
@@ -106,6 +106,51 @@ export const SwapPreviewModal = React.memo(function SwapPreviewModal({
   // Highlight changed users
   const changedUserIds = new Set([request.requesterId, request.targetUserId]);
 
+  // Calculate shift coverage statistics
+  const calculateShiftCoverage = (assignments: any[]) => {
+    const coverage = new Map<string, { count: number; employees: string[] }>();
+
+    assignments.forEach((a: any) => {
+      const shiftInfo = getShiftInfo(a.shiftId);
+      const existing = coverage.get(shiftInfo.code) || { count: 0, employees: [] };
+      coverage.set(shiftInfo.code, {
+        count: existing.count + 1,
+        employees: [...existing.employees, getUserName(a.employeeId)]
+      });
+    });
+
+    return coverage;
+  };
+
+  const beforeCoverage = calculateShiftCoverage(beforeAssignments);
+  const afterCoverage = calculateShiftCoverage(afterAssignments);
+
+  // Get all unique shift types from both before and after
+  const allShiftTypes = new Set([...beforeCoverage.keys(), ...afterCoverage.keys()]);
+
+  // Calculate coverage changes
+  const coverageChanges = Array.from(allShiftTypes).map(shiftCode => {
+    const before = beforeCoverage.get(shiftCode) || { count: 0, employees: [] };
+    const after = afterCoverage.get(shiftCode) || { count: 0, employees: [] };
+    const shiftType = customShiftTypes.find((st: any) => st.code === shiftCode);
+
+    return {
+      code: shiftCode,
+      name: shiftType?.name || shiftCode,
+      color: shiftType?.color || '#3b82f6',
+      beforeCount: before.count,
+      afterCount: after.count,
+      change: after.count - before.count,
+      beforeEmployees: before.employees,
+      afterEmployees: after.employees,
+    };
+  }).sort((a, b) => {
+    // Sort by shift type order if available
+    const orderA = customShiftTypes.findIndex((st: any) => st.code === a.code);
+    const orderB = customShiftTypes.findIndex((st: any) => st.code === b.code);
+    return orderA - orderB;
+  });
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -163,118 +208,157 @@ export const SwapPreviewModal = React.memo(function SwapPreviewModal({
                 </div>
               </div>
 
-              {/* Before/After Comparison */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* BEFORE */}
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-2 h-2 rounded-full bg-gray-400"></div>
-                    <h3 className="font-bold text-gray-900 dark:text-gray-100">변경 전 (현재)</h3>
-                  </div>
-                  <div className="space-y-2">
-                    {beforeAssignments.map((assignment: any) => {
-                      const shiftInfo = getShiftInfo(assignment.shiftId);
-                      const isChanged = changedUserIds.has(assignment.employeeId);
-
-                      return (
-                        <div
-                          key={assignment.employeeId}
-                          className={`p-3 rounded-lg border transition-all ${
-                            isChanged
-                              ? 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/20'
-                              : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 flex-1">
-                              <User className={`w-4 h-4 ${isChanged ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400'}`} />
-                              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                {getUserName(assignment.employeeId)}
-                              </span>
-                            </div>
-                            <div
-                              className="px-3 py-1 rounded-lg text-white text-sm font-bold min-w-[60px] text-center"
-                              style={{ backgroundColor: shiftInfo.color }}
-                            >
-                              {shiftInfo.code}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+              {/* Team-Wide Shift Coverage Statistics */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg">팀 근무 배치 현황</h3>
                 </div>
 
-                {/* AFTER */}
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                    <h3 className="font-bold text-green-900 dark:text-green-100">변경 후 (예상)</h3>
-                  </div>
-                  <div className="space-y-2">
-                    {afterAssignments.map((assignment: any) => {
-                      const shiftInfo = getShiftInfo(assignment.shiftId);
-                      const isChanged = changedUserIds.has(assignment.employeeId);
+                <div className="space-y-3">
+                  {coverageChanges.map((coverage) => {
+                    const hasChange = coverage.change !== 0;
+                    const isIncrease = coverage.change > 0;
+                    const isDecrease = coverage.change < 0;
 
-                      return (
-                        <div
-                          key={assignment.employeeId}
-                          className={`p-3 rounded-lg border transition-all ${
-                            isChanged
-                              ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950/20 ring-2 ring-green-500/20'
-                              : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 flex-1">
-                              <User className={`w-4 h-4 ${isChanged ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}`} />
-                              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                {getUserName(assignment.employeeId)}
-                              </span>
-                            </div>
+                    return (
+                      <div
+                        key={coverage.code}
+                        className={`p-4 rounded-lg border transition-all ${
+                          hasChange
+                            ? isDecrease
+                              ? 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/20'
+                              : 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950/20'
+                            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-3">
                             <div
-                              className="px-3 py-1 rounded-lg text-white text-sm font-bold min-w-[60px] text-center"
-                              style={{ backgroundColor: shiftInfo.color }}
+                              className="px-3 py-1.5 rounded-lg text-white text-sm font-bold min-w-[60px] text-center"
+                              style={{ backgroundColor: coverage.color }}
                             >
-                              {shiftInfo.code}
+                              {coverage.code}
+                            </div>
+                            <span className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                              {coverage.name}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg font-bold text-gray-700 dark:text-gray-300">
+                                  {coverage.beforeCount}명
+                                </span>
+                                {hasChange && (
+                                  <>
+                                    <ArrowRight className="w-4 h-4 text-gray-400" />
+                                    <span className={`text-lg font-bold ${
+                                      isIncrease
+                                        ? 'text-green-600 dark:text-green-400'
+                                        : 'text-amber-600 dark:text-amber-400'
+                                    }`}>
+                                      {coverage.afterCount}명
+                                    </span>
+                                    <span className={`text-sm font-medium ${
+                                      isIncrease
+                                        ? 'text-green-600 dark:text-green-400'
+                                        : 'text-amber-600 dark:text-amber-400'
+                                    }`}>
+                                      ({isIncrease ? '+' : ''}{coverage.change})
+                                    </span>
+                                  </>
+                                )}
+                                {!hasChange && (
+                                  <span className="text-sm text-gray-500 dark:text-gray-400">(변경 없음)</span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      );
-                    })}
+
+                        {/* Show affected employees if there's a change */}
+                        {hasChange && (
+                          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                            <div className="grid grid-cols-2 gap-4 text-xs">
+                              <div>
+                                <p className="text-gray-600 dark:text-gray-400 mb-1 font-medium">변경 전:</p>
+                                <p className="text-gray-900 dark:text-gray-100">
+                                  {coverage.beforeEmployees.join(', ') || '-'}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-gray-600 dark:text-gray-400 mb-1 font-medium">변경 후:</p>
+                                <p className="text-gray-900 dark:text-gray-100">
+                                  {coverage.afterEmployees.join(', ') || '-'}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Total Statistics */}
+                <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      총 근무 인원
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                        {beforeAssignments.length}명
+                      </span>
+                      {beforeAssignments.length !== afterAssignments.length && (
+                        <>
+                          <ArrowRight className="w-4 h-4 text-gray-400" />
+                          <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                            {afterAssignments.length}명
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Impact Notice */}
-              {request.targetUserId && (
-                <div className="mt-6 p-4 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
-                  <div className="flex items-start gap-2">
-                    <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-green-900 dark:text-green-100 mb-1">
-                        변경 사항 요약
-                      </p>
-                      <p className="text-sm text-green-700 dark:text-green-300">
-                        <strong>{request.requester?.name}</strong>님의 근무가{' '}
-                        <strong className="text-amber-700 dark:text-amber-400">
-                          {getShiftInfo(request.originalShiftId).code}
-                        </strong>에서{' '}
-                        <strong className="text-green-700 dark:text-green-300">
-                          {getShiftInfo(request.targetShiftId || '').code}
-                        </strong>로 변경되고,{' '}
-                        <strong>{request.targetUser?.name}</strong>님의 근무가{' '}
-                        <strong className="text-amber-700 dark:text-amber-400">
-                          {getShiftInfo(request.targetShiftId || '').code}
-                        </strong>에서{' '}
-                        <strong className="text-green-700 dark:text-green-300">
-                          {getShiftInfo(request.originalShiftId).code}
-                        </strong>로 변경됩니다.
-                      </p>
+              {/* Coverage Impact Summary */}
+              <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">
+                      팀 배치 영향도 분석
+                    </p>
+                    <div className="space-y-1 text-sm text-blue-700 dark:text-blue-300">
+                      {coverageChanges.some(c => c.change !== 0) ? (
+                        <>
+                          <p>• 교환 요청자: <strong>{request.requester?.name}</strong> ({getShiftInfo(request.originalShiftId).name} → {getShiftInfo(request.targetShiftId || '').name})</p>
+                          {request.targetUserId && (
+                            <p>• 교환 대상: <strong>{request.targetUser?.name}</strong> ({getShiftInfo(request.targetShiftId || '').name} → {getShiftInfo(request.originalShiftId).name})</p>
+                          )}
+                          <p className="mt-2 pt-2 border-t border-blue-200 dark:border-blue-800">
+                            {coverageChanges.filter(c => c.change < 0).length > 0 && (
+                              <span className="text-amber-700 dark:text-amber-400 font-medium">
+                                ⚠ {coverageChanges.filter(c => c.change < 0).length}개 시프트의 인원이 감소합니다.
+                              </span>
+                            )}
+                            {coverageChanges.filter(c => c.change > 0).length > 0 && (
+                              <span className="text-green-700 dark:text-green-400 font-medium">
+                                ✓ {coverageChanges.filter(c => c.change > 0).length}개 시프트의 인원이 증가합니다.
+                              </span>
+                            )}
+                          </p>
+                        </>
+                      ) : (
+                        <p>• 이 교환은 팀의 전체 근무 배치에 영향을 주지 않습니다.</p>
+                      )}
                     </div>
                   </div>
                 </div>
-              )}
+              </div>
             </>
           )}
         </div>

@@ -174,8 +174,22 @@ export function NavigationHeader() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Debug logging for navigation
+  useEffect(() => {
+    if (mounted && currentUser.dbUser) {
+      console.log('🔍 Navigation Debug:', {
+        role: currentUser.role,
+        dbUserRole: currentUser.dbUser?.role,
+        hasDbUser: !!currentUser.dbUser,
+      });
+    }
+  }, [mounted, currentUser.dbUser, currentUser.role]);
+
   // Get role-based navigation items
-  const roleNavigation = getNavigationForRole(currentUser.role as Role);
+  // Wait for dbUser to ensure we have the correct role
+  const roleNavigation = currentUser.dbUser
+    ? getNavigationForRole(currentUser.role as Role)
+    : getNavigationForRole('member' as Role); // Show minimal nav while loading
 
   // Filter out dashboard from navigation (it's in the logo link)
   const navItems: NavItem[] = roleNavigation

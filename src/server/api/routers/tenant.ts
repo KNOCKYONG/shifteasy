@@ -7,9 +7,26 @@ export const tenantRouter = createTRPCRouter({
   users: createTRPCRouter({
     current: protectedProcedure
       .query(async ({ ctx }) => {
+        console.log('🔍 tenant.users.current - Query Start:', {
+          hasUser: !!ctx.user,
+          userId: ctx.userId,
+          tenantId: ctx.tenantId,
+        });
+
         if (!ctx.user) {
-          throw new Error('User not found');
+          console.error('❌ tenant.users.current - User not found in database!', {
+            clerkUserId: ctx.userId,
+            tenantId: ctx.tenantId,
+          });
+          throw new Error('User not found in database. Please contact support.');
         }
+
+        console.log('✅ tenant.users.current - Success:', {
+          userId: ctx.user.id,
+          role: ctx.user.role,
+          name: ctx.user.name,
+        });
+
         return ctx.user;
       }),
 

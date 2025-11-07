@@ -693,19 +693,23 @@ export class SimpleScheduler {
       const bConsecutive = bLastShift === shift ? (this.consecutiveShiftCounts.get(b.id) || 0) : 0;
       if (aConsecutive !== bConsecutive) return aConsecutive - bConsecutive;
 
-      // 5. Experience level (senior for quality)
+      // 5. Role (RN > CN > SN > NA) - 직책 우선
+      const roleOrder: Record<string, number> = { RN: 4, CN: 3, SN: 2, NA: 1 };
+      const aRole = roleOrder[a.role] || 0;
+      const bRole = roleOrder[b.role] || 0;
+      if (aRole !== bRole) return bRole - aRole;
+
+      // 6. Experience level (senior for quality) - 경력 다음
       const aExp = this.getExperienceScore(a);
       const bExp = this.getExperienceScore(b);
       if (aExp !== bExp) return bExp - aExp;
 
-      // 6. Shift preference
+      // 7. Shift preference
       const aPref = this.getShiftPreference(a, shift);
       const bPref = this.getShiftPreference(b, shift);
       if (aPref !== bPref) return bPref - aPref;
 
-      // 7. Role (RN > CN > SN > NA)
-      const roleOrder: Record<string, number> = { RN: 4, CN: 3, SN: 2, NA: 1 };
-      return (roleOrder[b.role] || 0) - (roleOrder[a.role] || 0);
+      return 0;
     });
 
     let assigned = 0;
