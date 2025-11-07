@@ -792,10 +792,10 @@ export default function SchedulePage() {
   }, []);
 
   const handleToggleSwapMode = React.useCallback(() => {
-    setSwapMode(!swapMode);
+    setSwapMode(prev => !prev);
     setSelectedSwapCell(null);
     setTargetSwapCell(null);
-  }, [swapMode]);
+  }, []);
 
   const handleCloseGenerationResult = React.useCallback(() => {
     setGenerationResult(null);
