@@ -17,7 +17,7 @@ interface ScheduleStatsProps {
   shifts: Shift[];
 }
 
-export function ScheduleStats({ schedule, shifts }: ScheduleStatsProps) {
+export const ScheduleStats = React.memo(function ScheduleStats({ schedule, shifts }: ScheduleStatsProps) {
   if (schedule.length === 0) return null;
 
   return (
@@ -55,4 +55,4 @@ export function ScheduleStats({ schedule, shifts }: ScheduleStatsProps) {
       })}
     </div>
   );
-}
+});

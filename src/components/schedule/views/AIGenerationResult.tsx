@@ -24,7 +24,7 @@ interface AIGenerationResultProps {
   onClose: () => void;
 }
 
-export function AIGenerationResult({ generationResult, onClose }: AIGenerationResultProps) {
+export const AIGenerationResult = React.memo(function AIGenerationResult({ generationResult, onClose }: AIGenerationResultProps) {
   if (!generationResult) return null;
 
   const hardViolations = generationResult.violations.filter(v => v.type === 'hard');
@@ -67,4 +67,4 @@ export function AIGenerationResult({ generationResult, onClose }: AIGenerationRe
       )}
     </div>
   );
-}
+});

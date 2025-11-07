@@ -24,7 +24,7 @@ interface MonthNavigationProps {
   onToggleSwapMode?: () => void;
 }
 
-export function MonthNavigation({
+export const MonthNavigation = React.memo(function MonthNavigation({
   monthStart,
   departmentOptions,
   selectedDepartment,
@@ -103,4 +103,4 @@ export function MonthNavigation({
       </div>
     </div>
   );
-}
+});

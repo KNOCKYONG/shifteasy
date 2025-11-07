@@ -432,7 +432,7 @@ export default function SchedulePage() {
     [daysInMonth.length]
   );
   const scheduleGridTemplate = React.useMemo(
-    () => `120px repeat(${daysInMonth.length}, minmax(35px, 40px))`,
+    () => `90px repeat(${daysInMonth.length}, minmax(28px, 1fr))`,
     [daysInMonth.length]
   );
 
@@ -764,26 +764,42 @@ export default function SchedulePage() {
     return members;
   }, [allMembers, isMember, isManager, filters.showMyScheduleOnly, filters.showSameSchedule, currentUser.dbUser?.id, schedule]);
 
-  const handlePreviousMonth = () => {
+  const handlePreviousMonth = React.useCallback(() => {
     setCurrentMonth(prev => subMonths(prev, 1));
     setSchedule([]);
     setGenerationResult(null);
     setLoadedScheduleId(null); // ✅ Reset to allow loading new month's schedule
-  };
+  }, []);
 
-  const handleNextMonth = () => {
+  const handleNextMonth = React.useCallback(() => {
     setCurrentMonth(prev => addMonths(prev, 1));
     setSchedule([]);
     setGenerationResult(null);
     setLoadedScheduleId(null); // ✅ Reset to allow loading new month's schedule
-  };
+  }, []);
 
-  const handleThisMonth = () => {
+  const handleThisMonth = React.useCallback(() => {
     setCurrentMonth(startOfMonth(new Date()));
     setSchedule([]);
     setGenerationResult(null);
     setLoadedScheduleId(null); // ✅ Reset to allow loading current month's schedule
-  };
+  }, []);
+
+  const handleDepartmentChange = React.useCallback((deptId: string) => {
+    setSelectedDepartment(deptId);
+    setSchedule([]);
+    setGenerationResult(null);
+  }, []);
+
+  const handleToggleSwapMode = React.useCallback(() => {
+    setSwapMode(prev => !prev);
+    setSelectedSwapCell(null);
+    setTargetSwapCell(null);
+  }, []);
+
+  const handleCloseGenerationResult = React.useCallback(() => {
+    setGenerationResult(null);
+  }, []);
 
   // TRPC mutation for saving preferences
   const savePreferences = api.preferences.upsert.useMutation({
@@ -1132,33 +1148,50 @@ export default function SchedulePage() {
     );
   };
 
-  // 시프트 타입별로 필터링된 직원 목록
-  const getFilteredMembersForDisplay = () => {
+  // ✅ OPTIMIZED: Pre-compute shift ID to name mapping to avoid repeated .find() calls
+  const shiftIdToNameMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    shifts.forEach(shift => {
+      map.set(shift.id, shift.name);
+    });
+    return map;
+  }, [shifts]);
+
+  // ✅ OPTIMIZED: Pre-compute shift code to name mapping
+  const shiftCodeToNameMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    customShiftTypes.forEach(shiftType => {
+      map.set(shiftType.code, shiftType.name);
+    });
+    return map;
+  }, [customShiftTypes]);
+
+  // ✅ OPTIMIZED: Memoized filtered and sorted members list
+  // Uses deferred filter values to prevent UI blocking during rapid filter changes
+  const displayMembers = React.useMemo(() => {
     let result = filteredMembers;
 
-    // 팀 필터
-    if (filters.selectedTeams.size > 0) {
-      result = result.filter(member => {
-        return filters.selectedTeams.has(member.teamId || '');
-      });
+    // ✅ OPTIMIZED: Use deferred team filter for non-blocking updates
+    if (filters.deferredTeams.size > 0) {
+      result = result.filter(member => filters.deferredTeams.has(member.teamId || ''));
     }
 
-    // 시프트 타입 필터
-    if (filters.selectedShiftTypes.size > 0 && customShiftTypes.length > 0) {
-      // 선택된 코드들의 근무명 추출
+    // ✅ OPTIMIZED: 시프트 타입 필터 - O(n) instead of O(n²)
+    if (filters.deferredShiftTypes.size > 0 && customShiftTypes.length > 0) {
+      // Pre-compute selected shift names using the map
       const selectedShiftNames = new Set<string>();
-      filters.selectedShiftTypes.forEach(code => {
-        const shiftType = customShiftTypes.find(st => st.code === code);
-        if (shiftType) {
-          selectedShiftNames.add(shiftType.name);
+      filters.deferredShiftTypes.forEach(code => {
+        const shiftName = shiftCodeToNameMap.get(code);
+        if (shiftName) {
+          selectedShiftNames.add(shiftName);
         }
       });
 
-      // 선택된 근무명에 해당하는 배정이 있는 직원만 표시
+      // Build employee set in single pass using the shift ID map
       const membersWithSelectedShifts = new Set<string>();
       schedule.forEach(assignment => {
-        const shift = shifts.find(s => s.id === assignment.shiftId);
-        if (shift && selectedShiftNames.has(shift.name)) {
+        const shiftName = shiftIdToNameMap.get(assignment.shiftId);
+        if (shiftName && selectedShiftNames.has(shiftName)) {
           membersWithSelectedShifts.add(assignment.employeeId);
         }
       });
@@ -1166,8 +1199,8 @@ export default function SchedulePage() {
       result = result.filter(member => membersWithSelectedShifts.has(member.id));
     }
 
-    // 팀별로 정렬 (팀이 없는 직원은 마지막에 배치)
-    result = result.sort((a, b) => {
+    // ✅ OPTIMIZED: Sort only once when dependencies change
+    return result.sort((a, b) => {
       // Member인 경우 자신의 스케줄을 최상단으로
       if (isMember && currentUser.dbUser?.id) {
         const currentUserId = currentUser.dbUser.id;
@@ -1186,11 +1219,17 @@ export default function SchedulePage() {
       // 같은 팀 내에서는 이름순으로 정렬
       return a.name.localeCompare(b.name, 'ko');
     });
-
-    return result;
-  };
-
-  const displayMembers = getFilteredMembersForDisplay();
+  }, [
+    filteredMembers,
+    filters.deferredTeams,
+    filters.deferredShiftTypes,
+    customShiftTypes,
+    shiftCodeToNameMap,
+    shiftIdToNameMap,
+    schedule,
+    isMember,
+    currentUser.dbUser?.id
+  ]);
 
   // Extract employee IDs for off-balance query
   const displayMemberIds = React.useMemo(() =>
@@ -2063,7 +2102,7 @@ export default function SchedulePage() {
   }, [canManageSchedules, showMoreMenu]);
 
   // Swap 관련 핸들러
-  const handleSwapCellClick = (date: Date, employeeId: string, assignment: any) => {
+  const handleSwapCellClick = React.useCallback((date: Date, employeeId: string, assignment: any) => {
     const dateStr = format(date, 'yyyy-MM-dd');
 
     // 자신의 셀을 클릭한 경우
@@ -2084,7 +2123,7 @@ export default function SchedulePage() {
       setTargetSwapCell({ date: dateStr, employeeId, assignment });
       setShowSwapModal(true);
     }
-  };
+  }, [currentUser.dbUser?.id, selectedSwapCell]);
 
   const handleSwapSubmit = (reason: string) => {
     if (!selectedSwapCell || !targetSwapCell) return;
@@ -2099,12 +2138,12 @@ export default function SchedulePage() {
   };
 
   // Manager 셀 편집 핸들러
-  const handleManagerCellClick = (date: Date, employeeId: string, assignment: any) => {
+  const handleManagerCellClick = React.useCallback((date: Date, employeeId: string, assignment: any) => {
     if (!isManager) return; // manager 권한 확인
 
     setEditingCell({ date, employeeId, currentShift: assignment });
     setShowEditShiftModal(true);
-  };
+  }, [isManager]);
 
   // 근무 변경 처리
   const handleShiftChange = (newShiftId: string) => {
@@ -2331,7 +2370,7 @@ export default function SchedulePage() {
   };
 
   // 날짜별 스케줄 그룹화
-  const getScheduleForDay = (date: Date) => {
+  const getScheduleForDay = React.useCallback((date: Date) => {
     return schedule.filter(assignment => {
       const assignmentDate = normalizeDate(assignment.date);
       return (
@@ -2340,10 +2379,10 @@ export default function SchedulePage() {
         format(assignmentDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
       );
     });
-  };
+  }, [schedule, monthStart, monthEnd]);
 
   // 시프트별 색상 가져오기
-  const getShiftColor = (shiftId: string) => {
+  const getShiftColor = React.useCallback((shiftId: string) => {
     // First try to find by ID in shifts array
     const shift = shifts.find(s => s.id === shiftId);
     if (shift) {
@@ -2386,10 +2425,10 @@ export default function SchedulePage() {
     }
 
     return '#9CA3AF';
-  };
+  }, [shifts, customShiftTypes]);
 
   // 시프트 이름 가져오기
-  const getShiftName = (shiftId: string) => {
+  const getShiftName = React.useCallback((shiftId: string) => {
     // First try to find by ID in shifts array
     const shift = shifts.find(s => s.id === shiftId);
     if (shift) {
@@ -2421,7 +2460,7 @@ export default function SchedulePage() {
     }
 
     return '?';
-  };
+  }, [shifts, customShiftTypes]);
 
   // Create a map of special requests for quick lookup
   // Key: `${employeeId}-${date}`, Value: shiftTypeCode
@@ -2439,7 +2478,7 @@ export default function SchedulePage() {
   }, [specialRequestsData]);
 
   // 시프트 코드 가져오기 (config에서 설정한 커스텀 shift types 기반)
-  const getShiftCode = (assignment: {
+  const getShiftCode = React.useCallback((assignment: {
     shiftId: string;
     date?: Date;
     employeeId?: string;
@@ -2500,7 +2539,7 @@ export default function SchedulePage() {
     }
 
     return code;
-  };
+  }, [customShiftTypes, specialRequestsMap]);
 
   return (
     <MainLayout>
@@ -2813,22 +2852,14 @@ export default function SchedulePage() {
           onPreviousMonth={handlePreviousMonth}
           onThisMonth={handleThisMonth}
           onNextMonth={handleNextMonth}
-          onDepartmentChange={(deptId) => {
-            setSelectedDepartment(deptId);
-            setSchedule([]);
-            setGenerationResult(null);
-          }}
-          onToggleSwapMode={() => {
-            setSwapMode(!swapMode);
-            setSelectedSwapCell(null);
-            setTargetSwapCell(null);
-          }}
+          onDepartmentChange={handleDepartmentChange}
+          onToggleSwapMode={handleToggleSwapMode}
         />
 
         {/* AI Generation Result */}
         <AIGenerationResult
           generationResult={generationResult}
-          onClose={() => setGenerationResult(null)}
+          onClose={handleCloseGenerationResult}
         />
 
         {/* Schedule View */}

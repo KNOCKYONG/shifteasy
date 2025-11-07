@@ -305,6 +305,7 @@ export const ROLE_PAGES: Record<Role, string[]> = {
   [ROLES.MEMBER]: [
     '/dashboard',
     '/schedule',
+    '/requests',
     '/notifications',
     '/settings',
   ],
@@ -343,6 +344,7 @@ export const ROLE_NAVIGATION: Record<Role, Array<{
   [ROLES.MEMBER]: [
     { href: '/dashboard', label: '내 일정' },
     { href: '/schedule', label: '전체 스케줄' },
+    { href: '/requests', label: '내 요청' },
   ],
 };
 
