@@ -112,25 +112,56 @@ export default function DashboardClient() {
 
         <div className="mt-12">
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-            오늘의 현황
+            빠른 접근
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">근무 중인 직원</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">12명</p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">대기 중인 교대 요청</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">3건</p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">이번 주 휴가자</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">2명</p>
-            </div>
+            <Link href={`/schedule?date=${new Date().toISOString().split('T')[0]}&view=today`}>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hover:shadow-lg transition-shadow cursor-pointer group">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">오늘 근무자</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                      보기 →
+                    </p>
+                  </div>
+                  <Calendar className="w-10 h-10 text-blue-500 opacity-20 group-hover:opacity-40 transition-opacity" />
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-500 mt-3">오늘 스케줄 보기</p>
+              </div>
+            </Link>
+
+            <Link href="/requests?status=pending">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hover:shadow-lg transition-shadow cursor-pointer group">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">대기 중인 요청</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                      확인 →
+                    </p>
+                  </div>
+                  <ArrowRightLeft className="w-10 h-10 text-purple-500 opacity-20 group-hover:opacity-40 transition-opacity" />
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-500 mt-3">교대 요청 관리</p>
+              </div>
+            </Link>
+
+            <Link href={`/schedule?month=${new Date().toISOString().slice(0, 7)}`}>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hover:shadow-lg transition-shadow cursor-pointer group">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">이번 달 스케줄</p>
+                    <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
+                      보기 →
+                    </p>
+                  </div>
+                  <Calendar className="w-10 h-10 text-green-500 opacity-20 group-hover:opacity-40 transition-opacity" />
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-500 mt-3">월간 스케줄 확인</p>
+              </div>
+            </Link>
           </div>
         </div>
       </div>
     </div>
   );
 }
-
