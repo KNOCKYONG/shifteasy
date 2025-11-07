@@ -406,12 +406,36 @@ function SchedulePageContent() {
   const currentUserName = currentUser.name || "사용자";
   const searchParams = useSearchParams();
 
+  // Parse URL parameters for initial state
+  const dateParam = searchParams.get('date');
+  const monthParam = searchParams.get('month');
+  const viewParam = searchParams.get('view') as 'schedule' | 'calendar' | 'today' | null;
+
   // Custom hooks for state management
   const filters = useScheduleFilters();
   const modals = useScheduleModals();
 
+  // Initialize dates from URL parameters
+  const getInitialMonth = () => {
+    if (monthParam) {
+      if (monthParam === 'current') return startOfMonth(new Date());
+      const parsedMonth = new Date(monthParam + '-01');
+      if (!isNaN(parsedMonth.getTime())) return startOfMonth(parsedMonth);
+    }
+    return startOfMonth(new Date());
+  };
+
+  const getInitialDate = () => {
+    if (dateParam) {
+      if (dateParam === 'today') return new Date();
+      const parsedDate = new Date(dateParam);
+      if (!isNaN(parsedDate.getTime())) return parsedDate;
+    }
+    return new Date();
+  };
+
   // Core schedule state (not extracted to hooks due to complex interdependencies)
-  const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()));
+  const [currentMonth, setCurrentMonth] = useState(getInitialMonth());
   const [schedule, setSchedule] = useState<ScheduleAssignment[]>([]);
   const [originalSchedule, setOriginalSchedule] = useState<ScheduleAssignment[]>([]); // 원본 스케줄 저장
   const [isConfirmed, setIsConfirmed] = useState(false);
@@ -421,7 +445,14 @@ function SchedulePageContent() {
   const [customShiftTypes, setCustomShiftTypes] = useState<ShiftType[]>([]); // Config의 근무 타입 데이터
   const [showMyPreferences, setShowMyPreferences] = useState(false);
   const [loadedScheduleId, setLoadedScheduleId] = useState<string | null>(null); // 이미 로드된 스케줄 ID
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date()); // 오늘의 근무 날짜 선택
+  const [selectedDate, setSelectedDate] = useState<Date>(getInitialDate()); // 오늘의 근무 날짜 선택
+
+  // Handle URL parameter changes for view
+  useEffect(() => {
+    if (viewParam && ['schedule', 'calendar', 'today'].includes(viewParam)) {
+      filters.setActiveView(viewParam);
+    }
+  }, [viewParam, filters]);
 
   // Employee preferences modal state
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
