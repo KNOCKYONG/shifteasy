@@ -62,17 +62,17 @@ export const ScheduleGridView = React.memo(function ScheduleGridView({
 }: ScheduleGridViewProps) {
   // 잔여 OFF 컬럼을 포함한 그리드 템플릿 계산
   const gridTemplateWithOffBalance = showOffBalance
-    ? `${scheduleGridTemplate} 140px`
+    ? `${scheduleGridTemplate} 100px`
     : scheduleGridTemplate;
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-x-auto">
-      <div className="min-w-max">
+      <div>
         <div
           className="grid border-b border-gray-200 dark:border-gray-700"
           style={{ gridTemplateColumns: gridTemplateWithOffBalance }}
         >
-          <div className="p-2 bg-gray-50 dark:bg-gray-800 font-medium text-xs text-gray-700 dark:text-gray-300 flex items-center">
+          <div className="p-1.5 bg-gray-50 dark:bg-gray-800 font-medium text-xs text-gray-700 dark:text-gray-300 flex items-center">
             직원
           </div>
           {daysInMonth.map((date) => {
@@ -106,7 +106,7 @@ export const ScheduleGridView = React.memo(function ScheduleGridView({
             );
           })}
           {showOffBalance && (
-            <div className="py-1 px-2 bg-gray-50 dark:bg-gray-800 text-center border-l border-gray-200 dark:border-gray-700">
+            <div className="py-1 px-1.5 bg-gray-50 dark:bg-gray-800 text-center border-l border-gray-200 dark:border-gray-700">
               <div className="font-medium text-[10px] text-gray-700 dark:text-gray-300 flex items-center justify-center gap-1">
                 <Wallet className="w-3 h-3" />
                 잔여 OFF
@@ -122,7 +122,7 @@ export const ScheduleGridView = React.memo(function ScheduleGridView({
               className="grid border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50"
               style={{ gridTemplateColumns: gridTemplateWithOffBalance }}
             >
-              <div className="p-2 flex flex-col justify-center border-r border-gray-100 dark:border-gray-800">
+              <div className="p-1.5 flex flex-col justify-center border-r border-gray-100 dark:border-gray-800">
                 <div className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">{member.name}</div>
                 <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{member.position}</div>
               </div>
@@ -179,7 +179,7 @@ export const ScheduleGridView = React.memo(function ScheduleGridView({
               })}
 
               {showOffBalance && (
-                <div className="p-2 border-l border-gray-100 dark:border-gray-800 flex flex-col items-center justify-center">
+                <div className="p-1 border-l border-gray-100 dark:border-gray-800 flex flex-col items-center justify-center">
                   {offBalanceData?.get(member.id) ? (
                     <div className="text-[10px] text-center leading-tight">
                       <span className="text-red-600 dark:text-red-400">

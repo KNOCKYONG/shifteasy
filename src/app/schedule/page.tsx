@@ -432,7 +432,7 @@ export default function SchedulePage() {
     [daysInMonth.length]
   );
   const scheduleGridTemplate = React.useMemo(
-    () => `120px repeat(${daysInMonth.length}, minmax(35px, 40px))`,
+    () => `90px repeat(${daysInMonth.length}, minmax(28px, 1fr))`,
     [daysInMonth.length]
   );
 
