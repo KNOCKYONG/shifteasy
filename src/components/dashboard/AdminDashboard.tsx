@@ -16,16 +16,15 @@ export function AdminDashboard() {
   const currentMonth = format(today, 'yyyy-MM');
 
   // Fetch swap requests
-  const { data: swapRequests } = api.swap.list.useQuery({
+  const { data: swapRequests, isLoading: isLoadingSwaps } = api.swap.list.useQuery({
     limit: 100,
     offset: 0,
   });
 
-  // Fetch today's schedules
-  const { data: schedules } = api.schedule.list.useQuery({
-    startDate: today,
-    endDate: today,
+  // Fetch current month's published schedules to find today's assignments
+  const { data: schedules, isLoading: isLoadingSchedules } = api.schedule.list.useQuery({
     status: 'published',
+    limit: 50,
   });
 
   // Calculate stats
@@ -34,9 +33,39 @@ export function AdminDashboard() {
     r.status === 'approved' && r.approvedAt && isToday(new Date(r.approvedAt))
   ) || [];
 
-  const todaySchedule = schedules?.[0];
-  const todayAssignments = (todaySchedule?.metadata as any)?.assignments || [];
-  const workingToday = todayAssignments.length;
+  // Find today's working staff from schedules
+  let workingToday = 0;
+  if (schedules && Array.isArray(schedules)) {
+    console.log('[AdminDashboard] Total schedules:', schedules.length);
+
+    // Find schedule that includes today
+    const todaySchedule = schedules.find((schedule: any) => {
+      const startDate = new Date(schedule.startDate);
+      const endDate = new Date(schedule.endDate);
+      const includes = today >= startDate && today <= endDate;
+      console.log(`[AdminDashboard] Schedule ${schedule.id}: ${format(startDate, 'yyyy-MM-dd')} to ${format(endDate, 'yyyy-MM-dd')}, includes today: ${includes}`);
+      return includes;
+    });
+
+    console.log('[AdminDashboard] Today schedule found:', !!todaySchedule);
+
+    if (todaySchedule) {
+      const metadata = todaySchedule.metadata as any;
+      const assignments = metadata?.assignments || [];
+      console.log('[AdminDashboard] Total assignments in schedule:', assignments.length);
+
+      // Count assignments for today
+      const todayAssignments = assignments.filter((assignment: any) => {
+        const assignmentDate = format(new Date(assignment.date), 'yyyy-MM-dd');
+        const isToday = assignmentDate === todayStr;
+        const isWorking = assignment.shiftId !== 'off';
+        return isToday && isWorking;
+      });
+
+      workingToday = todayAssignments.length;
+      console.log(`[AdminDashboard] Today (${todayStr}) working staff count:`, workingToday);
+    }
+  }
 
   // Stats widgets
   const statsCards = [
