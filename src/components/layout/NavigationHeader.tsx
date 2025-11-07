@@ -81,11 +81,39 @@ export function NavigationHeader() {
     fetchUserInfo();
   }, [clerkUser]);
 
+  // Function to mark notification as read
+  const markNotificationAsRead = async (notificationId: string) => {
+    if (!userInfo) return;
+
+    try {
+      console.log('[NavigationHeader] Marking notification as read:', notificationId);
+
+      const response = await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-id': userInfo.tenantId,
+          'x-user-id': userInfo.id,
+        },
+        body: JSON.stringify({ notificationId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to mark notification as read');
+      }
+
+      const data = await response.json();
+      console.log('[NavigationHeader] Notification marked as read:', data);
+    } catch (err) {
+      console.error('[NavigationHeader] Failed to mark notification as read:', err);
+    }
+  };
+
   // Fetch notifications from API
   useEffect(() => {
-    const loadNotifications = async () => {
-      if (!userInfo) return;
+    if (!userInfo) return;
 
+    const loadNotifications = async () => {
       try {
         const response = await fetch('/api/notifications', {
           headers: {
@@ -101,7 +129,7 @@ export function NavigationHeader() {
           setUnreadCount(data.inbox?.unreadCount || 0);
         }
       } catch (err) {
-        console.error('Failed to load notifications:', err);
+        console.error('[NavigationHeader] Failed to load notifications:', err);
       }
     };
 
@@ -109,28 +137,31 @@ export function NavigationHeader() {
     loadNotifications();
 
     // Setup SSE for real-time notifications
-    if (!userInfo) return;
-
+    console.log('[NavigationHeader] Setting up SSE connection for userId:', userInfo.id);
     const eventSource = new EventSource(`/api/sse?userId=${userInfo.id}`);
 
+    eventSource.addEventListener('connected', (event) => {
+      console.log('[NavigationHeader] SSE connected:', event.data);
+    });
+
     eventSource.addEventListener('notification', (event) => {
-      console.log('[NavigationHeader] Received notification via SSE');
+      console.log('[NavigationHeader] Received notification via SSE:', event.data);
       // Reload notifications when new notification arrives
       loadNotifications();
     });
 
     eventSource.addEventListener('notification_read', (event) => {
-      console.log('[NavigationHeader] Notification marked as read via SSE');
+      console.log('[NavigationHeader] Notification marked as read via SSE:', event.data);
       // Reload notifications when notification is read
       loadNotifications();
     });
 
     eventSource.onerror = (error) => {
       console.error('[NavigationHeader] SSE connection error:', error);
-      eventSource.close();
     };
 
     return () => {
+      console.log('[NavigationHeader] Closing SSE connection');
       eventSource.close();
     };
   }, [userInfo]);
@@ -174,22 +205,8 @@ export function NavigationHeader() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Debug logging for navigation
-  useEffect(() => {
-    if (mounted && currentUser.dbUser) {
-      console.log('🔍 Navigation Debug:', {
-        role: currentUser.role,
-        dbUserRole: currentUser.dbUser?.role,
-        hasDbUser: !!currentUser.dbUser,
-      });
-    }
-  }, [mounted, currentUser.dbUser, currentUser.role]);
-
   // Get role-based navigation items
-  // Wait for dbUser to ensure we have the correct role
-  const roleNavigation = currentUser.dbUser
-    ? getNavigationForRole(currentUser.role as Role)
-    : getNavigationForRole('member' as Role); // Show minimal nav while loading
+  const roleNavigation = getNavigationForRole(currentUser.role as Role);
 
   // Filter out dashboard from navigation (it's in the logo link)
   const navItems: NavItem[] = roleNavigation
@@ -388,7 +405,13 @@ export function NavigationHeader() {
                         notifications.map((notification) => (
                           <div
                             key={notification.id}
-                            onClick={() => {
+                            onClick={async () => {
+                              // Mark as read if unread
+                              if (!notification.readAt) {
+                                await markNotificationAsRead(notification.id);
+                              }
+
+                              // Navigate to action URL
                               if (notification.actionUrl) {
                                 router.push(notification.actionUrl);
                                 setShowNotificationDropdown(false);

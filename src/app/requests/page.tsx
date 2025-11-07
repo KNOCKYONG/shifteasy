@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+export const dynamic = 'force-dynamic';
+
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Clock, CheckCircle, XCircle, AlertCircle, Calendar, User, ArrowLeftRight, Eye } from 'lucide-react';
@@ -38,7 +40,8 @@ interface SwapRequest {
   } | null;
 }
 
-export default function RequestsPage() {
+// Separate component that uses useSearchParams
+function RequestsPageContent() {
   const { isLoaded, dbUser, role } = useCurrentUser();
   const searchParams = useSearchParams();
 
@@ -437,5 +440,20 @@ export default function RequestsPage() {
         />
       )}
     </MainLayout>
+  );
+}
+
+// Main page component with Suspense boundary
+export default function RequestsPage() {
+  return (
+    <Suspense fallback={
+      <MainLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-gray-600 dark:text-gray-400">로딩 중...</div>
+        </div>
+      </MainLayout>
+    }>
+      <RequestsPageContent />
+    </Suspense>
   );
 }

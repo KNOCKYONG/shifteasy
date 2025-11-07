@@ -1,13 +1,12 @@
 "use client";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Settings, Save, AlertCircle, Clock, Users, ChevronRight, Database, Trash2, Activity, Plus, Edit2, Briefcase, Building, FileText, UserCheck, GraduationCap } from "lucide-react";
+import { Settings, Save, AlertCircle, Clock, Users, ChevronRight, Database, Trash2, Activity, Plus, Edit2, Briefcase, Building, FileText, UserCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { ShiftTypesTab } from "./ShiftTypesTab";
 import { PositionGroupsTab } from "./PositionGroupsTab";
-import { ExperienceLevelsTab, ExperienceLevel } from "./ExperienceLevelsTab";
 import { api as trpc } from "@/lib/trpc/client";
 
 interface ContractType {
@@ -35,8 +34,8 @@ function ConfigPageContent() {
   const setConfigMutation = trpc.tenantConfigs.set.useMutation();
 
   // URL 파라미터에서 tab 읽기
-  const tabFromUrl = searchParams.get('tab') as "preferences" | "positions" | "positionGroups" | "shifts" | "experienceLevels" | "secretCode" | null;
-  const [activeTab, setActiveTab] = useState<"preferences" | "positions" | "positionGroups" | "shifts" | "experienceLevels" | "secretCode">(tabFromUrl || "preferences");
+  const tabFromUrl = searchParams.get('tab') as "preferences" | "positions" | "positionGroups" | "shifts" | "secretCode" | null;
+  const [activeTab, setActiveTab] = useState<"preferences" | "positions" | "positionGroups" | "shifts" | "secretCode">(tabFromUrl || "preferences");
   const [currentUser, setCurrentUser] = useState<{ role: string } | null>(null);
   const [positions, setPositions] = useState<{value: string; label: string; level: number}[]>([]);
   const [newPosition, setNewPosition] = useState({ value: '', label: '', level: 1 });
@@ -123,9 +122,6 @@ function ConfigPageContent() {
     color: string;
   }[]>([]);
 
-  // Experience levels state
-  const [experienceLevels, setExperienceLevels] = useState<ExperienceLevel[]>([]);
-
   useEffect(() => {
     // Fetch current user role
     fetch('/api/users/me')
@@ -200,7 +196,6 @@ function ConfigPageContent() {
     setContractTypes(allConfigs.contract_types || defaultContractTypes);
     setEmployeeStatuses(allConfigs.employee_statuses || defaultEmployeeStatuses);
     setPositionGroups(allConfigs.position_groups || []);
-    setExperienceLevels(allConfigs.experience_levels || []);
 
     // Load preferences
     if (allConfigs.preferences) {
@@ -224,7 +219,6 @@ function ConfigPageContent() {
         setConfigMutation.mutateAsync({ configKey: 'contract_types', configValue: contractTypes }),
         setConfigMutation.mutateAsync({ configKey: 'employee_statuses', configValue: employeeStatuses }),
         setConfigMutation.mutateAsync({ configKey: 'position_groups', configValue: positionGroups }),
-        setConfigMutation.mutateAsync({ configKey: 'experience_levels', configValue: experienceLevels }),
         setConfigMutation.mutateAsync({ configKey: 'preferences', configValue: config.preferences }),
       ]);
 
@@ -295,17 +289,6 @@ function ConfigPageContent() {
               }`}
             >
               {t('tabs.shifts', { ns: 'config', defaultValue: '근무 타입' })}
-            </button>
-            <button
-              onClick={() => setActiveTab("experienceLevels")}
-              className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === "experienceLevels"
-                  ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
-                  : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
-              }`}
-            >
-              <GraduationCap className="w-4 h-4 inline mr-2" />
-              경력 단계
             </button>
           </nav>
         </div>
@@ -536,14 +519,6 @@ function ConfigPageContent() {
             setNewShiftType={setNewShiftType}
             editingShiftType={editingShiftType}
             setEditingShiftType={setEditingShiftType}
-          />
-        )}
-
-        {/* Experience Levels Tab */}
-        {activeTab === "experienceLevels" && (
-          <ExperienceLevelsTab
-            experienceLevels={experienceLevels}
-            setExperienceLevels={setExperienceLevels}
           />
         )}
 

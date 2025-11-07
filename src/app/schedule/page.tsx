@@ -1,7 +1,10 @@
 "use client";
-import React, { useState, useEffect } from "react";
+
+export const dynamic = 'force-dynamic';
+
+import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isWeekend, parseISO } from "date-fns";
+import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isWeekend } from "date-fns";
 import { ko } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCcw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings, FolderOpen, ArrowLeftRight, Save } from "lucide-react";
 import { MainLayout } from "../../components/layout/MainLayout";
@@ -390,7 +393,7 @@ function createDefaultPreferencesFromTeamPattern(
   };
 }
 
-export default function SchedulePage() {
+function SchedulePageContent() {
   const utils = api.useUtils();
   const currentUser = useCurrentUser();
   const userRole = (currentUser.dbUser?.role ?? currentUser.role) as string | undefined;
@@ -401,24 +404,14 @@ export default function SchedulePage() {
   const canViewStaffPreferences = canManageSchedules && !isMember;
   const currentUserId = currentUser.userId || "user-1";
   const currentUserName = currentUser.name || "사용자";
+  const searchParams = useSearchParams();
 
   // Custom hooks for state management
   const filters = useScheduleFilters();
   const modals = useScheduleModals();
 
   // Core schedule state (not extracted to hooks due to complex interdependencies)
-  const searchParams = useSearchParams();
-  const dateParam = searchParams.get('date');
-  const [currentMonth, setCurrentMonth] = useState(() => {
-    if (dateParam) {
-      try {
-        return startOfMonth(parseISO(dateParam));
-      } catch (e) {
-        return startOfMonth(new Date());
-      }
-    }
-    return startOfMonth(new Date());
-  });
+  const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()));
   const [schedule, setSchedule] = useState<ScheduleAssignment[]>([]);
   const [originalSchedule, setOriginalSchedule] = useState<ScheduleAssignment[]>([]); // 원본 스케줄 저장
   const [isConfirmed, setIsConfirmed] = useState(false);
@@ -611,6 +604,14 @@ export default function SchedulePage() {
       filters.setActiveView('today');
     }
   }, [isMember, canViewStaffPreferences, filters.activeView, filters.setActiveView]);
+
+  // URL 파라미터로부터 view 설정
+  useEffect(() => {
+    const view = searchParams.get('view');
+    if (view && (view === 'preferences' || view === 'today' || view === 'schedule')) {
+      filters.setActiveView(view as 'preferences' | 'today' | 'schedule');
+    }
+  }, [searchParams, filters.setActiveView]);
 
   // Load shift types from tenant_configs table
   const { data: shiftTypesConfig } = api.tenantConfigs.getByKey.useQuery({
@@ -2963,6 +2964,7 @@ export default function SchedulePage() {
           setSchedule([]);
           setLoadedScheduleId(null);
           setGenerationResult(null);
+          setIsConfirmed(false); // Reset confirmed state
         }}
         onScheduleLoad={handleLoadSchedule}
       />
@@ -3084,5 +3086,20 @@ export default function SchedulePage() {
       )}
 
     </MainLayout>
+  );
+}
+
+// Main page component with Suspense boundary
+export default function SchedulePage() {
+  return (
+    <Suspense fallback={
+      <MainLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-gray-600 dark:text-gray-400">로딩 중...</div>
+        </div>
+      </MainLayout>
+    }>
+      <SchedulePageContent />
+    </Suspense>
   );
 }

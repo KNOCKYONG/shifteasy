@@ -19,9 +19,18 @@ export interface SSEEvent {
 class SSEManager {
   private clients: Map<string, ReadableStreamDefaultController> = new Map();
   private heartbeatIntervals: Map<string, NodeJS.Timeout> = new Map();
+  private clientUserMap: Map<string, string> = new Map(); // clientId -> userId 매핑
 
-  addClient(clientId: string, controller: ReadableStreamDefaultController) {
+  addClient(clientId: string, controller: ReadableStreamDefaultController, userId?: string) {
     this.clients.set(clientId, controller);
+
+    // userId 매핑 저장
+    if (userId) {
+      this.clientUserMap.set(clientId, userId);
+      console.log(`[SSEManager] Client registered - clientId: ${clientId}, userId: ${userId}, total clients: ${this.clients.size}`);
+    } else {
+      console.log(`[SSEManager] Client registered without userId - clientId: ${clientId}, total clients: ${this.clients.size}`);
+    }
 
     // Heartbeat 설정 (30초마다 ping)
     const interval = setInterval(() => {
@@ -42,6 +51,25 @@ class SSEManager {
       this.heartbeatIntervals.delete(clientId);
     }
     this.clients.delete(clientId);
+    this.clientUserMap.delete(clientId); // userId 매핑도 제거
+    console.log(`[SSEManager] Client removed - clientId: ${clientId}, remaining clients: ${this.clients.size}`);
+  }
+
+  // 특정 userId에 해당하는 모든 clientId를 찾기
+  getClientIdsByUserId(userId: string): string[] {
+    console.log(`[SSEManager] getClientIdsByUserId called for userId: ${userId}`);
+    console.log(`[SSEManager] Current clientUserMap:`, Array.from(this.clientUserMap.entries()));
+    console.log(`[SSEManager] Total clients in map: ${this.clients.size}, Total userId mappings: ${this.clientUserMap.size}`);
+
+    const clientIds: string[] = [];
+    this.clientUserMap.forEach((mappedUserId, clientId) => {
+      if (mappedUserId === userId) {
+        clientIds.push(clientId);
+      }
+    });
+
+    console.log(`[SSEManager] Found ${clientIds.length} clients for userId ${userId}:`, clientIds);
+    return clientIds;
   }
 
   sendToClient(clientId: string, event: SSEEvent) {
@@ -71,8 +99,17 @@ class SSEManager {
   }
 }
 
-// 전역 SSE 매니저 인스턴스
-export const sseManager = new SSEManager();
+// 전역 SSE 매니저 인스턴스 (HMR 및 서버리스 환경에서도 유지)
+const globalForSSE = globalThis as unknown as {
+  sseManager: SSEManager | undefined;
+};
+
+export const sseManager = globalForSSE.sseManager ?? new SSEManager();
+
+// 개발 환경에서 HMR 시에도 인스턴스 유지
+if (process.env.NODE_ENV !== 'production') {
+  globalForSSE.sseManager = sseManager;
+}
 
 // 이벤트 발송 헬퍼 함수들
 export function notifyScheduleUpdate(scheduleId: string, changes: any) {
