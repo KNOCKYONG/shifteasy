@@ -56,9 +56,15 @@ export const DEFAULT_PATTERNS = [
   ['D', 'D', 'D', 'D', 'OFF', 'OFF', 'OFF'], // 4일 근무, 3일 휴무
 ];
 
-// 검증 함수
-export function validateTeamPattern(pattern: Partial<TeamPattern>): TeamPatternValidation {
+// 검증 함수 (shift_types를 외부에서 받아서 검증)
+export function validateTeamPattern(
+  pattern: Partial<TeamPattern>,
+  validShiftCodes?: string[]
+): TeamPatternValidation {
   const errors: string[] = [];
+
+  // 유효한 시프트 코드 목록 (기본값은 하드코딩된 값 사용)
+  const allowedShiftCodes = validShiftCodes || Object.values(SHIFT_TYPES);
 
   // 필요 인원 합계 검증
   const totalRequired = (pattern.requiredStaffDay || 0) +
@@ -93,7 +99,7 @@ export function validateTeamPattern(pattern: Partial<TeamPattern>): TeamPatternV
 
       // 각 요소가 유효한 시프트 타입인지 검증
       patternArray.forEach((shift, shiftIndex) => {
-        if (!Object.values(SHIFT_TYPES).includes(shift as ShiftType)) {
+        if (!allowedShiftCodes.includes(shift)) {
           errors.push(`기본 패턴 ${index + 1}의 ${shiftIndex + 1}번째 시프트(${shift})가 유효하지 않습니다.`);
         }
       });
@@ -130,10 +136,10 @@ export function validateTeamPattern(pattern: Partial<TeamPattern>): TeamPatternV
 
       // 각 요소가 유효한 시프트 타입인지 검증 (OFF 제외 - 기피 패턴에서 OFF는 의미 없음)
       avoidArray.forEach((shift, shiftIndex) => {
-        if (!Object.values(SHIFT_TYPES).includes(shift as ShiftType)) {
+        if (!allowedShiftCodes.includes(shift)) {
           errors.push(`기피 패턴 ${index + 1}의 ${shiftIndex + 1}번째 시프트(${shift})가 유효하지 않습니다.`);
         }
-        if (shift === 'OFF') {
+        if (shift === 'OFF' || shift === 'O') {
           errors.push(`기피 패턴 ${index + 1}에 OFF를 포함할 수 없습니다. 근무 시프트만 조합하세요.`);
         }
       });

@@ -183,8 +183,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 비즈니스 로직 검증
-    const validation = validateTeamPattern(data);
+    // tenant_configs에서 shift_types 가져오기
+    const departmentInfo = await db
+      .select()
+      .from(departments)
+      .where(eq(departments.id, data.departmentId))
+      .limit(1);
+
+    const tenantId = departmentInfo[0]?.tenantId || user.tenantId;
+
+    const shiftTypesConfig = await db
+      .select()
+      .from(tenantConfigs)
+      .where(
+        and(
+          eq(tenantConfigs.tenantId, tenantId),
+          eq(tenantConfigs.configKey, 'shift_types')
+        )
+      )
+      .limit(1);
+
+    const shiftTypes = (shiftTypesConfig[0]?.configValue as any[]) || [];
+    const validShiftCodes = shiftTypes.map((st: any) => st.code);
+
+    console.log('[POST] Valid shift codes:', validShiftCodes);
+
+    // 비즈니스 로직 검증 (실제 shift_types 기준으로 검증)
+    const validation = validateTeamPattern(data, validShiftCodes);
     if (!validation.isValid) {
       return NextResponse.json(
         { error: '검증 실패', details: validation.errors },
@@ -307,8 +332,31 @@ export async function PUT(request: NextRequest) {
       avoidPatterns: (data.avoidPatterns ?? pattern.avoidPatterns) || undefined,
     };
 
-    // 비즈니스 로직 검증
-    const validation = validateTeamPattern(updatedData);
+    // tenant_configs에서 shift_types 가져오기
+    const departmentInfo = await db
+      .select()
+      .from(departments)
+      .where(eq(departments.id, pattern.departmentId))
+      .limit(1);
+
+    const tenantId = departmentInfo[0]?.tenantId || user.tenantId;
+
+    const shiftTypesConfig = await db
+      .select()
+      .from(tenantConfigs)
+      .where(
+        and(
+          eq(tenantConfigs.tenantId, tenantId),
+          eq(tenantConfigs.configKey, 'shift_types')
+        )
+      )
+      .limit(1);
+
+    const shiftTypes = (shiftTypesConfig[0]?.configValue as any[]) || [];
+    const validShiftCodes = shiftTypes.map((st: any) => st.code);
+
+    // 비즈니스 로직 검증 (실제 shift_types 기준으로 검증)
+    const validation = validateTeamPattern(updatedData, validShiftCodes);
     if (!validation.isValid) {
       return NextResponse.json(
         { error: '검증 실패', details: validation.errors },

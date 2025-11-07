@@ -6,7 +6,7 @@ import { useState, useDeferredValue } from 'react';
  */
 export function useScheduleFilters() {
   // View State
-  const [activeView, setActiveView] = useState<'preferences' | 'today' | 'schedule'>('preferences');
+  const [activeView, setActiveView] = useState<'preferences' | 'today' | 'schedule' | 'calendar'>('preferences');
   const [viewMode, setViewMode] = useState<'grid' | 'calendar'>('grid');
   const [showCodeFormat, setShowCodeFormat] = useState(true);
 
