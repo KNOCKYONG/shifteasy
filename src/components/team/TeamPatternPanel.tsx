@@ -57,7 +57,7 @@ export function TeamPatternPanel({
     requiredStaffDay: 5,
     requiredStaffEvening: 4,
     requiredStaffNight: 3,
-    defaultPatterns: [['D', 'D', 'D', 'O', 'O']],
+    defaultPatterns: [['D', 'D', 'D', 'OFF', 'OFF']],
     avoidPatterns: [], // 기피 패턴 초기화
     totalMembers,
   });
@@ -99,6 +99,11 @@ export function TeamPatternPanel({
         setPattern(data.pattern);
       } else if (data.defaultPattern) {
         setPattern({ ...data.defaultPattern, totalMembers });
+      }
+
+      // API에서 받은 shiftTypes가 있으면 로그 출력 (디버깅용)
+      if (data.shiftTypes) {
+        console.log('[TeamPatternPanel] Received shiftTypes from API:', data.shiftTypes);
       }
     } catch (error) {
       console.error('Failed to fetch team pattern:', error);

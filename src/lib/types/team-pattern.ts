@@ -43,6 +43,7 @@ export const SHIFT_TYPES = {
   EVENING: 'E',
   NIGHT: 'N',
   OFF: 'OFF',
+  O: 'O', // 휴무 (단축 표기)
 } as const;
 
 export type ShiftType = typeof SHIFT_TYPES[keyof typeof SHIFT_TYPES];
