@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import type { ComprehensivePreferences } from '@/components/team/MyPreferencesPanel';
 import { db } from '@/db';
-import { tenantConfigs } from '@/db/schema/tenant-configs';
+import { configs } from '@/db/schema/configs';
 import { nursePreferences } from '@/db/schema/nurse-preferences';
 import { users } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
@@ -103,8 +103,8 @@ export async function GET(request: NextRequest) {
     if (!employeeId) {
       // 모든 직원의 선호도 반환
       const allConfigs = await db.select()
-        .from(tenantConfigs)
-        .where(eq(tenantConfigs.tenantId, tenantId));
+        .from(configs)
+        .where(eq(configs.tenantId, tenantId));
 
       const allPreferences: Record<string, ComprehensivePreferences> = {};
 
@@ -126,10 +126,10 @@ export async function GET(request: NextRequest) {
     // 특정 직원의 선호도 반환
     const configKey = `preferences_${employeeId}`;
     const result = await db.select()
-      .from(tenantConfigs)
+      .from(configs)
       .where(and(
-        eq(tenantConfigs.tenantId, tenantId),
-        eq(tenantConfigs.configKey, configKey)
+        eq(configs.tenantId, tenantId),
+        eq(configs.configKey, configKey)
       ))
       .limit(1);
 
@@ -185,27 +185,27 @@ export async function POST(request: NextRequest) {
 
     // 1. Update tenant_configs (legacy storage)
     const existing = await db.select()
-      .from(tenantConfigs)
+      .from(configs)
       .where(and(
-        eq(tenantConfigs.tenantId, tenantId),
-        eq(tenantConfigs.configKey, configKey)
+        eq(configs.tenantId, tenantId),
+        eq(configs.configKey, configKey)
       ))
       .limit(1);
 
     if (existing.length > 0) {
       // Update
-      await db.update(tenantConfigs)
+      await db.update(configs)
         .set({
           configValue: preferences,
           updatedAt: new Date(),
         })
         .where(and(
-          eq(tenantConfigs.tenantId, tenantId),
-          eq(tenantConfigs.configKey, configKey)
+          eq(configs.tenantId, tenantId),
+          eq(configs.configKey, configKey)
         ));
     } else {
       // Insert
-      await db.insert(tenantConfigs)
+      await db.insert(configs)
         .values({
           tenantId,
           configKey,
@@ -309,10 +309,10 @@ export async function DELETE(request: NextRequest) {
 
     // 삭제 전 존재 여부 확인
     const existing = await db.select()
-      .from(tenantConfigs)
+      .from(configs)
       .where(and(
-        eq(tenantConfigs.tenantId, tenantId),
-        eq(tenantConfigs.configKey, configKey)
+        eq(configs.tenantId, tenantId),
+        eq(configs.configKey, configKey)
       ))
       .limit(1);
 
@@ -326,10 +326,10 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await db.delete(tenantConfigs)
+    await db.delete(configs)
       .where(and(
-        eq(tenantConfigs.tenantId, tenantId),
-        eq(tenantConfigs.configKey, configKey)
+        eq(configs.tenantId, tenantId),
+        eq(configs.configKey, configKey)
       ));
 
     return NextResponse.json({
@@ -379,10 +379,10 @@ export async function PATCH(request: NextRequest) {
 
     // 기존 레코드 조회
     const existing = await db.select()
-      .from(tenantConfigs)
+      .from(configs)
       .where(and(
-        eq(tenantConfigs.tenantId, tenantId),
-        eq(tenantConfigs.configKey, configKey)
+        eq(configs.tenantId, tenantId),
+        eq(configs.configKey, configKey)
       ))
       .limit(1);
 
@@ -399,14 +399,14 @@ export async function PATCH(request: NextRequest) {
     // 깊은 병합
     const merged = deepMerge(existing[0].configValue, updates);
 
-    await db.update(tenantConfigs)
+    await db.update(configs)
       .set({
         configValue: merged,
         updatedAt: new Date(),
       })
       .where(and(
-        eq(tenantConfigs.tenantId, tenantId),
-        eq(tenantConfigs.configKey, configKey)
+        eq(configs.tenantId, tenantId),
+        eq(configs.configKey, configKey)
       ));
 
     return NextResponse.json({

@@ -19,7 +19,6 @@ ShiftEasy는 의료, 제조, 서비스 산업을 위한 근무 스케줄 관리 
 | notifications | 191 | 사용자 알림 |
 | audit_log | 179 | 감사 로그 |
 | users | 75 | 사용자 계정 |
-| tenant_configs | 44 | 테넌트별 설정 |
 | holidays | 29 | 법정 공휴일 |
 | nurse_preferences | 29 | 직원 선호사항 |
 | departments | 22 | 부서 정보 |
@@ -28,6 +27,7 @@ ShiftEasy는 의료, 제조, 서비스 산업을 위한 근무 스케줄 관리 
 | swap_requests | 6 | 교대 요청 |
 | tenants | 4 | 테넌트 조직 |
 | team_patterns | 2 | 팀 근무 패턴 |
+| configs | 0 | 조직 설정 (tenant/department별) |
 
 ---
 
@@ -292,15 +292,16 @@ CREATE TABLE "swap_requests" (
 
 ## Configuration Tables
 
-### tenant_configs
-**목적**: 테넌트별 설정 마스터 데이터
+### configs
+**목적**: 조직 설정 마스터 데이터 (Tenant 및 Department별 설정)
 
-**행 수**: 44
+**행 수**: 0 (마이그레이션 후)
 
 ```sql
-CREATE TABLE "tenant_configs" (
+CREATE TABLE "configs" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  "tenant_id" uuid NOT NULL REFERENCES "tenants"("id"),
+  "tenant_id" uuid NOT NULL REFERENCES "tenants"("id") ON DELETE CASCADE,
+  "department_id" uuid REFERENCES "departments"("id") ON DELETE CASCADE,
   "config_key" text NOT NULL,
   "config_value" jsonb NOT NULL,
   "created_at" timestamptz NOT NULL DEFAULT now(),
@@ -308,20 +309,25 @@ CREATE TABLE "tenant_configs" (
 );
 ```
 
-**Unique Constraint**: (tenant_id, config_key)
+**Unique Constraint**: (tenant_id, department_id, config_key)
+
+**Department-Level Override**:
+- `department_id`가 NULL: 테넌트 전체 기본 설정
+- `department_id`가 있음: 해당 부서의 설정 (기본 설정 오버라이드)
+- 조회 시 부서별 설정이 우선, 없으면 테넌트 기본 설정 사용
 
 **Config Keys**:
-- `shift_types`: 근무 타입 정의
-- `positions`: 직위 목록
-- `departments`: 부서 설정
+- `shift_types`: 근무 타입 정의 (부서별로 다를 수 있음)
+- `positions`: 직위 목록 (부서별로 다를 수 있음)
+- `departments`: 부서 설정 (tenant 레벨)
 - `contract_types`: 계약 형태
 - `position_groups`: 직위 그룹
 - `employee_statuses`: 직원 상태
-- `schedule_rules`: 스케줄 생성 규칙
-- `shift_rules`: 근무 규칙
+- `schedule_rules`: 스케줄 생성 규칙 (부서별)
+- `shift_rules`: 근무 규칙 (부서별)
 - `performance_thresholds`: 성능 임계값
 - `staff_experience_weights`: 경력 가중치
-- `team_balance_rules`: 팀 밸런스 규칙
+- `team_balance_rules`: 팀 밸런스 규칙 (부서별)
 - `balance_weights`: 밸런스 계산 가중치
 - `staff_default_values`: 직원 기본값
 
@@ -590,12 +596,13 @@ erDiagram
     tenants ||--o{ notifications : has
     tenants ||--o{ swap_requests : has
     tenants ||--o{ teams : has
-    tenants ||--o{ tenant_configs : has
+    tenants ||--o{ configs : has
 
     departments ||--o{ users : contains
     departments ||--o{ schedules : has
     departments ||--o{ teams : has
     departments ||--o{ team_patterns : has
+    departments ||--o{ configs : "can override"
 
     teams ||--o{ users : contains
 
@@ -623,7 +630,7 @@ erDiagram
 6. **swap_requests**: tenant별 교대 요청
 7. **teams**: tenant별 팀
 8. **nurse_preferences**: tenant별 선호사항
-9. **tenant_configs**: tenant별 설정
+9. **configs**: tenant별 설정 (부서별 오버라이드 가능)
 
 **Soft Delete 패턴**: `deleted_at` 컬럼 또는 `deleted_flag` 사용
 
@@ -640,7 +647,7 @@ erDiagram
 ### Composite Indexes
 - `schedules_date_range_idx`: (start_date, end_date)
 - `holidays_tenant_date_idx`: (tenant_id, date)
-- `tenant_configs`: UNIQUE (tenant_id, config_key)
+- `configs`: UNIQUE (tenant_id, department_id, config_key)
 
 ---
 
@@ -662,7 +669,18 @@ JSONB를 사용하는 주요 컬럼들:
 
 ## Change Log
 
-### 2025-01-08
+### 2025-01-08 (v2)
+- **BREAKING CHANGE**: `tenant_configs` 테이블 → `configs` 테이블로 변경
+- `configs` 테이블에 `department_id` 컬럼 추가
+  - NULL: 테넌트 전체 기본 설정
+  - 값 있음: 부서별 설정 오버라이드
+- Unique constraint 변경: (tenant_id, config_key) → (tenant_id, department_id, config_key)
+- 부서별 shift_types, positions 등 독립 설정 지원
+- API 라우터 department_id 지원 추가
+- Helper 함수들 department별 설정 조회 지원
+- 모든 기존 데이터 삭제 (마이그레이션 필요)
+
+### 2025-01-08 (v1)
 - 초기 스키마 문서 생성
 - 12개 활성 테이블 문서화
 - 총 608 rows 데이터 확인

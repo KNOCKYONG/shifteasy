@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentUser } from '@/lib/auth';
 import { db } from '@/db';
-import { teamPatterns, tenantConfigs, departments } from '@/db/schema';
+import { teamPatterns, configs, departments } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { validateTeamPattern } from '@/lib/types/team-pattern';
 
@@ -91,11 +91,11 @@ export async function GET(request: NextRequest) {
     // tenant_configs에서 shift_types 가져오기
     const shiftTypesConfig = await db
       .select()
-      .from(tenantConfigs)
+      .from(configs)
       .where(
         and(
-          eq(tenantConfigs.tenantId, tenantId),
-          eq(tenantConfigs.configKey, 'shift_types')
+          eq(configs.tenantId, tenantId),
+          eq(configs.configKey, 'shift_types')
         )
       )
       .limit(1);
@@ -194,11 +194,11 @@ export async function POST(request: NextRequest) {
 
     const shiftTypesConfig = await db
       .select()
-      .from(tenantConfigs)
+      .from(configs)
       .where(
         and(
-          eq(tenantConfigs.tenantId, tenantId),
-          eq(tenantConfigs.configKey, 'shift_types')
+          eq(configs.tenantId, tenantId),
+          eq(configs.configKey, 'shift_types')
         )
       )
       .limit(1);
@@ -343,11 +343,11 @@ export async function PUT(request: NextRequest) {
 
     const shiftTypesConfig = await db
       .select()
-      .from(tenantConfigs)
+      .from(configs)
       .where(
         and(
-          eq(tenantConfigs.tenantId, tenantId),
-          eq(tenantConfigs.configKey, 'shift_types')
+          eq(configs.tenantId, tenantId),
+          eq(configs.configKey, 'shift_types')
         )
       )
       .limit(1);

@@ -644,8 +644,8 @@ function SchedulePageContent() {
     }
   }, [searchParams, filters.setActiveView]);
 
-  // Load shift types from tenant_configs table
-  const { data: shiftTypesConfig } = api.tenantConfigs.getByKey.useQuery({
+  // Load shift types from configs table
+  const { data: shiftTypesConfig } = api.configs.getByKey.useQuery({
     configKey: 'shift_types'
   }, {
     staleTime: 0, // 항상 최신 데이터 가져오기
@@ -654,7 +654,7 @@ function SchedulePageContent() {
   });
 
   // Load shift config (나이트 집중 근무 유급 휴가 설정 등)
-  const { data: shiftConfigData } = api.tenantConfigs.getByKey.useQuery({
+  const { data: shiftConfigData } = api.configs.getByKey.useQuery({
     configKey: 'shiftConfig'
   }, {
     staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지

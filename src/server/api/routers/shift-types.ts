@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { db } from '@/db';
-import { tenantConfigs } from '@/db/schema/tenant-configs';
-import { eq, and } from 'drizzle-orm';
+import { configs } from '@/db/schema/configs';
+import { eq, and, isNull } from 'drizzle-orm';
 
 // ShiftType interface matching the config structure
 interface ShiftType {
@@ -29,10 +29,10 @@ export const shiftTypesRouter = createTRPCRouter({
 
       // Get shift types from tenant_configs
       const configResult = await db.select()
-        .from(tenantConfigs)
+        .from(configs)
         .where(and(
-          eq(tenantConfigs.tenantId, tenantId),
-          eq(tenantConfigs.configKey, 'shift_types')
+          eq(configs.tenantId, tenantId),
+          eq(configs.configKey, 'shift_types')
         ))
         .limit(1);
 
@@ -60,10 +60,10 @@ export const shiftTypesRouter = createTRPCRouter({
 
       // Get shift types from tenant_configs
       const configResult = await db.select()
-        .from(tenantConfigs)
+        .from(configs)
         .where(and(
-          eq(tenantConfigs.tenantId, tenantId),
-          eq(tenantConfigs.configKey, 'shift_types')
+          eq(configs.tenantId, tenantId),
+          eq(configs.configKey, 'shift_types')
         ))
         .limit(1);
 
@@ -92,10 +92,10 @@ export const shiftTypesRouter = createTRPCRouter({
 
       // Get current shift types
       const configResult = await db.select()
-        .from(tenantConfigs)
+        .from(configs)
         .where(and(
-          eq(tenantConfigs.tenantId, tenantId),
-          eq(tenantConfigs.configKey, 'shift_types')
+          eq(configs.tenantId, tenantId),
+          eq(configs.configKey, 'shift_types')
         ))
         .limit(1);
 
@@ -134,17 +134,17 @@ export const shiftTypesRouter = createTRPCRouter({
 
       // Save back to tenant_configs
       if (configResult[0]) {
-        await db.update(tenantConfigs)
+        await db.update(configs)
           .set({
             configValue: shiftTypes,
             updatedAt: new Date(),
           })
           .where(and(
-            eq(tenantConfigs.tenantId, tenantId),
-            eq(tenantConfigs.configKey, 'shift_types')
+            eq(configs.tenantId, tenantId),
+            eq(configs.configKey, 'shift_types')
           ));
       } else {
-        await db.insert(tenantConfigs)
+        await db.insert(configs)
           .values({
             tenantId,
             configKey: 'shift_types',
@@ -165,10 +165,10 @@ export const shiftTypesRouter = createTRPCRouter({
 
       // Get current shift types
       const configResult = await db.select()
-        .from(tenantConfigs)
+        .from(configs)
         .where(and(
-          eq(tenantConfigs.tenantId, tenantId),
-          eq(tenantConfigs.configKey, 'shift_types')
+          eq(configs.tenantId, tenantId),
+          eq(configs.configKey, 'shift_types')
         ))
         .limit(1);
 
@@ -182,14 +182,14 @@ export const shiftTypesRouter = createTRPCRouter({
       shiftTypes = shiftTypes.filter(st => st.id !== input.id);
 
       // Save back
-      await db.update(tenantConfigs)
+      await db.update(configs)
         .set({
           configValue: shiftTypes,
           updatedAt: new Date(),
         })
         .where(and(
-          eq(tenantConfigs.tenantId, tenantId),
-          eq(tenantConfigs.configKey, 'shift_types')
+          eq(configs.tenantId, tenantId),
+          eq(configs.configKey, 'shift_types')
         ));
 
       return { success: true };

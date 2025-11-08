@@ -49,7 +49,7 @@ export const SwapPreviewModal = React.memo(function SwapPreviewModal({
   });
 
   // Fetch shift types for display
-  const { data: shiftTypesConfig } = api.tenantConfigs.getByKey.useQuery({
+  const { data: shiftTypesConfig } = api.configs.getByKey.useQuery({
     configKey: 'shift_types',
   });
 

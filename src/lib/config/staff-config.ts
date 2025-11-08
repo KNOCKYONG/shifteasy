@@ -4,8 +4,8 @@
  */
 
 import { db } from '@/db';
-import { tenantConfigs } from '@/db/schema/tenant-configs';
-import { eq, and } from 'drizzle-orm';
+import { configs } from '@/db/schema/configs';
+import { eq, and, isNull } from 'drizzle-orm';
 
 const DEFAULT_TENANT_ID = '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
 
@@ -95,10 +95,10 @@ export interface StaffDefaultValues {
 export async function getExperienceWeights(tenantId: string = DEFAULT_TENANT_ID): Promise<ExperienceWeights> {
   try {
     const result = await db.select()
-      .from(tenantConfigs)
+      .from(configs)
       .where(and(
-        eq(tenantConfigs.tenantId, tenantId),
-        eq(tenantConfigs.configKey, 'staff_experience_weights')
+        eq(configs.tenantId, tenantId),
+        eq(configs.configKey, 'staff_experience_weights')
       ))
       .limit(1);
 
@@ -118,10 +118,10 @@ export async function getExperienceWeights(tenantId: string = DEFAULT_TENANT_ID)
 export async function getTeamBalance(tenantId: string = DEFAULT_TENANT_ID): Promise<TeamBalance> {
   try {
     const result = await db.select()
-      .from(tenantConfigs)
+      .from(configs)
       .where(and(
-        eq(tenantConfigs.tenantId, tenantId),
-        eq(tenantConfigs.configKey, 'team_balance_rules')
+        eq(configs.tenantId, tenantId),
+        eq(configs.configKey, 'team_balance_rules')
       ))
       .limit(1);
 
@@ -141,10 +141,10 @@ export async function getTeamBalance(tenantId: string = DEFAULT_TENANT_ID): Prom
 export async function getBalanceWeights(tenantId: string = DEFAULT_TENANT_ID): Promise<BalanceWeights> {
   try {
     const result = await db.select()
-      .from(tenantConfigs)
+      .from(configs)
       .where(and(
-        eq(tenantConfigs.tenantId, tenantId),
-        eq(tenantConfigs.configKey, 'balance_weights')
+        eq(configs.tenantId, tenantId),
+        eq(configs.configKey, 'balance_weights')
       ))
       .limit(1);
 
@@ -164,10 +164,10 @@ export async function getBalanceWeights(tenantId: string = DEFAULT_TENANT_ID): P
 export async function getStaffDefaultValues(tenantId: string = DEFAULT_TENANT_ID): Promise<StaffDefaultValues> {
   try {
     const result = await db.select()
-      .from(tenantConfigs)
+      .from(configs)
       .where(and(
-        eq(tenantConfigs.tenantId, tenantId),
-        eq(tenantConfigs.configKey, 'staff_default_values')
+        eq(configs.tenantId, tenantId),
+        eq(configs.configKey, 'staff_default_values')
       ))
       .limit(1);
 
@@ -185,14 +185,14 @@ export async function getStaffDefaultValues(tenantId: string = DEFAULT_TENANT_ID
  * Save experience weights to tenant_configs
  */
 export async function saveExperienceWeights(weights: ExperienceWeights, tenantId: string = DEFAULT_TENANT_ID): Promise<void> {
-  await db.insert(tenantConfigs)
+  await db.insert(configs)
     .values({
       tenantId,
       configKey: 'staff_experience_weights',
       configValue: weights,
     })
     .onConflictDoUpdate({
-      target: [tenantConfigs.tenantId, tenantConfigs.configKey],
+      target: [configs.tenantId, configs.configKey],
       set: {
         configValue: weights,
         updatedAt: new Date(),
@@ -204,14 +204,14 @@ export async function saveExperienceWeights(weights: ExperienceWeights, tenantId
  * Save team balance rules to tenant_configs
  */
 export async function saveTeamBalance(balance: TeamBalance, tenantId: string = DEFAULT_TENANT_ID): Promise<void> {
-  await db.insert(tenantConfigs)
+  await db.insert(configs)
     .values({
       tenantId,
       configKey: 'team_balance_rules',
       configValue: balance,
     })
     .onConflictDoUpdate({
-      target: [tenantConfigs.tenantId, tenantConfigs.configKey],
+      target: [configs.tenantId, configs.configKey],
       set: {
         configValue: balance,
         updatedAt: new Date(),
@@ -223,14 +223,14 @@ export async function saveTeamBalance(balance: TeamBalance, tenantId: string = D
  * Save balance weights to tenant_configs
  */
 export async function saveBalanceWeights(weights: BalanceWeights, tenantId: string = DEFAULT_TENANT_ID): Promise<void> {
-  await db.insert(tenantConfigs)
+  await db.insert(configs)
     .values({
       tenantId,
       configKey: 'balance_weights',
       configValue: weights,
     })
     .onConflictDoUpdate({
-      target: [tenantConfigs.tenantId, tenantConfigs.configKey],
+      target: [configs.tenantId, configs.configKey],
       set: {
         configValue: weights,
         updatedAt: new Date(),
@@ -242,14 +242,14 @@ export async function saveBalanceWeights(weights: BalanceWeights, tenantId: stri
  * Save default staff values to tenant_configs
  */
 export async function saveStaffDefaultValues(values: StaffDefaultValues, tenantId: string = DEFAULT_TENANT_ID): Promise<void> {
-  await db.insert(tenantConfigs)
+  await db.insert(configs)
     .values({
       tenantId,
       configKey: 'staff_default_values',
       configValue: values,
     })
     .onConflictDoUpdate({
-      target: [tenantConfigs.tenantId, tenantConfigs.configKey],
+      target: [configs.tenantId, configs.configKey],
       set: {
         configValue: values,
         updatedAt: new Date(),

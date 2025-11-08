@@ -30,8 +30,8 @@ function ConfigPageContent() {
   const { t, ready } = useTranslation(['config', 'common']);
 
   // tRPC queries for fetching configs
-  const { data: allConfigs, isLoading: configsLoading, refetch: refetchConfigs } = trpc.tenantConfigs.getAll.useQuery();
-  const setConfigMutation = trpc.tenantConfigs.set.useMutation();
+  const { data: allConfigs, isLoading: configsLoading, refetch: refetchConfigs } = trpc.configs.getAll.useQuery();
+  const setConfigMutation = trpc.configs.set.useMutation();
 
   // URL 파라미터에서 tab 읽기
   const tabFromUrl = searchParams.get('tab') as "preferences" | "positions" | "positionGroups" | "shifts" | "secretCode" | null;

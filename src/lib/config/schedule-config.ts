@@ -4,8 +4,8 @@
  */
 
 import { db } from '@/db';
-import { tenantConfigs } from '@/db/schema/tenant-configs';
-import { eq, and } from 'drizzle-orm';
+import { configs } from '@/db/schema/configs';
+import { eq, and, isNull } from 'drizzle-orm';
 
 const DEFAULT_TENANT_ID = '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
 
@@ -66,10 +66,10 @@ export interface PerformanceThresholds {
 export async function getScheduleConfig(tenantId: string = DEFAULT_TENANT_ID): Promise<ScheduleConfig> {
   try {
     const result = await db.select()
-      .from(tenantConfigs)
+      .from(configs)
       .where(and(
-        eq(tenantConfigs.tenantId, tenantId),
-        eq(tenantConfigs.configKey, 'schedule_rules')
+        eq(configs.tenantId, tenantId),
+        eq(configs.configKey, 'schedule_rules')
       ))
       .limit(1);
 
@@ -89,10 +89,10 @@ export async function getScheduleConfig(tenantId: string = DEFAULT_TENANT_ID): P
 export async function getShiftRules(tenantId: string = DEFAULT_TENANT_ID): Promise<ShiftRule[]> {
   try {
     const result = await db.select()
-      .from(tenantConfigs)
+      .from(configs)
       .where(and(
-        eq(tenantConfigs.tenantId, tenantId),
-        eq(tenantConfigs.configKey, 'shift_rules')
+        eq(configs.tenantId, tenantId),
+        eq(configs.configKey, 'shift_rules')
       ))
       .limit(1);
 
@@ -112,10 +112,10 @@ export async function getShiftRules(tenantId: string = DEFAULT_TENANT_ID): Promi
 export async function getPerformanceThresholds(tenantId: string = DEFAULT_TENANT_ID): Promise<PerformanceThresholds> {
   try {
     const result = await db.select()
-      .from(tenantConfigs)
+      .from(configs)
       .where(and(
-        eq(tenantConfigs.tenantId, tenantId),
-        eq(tenantConfigs.configKey, 'performance_thresholds')
+        eq(configs.tenantId, tenantId),
+        eq(configs.configKey, 'performance_thresholds')
       ))
       .limit(1);
 
@@ -133,14 +133,14 @@ export async function getPerformanceThresholds(tenantId: string = DEFAULT_TENANT
  * Save schedule configuration to tenant_configs
  */
 export async function saveScheduleConfig(config: ScheduleConfig, tenantId: string = DEFAULT_TENANT_ID): Promise<void> {
-  await db.insert(tenantConfigs)
+  await db.insert(configs)
     .values({
       tenantId,
       configKey: 'schedule_rules',
       configValue: config,
     })
     .onConflictDoUpdate({
-      target: [tenantConfigs.tenantId, tenantConfigs.configKey],
+      target: [configs.tenantId, configs.configKey],
       set: {
         configValue: config,
         updatedAt: new Date(),
@@ -152,14 +152,14 @@ export async function saveScheduleConfig(config: ScheduleConfig, tenantId: strin
  * Save shift rules to tenant_configs
  */
 export async function saveShiftRules(rules: ShiftRule[], tenantId: string = DEFAULT_TENANT_ID): Promise<void> {
-  await db.insert(tenantConfigs)
+  await db.insert(configs)
     .values({
       tenantId,
       configKey: 'shift_rules',
       configValue: rules,
     })
     .onConflictDoUpdate({
-      target: [tenantConfigs.tenantId, tenantConfigs.configKey],
+      target: [configs.tenantId, configs.configKey],
       set: {
         configValue: rules,
         updatedAt: new Date(),
@@ -171,14 +171,14 @@ export async function saveShiftRules(rules: ShiftRule[], tenantId: string = DEFA
  * Save performance thresholds to tenant_configs
  */
 export async function savePerformanceThresholds(thresholds: PerformanceThresholds, tenantId: string = DEFAULT_TENANT_ID): Promise<void> {
-  await db.insert(tenantConfigs)
+  await db.insert(configs)
     .values({
       tenantId,
       configKey: 'performance_thresholds',
       configValue: thresholds,
     })
     .onConflictDoUpdate({
-      target: [tenantConfigs.tenantId, tenantConfigs.configKey],
+      target: [configs.tenantId, configs.configKey],
       set: {
         configValue: thresholds,
         updatedAt: new Date(),

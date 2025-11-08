@@ -7,7 +7,7 @@ export * from './nurse-preferences';
 export * from './team-patterns';
 export * from './holidays';
 export * from './special-requests';
-export * from './tenant-configs';
+export * from './configs';
 export * from './teams';
 
 // Alias for backward compatibility

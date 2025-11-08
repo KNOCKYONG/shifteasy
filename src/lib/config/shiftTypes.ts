@@ -4,8 +4,8 @@
  */
 
 import { db } from '@/db';
-import { tenantConfigs } from '@/db/schema/tenant-configs';
-import { eq, and } from 'drizzle-orm';
+import { configs } from '@/db/schema/configs';
+import { eq, and, isNull } from 'drizzle-orm';
 
 const DEFAULT_TENANT_ID = '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
 
@@ -72,15 +72,36 @@ const COLOR_MAP: Record<string, { bg: string; border: string; text: string }> = 
 };
 
 /**
- * Get shift types from tenant_configs
+ * Get shift types from configs (supports department-level override)
  */
-export async function getShiftTypes(tenantId: string = DEFAULT_TENANT_ID): Promise<ConfigurableShiftType[]> {
+export async function getShiftTypes(
+  tenantId: string = DEFAULT_TENANT_ID,
+  departmentId?: string
+): Promise<ConfigurableShiftType[]> {
   try {
+    // Try department-specific config first if departmentId provided
+    if (departmentId) {
+      const deptResult = await db.select()
+        .from(configs)
+        .where(and(
+          eq(configs.tenantId, tenantId),
+          eq(configs.departmentId, departmentId),
+          eq(configs.configKey, 'shift_types')
+        ))
+        .limit(1);
+
+      if (deptResult.length > 0 && deptResult[0].configValue) {
+        return deptResult[0].configValue as ConfigurableShiftType[];
+      }
+    }
+
+    // Fallback to tenant-level config
     const result = await db.select()
-      .from(tenantConfigs)
+      .from(configs)
       .where(and(
-        eq(tenantConfigs.tenantId, tenantId),
-        eq(tenantConfigs.configKey, 'shift_types')
+        eq(configs.tenantId, tenantId),
+        isNull(configs.departmentId),
+        eq(configs.configKey, 'shift_types')
       ))
       .limit(1);
 
@@ -95,17 +116,22 @@ export async function getShiftTypes(tenantId: string = DEFAULT_TENANT_ID): Promi
 }
 
 /**
- * Save shift types to tenant_configs
+ * Save shift types to configs (supports department-level)
  */
-export async function saveShiftTypes(shiftTypes: ConfigurableShiftType[], tenantId: string = DEFAULT_TENANT_ID): Promise<void> {
-  await db.insert(tenantConfigs)
+export async function saveShiftTypes(
+  shiftTypes: ConfigurableShiftType[],
+  tenantId: string = DEFAULT_TENANT_ID,
+  departmentId?: string
+): Promise<void> {
+  await db.insert(configs)
     .values({
       tenantId,
+      departmentId: departmentId || null,
       configKey: 'shift_types',
       configValue: shiftTypes,
     })
     .onConflictDoUpdate({
-      target: [tenantConfigs.tenantId, tenantConfigs.configKey],
+      target: [configs.tenantId, configs.departmentId, configs.configKey],
       set: {
         configValue: shiftTypes,
         updatedAt: new Date(),
@@ -116,16 +142,24 @@ export async function saveShiftTypes(shiftTypes: ConfigurableShiftType[], tenant
 /**
  * Get shift type by code
  */
-export async function getShiftType(code: string, tenantId: string = DEFAULT_TENANT_ID): Promise<ConfigurableShiftType | undefined> {
-  const shiftTypes = await getShiftTypes(tenantId);
+export async function getShiftType(
+  code: string,
+  tenantId: string = DEFAULT_TENANT_ID,
+  departmentId?: string
+): Promise<ConfigurableShiftType | undefined> {
+  const shiftTypes = await getShiftTypes(tenantId, departmentId);
   return shiftTypes.find(s => s.code === code);
 }
 
 /**
  * Get colors for a shift type
  */
-export async function getShiftColors(code: string, tenantId: string = DEFAULT_TENANT_ID): Promise<{ bg: string; border: string; text: string }> {
-  const shiftType = await getShiftType(code, tenantId);
+export async function getShiftColors(
+  code: string,
+  tenantId: string = DEFAULT_TENANT_ID,
+  departmentId?: string
+): Promise<{ bg: string; border: string; text: string }> {
+  const shiftType = await getShiftType(code, tenantId, departmentId);
   if (!shiftType) return COLOR_MAP.gray;
 
   return COLOR_MAP[shiftType.color] || COLOR_MAP.gray;
@@ -134,8 +168,11 @@ export async function getShiftColors(code: string, tenantId: string = DEFAULT_TE
 /**
  * Get formatted shift options for UI components
  */
-export async function getShiftOptions(tenantId: string = DEFAULT_TENANT_ID) {
-  const shiftTypes = await getShiftTypes(tenantId);
+export async function getShiftOptions(
+  tenantId: string = DEFAULT_TENANT_ID,
+  departmentId?: string
+) {
+  const shiftTypes = await getShiftTypes(tenantId, departmentId);
   return shiftTypes.map(shift => ({
     value: shift.code,
     label: shift.name.split(' ')[0] || shift.name, // Get first word for short label

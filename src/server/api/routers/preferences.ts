@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { createAuditLog } from '@/lib/db-helpers';
 import { db } from '@/db';
-import { tenantConfigs } from '@/db/schema/tenant-configs';
+import { configs } from '@/db/schema/configs';
 import { users } from '@/db/schema/tenants';
 import { eq, and } from 'drizzle-orm';
 
@@ -83,10 +83,10 @@ export const preferencesRouter = createTRPCRouter({
       const configKey = `preferences_${input.staffId}`;
 
       const result = await db.select()
-        .from(tenantConfigs)
+        .from(configs)
         .where(and(
-          eq(tenantConfigs.tenantId, tenantId),
-          eq(tenantConfigs.configKey, configKey)
+          eq(configs.tenantId, tenantId),
+          eq(configs.configKey, configKey)
         ))
         .limit(1);
 
@@ -107,21 +107,21 @@ export const preferencesRouter = createTRPCRouter({
 
       // Check if preferences exist
       const existing = await db.select()
-        .from(tenantConfigs)
+        .from(configs)
         .where(and(
-          eq(tenantConfigs.tenantId, tenantId),
-          eq(tenantConfigs.configKey, configKey)
+          eq(configs.tenantId, tenantId),
+          eq(configs.configKey, configKey)
         ))
         .limit(1);
 
-      const result = await db.insert(tenantConfigs)
+      const result = await db.insert(configs)
         .values({
           tenantId,
           configKey,
           configValue: preferences,
         })
         .onConflictDoUpdate({
-          target: [tenantConfigs.tenantId, tenantConfigs.configKey],
+          target: [configs.tenantId, configs.configKey],
           set: {
             configValue: preferences,
             updatedAt: new Date(),
@@ -152,10 +152,10 @@ export const preferencesRouter = createTRPCRouter({
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
       const configKey = `preferences_${input.staffId}`;
 
-      const deleted = await db.delete(tenantConfigs)
+      const deleted = await db.delete(configs)
         .where(and(
-          eq(tenantConfigs.tenantId, tenantId),
-          eq(tenantConfigs.configKey, configKey)
+          eq(configs.tenantId, tenantId),
+          eq(configs.configKey, configKey)
         ))
         .returning();
 

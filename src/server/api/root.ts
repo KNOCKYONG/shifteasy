@@ -9,7 +9,7 @@ import { notificationRouter } from './routers/notification';
 import { preferencesRouter } from './routers/preferences';
 import { holidaysRouter } from './routers/holidays';
 import { specialRequestsRouter } from './routers/special-requests';
-import { tenantConfigsRouter } from './routers/tenant-configs';
+import { configsRouter } from './routers/configs';
 import { shiftTypesRouter } from './routers/shift-types';
 import { handoffRouter } from './routers/handoff';
 import { teamsRouter } from './routers/teams';
@@ -26,7 +26,7 @@ export const appRouter = createTRPCRouter({
   preferences: preferencesRouter,
   holidays: holidaysRouter,
   specialRequests: specialRequestsRouter,
-  tenantConfigs: tenantConfigsRouter,
+  configs: configsRouter,
   shiftTypes: shiftTypesRouter,
   handoff: handoffRouter,
   teams: teamsRouter,
