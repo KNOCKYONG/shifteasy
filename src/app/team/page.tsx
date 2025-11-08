@@ -62,11 +62,16 @@ function TeamManagementPageContent() {
   // Fetch tenant stats
   const { data: statsData } = api.tenant.stats.summary.useQuery();
 
-  // Fetch shift types from shift_types table
-  const { data: shiftTypesData } = api.shiftTypes.getAll.useQuery(undefined, {
-    staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지
-    refetchOnWindowFocus: false,
-  });
+  // Fetch shift types from configs table (department-specific with fallback)
+  const { data: shiftTypesData } = api.shiftTypes.getAll.useQuery(
+    {
+      departmentId: selectedDepartment !== 'all' ? selectedDepartment : undefined,
+    },
+    {
+      staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지
+      refetchOnWindowFocus: false,
+    }
+  );
 
   // Mutations
   const inviteUserMutation = api.tenant.users.invite.useMutation({

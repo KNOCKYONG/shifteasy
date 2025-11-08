@@ -53,16 +53,37 @@ export const shiftTypesRouter = createTRPCRouter({
       return shiftTypes.filter(st => !st.departmentId);
     }),
 
-  // Get all shift types for tenant
+  // Get all shift types for tenant/department (with fallback)
   getAll: protectedProcedure
-    .query(async ({ ctx }) => {
+    .input(z.object({
+      departmentId: z.string().optional(),
+    }).optional())
+    .query(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const departmentId = input?.departmentId ?? ctx.user?.departmentId ?? null;
 
-      // Get shift types from tenant_configs
+      // Try department-specific config first if departmentId provided
+      if (departmentId) {
+        const deptResult = await db.select()
+          .from(configs)
+          .where(and(
+            eq(configs.tenantId, tenantId),
+            eq(configs.departmentId, departmentId),
+            eq(configs.configKey, 'shift_types')
+          ))
+          .limit(1);
+
+        if (deptResult.length > 0 && deptResult[0].configValue) {
+          return deptResult[0].configValue as ShiftType[];
+        }
+      }
+
+      // Fallback to tenant-level config
       const configResult = await db.select()
         .from(configs)
         .where(and(
           eq(configs.tenantId, tenantId),
+          isNull(configs.departmentId),
           eq(configs.configKey, 'shift_types')
         ))
         .limit(1);
