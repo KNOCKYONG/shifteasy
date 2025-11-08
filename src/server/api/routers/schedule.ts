@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, protectedProcedure, adminProcedure } from '../trpc';
 import { scopedDb, createAuditLog } from '@/lib/db-helpers';
-import { schedules, users, shiftTypes, departments, nursePreferences, offBalanceLedger } from '@/db/schema';
+import { schedules, users, departments, nursePreferences, offBalanceLedger } from '@/db/schema';
 import { eq, and, gte, lte, desc, inArray, isNull, ne, or } from 'drizzle-orm';
 import { db } from '@/db';
 
@@ -252,14 +252,10 @@ export const scheduleRouter = createTRPCRouter({
       try {
         const tenantId = (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d');
 
-        // Get all shift types to identify OFF shifts
-        const allShiftTypes = await db.query(shiftTypes, eq(shiftTypes.tenantId, tenantId));
-        const offShiftIds = allShiftTypes.filter(st => st.code === 'O').map(st => st.id);
-
         // Get schedule assignments from metadata
         const assignments = (schedule.metadata as any)?.assignments || [];
 
-        if (assignments.length > 0 && offShiftIds.length > 0) {
+        if (assignments.length > 0) {
           // Get all unique employee IDs from assignments
           const employeeIds = [...new Set(assignments.map((a: any) => a.employeeId as string))] as string[];
 
@@ -287,10 +283,10 @@ export const scheduleRouter = createTRPCRouter({
           const offBalanceRecords = [];
 
           for (const employeeId of employeeIds) {
-            // Count actual OFF days assigned to this employee
+            // Count actual OFF days assigned to this employee (using shift code instead of ID)
             const employeeAssignments = assignments.filter((a: any) => a.employeeId === employeeId);
             const actualOffDays = employeeAssignments.filter((a: any) =>
-              offShiftIds.includes(a.shiftId)
+              a.shiftType === 'O' || a.shiftType === 'OFF'
             ).length;
 
             // Calculate guaranteed OFF days for this specific month

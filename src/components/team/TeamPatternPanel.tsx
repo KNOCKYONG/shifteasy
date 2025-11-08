@@ -52,6 +52,11 @@ export function TeamPatternPanel({
   canEdit,
   shiftTypes
 }: TeamPatternPanelProps) {
+  // shiftTypes가 변경될 때 로그 출력
+  React.useEffect(() => {
+    console.log('[TeamPatternPanel] shiftTypes updated:', shiftTypes);
+  }, [shiftTypes]);
+
   const [pattern, setPattern] = useState<Partial<TeamPattern>>({
     departmentId,
     requiredStaffDay: 5,
@@ -205,18 +210,42 @@ export function TeamPatternPanel({
     return keywords;
   }, [shiftTypes]);
 
+  // Tailwind 색상 이름을 hex 코드로 변환
+  const colorMap: Record<string, string> = {
+    blue: '#3b82f6',
+    green: '#22c55e',
+    amber: '#f59e0b',
+    red: '#ef4444',
+    purple: '#a855f7',
+    indigo: '#6366f1',
+    pink: '#ec4899',
+    gray: '#6b7280',
+  };
+
   // shiftTypes 기반으로 색상 스타일 가져오기
   const getShiftColorStyle = React.useCallback((shiftCode: string) => {
     const shiftType = shiftTypes.find(st => st.code === shiftCode);
-    if (!shiftType?.color) {
+
+    if (!shiftType) {
+      console.log(`[getShiftColorStyle] Shift type not found for code: ${shiftCode}`);
       return 'bg-gray-50 border-gray-300 text-gray-700';
     }
 
-    // Tailwind 색상을 인라인 스타일로 변환
+    if (!shiftType.color) {
+      console.log(`[getShiftColorStyle] No color for shift type:`, shiftType);
+      return 'bg-gray-50 border-gray-300 text-gray-700';
+    }
+
+    // Tailwind 색상 이름을 hex 코드로 변환
+    const hexColor = colorMap[shiftType.color.toLowerCase()] || shiftType.color;
+
+    console.log(`[getShiftColorStyle] Code: ${shiftCode}, Color: ${shiftType.color} -> ${hexColor}`);
+
+    // hex 코드를 사용하여 인라인 스타일 생성
     return {
-      backgroundColor: `${shiftType.color}20`, // 20% opacity for background
-      borderColor: shiftType.color,
-      color: shiftType.color,
+      backgroundColor: `${hexColor}20`, // 20% opacity for background
+      borderColor: hexColor,
+      color: hexColor,
     };
   }, [shiftTypes]);
 
