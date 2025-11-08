@@ -324,9 +324,20 @@ export function TeamPatternPanel({
 
   // 저장
   const handleSave = async () => {
+    // shift_types 기반으로 유효한 코드 목록 생성
+    const validShiftCodes = shiftTypes.map((st) => st.code);
+
+    // 'O' 코드가 있으면 'OFF' 별칭도 허용
+    if (validShiftCodes.includes('O') && !validShiftCodes.includes('OFF')) {
+      validShiftCodes.push('OFF');
+    }
+
+    console.log('[handleSave] Validating with shift codes:', validShiftCodes);
+
     // 검증
-    const validation = validateTeamPattern({ ...pattern, totalMembers });
+    const validation = validateTeamPattern({ ...pattern, totalMembers }, validShiftCodes);
     if (!validation.isValid) {
+      console.log('[handleSave] Validation failed:', validation.errors);
       setErrors(validation.errors);
       return;
     }

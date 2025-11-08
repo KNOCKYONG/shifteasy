@@ -182,8 +182,12 @@ export async function POST(request: NextRequest) {
 
     const tenantId = departmentInfo[0]?.tenantId || user.tenantId;
 
+    console.log('[POST] Fetching shift_types with tenantId:', tenantId, 'departmentId:', data.departmentId);
+
     // shift_types 가져오기 (department별로 자동 생성)
     const shiftTypes = await getShiftTypes(tenantId, data.departmentId);
+    console.log('[POST] Retrieved shift types:', JSON.stringify(shiftTypes, null, 2));
+
     const validShiftCodes = shiftTypes.map((st) => st.code);
 
     // 'O' 코드가 있으면 'OFF' 별칭도 허용

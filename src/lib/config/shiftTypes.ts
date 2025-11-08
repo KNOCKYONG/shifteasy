@@ -80,6 +80,8 @@ export async function getShiftTypes(
   departmentId?: string
 ): Promise<ConfigurableShiftType[]> {
   try {
+    console.log(`[getShiftTypes] Called with tenantId: ${tenantId}, departmentId: ${departmentId}`);
+
     // Try department-specific config first if departmentId provided
     if (departmentId) {
       const deptResult = await db.select()
@@ -91,12 +93,16 @@ export async function getShiftTypes(
         ))
         .limit(1);
 
+      console.log(`[getShiftTypes] Department query result count: ${deptResult.length}`);
+
       if (deptResult.length > 0 && deptResult[0].configValue) {
-        return deptResult[0].configValue as ConfigurableShiftType[];
+        const shiftTypes = deptResult[0].configValue as ConfigurableShiftType[];
+        console.log(`[getShiftTypes] Returning department shift_types:`, shiftTypes.map(st => st.code));
+        return shiftTypes;
       }
 
       // Department config not found - create default for this department
-      console.log(`Creating default shift_types for department ${departmentId}`);
+      console.log(`[getShiftTypes] Creating default shift_types for department ${departmentId}`);
       await saveShiftTypes([...DEFAULT_SHIFT_TYPES], tenantId, departmentId);
       return [...DEFAULT_SHIFT_TYPES];
     }
