@@ -73,6 +73,7 @@ const COLOR_MAP: Record<string, { bg: string; border: string; text: string }> = 
 
 /**
  * Get shift types from configs (supports department-level override)
+ * Automatically creates default config with department_id if not exists
  */
 export async function getShiftTypes(
   tenantId: string = DEFAULT_TENANT_ID,
@@ -93,6 +94,11 @@ export async function getShiftTypes(
       if (deptResult.length > 0 && deptResult[0].configValue) {
         return deptResult[0].configValue as ConfigurableShiftType[];
       }
+
+      // Department config not found - create default for this department
+      console.log(`Creating default shift_types for department ${departmentId}`);
+      await saveShiftTypes([...DEFAULT_SHIFT_TYPES], tenantId, departmentId);
+      return [...DEFAULT_SHIFT_TYPES];
     }
 
     // Fallback to tenant-level config
@@ -108,11 +114,15 @@ export async function getShiftTypes(
     if (result.length > 0 && result[0].configValue) {
       return result[0].configValue as ConfigurableShiftType[];
     }
+
+    // Tenant-level config not found - create default for tenant
+    console.log(`Creating default shift_types for tenant ${tenantId}`);
+    await saveShiftTypes([...DEFAULT_SHIFT_TYPES], tenantId);
+    return [...DEFAULT_SHIFT_TYPES];
   } catch (error) {
     console.error('Failed to load shift types:', error);
+    return [...DEFAULT_SHIFT_TYPES];
   }
-
-  return [...DEFAULT_SHIFT_TYPES];
 }
 
 /**

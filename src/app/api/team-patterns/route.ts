@@ -5,6 +5,7 @@ import { db } from '@/db';
 import { teamPatterns, configs, departments } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { validateTeamPattern } from '@/lib/types/team-pattern';
+import { getShiftTypes } from '@/lib/config/shiftTypes';
 
 export const dynamic = 'force-dynamic';
 
@@ -88,36 +89,8 @@ export async function GET(request: NextRequest) {
 
     const tenantId = departmentInfo[0]?.tenantId || user.tenantId;
 
-    // configs에서 shift_types 가져오기 (department_id 고려)
-    // 1. 먼저 department-specific config 확인
-    const deptShiftTypesConfig = await db
-      .select()
-      .from(configs)
-      .where(
-        and(
-          eq(configs.tenantId, tenantId),
-          eq(configs.departmentId, departmentId),
-          eq(configs.configKey, 'shift_types')
-        )
-      )
-      .limit(1);
-
-    let shiftTypes = deptShiftTypesConfig[0]?.configValue as any[];
-
-    // 2. 없으면 tenant-level config 사용
-    if (!shiftTypes) {
-      const tenantShiftTypesConfig = await db
-        .select()
-        .from(configs)
-        .where(
-          and(
-            eq(configs.tenantId, tenantId),
-            eq(configs.configKey, 'shift_types')
-          )
-        )
-        .limit(1);
-      shiftTypes = (tenantShiftTypesConfig[0]?.configValue as any[]) || [];
-    }
+    // shift_types 가져오기 (department별로 자동 생성)
+    const shiftTypes = await getShiftTypes(tenantId, departmentId);
 
     if (patterns.length === 0) {
       // 기본값 반환
@@ -200,7 +173,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // configs에서 shift_types 가져오기 (department_id 고려)
+    // 부서의 tenantId 가져오기
     const departmentInfo = await db
       .select()
       .from(departments)
@@ -209,37 +182,9 @@ export async function POST(request: NextRequest) {
 
     const tenantId = departmentInfo[0]?.tenantId || user.tenantId;
 
-    // 1. 먼저 department-specific config 확인
-    const deptShiftTypesConfig = await db
-      .select()
-      .from(configs)
-      .where(
-        and(
-          eq(configs.tenantId, tenantId),
-          eq(configs.departmentId, data.departmentId),
-          eq(configs.configKey, 'shift_types')
-        )
-      )
-      .limit(1);
-
-    let shiftTypes = deptShiftTypesConfig[0]?.configValue as any[];
-
-    // 2. 없으면 tenant-level config 사용
-    if (!shiftTypes) {
-      const tenantShiftTypesConfig = await db
-        .select()
-        .from(configs)
-        .where(
-          and(
-            eq(configs.tenantId, tenantId),
-            eq(configs.configKey, 'shift_types')
-          )
-        )
-        .limit(1);
-      shiftTypes = (tenantShiftTypesConfig[0]?.configValue as any[]) || [];
-    }
-
-    const validShiftCodes = shiftTypes.map((st: any) => st.code);
+    // shift_types 가져오기 (department별로 자동 생성)
+    const shiftTypes = await getShiftTypes(tenantId, data.departmentId);
+    const validShiftCodes = shiftTypes.map((st) => st.code);
 
     console.log('[POST] Valid shift codes:', validShiftCodes);
 
@@ -367,7 +312,7 @@ export async function PUT(request: NextRequest) {
       avoidPatterns: (data.avoidPatterns ?? pattern.avoidPatterns) || undefined,
     };
 
-    // configs에서 shift_types 가져오기 (department_id 고려)
+    // 부서의 tenantId 가져오기
     const departmentInfo = await db
       .select()
       .from(departments)
@@ -376,37 +321,9 @@ export async function PUT(request: NextRequest) {
 
     const tenantId = departmentInfo[0]?.tenantId || user.tenantId;
 
-    // 1. 먼저 department-specific config 확인
-    const deptShiftTypesConfig = await db
-      .select()
-      .from(configs)
-      .where(
-        and(
-          eq(configs.tenantId, tenantId),
-          eq(configs.departmentId, pattern.departmentId),
-          eq(configs.configKey, 'shift_types')
-        )
-      )
-      .limit(1);
-
-    let shiftTypes = deptShiftTypesConfig[0]?.configValue as any[];
-
-    // 2. 없으면 tenant-level config 사용
-    if (!shiftTypes) {
-      const tenantShiftTypesConfig = await db
-        .select()
-        .from(configs)
-        .where(
-          and(
-            eq(configs.tenantId, tenantId),
-            eq(configs.configKey, 'shift_types')
-          )
-        )
-        .limit(1);
-      shiftTypes = (tenantShiftTypesConfig[0]?.configValue as any[]) || [];
-    }
-
-    const validShiftCodes = shiftTypes.map((st: any) => st.code);
+    // shift_types 가져오기 (department별로 자동 생성)
+    const shiftTypes = await getShiftTypes(tenantId, pattern.departmentId);
+    const validShiftCodes = shiftTypes.map((st) => st.code);
 
     // 비즈니스 로직 검증 (실제 shift_types 기준으로 검증)
     const validation = validateTeamPattern(updatedData, validShiftCodes);
