@@ -281,6 +281,7 @@ export const ROLE_PAGES: Record<Role, string[]> = {
     '/team',
     '/config',
     '/requests',
+    '/handoff',
     '/notifications',
     '/settings',
   ],
@@ -290,6 +291,7 @@ export const ROLE_PAGES: Record<Role, string[]> = {
     '/team',
     '/config',
     '/requests',
+    '/handoff',
     '/notifications',
     '/settings',
   ],
@@ -299,6 +301,7 @@ export const ROLE_PAGES: Record<Role, string[]> = {
     '/team',
     '/config',
     '/requests',
+    '/handoff',
     '/notifications',
     '/settings',
   ],
@@ -306,6 +309,7 @@ export const ROLE_PAGES: Record<Role, string[]> = {
     '/dashboard',
     '/schedule',
     '/requests',
+    '/handoff',
     '/notifications',
     '/settings',
   ],
@@ -325,6 +329,7 @@ export const ROLE_NAVIGATION: Record<Role, Array<{
     { href: '/team', label: '팀 관리' },
     { href: '/config', label: '설정' },
     { href: '/requests', label: '요청사항' },
+    { href: '/handoff', label: '인수인계' },
     { href: '/settings', label: '시스템 설정' },
   ],
   [ROLES.ADMIN]: [
@@ -333,6 +338,7 @@ export const ROLE_NAVIGATION: Record<Role, Array<{
     { href: '/team', label: '팀 관리' },
     { href: '/config', label: '설정' },
     { href: '/requests', label: '요청사항' },
+    { href: '/handoff', label: '인수인계' },
   ],
   [ROLES.MANAGER]: [
     { href: '/dashboard', label: '대시보드' },
@@ -340,11 +346,13 @@ export const ROLE_NAVIGATION: Record<Role, Array<{
     { href: '/team', label: '우리 팀' },
     { href: '/config', label: '설정' },
     { href: '/requests', label: '요청사항' },
+    { href: '/handoff', label: '인수인계' },
   ],
   [ROLES.MEMBER]: [
     { href: '/dashboard', label: '내 일정' },
     { href: '/schedule', label: '전체 스케줄' },
     { href: '/requests', label: '내 요청' },
+    { href: '/handoff', label: '인수인계' },
   ],
 };
 
