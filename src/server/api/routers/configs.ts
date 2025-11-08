@@ -4,6 +4,44 @@ import { db } from '@/db';
 import { configs } from '@/db/schema/configs';
 import { eq, and, isNull } from 'drizzle-orm';
 
+// Default configurations
+const DEFAULT_SHIFT_TYPES = [
+  { code: 'D', name: '주간 근무', startTime: '07:00', endTime: '15:00', color: 'blue', allowOvertime: false },
+  { code: 'E', name: '저녁 근무', startTime: '15:00', endTime: '23:00', color: 'amber', allowOvertime: false },
+  { code: 'N', name: '야간 근무', startTime: '23:00', endTime: '07:00', color: 'indigo', allowOvertime: true },
+  { code: 'A', name: '행정 근무', startTime: '09:00', endTime: '18:00', color: 'green', allowOvertime: false },
+  { code: 'O', name: '휴무', startTime: '00:00', endTime: '00:00', color: 'gray', allowOvertime: false },
+];
+
+const DEFAULT_CONTRACT_TYPES = [
+  { code: 'FT', name: '정규직', description: '정규 고용 계약', isPrimary: true },
+  { code: 'PT', name: '파트타임', description: '시간제 계약', isPrimary: false, maxHoursPerWeek: 30 },
+  { code: 'CT', name: '계약직', description: '기간 계약직', isPrimary: false },
+  { code: 'IN', name: '인턴', description: '인턴십 프로그램', isPrimary: false, maxHoursPerWeek: 40 },
+];
+
+const DEFAULT_EMPLOYEE_STATUSES = [
+  { code: 'ACTIVE', name: '재직 중', color: 'green', description: '현재 재직 중인 직원' },
+  { code: 'LEAVE', name: '휴직', color: 'amber', description: '휴직 상태' },
+  { code: 'RESIGNED', name: '퇴사', color: 'gray', description: '퇴사한 직원' },
+];
+
+const DEFAULT_POSITIONS = [
+  { value: 'RN', label: '정규간호사', level: 3 },
+  { value: 'CN', label: '책임간호사', level: 4 },
+  { value: 'HN', label: '수간호사', level: 5 },
+  { value: 'NA', label: '간호조무사', level: 2 },
+];
+
+const DEFAULT_POSITION_GROUPS = [
+  { id: 'nursing', name: '간호팀', positions: ['RN', 'CN', 'HN', 'NA'], color: 'blue' },
+  { id: 'admin', name: '행정팀', positions: [], color: 'green' },
+];
+
+const DEFAULT_PREFERENCES = {
+  nightIntensivePaidLeaveDays: 0,
+};
+
 export const configsRouter = createTRPCRouter({
   // Get config by key (supports department-level override)
   getByKey: protectedProcedure
@@ -51,10 +89,9 @@ export const configsRouter = createTRPCRouter({
     }).optional())
     .query(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const departmentId = input?.departmentId ?? ctx.user?.departmentId ?? null;
 
-      let conditions = [eq(configs.tenantId, tenantId)];
-
-      if (input?.departmentId) {
+      if (departmentId) {
         // Get both tenant-level and department-specific configs
         const tenantConfigs = await db.select()
           .from(configs)
@@ -67,7 +104,7 @@ export const configsRouter = createTRPCRouter({
           .from(configs)
           .where(and(
             eq(configs.tenantId, tenantId),
-            eq(configs.departmentId, input.departmentId)
+            eq(configs.departmentId, departmentId)
           ));
 
         // Merge configs: department configs override tenant configs
@@ -82,6 +119,29 @@ export const configsRouter = createTRPCRouter({
         deptConfigs.forEach(config => {
           configMap[config.configKey] = config.configValue;
         });
+
+        // If no department configs exist, create defaults
+        if (deptConfigs.length === 0) {
+          console.log(`Creating default configs for department ${departmentId}`);
+
+          await db.insert(configs).values([
+            { tenantId, departmentId, configKey: 'shift_types', configValue: DEFAULT_SHIFT_TYPES },
+            { tenantId, departmentId, configKey: 'contract_types', configValue: DEFAULT_CONTRACT_TYPES },
+            { tenantId, departmentId, configKey: 'employee_statuses', configValue: DEFAULT_EMPLOYEE_STATUSES },
+            { tenantId, departmentId, configKey: 'positions', configValue: DEFAULT_POSITIONS },
+            { tenantId, departmentId, configKey: 'position_groups', configValue: DEFAULT_POSITION_GROUPS },
+            { tenantId, departmentId, configKey: 'preferences', configValue: DEFAULT_PREFERENCES },
+          ]);
+
+          return {
+            shift_types: DEFAULT_SHIFT_TYPES,
+            contract_types: DEFAULT_CONTRACT_TYPES,
+            employee_statuses: DEFAULT_EMPLOYEE_STATUSES,
+            positions: DEFAULT_POSITIONS,
+            position_groups: DEFAULT_POSITION_GROUPS,
+            preferences: DEFAULT_PREFERENCES,
+          };
+        }
 
         return configMap;
       } else {
@@ -99,6 +159,29 @@ export const configsRouter = createTRPCRouter({
           configMap[config.configKey] = config.configValue;
         });
 
+        // If no tenant-level configs exist, create defaults (for backward compatibility)
+        if (result.length === 0) {
+          console.log(`Creating default tenant-level configs for tenant ${tenantId}`);
+
+          await db.insert(configs).values([
+            { tenantId, departmentId: null, configKey: 'shift_types', configValue: DEFAULT_SHIFT_TYPES },
+            { tenantId, departmentId: null, configKey: 'contract_types', configValue: DEFAULT_CONTRACT_TYPES },
+            { tenantId, departmentId: null, configKey: 'employee_statuses', configValue: DEFAULT_EMPLOYEE_STATUSES },
+            { tenantId, departmentId: null, configKey: 'positions', configValue: DEFAULT_POSITIONS },
+            { tenantId, departmentId: null, configKey: 'position_groups', configValue: DEFAULT_POSITION_GROUPS },
+            { tenantId, departmentId: null, configKey: 'preferences', configValue: DEFAULT_PREFERENCES },
+          ]);
+
+          return {
+            shift_types: DEFAULT_SHIFT_TYPES,
+            contract_types: DEFAULT_CONTRACT_TYPES,
+            employee_statuses: DEFAULT_EMPLOYEE_STATUSES,
+            positions: DEFAULT_POSITIONS,
+            position_groups: DEFAULT_POSITION_GROUPS,
+            preferences: DEFAULT_PREFERENCES,
+          };
+        }
+
         return configMap;
       }
     }),
@@ -113,14 +196,17 @@ export const configsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
 
+      // Use user's departmentId if not provided explicitly
+      const departmentId = input.departmentId ?? ctx.user?.departmentId ?? null;
+
       // Build where conditions
       const whereConditions = [
         eq(configs.tenantId, tenantId),
         eq(configs.configKey, input.configKey),
       ];
 
-      if (input.departmentId) {
-        whereConditions.push(eq(configs.departmentId, input.departmentId));
+      if (departmentId) {
+        whereConditions.push(eq(configs.departmentId, departmentId));
       } else {
         whereConditions.push(isNull(configs.departmentId));
       }
@@ -147,7 +233,7 @@ export const configsRouter = createTRPCRouter({
         const result = await db.insert(configs)
           .values({
             tenantId,
-            departmentId: input.departmentId || null,
+            departmentId: departmentId,
             configKey: input.configKey,
             configValue: input.configValue,
           })
