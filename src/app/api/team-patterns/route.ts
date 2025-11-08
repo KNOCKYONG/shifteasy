@@ -88,19 +88,36 @@ export async function GET(request: NextRequest) {
 
     const tenantId = departmentInfo[0]?.tenantId || user.tenantId;
 
-    // tenant_configs에서 shift_types 가져오기
-    const shiftTypesConfig = await db
+    // configs에서 shift_types 가져오기 (department_id 고려)
+    // 1. 먼저 department-specific config 확인
+    const deptShiftTypesConfig = await db
       .select()
       .from(configs)
       .where(
         and(
           eq(configs.tenantId, tenantId),
+          eq(configs.departmentId, departmentId),
           eq(configs.configKey, 'shift_types')
         )
       )
       .limit(1);
 
-    const shiftTypes = shiftTypesConfig[0]?.configValue || [];
+    let shiftTypes = deptShiftTypesConfig[0]?.configValue as any[];
+
+    // 2. 없으면 tenant-level config 사용
+    if (!shiftTypes) {
+      const tenantShiftTypesConfig = await db
+        .select()
+        .from(configs)
+        .where(
+          and(
+            eq(configs.tenantId, tenantId),
+            eq(configs.configKey, 'shift_types')
+          )
+        )
+        .limit(1);
+      shiftTypes = (tenantShiftTypesConfig[0]?.configValue as any[]) || [];
+    }
 
     if (patterns.length === 0) {
       // 기본값 반환
@@ -183,7 +200,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // tenant_configs에서 shift_types 가져오기
+    // configs에서 shift_types 가져오기 (department_id 고려)
     const departmentInfo = await db
       .select()
       .from(departments)
@@ -192,18 +209,36 @@ export async function POST(request: NextRequest) {
 
     const tenantId = departmentInfo[0]?.tenantId || user.tenantId;
 
-    const shiftTypesConfig = await db
+    // 1. 먼저 department-specific config 확인
+    const deptShiftTypesConfig = await db
       .select()
       .from(configs)
       .where(
         and(
           eq(configs.tenantId, tenantId),
+          eq(configs.departmentId, data.departmentId),
           eq(configs.configKey, 'shift_types')
         )
       )
       .limit(1);
 
-    const shiftTypes = (shiftTypesConfig[0]?.configValue as any[]) || [];
+    let shiftTypes = deptShiftTypesConfig[0]?.configValue as any[];
+
+    // 2. 없으면 tenant-level config 사용
+    if (!shiftTypes) {
+      const tenantShiftTypesConfig = await db
+        .select()
+        .from(configs)
+        .where(
+          and(
+            eq(configs.tenantId, tenantId),
+            eq(configs.configKey, 'shift_types')
+          )
+        )
+        .limit(1);
+      shiftTypes = (tenantShiftTypesConfig[0]?.configValue as any[]) || [];
+    }
+
     const validShiftCodes = shiftTypes.map((st: any) => st.code);
 
     console.log('[POST] Valid shift codes:', validShiftCodes);
@@ -332,7 +367,7 @@ export async function PUT(request: NextRequest) {
       avoidPatterns: (data.avoidPatterns ?? pattern.avoidPatterns) || undefined,
     };
 
-    // tenant_configs에서 shift_types 가져오기
+    // configs에서 shift_types 가져오기 (department_id 고려)
     const departmentInfo = await db
       .select()
       .from(departments)
@@ -341,18 +376,36 @@ export async function PUT(request: NextRequest) {
 
     const tenantId = departmentInfo[0]?.tenantId || user.tenantId;
 
-    const shiftTypesConfig = await db
+    // 1. 먼저 department-specific config 확인
+    const deptShiftTypesConfig = await db
       .select()
       .from(configs)
       .where(
         and(
           eq(configs.tenantId, tenantId),
+          eq(configs.departmentId, pattern.departmentId),
           eq(configs.configKey, 'shift_types')
         )
       )
       .limit(1);
 
-    const shiftTypes = (shiftTypesConfig[0]?.configValue as any[]) || [];
+    let shiftTypes = deptShiftTypesConfig[0]?.configValue as any[];
+
+    // 2. 없으면 tenant-level config 사용
+    if (!shiftTypes) {
+      const tenantShiftTypesConfig = await db
+        .select()
+        .from(configs)
+        .where(
+          and(
+            eq(configs.tenantId, tenantId),
+            eq(configs.configKey, 'shift_types')
+          )
+        )
+        .limit(1);
+      shiftTypes = (tenantShiftTypesConfig[0]?.configValue as any[]) || [];
+    }
+
     const validShiftCodes = shiftTypes.map((st: any) => st.code);
 
     // 비즈니스 로직 검증 (실제 shift_types 기준으로 검증)
