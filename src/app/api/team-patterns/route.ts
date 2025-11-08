@@ -186,6 +186,11 @@ export async function POST(request: NextRequest) {
     const shiftTypes = await getShiftTypes(tenantId, data.departmentId);
     const validShiftCodes = shiftTypes.map((st) => st.code);
 
+    // 'O' 코드가 있으면 'OFF' 별칭도 허용
+    if (validShiftCodes.includes('O') && !validShiftCodes.includes('OFF')) {
+      validShiftCodes.push('OFF');
+    }
+
     console.log('[POST] Valid shift codes:', validShiftCodes);
 
     // 비즈니스 로직 검증 (실제 shift_types 기준으로 검증)
@@ -324,6 +329,11 @@ export async function PUT(request: NextRequest) {
     // shift_types 가져오기 (department별로 자동 생성)
     const shiftTypes = await getShiftTypes(tenantId, pattern.departmentId);
     const validShiftCodes = shiftTypes.map((st) => st.code);
+
+    // 'O' 코드가 있으면 'OFF' 별칭도 허용
+    if (validShiftCodes.includes('O') && !validShiftCodes.includes('OFF')) {
+      validShiftCodes.push('OFF');
+    }
 
     // 비즈니스 로직 검증 (실제 shift_types 기준으로 검증)
     const validation = validateTeamPattern(updatedData, validShiftCodes);
