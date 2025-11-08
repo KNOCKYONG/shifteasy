@@ -8,8 +8,6 @@ import {
   swapRequests,
   notifications,
   auditLogs,
-  shiftTypes,
-  patterns
 } from '@/db/schema/tenants';
 import type { SQL } from 'drizzle-orm';
 
@@ -121,26 +119,6 @@ export class ScopedDb {
       .select()
       .from(schedules)
       .where(this.withTenant(schedules, conditions));
-  }
-
-  /**
-   * 교대 유형 조회 (테넌트 격리)
-   */
-  async getShiftTypes(conditions?: SQL) {
-    return await db
-      .select()
-      .from(shiftTypes)
-      .where(this.withTenant(shiftTypes, conditions));
-  }
-
-  /**
-   * 패턴 조회 (테넌트 격리)
-   */
-  async getPatterns(conditions?: SQL) {
-    return await db
-      .select()
-      .from(patterns)
-      .where(this.withTenant(patterns, conditions));
   }
 
   /**
