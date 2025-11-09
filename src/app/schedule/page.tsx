@@ -2635,9 +2635,9 @@ function SchedulePageContent() {
                   변경할 근무 선택
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  {shifts.map((shift) => (
+                  {shifts.map((shift, index) => (
                     <button
-                      key={shift.id}
+                      key={`${shift.id}-${index}`}
                       onClick={() => handleShiftChange(shift.id)}
                       className="px-4 py-3 rounded-lg border-2 transition-all text-left"
                       style={{

@@ -20,6 +20,14 @@ interface ScheduleStatsProps {
 export const ScheduleStats = React.memo(function ScheduleStats({ schedule, shifts }: ScheduleStatsProps) {
   if (schedule.length === 0) return null;
 
+  const shiftCounts = React.useMemo(() => {
+    const counts = new Map<string, number>();
+    schedule.forEach((assignment) => {
+      counts.set(assignment.shiftId, (counts.get(assignment.shiftId) ?? 0) + 1);
+    });
+    return counts;
+  }, [schedule]);
+
   return (
     <div className="mt-6 grid grid-cols-4 gap-4">
       <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
@@ -32,10 +40,13 @@ export const ScheduleStats = React.memo(function ScheduleStats({ schedule, shift
         </div>
       </div>
 
-      {shifts.map(shift => {
-        const count = schedule.filter(a => a.shiftId === shift.id).length;
+      {shifts.map((shift, index) => {
+        const count = shiftCounts.get(shift.id) ?? 0;
         return (
-          <div key={shift.id} className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
+          <div
+            key={`schedule-stats-${shift.id}-${index}`}
+            className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-100 dark:border-gray-700"
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">{shift.name}</p>

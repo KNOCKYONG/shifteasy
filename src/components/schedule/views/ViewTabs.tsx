@@ -15,11 +15,17 @@ export function ViewTabs({ activeView, canViewStaffPreferences, onViewChange }: 
   const { t } = useTranslation('schedule');
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [displayedView, setDisplayedView] = React.useState<ViewTabsProps['activeView']>(activeView);
+  const [, startTransition] = React.useTransition();
+
+  React.useEffect(() => {
+    setDisplayedView(activeView);
+  }, [activeView]);
 
   // Handle tab change with URL update
   const handleViewChange = (view: 'preferences' | 'today' | 'schedule' | 'calendar') => {
-    // Update internal state
-    onViewChange(view);
+    // Optimistically update tab highlight for snappy feedback
+    setDisplayedView(view);
 
     // Update URL parameters to enable navigation
     const params = new URLSearchParams(searchParams.toString());
@@ -27,6 +33,11 @@ export function ViewTabs({ activeView, canViewStaffPreferences, onViewChange }: 
 
     // Push new URL to enable browser back/forward and navigation
     router.push(`/schedule?${params.toString()}`, { scroll: false });
+
+    // Defer heavy view switching work
+    startTransition(() => {
+      onViewChange(view);
+    });
   };
 
   return (
@@ -36,7 +47,7 @@ export function ViewTabs({ activeView, canViewStaffPreferences, onViewChange }: 
           <button
             onClick={() => handleViewChange('preferences')}
             className={`pb-3 px-1 text-xs sm:text-sm font-medium border-b-2 transition-colors flex items-center gap-1 sm:gap-2 whitespace-nowrap ${
-              activeView === 'preferences'
+              displayedView === 'preferences'
                 ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
                 : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
             }`}
@@ -48,7 +59,7 @@ export function ViewTabs({ activeView, canViewStaffPreferences, onViewChange }: 
         <button
           onClick={() => handleViewChange('today')}
           className={`pb-3 px-1 text-xs sm:text-sm font-medium border-b-2 transition-colors flex items-center gap-1 sm:gap-2 whitespace-nowrap ${
-            activeView === 'today'
+            displayedView === 'today'
               ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
               : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
           }`}
@@ -59,7 +70,7 @@ export function ViewTabs({ activeView, canViewStaffPreferences, onViewChange }: 
         <button
           onClick={() => handleViewChange('schedule')}
           className={`pb-3 px-1 text-xs sm:text-sm font-medium border-b-2 transition-colors flex items-center gap-1 sm:gap-2 whitespace-nowrap ${
-            activeView === 'schedule'
+            displayedView === 'schedule'
               ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
               : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
           }`}
