@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useState, useEffect } from 'react';
 import { Lock, X, RefreshCcw } from 'lucide-react';
 
 interface ConfirmationDialogProps {
@@ -22,6 +22,30 @@ export const ConfirmationDialog = memo(function ConfirmationDialog({
   onScheduleNameChange,
   defaultScheduleName,
 }: ConfirmationDialogProps) {
+  // Use local state to prevent parent re-renders on every keystroke
+  const [localName, setLocalName] = useState(scheduleName);
+
+  // Sync local state when modal opens/closes or parent value changes
+  useEffect(() => {
+    setLocalName(scheduleName);
+  }, [isOpen, scheduleName]);
+
+  // Update parent only on blur (when user finishes typing)
+  const handleBlur = () => {
+    if (localName !== scheduleName) {
+      onScheduleNameChange(localName);
+    }
+  };
+
+  // Also update parent when confirming
+  const handleConfirm = () => {
+    if (localName !== scheduleName) {
+      onScheduleNameChange(localName);
+    }
+    // Wait a tick for state to update before confirming
+    setTimeout(onConfirm, 0);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -56,8 +80,9 @@ export const ConfirmationDialog = memo(function ConfirmationDialog({
               <input
                 type="text"
                 id="scheduleName"
-                value={scheduleName}
-                onChange={(e) => onScheduleNameChange(e.target.value)}
+                value={localName}
+                onChange={(e) => setLocalName(e.target.value)}
+                onBlur={handleBlur}
                 placeholder={defaultScheduleName}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
                          bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
@@ -115,7 +140,7 @@ export const ConfirmationDialog = memo(function ConfirmationDialog({
               취소
             </button>
             <button
-              onClick={onConfirm}
+              onClick={handleConfirm}
               disabled={isConfirming}
               className={`px-4 py-2 text-sm font-medium rounded-lg ${
                 isConfirming
