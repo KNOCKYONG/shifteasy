@@ -524,3 +524,16 @@ a.link-animated:hover::after {
   animation: draw 0.5s ease-out forwards;
   animation-delay: 0.3s;
 }
+
+/* Animation delays for staggered animations */
+.animation-delay-1000 {
+  animation-delay: 1s;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
