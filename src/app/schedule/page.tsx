@@ -574,19 +574,6 @@ function SchedulePageContent() {
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
 
-  // Load current user's preferences for display
-  const { data: currentUserPreferencesRaw } = api.preferences.get.useQuery(
-    { staffId: currentUser.dbUser?.id || '' },
-    {
-      enabled: !!currentUser.dbUser?.id,
-      staleTime: 5 * 60 * 1000, // 5분 동안 fresh 유지
-      refetchOnWindowFocus: false,
-    }
-  );
-
-  // Type-cast the preferences data
-  const storedUserPreferences = currentUserPreferencesRaw as SimplifiedPreferences | null;
-
   // Transform users data to match expected format
   // 전체 멤버 리스트 (필터링 없음 - 직원 선호사항 탭에서 사용)
   const allMembers = React.useMemo(() => {
@@ -2179,43 +2166,6 @@ function SchedulePageContent() {
     }
     return map;
   }, [specialRequestsData]);
-
-  // Calculate current user's summary info for display
-  const currentUserSummary = React.useMemo(() => {
-    const currentEmployee = allMembers.find(m => m.id === currentUser.dbUser?.id);
-
-    if (!currentEmployee) {
-      return {
-        workPattern: '미설정',
-        teamName: '미배정',
-        requestCount: 0
-      };
-    }
-
-    // Get work pattern display name
-    const workPatternMap: Record<string, string> = {
-      'three-shift': '3교대',
-      'night-intensive': '야간집중',
-      'weekday-only': '행정근무'
-    };
-    const workPatternType = (currentEmployee as any).preferences?.workPatternType;
-    const workPattern = workPatternMap[workPatternType as string] || '미설정';
-
-    // Get team name
-    const team = dbTeams.find(t => t.id === currentEmployee.teamId);
-    const teamName = team?.name || '미배정';
-
-    // Count this month's special requests for current user
-    const requestCount = specialRequestsData?.filter(
-      (req: any) => req.employeeId === currentEmployee.id
-    ).length || 0;
-
-    return {
-      workPattern,
-      teamName,
-      requestCount
-    };
-  }, [allMembers, currentUser.dbUser?.id, dbTeams, specialRequestsData]);
 
   // 시프트 코드 가져오기 (config에서 설정한 커스텀 shift types 기반)
   const getShiftCode = React.useCallback((assignment: {
