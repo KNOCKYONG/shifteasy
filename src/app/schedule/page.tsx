@@ -2264,6 +2264,74 @@ function SchedulePageContent() {
             </button>
           </div>
 
+          {/* 기본 근무 패턴 설정 요약 - 모바일에서는 2열, 데스크톱에서는 3열 그리드 */}
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4">
+            {/* 근무 패턴 유형 */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">근무 패턴 유형</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
+                {(() => {
+                  const workPatternType = storedUserPreferences?.workPatternType;
+                  const typeMap: Record<string, string> = {
+                    'three-shift': '3교대 근무',
+                    'night-intensive': '야간 집중',
+                    'weekday-only': '주중 근무'
+                  };
+                  return workPatternType ? (typeMap[workPatternType] || workPatternType) : '미설정';
+                })()}
+              </p>
+            </div>
+
+            {/* 선호하는 휴무일 */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">선호 휴무일</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
+                {(() => {
+                  const currentEmployee = allMembers.find(m => m.id === currentUser.dbUser?.id);
+                  const preferredDaysOff = (currentEmployee as any)?.preferences?.preferredDaysOff;
+                  if (!preferredDaysOff || preferredDaysOff.length === 0) return '미설정';
+                  const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+                  return preferredDaysOff.map((day: number) => dayNames[day]).join(', ');
+                })()}
+              </p>
+            </div>
+
+            {/* 선호 근무 패턴 */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3 col-span-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">선호 근무 패턴</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
+                {(() => {
+                  const preferredPatterns = storedUserPreferences?.preferredPatterns;
+                  if (!preferredPatterns || preferredPatterns.length === 0) return '미설정';
+                  // preferredPatterns is array of { pattern: string, preference: number }
+                  const patterns = preferredPatterns.map((p: any) => {
+                    if (typeof p === 'string') return p;
+                    if (p && typeof p === 'object' && p.pattern) return p.pattern;
+                    return String(p);
+                  });
+                  const displayPatterns = patterns.slice(0, 3).join(', ');
+                  return patterns.length > 3 ? `${displayPatterns} 외 ${patterns.length - 3}개` : displayPatterns;
+                })()}
+              </p>
+            </div>
+
+            {/* 기피 근무 패턴 */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3 col-span-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">기피 패턴</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
+                {(() => {
+                  const avoidPatterns = storedUserPreferences?.avoidPatterns;
+                  if (!avoidPatterns || avoidPatterns.length === 0) return '없음';
+                  // avoidPatterns is array of arrays: string[][]
+                  return avoidPatterns.map((p: any) => {
+                    if (Array.isArray(p)) return p.join('→');
+                    return String(p);
+                  }).join(', ');
+                })()}
+              </p>
+            </div>
+          </div>
+
         </div>
         )}
         {/* Simplified Schedule Action Toolbar - Only for managers */}
