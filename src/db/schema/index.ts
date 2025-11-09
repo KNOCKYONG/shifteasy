@@ -4,7 +4,7 @@ export * from './system';
 
 // Domain schemas
 export * from './nurse-preferences';
-export * from './team-patterns';
+export * from './department-patterns';
 export * from './holidays';
 export * from './special-requests';
 export * from './configs';
@@ -13,3 +13,4 @@ export * from './handoffs';
 
 // Alias for backward compatibility
 export { auditLog as auditLogs } from './system';
+export { departmentPatterns as teamPatterns } from './department-patterns'; // Backward compatibility

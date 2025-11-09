@@ -14,12 +14,16 @@ export interface Employee {
   id: string;
   name: string;
   role: 'RN' | 'CN' | 'SN' | 'NA';
+  teamId?: string; // A팀, B팀 등 소속 팀
+  yearsOfService?: number; // 경력 년수
   workPatternType?: 'three-shift' | 'night-intensive' | 'weekday-only';
   preferredShiftTypes?: {
     D?: number;
     E?: number;
     N?: number;
   };
+  preferredOffDaysOfWeek?: number[]; // 선호 휴무 요일 (0=일요일, 6=토요일)
+  weekdayPreferences?: Record<number, number>; // 요일별 선호도 (0-10)
   maxConsecutiveDaysPreferred?: number;
   maxConsecutiveNightsPreferred?: number;
 }
@@ -34,6 +38,22 @@ export interface SpecialRequest {
   requestType: string;
   date: string; // YYYY-MM-DD
   shiftTypeCode?: string | null; // Config 화면의 customShiftTypes code (shift_request용)
+}
+
+export interface CareerGroupConfig {
+  name: string; // 'junior', 'intermediate', 'senior', 'expert'
+  minYears: number;
+  maxYears?: number;
+  displayName: string; // '신입', '중급', '고급', '전문가'
+}
+
+export interface AssignmentScore {
+  hardConstraintViolations: number;  // Must be 0
+  individualPreference: number;      // 0-100 (weight 60%)
+  teamPatternMatch: number;          // 0-50 (weight 20%)
+  teamBalance: number;               // 0-30 (weight 10%)
+  experienceBalance: number;         // 0-20 (weight 10%)
+  totalScore: number;
 }
 
 export interface TeamPattern {
@@ -60,6 +80,8 @@ export interface SimpleSchedulerConfig {
     N: number;
   };
   avoidPatterns?: string[][]; // 전역 기피 근무 패턴 (예: [['N', 'N', 'D'], ['E', 'E', 'N']])
+  careerGroups?: CareerGroupConfig[]; // configs table의 career_groups 설정
+  teams?: string[]; // 부서 내 팀 목록 (예: ['A팀', 'B팀'])
 }
 
 export class SimpleScheduler {
@@ -599,6 +621,201 @@ export class SimpleScheduler {
   }
 
   /**
+   * 경력 년수를 기준으로 경력 그룹 레벨 계산 (configs table 기반)
+   */
+  private calculateCareerLevel(yearsOfService: number): string {
+    // 기본값 (configs에 없을 경우 사용)
+    const defaultGroups: CareerGroupConfig[] = [
+      { name: 'junior', minYears: 0, maxYears: 3, displayName: '신입' },
+      { name: 'intermediate', minYears: 3, maxYears: 6, displayName: '중급' },
+      { name: 'senior', minYears: 6, maxYears: 10, displayName: '고급' },
+      { name: 'expert', minYears: 10, displayName: '전문가' }
+    ];
+
+    const groups = this.config.careerGroups || defaultGroups;
+
+    for (const group of groups) {
+      if (yearsOfService >= group.minYears &&
+          (group.maxYears === undefined || yearsOfService < group.maxYears)) {
+        return group.name;
+      }
+    }
+
+    return groups[groups.length - 1].name; // 최고 경력 그룹
+  }
+
+  /**
+   * 현재 시프트의 경력 분포 계산
+   */
+  private getCareerDistribution(
+    assignedEmployees: Employee[]
+  ): Map<string, number> {
+    const distribution = new Map<string, number>();
+
+    assignedEmployees.forEach(emp => {
+      const level = this.calculateCareerLevel(emp.yearsOfService || 0);
+      distribution.set(level, (distribution.get(level) || 0) + 1);
+    });
+
+    return distribution;
+  }
+
+  /**
+   * 현재 시프트의 팀 분포 계산
+   */
+  private getTeamDistribution(
+    assignedEmployees: Employee[]
+  ): Map<string, number> {
+    const distribution = new Map<string, number>();
+
+    assignedEmployees.forEach(emp => {
+      if (emp.teamId) {
+        distribution.set(emp.teamId, (distribution.get(emp.teamId) || 0) + 1);
+      }
+    });
+
+    return distribution;
+  }
+
+  /**
+   * 직원의 배정 점수 계산 (개인 선호 > 팀 패턴)
+   */
+  private calculateAssignmentScore(
+    employee: Employee,
+    shift: 'D' | 'E' | 'N',
+    currentDate: Date,
+    currentShiftEmployees: Employee[]
+  ): AssignmentScore {
+    const individualScore = this.calculateIndividualPreferenceScore(employee, shift, currentDate);
+    const teamPatternScore = this.calculateTeamPatternScore(employee, shift, currentDate);
+    const teamBalanceScore = this.calculateTeamBalanceScore(employee, currentShiftEmployees);
+    const experienceScore = this.calculateExperienceBalanceScore(employee, currentShiftEmployees);
+
+    // Hard constraint violations
+    const hardViolations = 0; // 현재는 hard constraint는 별도로 체크
+
+    // Weighted total score
+    const totalScore =
+      (individualScore * 0.6) +
+      (teamPatternScore * 0.2) +
+      (teamBalanceScore * 0.1) +
+      (experienceScore * 0.1);
+
+    return {
+      hardConstraintViolations: hardViolations,
+      individualPreference: individualScore,
+      teamPatternMatch: teamPatternScore,
+      teamBalance: teamBalanceScore,
+      experienceBalance: experienceScore,
+      totalScore
+    };
+  }
+
+  /**
+   * 개인 선호도 점수 계산 (0-100)
+   */
+  private calculateIndividualPreferenceScore(
+    employee: Employee,
+    shift: 'D' | 'E' | 'N',
+    currentDate: Date
+  ): number {
+    let score = 50; // 기본 점수
+
+    // 1. 시프트 타입 선호도 (0-10 → 0-40)
+    if (employee.preferredShiftTypes?.[shift] !== undefined) {
+      score += (employee.preferredShiftTypes[shift] - 5) * 4;
+    }
+
+    // 2. 요일별 선호도 (0-10 → 0-30)
+    const dayOfWeek = currentDate.getDay();
+    if (employee.weekdayPreferences?.[dayOfWeek] !== undefined) {
+      score += (employee.weekdayPreferences[dayOfWeek] - 5) * 3;
+    }
+
+    // 3. 선호 휴무일 체크 (-30점)
+    // shift는 이미 'D' | 'E' | 'N'으로 제한되어 있으므로 OFF 체크 불필요
+    if (employee.preferredOffDaysOfWeek?.includes(dayOfWeek)) {
+      score -= 30;
+    }
+
+    return Math.max(0, Math.min(100, score));
+  }
+
+  /**
+   * 팀 패턴 매칭 점수 계산 (0-50)
+   */
+  private calculateTeamPatternScore(
+    employee: Employee,
+    shift: 'D' | 'E' | 'N',
+    currentDate: Date
+  ): number {
+    let score = 50; // 기본 점수
+
+    // 기피 패턴 체크
+    if (this.config.avoidPatterns && this.config.avoidPatterns.length > 0) {
+      const result = this.canAssignWithAvoidPatterns(
+        employee.id,
+        shift,
+        currentDate,
+        this.config.avoidPatterns
+      );
+
+      if (!result.canAssign) {
+        score -= 50; // 기피 패턴 위반 시 0점
+      }
+    }
+
+    return Math.max(0, Math.min(50, score));
+  }
+
+  /**
+   * 팀 균형 점수 계산 (0-30)
+   */
+  private calculateTeamBalanceScore(
+    employee: Employee,
+    currentShiftEmployees: Employee[]
+  ): number {
+    if (!employee.teamId || !this.config.teams || this.config.teams.length === 0) {
+      return 15; // 팀 정보 없으면 중립
+    }
+
+    const teamDist = this.getTeamDistribution(currentShiftEmployees);
+    const employeeTeamCount = teamDist.get(employee.teamId) || 0;
+
+    // 각 팀에서 최소 1명씩 배치하는 것이 목표
+    // 해당 팀이 아직 없으면 높은 점수
+    if (employeeTeamCount === 0) {
+      return 30;
+    }
+
+    // 이미 배치된 팀이면 낮은 점수
+    return Math.max(0, 30 - (employeeTeamCount * 10));
+  }
+
+  /**
+   * 경력 균형 점수 계산 (0-20)
+   */
+  private calculateExperienceBalanceScore(
+    employee: Employee,
+    currentShiftEmployees: Employee[]
+  ): number {
+    if (employee.yearsOfService === undefined) {
+      return 10; // 경력 정보 없으면 중립
+    }
+
+    const careerLevel = this.calculateCareerLevel(employee.yearsOfService);
+    const careerDist = this.getCareerDistribution(currentShiftEmployees);
+    const levelCount = careerDist.get(careerLevel) || 0;
+
+    // 각 경력 그룹에서 최소 1명씩 배치하는 것이 목표
+    if (levelCount === 0) {
+      return 20;
+    }
+
+    return Math.max(0, 20 - (levelCount * 5));
+  }
+
+  /**
    * Helper: Assign shift with fair rotation and experience balance
    * 공정한 순환 배치: 적게 일한 사람부터 우선 배치
    */
@@ -660,15 +877,22 @@ export class SimpleScheduler {
       });
     }
 
-    // Sort by workload fairness FIRST, then experience/preference
+    // 현재 이미 배정된 직원들 조회 (팀/경력 균형 계산용)
+    const currentShiftEmployees: Employee[] = [];
+    for (const emp of employees) {
+      if (daySchedule.has(emp.id) && daySchedule.get(emp.id) === shift) {
+        currentShiftEmployees.push(emp);
+      }
+    }
+
+    // Sort by scoring system (higher score = better assignment)
     const sorted = available.sort((a, b) => {
-      // 1. OFF 횟수가 적은 사람 우선 (최소 휴무일 보장 - 주말/공휴일 기준)
+      // 0. 최소 휴무일 보장 체크 (hard priority)
       const aOff = this.offCounts.get(a.id) || 0;
       const bOff = this.offCounts.get(b.id) || 0;
       const aWork = this.workCounts.get(a.id) || 0;
       const bWork = this.workCounts.get(b.id) || 0;
 
-      // 현재까지 배정된 날짜 기준으로 최소 휴무일 비율 계산
       const currentDay = aWork + aOff;
       if (currentDay > 0) {
         const aMinOffNeeded = Math.ceil((currentDay / totalDaysInMonth) * this.minOffDaysPerMonth);
@@ -679,25 +903,28 @@ export class SimpleScheduler {
         if (bOff < bMinOffNeeded && aOff >= aMinOffNeeded) return -1; // a 우선
       }
 
-      // 2. 근무 횟수가 적은 사람 우선 (공정성)
-      if (aWork !== bWork) return aWork - bWork; // Less work first
+      // 1. 근무 횟수 공정성 (적게 일한 사람 우선)
+      if (aWork !== bWork) return aWork - bWork;
 
-      // 3. OFF 횟수가 많은 사람 우선 (더 쉰 사람이 일해야 함)
-      if (aOff !== bOff) return bOff - aOff; // More OFF = work now
+      // 2. OFF 횟수 (더 쉰 사람이 일해야 함)
+      if (aOff !== bOff) return bOff - aOff;
 
-      // 4. 같은 시프트 연속 횟수가 적은 사람 우선
+      // 3. 같은 시프트 연속 횟수가 적은 사람 우선
       const aLastShift = this.lastShift.get(a.id);
       const bLastShift = this.lastShift.get(b.id);
       const aConsecutive = aLastShift === shift ? (this.consecutiveShiftCounts.get(a.id) || 0) : 0;
       const bConsecutive = bLastShift === shift ? (this.consecutiveShiftCounts.get(b.id) || 0) : 0;
       if (aConsecutive !== bConsecutive) return aConsecutive - bConsecutive;
 
-      // 5. Shift preference
-      const aPref = this.getShiftPreference(a, shift);
-      const bPref = this.getShiftPreference(b, shift);
-      if (aPref !== bPref) return bPref - aPref;
+      // 4. 점수 기반 정렬 (개인 선호 60% + 팀 패턴 20% + 팀 균형 10% + 경력 균형 10%)
+      const aScore = this.calculateAssignmentScore(a, shift, currentDate, currentShiftEmployees);
+      const bScore = this.calculateAssignmentScore(b, shift, currentDate, currentShiftEmployees);
 
-      // 7. Role (RN > CN > SN > NA)
+      if (aScore.totalScore !== bScore.totalScore) {
+        return bScore.totalScore - aScore.totalScore; // Higher score first
+      }
+
+      // 5. Role (RN > CN > SN > NA)
       const roleOrder: Record<string, number> = { RN: 4, CN: 3, SN: 2, NA: 1 };
       return (roleOrder[b.role] || 0) - (roleOrder[a.role] || 0);
     });

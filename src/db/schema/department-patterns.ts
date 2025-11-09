@@ -2,7 +2,7 @@ import { pgTable, uuid, text, timestamp, integer, jsonb, index } from 'drizzle-o
 import { relations } from 'drizzle-orm';
 import { departments } from './tenants';
 
-export const teamPatterns = pgTable('team_patterns', {
+export const departmentPatterns = pgTable('department_patterns', {
   id: uuid('id').primaryKey().defaultRandom(),
   departmentId: uuid('department_id').references(() => departments.id, { onDelete: 'cascade' }).notNull(),
 
@@ -27,13 +27,13 @@ export const teamPatterns = pgTable('team_patterns', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
 }, (table) => ({
-  departmentIdx: index('team_patterns_department_idx').on(table.departmentId),
-  activeIdx: index('team_patterns_active_idx').on(table.isActive),
+  departmentIdx: index('department_patterns_department_idx').on(table.departmentId),
+  activeIdx: index('department_patterns_active_idx').on(table.isActive),
 }));
 
-export const teamPatternsRelations = relations(teamPatterns, ({ one }) => ({
+export const departmentPatternsRelations = relations(departmentPatterns, ({ one }) => ({
   department: one(departments, {
-    fields: [teamPatterns.departmentId],
+    fields: [departmentPatterns.departmentId],
     references: [departments.id],
   }),
 }));

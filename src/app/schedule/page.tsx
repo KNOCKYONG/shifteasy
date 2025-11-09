@@ -805,7 +805,7 @@ function SchedulePageContent() {
   );
 
   // Type-cast the preferences data
-  const currentUserPreferences = currentUserPreferencesRaw as ComprehensivePreferences | null;
+  const storedUserPreferences = currentUserPreferencesRaw as ComprehensivePreferences | null;
 
   // Transform users data to match expected format
   // 전체 멤버 리스트 (필터링 없음 - 직원 선호사항 탭에서 사용)
@@ -1791,7 +1791,7 @@ function SchedulePageContent() {
         console.log(`🔍 팀 패턴 조회 시작: departmentId=${targetDepartmentId}`);
 
         if (targetDepartmentId) {
-          const teamPatternResponse = await fetch(`/api/team-patterns?departmentId=${targetDepartmentId}`);
+          const teamPatternResponse = await fetch(`/api/department-patterns?departmentId=${targetDepartmentId}`);
           const teamPatternData = await teamPatternResponse.json();
           console.log(`📦 팀 패턴 API 응답:`, teamPatternData);
 
