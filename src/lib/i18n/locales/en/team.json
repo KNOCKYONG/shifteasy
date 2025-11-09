@@ -1,7 +1,7 @@
 {
-  "title": "Team Management",
+  "title": "Department Management",
   "wardId": "Ward ID",
-  "teamMembers": "Team Members",
+  "teamMembers": "Department Staff",
   "totalMembers": "Total Members",
   "stats": {
     "nurse": "Nurse",
@@ -40,14 +40,14 @@
   },
   "alerts": {
     "enterName": "Please enter staff name.",
-    "saveFailed": "Error occurred while saving team information.",
+    "saveFailed": "Error occurred while saving department information.",
     "enterPresetName": "Please enter preset name.",
     "presetSaved": "\"{{name}}\" preset has been saved.",
     "selectPresetFirst": "Please select a preset to load.",
     "presetLoaded": "\"{{name}}\" preset has been loaded."
   },
   "empty": {
-    "noMembers": "No team members yet.",
+    "noMembers": "No department staff yet.",
     "getStarted": "Click \"Add Staff\" button above to get started."
   }
 }

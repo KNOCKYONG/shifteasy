@@ -4,9 +4,22 @@
     "title": "ShiftEasy - スマートな勤務スケジュール管理"
   },
   "nav": {
+    "dashboard": "ダッシュボード",
     "schedule": "スケジュール",
-    "team": "チーム管理",
+    "team": "部門管理",
     "config": "設定"
+  },
+  "teamMenu": {
+    "pattern": "部門パターン設定",
+    "patternDesc": "部門別のシフトパターンを設定・管理します",
+    "management": "スタッフ管理",
+    "managementDesc": "部門スタッフ情報を管理・閲覧します",
+    "assignment": "チーム配属",
+    "assignmentDesc": "部門内のチーム編成と配属を管理します"
+  },
+  "scheduleMenu": {
+    "management": "スケジュール管理",
+    "settings": "設定"
   },
   "buttons": {
     "save": "保存",

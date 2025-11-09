@@ -1,7 +1,7 @@
 {
-  "title": "팀 관리",
+  "title": "부서 관리",
   "wardId": "병동 ID",
-  "teamMembers": "팀 구성원",
+  "teamMembers": "부서원",
   "totalMembers": "총 인원",
   "stats": {
     "nurse": "간호사",
@@ -40,14 +40,14 @@
   },
   "alerts": {
     "enterName": "직원 이름을 입력해주세요.",
-    "saveFailed": "팀 정보 저장 중 오류가 발생했습니다.",
+    "saveFailed": "부서 정보 저장 중 오류가 발생했습니다.",
     "enterPresetName": "프리셋 이름을 입력해주세요.",
     "presetSaved": "\"{{name}}\" 프리셋이 저장되었습니다.",
     "selectPresetFirst": "불러올 프리셋을 선택해주세요.",
     "presetLoaded": "\"{{name}}\" 프리셋을 불러왔습니다."
   },
   "empty": {
-    "noMembers": "아직 팀 구성원이 없습니다.",
+    "noMembers": "아직 부서원이 없습니다.",
     "getStarted": "위의 \"직원 추가\" 버튼을 클릭하여 시작하세요."
   }
 }

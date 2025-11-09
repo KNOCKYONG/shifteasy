@@ -1,7 +1,7 @@
 {
-  "title": "チーム管理",
+  "title": "部門管理",
   "wardId": "病棟ID",
-  "teamMembers": "チームメンバー",
+  "teamMembers": "部門スタッフ",
   "totalMembers": "総人数",
   "stats": {
     "nurse": "看護師",
@@ -40,14 +40,14 @@
   },
   "alerts": {
     "enterName": "スタッフ名を入力してください。",
-    "saveFailed": "チーム情報の保存中にエラーが発生しました。",
+    "saveFailed": "部門情報の保存中にエラーが発生しました。",
     "enterPresetName": "プリセット名を入力してください。",
     "presetSaved": "「{{name}}」プリセットが保存されました。",
     "selectPresetFirst": "読み込むプリセットを選択してください。",
     "presetLoaded": "「{{name}}」プリセットを読み込みました。"
   },
   "empty": {
-    "noMembers": "まだチームメンバーがいません。",
+    "noMembers": "まだ部門スタッフがいません。",
     "getStarted": "上の「スタッフ追加」ボタンをクリックして始めてください。"
   }
 }

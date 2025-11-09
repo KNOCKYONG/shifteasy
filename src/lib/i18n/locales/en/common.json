@@ -6,8 +6,20 @@
   "nav": {
     "dashboard": "Dashboard",
     "schedule": "Schedule",
-    "team": "Team Management",
+    "team": "Department Management",
     "config": "Settings"
+  },
+  "teamMenu": {
+    "pattern": "Department Pattern Settings",
+    "patternDesc": "Configure and manage shift patterns by department",
+    "management": "Staff Management",
+    "managementDesc": "Manage and view department staff information",
+    "assignment": "Team Assignment",
+    "assignmentDesc": "Manage team composition and assignments within departments"
+  },
+  "scheduleMenu": {
+    "management": "Schedule Management",
+    "settings": "Settings"
   },
   "buttons": {
     "save": "Save",

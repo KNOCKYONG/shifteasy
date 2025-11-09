@@ -50,14 +50,14 @@ export function NavigationHeader() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   const teamSubMenuItems: SubMenuItem[] = [
-    { label: '부서 패턴', value: 'pattern' },
-    { label: '부서원 관리', value: 'management' },
-    { label: '팀 배정', value: 'assignment' },
+    { label: t('teamMenu.pattern', { defaultValue: '부서 패턴 설정' }), value: 'pattern' },
+    { label: t('teamMenu.management', { defaultValue: '부서원 관리' }), value: 'management' },
+    { label: t('teamMenu.assignment', { defaultValue: '팀 배정' }), value: 'assignment' },
   ];
 
   const scheduleSubMenuItems = [
-    { label: '스케줄 관리', href: '/schedule' },
-    { label: '설정', href: '/config' },
+    { label: t('scheduleMenu.management', { defaultValue: '스케줄 관리' }), href: '/schedule' },
+    { label: t('scheduleMenu.settings', { defaultValue: '설정' }), href: '/config' },
   ];
 
   const isManagerOrAdmin = currentUser.role === 'manager' || currentUser.role === 'admin';

@@ -126,8 +126,12 @@ export function AdminDashboard() {
           };
 
           return (
-            <Link key={index} href={stat.href}>
-              <Card className={`p-4 hover:shadow-lg transition-all cursor-pointer ${stat.urgent ? 'ring-2 ring-red-500' : ''}`}>
+            <Link
+              key={index}
+              href={stat.href}
+              className="block"
+            >
+              <div className={`p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all cursor-pointer ${stat.urgent ? 'ring-2 ring-red-500' : ''}`}>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
@@ -146,7 +150,7 @@ export function AdminDashboard() {
                     <Icon className="w-6 h-6" />
                   </div>
                 </div>
-              </Card>
+              </div>
             </Link>
           );
         })}
@@ -194,8 +198,12 @@ export function AdminDashboard() {
           {quickActions.map((action, index) => {
             const Icon = action.icon;
             return (
-              <Link key={index} href={action.href}>
-                <Card className="p-6 hover:shadow-lg transition-all cursor-pointer group">
+              <Link
+                key={index}
+                href={action.href}
+                className="block"
+              >
+                <div className="p-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all cursor-pointer group">
                   <div className={`${action.color} text-white p-3 rounded-lg inline-flex mb-4 group-hover:scale-110 transition-transform`}>
                     <Icon className="w-6 h-6" />
                   </div>
@@ -205,7 +213,7 @@ export function AdminDashboard() {
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     {action.description}
                   </p>
-                </Card>
+                </div>
               </Link>
             );
           })}

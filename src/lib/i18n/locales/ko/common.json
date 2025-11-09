@@ -6,8 +6,20 @@
   "nav": {
     "dashboard": "대시보드",
     "schedule": "스케줄",
-    "team": "팀 관리",
+    "team": "부서 관리",
     "config": "설정"
+  },
+  "teamMenu": {
+    "pattern": "부서 패턴 설정",
+    "patternDesc": "부서별 근무 패턴을 설정하고 관리합니다",
+    "management": "부서원 관리",
+    "managementDesc": "부서 직원 정보를 관리하고 조회합니다",
+    "assignment": "팀 배정",
+    "assignmentDesc": "부서 내 팀 구성과 배정을 관리합니다"
+  },
+  "scheduleMenu": {
+    "management": "스케줄 관리",
+    "settings": "설정"
   },
   "buttons": {
     "save": "저장",
