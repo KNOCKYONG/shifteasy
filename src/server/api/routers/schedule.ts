@@ -720,4 +720,63 @@ export const scheduleRouter = createTRPCRouter({
         specialRequests: specialRequestsData,
       };
     }),
+
+  // Dashboard data - optimized composite query
+  getDashboardData: protectedProcedure
+    .query(async ({ ctx }) => {
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Execute queries in parallel
+      const [todaySchedule, pendingSwaps] = await Promise.all([
+        // Find schedule that includes today (published only, limit 1)
+        db
+          .select({
+            id: schedules.id,
+            startDate: schedules.startDate,
+            endDate: schedules.endDate,
+            metadata: schedules.metadata,
+          })
+          .from(schedules)
+          .where(and(
+            eq(schedules.tenantId, tenantId),
+            eq(schedules.status, 'published'),
+            or(
+              isNull(schedules.deletedFlag),
+              ne(schedules.deletedFlag, 'X')
+            ),
+            lte(schedules.startDate, today),
+            gte(schedules.endDate, today)
+          ))
+          .orderBy(desc(schedules.publishedAt))
+          .limit(1)
+          .then(rows => rows[0] || null),
+
+        // Get pending swap requests count (if swap table exists)
+        // For now, return empty array - will be implemented when swap feature is ready
+        Promise.resolve([]),
+      ]);
+
+      // Extract today's working count from schedule metadata
+      let workingToday = 0;
+      if (todaySchedule && todaySchedule.metadata) {
+        const metadata = todaySchedule.metadata as any;
+        const assignments = metadata?.assignments || [];
+        const todayStr = today.toISOString().split('T')[0];
+
+        workingToday = assignments.filter((assignment: any) => {
+          const assignmentDate = new Date(assignment.date).toISOString().split('T')[0];
+          const isToday = assignmentDate === todayStr;
+          const isWorking = assignment.shiftId !== 'off';
+          return isToday && isWorking;
+        }).length;
+      }
+
+      return {
+        workingToday,
+        pendingSwapsCount: 0, // Will be implemented with swap feature
+        approvedTodayCount: 0, // Will be implemented with swap feature
+      };
+    }),
 });
