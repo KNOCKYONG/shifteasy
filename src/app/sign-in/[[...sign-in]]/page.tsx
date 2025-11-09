@@ -187,24 +187,6 @@ export default function SignInPage() {
             </div>
           </div>
         </div>
-
-        <div className="mt-6 bg-white/50 dark:bg-gray-800/50 backdrop-blur rounded-xl p-4">
-          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            테스트 계정:
-          </p>
-          <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
-            <p>📧 admin@shifteasy.com (관리자)</p>
-            <p>📧 guest@shifteasy.com (게스트 매니저)</p>
-            <p>📧 manager@shifteasy.com (8명 매니저)</p>
-            <p>📧 manager.a@shifteasy.com (15명 매니저)</p>
-            <p>📧 manager.b@shifteasy.com (20명 매니저)</p>
-            <p>📧 kim-su-jin@snuh.org (8명 부서 멤버)</p>
-            <p>📧 jo.ara@shifteasy.com (15명 부서 멤버)</p>
-            <p>📧 lee.byeol@shifteasy.com (20명 부서 멤버)</p>
-            <p className="pt-2 text-gray-500 dark:text-gray-500">비밀번호는 Clerk에서 설정한 비밀번호 사용</p>
-          </div>
-        </div>
-
         <p className="mt-8 text-center text-sm text-gray-500 dark:text-gray-600">
           © 2025 ShiftEasy. All rights reserved.
         </p>

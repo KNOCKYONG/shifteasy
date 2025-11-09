@@ -314,20 +314,6 @@ export default function SignUpPage() {
           </div>
         </div>
 
-        {step === 'code' && (
-          <div className="mt-6 bg-white/50 dark:bg-gray-800/50 backdrop-blur rounded-xl p-4">
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              테스트용 시크릿 코드:
-            </p>
-            <p className="text-lg font-mono text-blue-600 dark:text-blue-400">
-              TEST-2024
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-              테스트 조직 (ShiftEasy Test Hospital)
-            </p>
-          </div>
-        )}
-
         <p className="mt-8 text-center text-sm text-gray-500 dark:text-gray-600">
           © 2025 ShiftEasy. All rights reserved.
         </p>
