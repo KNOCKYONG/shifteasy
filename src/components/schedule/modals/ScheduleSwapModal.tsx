@@ -219,13 +219,13 @@ export function ScheduleSwapModal({
                   <p className="text-gray-500 dark:text-gray-400 text-lg">교환 가능한 근무가 없습니다</p>
                 </div>
               ) : (
-                <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm">
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm max-w-3xl mx-auto">
                   {/* Calendar Header - Days of Week */}
-                  <div className="grid grid-cols-7 gap-2 mb-2">
+                  <div className="grid grid-cols-7 gap-1 mb-1">
                     {['일', '월', '화', '수', '목', '금', '토'].map((day, idx) => (
                       <div
                         key={day}
-                        className={`text-center font-semibold text-sm py-2 ${
+                        className={`text-center font-semibold text-xs py-1 ${
                           idx === 0 ? 'text-red-600 dark:text-red-400' :
                           idx === 6 ? 'text-blue-600 dark:text-blue-400' :
                           'text-gray-600 dark:text-gray-400'
@@ -237,7 +237,7 @@ export function ScheduleSwapModal({
                   </div>
 
                   {/* Calendar Grid */}
-                  <div className="grid grid-cols-7 gap-2">
+                  <div className="grid grid-cols-7 gap-1">
                     {calendarDays.map((day, idx) => {
                       if (!day) {
                         return <div key={`empty-${idx}`} className="aspect-square" />;
@@ -253,14 +253,14 @@ export function ScheduleSwapModal({
                           key={dateStr}
                           onClick={() => myShift && handleMyShiftSelect(myShift)}
                           disabled={!myShift}
-                          className={`aspect-square p-1 rounded-lg border-2 transition-all ${
+                          className={`aspect-square p-0.5 rounded-md border transition-all ${
                             myShift
-                              ? 'border-blue-300 hover:border-blue-500 hover:shadow-md cursor-pointer'
-                              : 'border-gray-200 dark:border-gray-700 cursor-not-allowed opacity-40'
-                          } ${isToday ? 'ring-2 ring-blue-400' : ''}`}
+                              ? 'border-blue-400 hover:border-blue-600 hover:shadow-md cursor-pointer bg-blue-50 dark:bg-blue-900/20'
+                              : 'border-gray-200 dark:border-gray-700 cursor-not-allowed opacity-30'
+                          } ${isToday ? 'ring-1 ring-blue-500' : ''}`}
                         >
-                          <div className="h-full flex flex-col items-center justify-center">
-                            <div className={`text-sm font-semibold mb-1 ${
+                          <div className="h-full flex flex-col items-center justify-center gap-0.5">
+                            <div className={`text-xs font-bold ${
                               dayOfWeek === 0 ? 'text-red-600' :
                               dayOfWeek === 6 ? 'text-blue-600' :
                               'text-gray-700 dark:text-gray-300'
@@ -269,7 +269,7 @@ export function ScheduleSwapModal({
                             </div>
                             {myShift && (
                               <div
-                                className="text-xs px-2 py-0.5 rounded text-white font-medium"
+                                className="text-[10px] px-1 py-0.5 rounded text-white font-bold leading-none"
                                 style={{ backgroundColor: getShiftColor(myShift.shiftId) }}
                               >
                                 {myShift.shiftName}
