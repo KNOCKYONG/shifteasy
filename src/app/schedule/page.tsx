@@ -767,42 +767,25 @@ function SchedulePageContent() {
 
       // Merge saved preferences with employee data
       if (savedPreferences) {
-        const prefs = savedPreferences as any;
-
-        // SimplifiedPreferences에서 ExtendedEmployeePreferences로 변환
-        const workPrefs = prefs.workPreferences || {};
-        const teamPrefs = prefs.teamPreferences || {};
-
-        const normalizedMentorshipRole: 'none' | 'mentor' | 'mentee' =
-          teamPrefs.mentorshipRole === 'mentor' || teamPrefs.mentorshipRole === 'mentee'
-            ? teamPrefs.mentorshipRole
-            : teamPrefs.mentorshipRole === 'both'
-            ? 'mentor'
-            : 'none';
+        const prefs = savedPreferences as SimplifiedPreferences;
 
         (employee.preferences as any) = {
           ...employee.preferences,
-          preferredShifts: workPrefs.preferredShifts || [],
-          avoidShifts: workPrefs.avoidShifts || [],
-          preferredDaysOff: [],
-          maxConsecutiveDays: workPrefs.maxConsecutiveDays || 5,
+          avoidShifts: [],
+          maxConsecutiveDays: 5,
           preferNightShift: false,
 
-          // Convert SimplifiedPreferences to ExtendedEmployeePreferences format
-          workPatternType: workPrefs.workPatternType || 'three-shift',
-          workLoadPreference: ((): 'light' | 'normal' | 'heavy' => {
-            if (workPrefs.preferredWorkload === 'light') return 'light';
-            if (workPrefs.preferredWorkload === 'heavy') return 'heavy';
-            return 'normal';
-          })(),
+          // Use SimplifiedPreferences directly
+          workPatternType: prefs.workPatternType || 'three-shift',
+          workLoadPreference: 'normal' as const,
           flexibilityLevel: 'medium' as const,
-          preferredPatterns: workPrefs.preferredPatterns || [],
-          avoidPatterns: workPrefs.avoidPatterns || [],
-          preferredPartners: teamPrefs.preferredPartners || [],
-          avoidPartners: teamPrefs.avoidPartners || [],
+          preferredPatterns: prefs.preferredPatterns || [],
+          avoidPatterns: prefs.avoidPatterns || [],
+          preferredPartners: [],
+          avoidPartners: [],
           personalConstraints: [],
           trainingDays: [],
-          mentorshipRole: normalizedMentorshipRole,
+          mentorshipRole: 'none' as const,
           specialization: [],
           healthConsiderations: {
             needsLightDuty: false,
@@ -817,83 +800,6 @@ function SchedulePageContent() {
             publicTransportDependent: false,
           },
         };
-
-        // Convert preferredShiftTypes to preferredShifts array
-        if (prefs.preferredShiftTypes) {
-          const shiftMapping: { [key: string]: 'day' | 'evening' | 'night' } = {
-            D: 'day',
-            E: 'evening',
-            N: 'night',
-          };
-
-          Object.entries(prefs.preferredShiftTypes).forEach(([key, value]) => {
-            if (value && (value as number) > 0 && shiftMapping[key]) {
-              employee.preferences.preferredShifts.push(shiftMapping[key]);
-            }
-          });
-        }
-
-        // Convert weekdayPreferences to preferredDaysOff array
-        if (prefs.weekdayPreferences) {
-          const dayMapping: { [key: string]: number } = {
-            sunday: 0,
-            monday: 1,
-            tuesday: 2,
-            wednesday: 3,
-            thursday: 4,
-            friday: 5,
-            saturday: 6,
-          };
-
-          Object.entries(prefs.weekdayPreferences).forEach(([dayName, score]) => {
-            // Days with score >= 7 are considered preferred days off
-            if (score && (score as number) >= 7 && dayMapping[dayName] !== undefined) {
-              employee.preferences.preferredDaysOff.push(dayMapping[dayName]);
-            }
-          });
-        }
-
-        // Convert DB careResponsibilities to UI personalConstraints
-        if (prefs.hasCareResponsibilities && prefs.careResponsibilityDetails) {
-          const details = prefs.careResponsibilityDetails;
-          const constraints = employee.preferences.personalConstraints ?? [];
-          constraints.push({
-            id: `care-${Date.now()}`,
-            type: details.type,
-            description: `${details.type} 관련 사정`,
-            priority: 'medium',
-          });
-          employee.preferences.personalConstraints = constraints;
-        }
-
-        // Parse transportationNotes to extract commute preferences
-        if (prefs.hasTransportationIssues && prefs.transportationNotes) {
-          const notes = prefs.transportationNotes;
-          const commutePreferences = employee.preferences.commuteConsiderations ?? {
-            maxCommuteTime: 60,
-            avoidRushHour: false,
-            needsParking: false,
-            publicTransportDependent: false,
-          };
-
-          // Extract max commute time from "Max commute: 60 min."
-          const commuteMatch = notes.match(/Max commute: (\d+) min/);
-          if (commuteMatch) {
-            commutePreferences.maxCommuteTime = parseInt(commuteMatch[1]);
-          }
-
-          // Extract public transport preference from "Public transport: Yes"
-          if (notes.includes('Public transport: Yes')) {
-            commutePreferences.publicTransportDependent = true;
-          }
-
-          // Extract parking requirement from "Parking: Required"
-          if (notes.includes('Parking: Required')) {
-            commutePreferences.needsParking = true;
-          }
-
-          employee.preferences.commuteConsiderations = commutePreferences;
-        }
       }
     } catch (error) {
       console.error('Failed to load preferences:', error);
@@ -907,71 +813,47 @@ function SchedulePageContent() {
   const handlePreferencesSave = async (preferences: ExtendedEmployeePreferences) => {
     if (!selectedEmployee) return;
 
-    // Convert ExtendedEmployeePreferences to API format
-    // Convert preferredDaysOff (0=Sun, 1=Mon, ..., 6=Sat) to weekdayPreferences
-    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
-    const weekdayPreferences = {
-      monday: 5,
-      tuesday: 5,
-      wednesday: 5,
-      thursday: 5,
-      friday: 5,
-      saturday: 5,
-      sunday: 5,
-    };
+    try {
+      // Convert ExtendedEmployeePreferences to SimplifiedPreferences
+      const simplifiedPrefs: SimplifiedPreferences = {
+        workPatternType: preferences.workPatternType || 'three-shift',
+        preferredPatterns: (preferences.preferredPatterns || []).map(p =>
+          typeof p === 'string' ? { pattern: p, preference: 5 } : p
+        ),
+        avoidPatterns: preferences.avoidPatterns || [],
+      };
 
-    // Set preferred days to 10
-    (preferences.preferredDaysOff || []).forEach(dayNum => {
-      const dayName = dayNames[dayNum];
-      if (dayName) {
-        weekdayPreferences[dayName] = 10;
+      console.log('Saving preferences for', selectedEmployee.name, ':', simplifiedPrefs);
+
+      // Save via REST API
+      const response = await fetch('/api/preferences', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          employeeId: selectedEmployee.id,
+          preferences: simplifiedPrefs,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save preferences');
       }
-    });
 
-    const preferenceData = {
-      staffId: selectedEmployee.id,
-      workPatternType: preferences.workPatternType || 'three-shift',
-      preferredShiftTypes: {
-        D: preferences.preferredShifts.includes('day') ? 10 : 0,
-        E: preferences.preferredShifts.includes('evening') ? 10 : 0,
-        N: preferences.preferredShifts.includes('night') ? 10 : 0,
-      },
-      preferredPatterns: (preferences.preferredPatterns || []).map(pattern => {
-        console.log('Saving pattern:', pattern);
-        return {
-          pattern,
-          preference: 10, // Default preference value
-        };
-      }),
-      weekdayPreferences,
-      maxConsecutiveDaysPreferred: preferences.maxConsecutiveDays,
-      preferAlternatingWeekends: preferences.flexibilityLevel === 'high',
-      preferredColleagues: preferences.preferredPartners || [],
-      avoidColleagues: preferences.avoidPartners || [],
-      mentorshipPreference: preferences.mentorshipRole === 'none'
-        ? ("neither" as 'mentor' | 'mentee' | 'neither')
-        : preferences.mentorshipRole,
-      workLifeBalance: {
-        childcare: preferences.personalConstraints.some(c => c.type === 'childcare'),
-        eldercare: preferences.personalConstraints.some(c => c.type === 'eldercare'),
-        education: preferences.personalConstraints.some(c => c.type === 'education'),
-        secondJob: false,
-      },
-      commutePreferences: {
-        maxCommuteTime: preferences.commuteConsiderations.maxCommuteTime,
-        preferPublicTransport: preferences.commuteConsiderations.publicTransportDependent,
-        parkingRequired: preferences.commuteConsiderations.needsParking,
-      },
-    };
+      const result = await response.json();
+      console.log('Preferences saved:', result);
 
-    console.log('Saving preferences for', selectedEmployee.name, ':', preferenceData);
+      // Show success message
+      alert('선호도가 성공적으로 저장되었습니다!');
 
-    // Save via TRPC
-    await savePreferences.mutateAsync(preferenceData);
-
-    // Close modal
-    modals.setIsPreferencesModalOpen(false);
-    setSelectedEmployee(null);
+      // Close modal
+      modals.setIsPreferencesModalOpen(false);
+      setSelectedEmployee(null);
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+      alert('선호도 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+    }
   };
 
   // Handle modal close
