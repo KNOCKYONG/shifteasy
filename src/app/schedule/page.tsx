@@ -420,7 +420,7 @@ function SchedulePageContent() {
   }, [isManager, isMember, memberDepartmentId, selectedDepartment]);
 
   // Load shift types from configs table (department-specific)
-  const { data: shiftTypesConfig } = api.configs.getByKey.useQuery({
+  const { data: shiftTypesConfig, isLoading: isLoadingShiftTypesConfig } = api.configs.getByKey.useQuery({
     configKey: 'shift_types',
     departmentId: configDepartmentId, // Use department-specific config
   }, {
@@ -446,6 +446,11 @@ function SchedulePageContent() {
   });
 
   useEffect(() => {
+    if (isLoadingShiftTypesConfig) {
+      console.log('⏳ shiftTypesConfig 로딩 중 - 기존 커스텀 시프트 유지');
+      return;
+    }
+
     console.log('📥 shiftTypesConfig changed:', shiftTypesConfig);
 
     if (shiftTypesConfig?.configValue && Array.isArray(shiftTypesConfig.configValue) && shiftTypesConfig.configValue.length > 0) {
@@ -485,7 +490,7 @@ function SchedulePageContent() {
         console.log('❌ No shift types found in localStorage either');
       }
     }
-  }, [shiftTypesConfig]);
+  }, [shiftTypesConfig, isLoadingShiftTypesConfig]);
 
   // Convert customShiftTypes to Shift[] format
   const shifts = React.useMemo(() => {
