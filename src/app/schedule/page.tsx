@@ -2847,11 +2847,9 @@ function SchedulePageContent() {
           />
         )}
 
-        {/* Week Navigation & Department Filter */}
+        {/* Month Navigation */}
         <MonthNavigation
           monthStart={monthStart}
-          departmentOptions={departmentOptions}
-          selectedDepartment={selectedDepartment}
           displayMembersCount={displayMembers.length}
           filteredMembersCount={filteredMembers.length}
           selectedShiftTypesSize={filters.selectedShiftTypes.size}
@@ -2861,7 +2859,6 @@ function SchedulePageContent() {
           onPreviousMonth={handlePreviousMonth}
           onThisMonth={handleThisMonth}
           onNextMonth={handleNextMonth}
-          onDepartmentChange={handleDepartmentChange}
           onToggleSwapMode={handleToggleSwapMode}
         />
 

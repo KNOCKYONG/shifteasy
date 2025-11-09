@@ -2,15 +2,8 @@ import React from 'react';
 import { ChevronLeft, ChevronRight, Calendar, ArrowLeftRight } from 'lucide-react';
 import { format } from 'date-fns';
 
-interface Department {
-  id: string;
-  name: string;
-}
-
 interface MonthNavigationProps {
   monthStart: Date;
-  departmentOptions: Department[];
-  selectedDepartment: string;
   displayMembersCount: number;
   filteredMembersCount: number;
   selectedShiftTypesSize: number;
@@ -20,14 +13,11 @@ interface MonthNavigationProps {
   onPreviousMonth: () => void;
   onThisMonth: () => void;
   onNextMonth: () => void;
-  onDepartmentChange: (departmentId: string) => void;
   onToggleSwapMode?: () => void;
 }
 
 export const MonthNavigation = React.memo(function MonthNavigation({
   monthStart,
-  departmentOptions,
-  selectedDepartment,
   displayMembersCount,
   filteredMembersCount,
   selectedShiftTypesSize,
@@ -37,7 +27,6 @@ export const MonthNavigation = React.memo(function MonthNavigation({
   onPreviousMonth,
   onThisMonth,
   onNextMonth,
-  onDepartmentChange,
   onToggleSwapMode,
 }: MonthNavigationProps) {
   return (
@@ -72,8 +61,7 @@ export const MonthNavigation = React.memo(function MonthNavigation({
       </div>
 
       <div className="flex items-center gap-4">
-        {/* Member일 때는 스케줄 교환 버튼, 아니면 부서 선택 dropdown */}
-        {isMember && hasSchedule ? (
+        {isMember && hasSchedule && (
           <button
             onClick={onToggleSwapMode}
             className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
@@ -86,17 +74,7 @@ export const MonthNavigation = React.memo(function MonthNavigation({
             <ArrowLeftRight className="w-4 h-4" />
             {swapMode ? '교환 모드 종료' : '스케줄 교환'}
           </button>
-        ) : !isMember ? (
-          <select
-            value={selectedDepartment}
-            onChange={(e) => onDepartmentChange(e.target.value)}
-            className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-gray-100"
-          >
-            {departmentOptions.map(dept => (
-              <option key={dept.id} value={dept.id}>{dept.name}</option>
-            ))}
-          </select>
-        ) : null}
+        )}
         <span className="text-sm text-gray-500 dark:text-gray-400">
           {displayMembersCount}명 {selectedShiftTypesSize > 0 && `(전체: ${filteredMembersCount}명)`}
         </span>
