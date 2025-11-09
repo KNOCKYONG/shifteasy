@@ -78,6 +78,10 @@ export const users = pgTable('users', {
     };
   }>(),
   status: text('status').notNull().default('active'), // active, inactive, on_leave
+  // Annual leave fields
+  hireDate: timestamp('hire_date', { withTimezone: true }), // 입사일 (근속 년수 계산용)
+  annualLeaveDays: integer('annual_leave_days').default(15), // 총 연차 일수
+  usedLeaveDays: integer('used_leave_days').default(0), // 사용한 연차 일수
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),

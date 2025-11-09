@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSignUp } from '@clerk/nextjs';
-import { Mail, Lock, Eye, EyeOff, AlertCircle, User, Key, Building2 } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, AlertCircle, User, Key, Building2, Calendar, FileText } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SignUpPage() {
@@ -22,6 +22,8 @@ export default function SignUpPage() {
   const [guestName, setGuestName] = useState('');
   const [guestLoading, setGuestLoading] = useState(false);
   const [showGuestPassword, setShowGuestPassword] = useState(false);
+  const [hireDate, setHireDate] = useState('');
+  const [annualLeaveDays, setAnnualLeaveDays] = useState(15);
 
   const router = useRouter();
   const { isLoaded, signUp, setActive } = useSignUp();
@@ -79,6 +81,8 @@ export default function SignUpPage() {
           name,
           secretCode,
           tenantId: tenantInfo?.id,
+          hireDate: hireDate || undefined,
+          annualLeaveDays: annualLeaveDays,
         }),
       });
 
@@ -272,6 +276,40 @@ export default function SignUpPage() {
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     비밀번호는 8자 이상, 영문+숫자+특수문자를 포함해야 합니다
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <Calendar className="w-4 h-4 inline mr-1" />
+                    입사일 (선택사항)
+                  </label>
+                  <input
+                    type="date"
+                    value={hireDate}
+                    onChange={(e) => setHireDate(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    입사일을 입력하면 근속 년수 기반 연차가 자동 계산됩니다
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <FileText className="w-4 h-4 inline mr-1" />
+                    연차 일수
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="30"
+                    value={annualLeaveDays}
+                    onChange={(e) => setAnnualLeaveDays(parseInt(e.target.value) || 15)}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    기본값: 15일 (입사 년차에 따라 변경 가능)
                   </p>
                 </div>
 
