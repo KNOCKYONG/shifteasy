@@ -6,7 +6,7 @@
     "preferences": "スタッフ選好",
     "today": "今日の勤務",
     "schedule": "スケジュール表示",
-    "teamManagement": "チーム配置"
+    "teamManagement": "部門配置"
   },
   "viewMode": {
     "week": "週間",
@@ -19,7 +19,7 @@
     "afternoon": "午後 (E)",
     "night": "夜間 (N)",
     "totalWorking": "総勤務人員",
-    "team": "チーム",
+    "team": "部門",
     "selectDate": "日付選択",
     "noShifts": "この日に割り当てられた勤務がありません"
   },
@@ -44,31 +44,31 @@
   },
   "alerts": {
     "noSchedule": "まずスケジュールを作成してください。",
-    "noTeam": "まずチームを構成してください。",
-    "noTeamData": "チームデータが見つかりません。まずチームを構成してください。",
+    "noTeam": "まず部門を構成してください。",
+    "noTeamData": "部門データが見つかりません。まず部門を構成してください。",
     "generationFailed": "スケジュール生成失敗",
     "generationError": "スケジュール生成中にエラーが発生しました。"
   },
   "weekOf": "{{date}}週",
   "employee": "従業員",
   "teamManagement": {
-    "title": "チーム管理",
-    "description": "チームを追加して名前を変更できます",
-    "addTeam": "チーム追加",
-    "teamName": "チーム名",
-    "teamCode": "チームコード",
-    "teamColor": "チームカラー",
+    "title": "部門管理",
+    "description": "部門を追加して名前を変更できます",
+    "addTeam": "部門追加",
+    "teamName": "部門名",
+    "teamCode": "部門コード",
+    "teamColor": "部門カラー",
     "edit": "編集",
     "delete": "削除",
     "save": "保存",
     "cancel": "キャンセル",
-    "deleteConfirm": "このチームを削除してもよろしいですか？",
-    "noTeams": "登録されたチームがありません。チームを追加してください。",
-    "createSuccess": "チームが作成されました",
-    "updateSuccess": "チーム情報が更新されました",
-    "deleteSuccess": "チームが削除されました",
-    "createError": "チーム作成に失敗しました",
-    "updateError": "チーム更新に失敗しました",
-    "deleteError": "チーム削除に失敗しました"
+    "deleteConfirm": "この部門を削除してもよろしいですか？",
+    "noTeams": "登録された部門がありません。部門を追加してください。",
+    "createSuccess": "部門が作成されました",
+    "updateSuccess": "部門情報が更新されました",
+    "deleteSuccess": "部門が削除されました",
+    "createError": "部門作成に失敗しました",
+    "updateError": "部門更新に失敗しました",
+    "deleteError": "部門削除に失敗しました"
   }
 }

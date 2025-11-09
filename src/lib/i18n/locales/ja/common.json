@@ -14,8 +14,8 @@
     "patternDesc": "部門別のシフトパターンを設定・管理します",
     "management": "スタッフ管理",
     "managementDesc": "部門スタッフ情報を管理・閲覧します",
-    "assignment": "チーム配属",
-    "assignmentDesc": "部門内のチーム編成と配属を管理します"
+    "assignment": "部門配属",
+    "assignmentDesc": "部門内の編成と配属を管理します"
   },
   "scheduleMenu": {
     "management": "スケジュール管理",

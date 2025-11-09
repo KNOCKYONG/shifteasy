@@ -5,7 +5,7 @@
  * 1. 근무일 계산 (전체 일수 - 주말 - 법정 공휴일)
  * 2. 개인 특별 요청 선분배
  * 3. 개인 선호 패턴 분배 (직급 간 매칭 고려)
- * 4. 팀 패턴으로 공백 채우기
+ * 4. 부서 패턴으로 공백 채우기
  */
 
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend } from 'date-fns';
@@ -178,7 +178,7 @@ export class SimpleScheduler {
     this.assignPreferredPatterns();
 
     // Step 4: Fill gaps with team pattern
-    console.log('\n🔧 Step 4: 팀 패턴으로 빈 자리 채우기...');
+    console.log('\n🔧 Step 4: 부서 패턴으로 빈 자리 채우기...');
     this.assignTeamPattern();
 
     // Final statistics
@@ -678,7 +678,7 @@ export class SimpleScheduler {
   }
 
   /**
-   * 직원의 배정 점수 계산 (개인 선호 > 팀 패턴)
+   * 직원의 배정 점수 계산 (개인 선호 > 부서 패턴)
    */
   private calculateAssignmentScore(
     employee: Employee,
@@ -742,7 +742,7 @@ export class SimpleScheduler {
   }
 
   /**
-   * 팀 패턴 매칭 점수 계산 (0-50)
+   * 부서 패턴 매칭 점수 계산 (0-50)
    */
   private calculateTeamPatternScore(
     employee: Employee,
@@ -916,7 +916,7 @@ export class SimpleScheduler {
       const bConsecutive = bLastShift === shift ? (this.consecutiveShiftCounts.get(b.id) || 0) : 0;
       if (aConsecutive !== bConsecutive) return aConsecutive - bConsecutive;
 
-      // 4. 점수 기반 정렬 (개인 선호 60% + 팀 패턴 20% + 팀 균형 10% + 경력 균형 10%)
+      // 4. 점수 기반 정렬 (개인 선호 60% + 부서 패턴 20% + 팀 균형 10% + 경력 균형 10%)
       const aScore = this.calculateAssignmentScore(a, shift, currentDate, currentShiftEmployees);
       const bScore = this.calculateAssignmentScore(b, shift, currentDate, currentShiftEmployees);
 
@@ -967,7 +967,7 @@ export class SimpleScheduler {
    */
   private assignTeamPattern(): void {
     if (!this.config.teamPattern) {
-      console.log('   ℹ️ 팀 패턴 없음 - 건너뜀');
+      console.log('   ℹ️ 부서 패턴 없음 - 건너뜀');
       return;
     }
 
@@ -980,8 +980,8 @@ export class SimpleScheduler {
       emp => emp.workPatternType !== 'weekday-only'
     );
 
-    console.log(`   📋 팀 패턴: [${pattern.join(', ')}]`);
-    console.log(`   👥 팀 패턴 적용 대상: 교대 근무자 ${shiftEmployees.length}명`);
+    console.log(`   📋 부서 패턴: [${pattern.join(', ')}]`);
+    console.log(`   👥 부서 패턴 적용 대상: 교대 근무자 ${shiftEmployees.length}명`);
 
     for (const day of this.workDays) {
       const dateStr = format(day, 'yyyy-MM-dd');
@@ -1009,7 +1009,7 @@ export class SimpleScheduler {
     }
 
     if (filledCount === 0) {
-      console.log('   ✓ 모든 직원 배정 완료 (팀 패턴 불필요)');
+      console.log('   ✓ 모든 직원 배정 완료 (부서 패턴 불필요)');
     } else {
       console.log(`   ✓ ${filledCount}건 추가 배정 완료`);
     }

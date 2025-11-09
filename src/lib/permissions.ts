@@ -343,7 +343,7 @@ export const ROLE_NAVIGATION: Record<Role, Array<{
   [ROLES.MANAGER]: [
     { href: '/dashboard', label: '대시보드' },
     { href: '/schedule', label: '스케줄' },
-    { href: '/department', label: '우리 부서' },
+    { href: '/department', label: '부서 관리' },
     { href: '/config', label: '설정' },
     { href: '/requests', label: '요청사항' },
     { href: '/handoff', label: '인수인계' },

@@ -77,7 +77,7 @@ export function TeamPatternPanel({
   const [avoidPatternValidation, setAvoidPatternValidation] = useState<ReturnType<typeof validatePattern> | null>(null);
   const [showAvoidPatternHelp, setShowAvoidPatternHelp] = useState(false);
 
-  // Team Pattern 불러오기
+  // Department Pattern 불러오기
   useEffect(() => {
     // departmentId가 유효할 때만 fetch
     if (departmentId && departmentId !== 'all') {
@@ -401,7 +401,7 @@ export function TeamPatternPanel({
           };
 
       // 📋 상세 로깅: 어떤 부서에서 어떻게 저장되는지 명확히 표시
-      console.log('\n🔵 ============== Team Pattern 저장 시작 ==============');
+      console.log('\n🔵 ============== Department Pattern 저장 시작 ==============');
       console.log('📍 부서 정보:');
       console.log(`   - Department ID: ${departmentId || '(없음)'}`);
       console.log(`   - Department Name: ${departmentName || '(이름 없음)'}`);
@@ -426,7 +426,7 @@ export function TeamPatternPanel({
 
       if (!response.ok) {
         const error = await response.json();
-        console.log('\n❌ ============== Team Pattern 저장 실패 ==============');
+        console.log('\n❌ ============== Department Pattern 저장 실패 ==============');
         console.log('📍 부서:', departmentName || departmentId);
         console.log('❌ 에러:', error);
         console.log('❌ ================================================\n');
@@ -435,17 +435,17 @@ export function TeamPatternPanel({
       }
 
       const result = await response.json();
-      console.log('\n✅ ============== Team Pattern 저장 성공 ==============');
+      console.log('\n✅ ============== Department Pattern 저장 성공 ==============');
       console.log('📍 부서:', departmentName || departmentId);
       console.log('✅ 응답 데이터:', result);
       console.log('✅ 저장된 Pattern ID:', result.pattern?.id);
       console.log('✅ ================================================\n');
 
       setPattern(result.pattern);
-      setSuccessMessage('Team Pattern이 성공적으로 저장되었습니다.');
+      setSuccessMessage('부서 패턴이 성공적으로 저장되었습니다.');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
-      console.log('\n💥 ============== Team Pattern 저장 오류 ==============');
+      console.log('\n💥 ============== Department Pattern 저장 오류 ==============');
       console.log('📍 부서:', departmentName || departmentId);
       console.log('💥 예외 발생:', error);
       console.log('💥 ================================================\n');
@@ -474,7 +474,7 @@ export function TeamPatternPanel({
     return (
       <div className="p-6 bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="text-center py-8 text-gray-500">
-          Team Pattern 불러오는 중...
+          부서 패턴 불러오는 중...
         </div>
       </div>
     );
@@ -486,7 +486,7 @@ export function TeamPatternPanel({
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <Users className="w-5 h-5 text-blue-600" />
-          <h2 className="text-lg font-semibold text-gray-900">Team Pattern 설정</h2>
+          <h2 className="text-lg font-semibold text-gray-900">부서 패턴 설정</h2>
         </div>
         <div className="text-sm text-gray-500">
           전체 인원: <span className="font-semibold">{totalMembers}명</span>

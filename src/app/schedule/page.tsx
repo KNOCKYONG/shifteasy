@@ -276,12 +276,12 @@ function addNightIntensivePaidLeave(
   console.log('\n===========================================\n');
 }
 
-// Team Pattern을 기반으로 기본 선호도 생성 헬퍼 함수
+// Department Pattern을 기반으로 기본 선호도 생성 헬퍼 함수
 function createDefaultPreferencesFromTeamPattern(
   member: any,
   teamPattern: any
 ): ComprehensivePreferences {
-  // Team Pattern의 defaultPatterns 분석
+  // Department Pattern의 defaultPatterns 분석
   const patterns = teamPattern.defaultPatterns || [];
   const shiftCounts = { D: 0, E: 0, N: 0, OFF: 0 };
   let totalDays = 0;
@@ -1777,12 +1777,12 @@ function SchedulePageContent() {
           ? filteredMembers[0]?.departmentId
           : selectedDepartment;
 
-        console.log(`🔍 팀 패턴 조회 시작: departmentId=${targetDepartmentId}`);
+        console.log(`🔍 부서 패턴 조회 시작: departmentId=${targetDepartmentId}`);
 
         if (targetDepartmentId) {
           const teamPatternResponse = await fetch(`/api/department-patterns?departmentId=${targetDepartmentId}`);
           const teamPatternData = await teamPatternResponse.json();
-          console.log(`📦 팀 패턴 API 응답:`, teamPatternData);
+          console.log(`📦 부서 패턴 API 응답:`, teamPatternData);
 
           teamPattern = teamPatternData.pattern || teamPatternData.defaultPattern || teamPatternData;
           console.log(`📊 최종 teamPattern:`, {
@@ -1794,9 +1794,9 @@ function SchedulePageContent() {
           });
 
           if (teamPatternData.pattern) {
-            console.log(`✅ 팀 패턴 로드: D=${teamPattern.requiredStaffDay}, E=${teamPattern.requiredStaffEvening}, N=${teamPattern.requiredStaffNight} (부서: ${targetDepartmentId})`);
+            console.log(`✅ 부서 패턴 로드: D=${teamPattern.requiredStaffDay}, E=${teamPattern.requiredStaffEvening}, N=${teamPattern.requiredStaffNight} (부서: ${targetDepartmentId})`);
           } else {
-            console.warn(`⚠️ 팀 패턴 없음 - 기본값 사용 (부서: ${targetDepartmentId})`);
+            console.warn(`⚠️ 부서 패턴 없음 - 기본값 사용 (부서: ${targetDepartmentId})`);
           }
         } else {
           console.warn(`⚠️ targetDepartmentId가 없음`);
