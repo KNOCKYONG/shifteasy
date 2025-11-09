@@ -938,8 +938,14 @@ export const scheduleRouter = createTRPCRouter({
 
         // Add shift type information to each assignment
         // Add shift type information to each assignment
+        // Add shift type information to each assignment
         const enrichedAssignments = userAssignments.map((assignment: any) => {
-          const shiftType = shiftTypes.find((st: any) => st.id === assignment.shiftId);
+          // Convert shiftId to code format: 'shift-o' -> 'O', 'shift-a' -> 'A'
+          const shiftCode = assignment.shiftId?.replace('shift-', '').toUpperCase();
+          const shiftType = shiftTypes.find((st: any) =>
+            st.code === shiftCode || st.id === assignment.shiftId || st.code === assignment.shiftId
+          );
+
           const enriched = {
             ...assignment,
             shiftName: shiftType?.name || assignment.shiftId,
@@ -947,9 +953,12 @@ export const scheduleRouter = createTRPCRouter({
             endTime: shiftType?.endTime,
             color: shiftType?.color,
           };
+
           console.log('📅 나의 다가오는 근무 enriched:', {
             date: assignment.date,
             shiftId: assignment.shiftId,
+            shiftCode: shiftCode,
+            foundShiftType: shiftType,
             shiftName: enriched.shiftName,
             startTime: enriched.startTime,
             endTime: enriched.endTime,
