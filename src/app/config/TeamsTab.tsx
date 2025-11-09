@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Plus, Edit2, Trash2, Users, Save, ChevronDown, ChevronUp, X } from "lucide-react";
 import { api } from "@/lib/trpc/client";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 interface Team {
   id: string;
@@ -37,6 +38,7 @@ const COLOR_OPTIONS = [
 ];
 
 export function TeamsTab() {
+  const currentUser = useCurrentUser();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
@@ -136,6 +138,7 @@ export function TeamsTab() {
       name: newTeam.name,
       code: newTeam.code,
       color: newTeam.color,
+      departmentId: currentUser.dbUser?.departmentId || undefined,
     });
   };
 

@@ -553,7 +553,7 @@ function ConfigPageContent() {
                   <input
                     type="text"
                     value={newCareerGroup.code}
-                    onChange={(e) => setNewCareerGroup({ ...newCareerGroup, code: e.target.value })}
+                    onChange={(e) => setNewCareerGroup({ ...newCareerGroup, code: e.target.value.toUpperCase() })}
                     placeholder="예: Y1-2"
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
                   />

@@ -2535,6 +2535,43 @@ function SchedulePageContent() {
     return map;
   }, [specialRequestsData]);
 
+  // Calculate current user's preferences for display
+  const currentUserPreferences = React.useMemo(() => {
+    const currentEmployee = allMembers.find(m => m.id === currentUser.dbUser?.id);
+
+    if (!currentEmployee) {
+      return {
+        workPattern: '미설정',
+        teamName: '미배정',
+        requestCount: 0
+      };
+    }
+
+    // Get work pattern display name
+    const workPatternMap: Record<string, string> = {
+      'three-shift': '3교대',
+      'night-intensive': '야간집중',
+      'weekday-only': '행정근무'
+    };
+    const workPatternType = (currentEmployee as any).preferences?.workPatternType;
+    const workPattern = workPatternMap[workPatternType as string] || '미설정';
+
+    // Get team name
+    const team = dbTeams.find(t => t.id === currentEmployee.teamId);
+    const teamName = team?.name || '미배정';
+
+    // Count this month's special requests for current user
+    const requestCount = specialRequestsData?.filter(
+      (req: any) => req.employeeId === currentEmployee.id
+    ).length || 0;
+
+    return {
+      workPattern,
+      teamName,
+      requestCount
+    };
+  }, [allMembers, currentUser.dbUser?.id, dbTeams, specialRequestsData]);
+
   // 시프트 코드 가져오기 (config에서 설정한 커스텀 shift types 기반)
   const getShiftCode = React.useCallback((assignment: {
     shiftId: string;
@@ -2635,27 +2672,16 @@ function SchedulePageContent() {
           {/* 현재 설정된 선호도 요약 - 모바일에서는 2열 그리드 */}
           <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4">
             <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">선호 시프트</p>
-              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">미설정</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">근무 패턴</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">{currentUserPreferences.workPattern}</p>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">주말 근무</p>
-              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
-                {(() => {
-                  const weekendPref = currentUserPreferences?.workPreferences?.weekendPreference;
-                  const prefMap: Record<string, string> = { prefer: '선호', avoid: '회피', neutral: '상관없음' };
-                  return weekendPref ? (prefMap[weekendPref] || weekendPref) : '상관없음';
-                })()}
-              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">팀 배정</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">{currentUserPreferences.teamName}</p>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">최대 연속</p>
-              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
-                {(() => {
-                  const maxConsecutive = currentUserPreferences?.workPreferences?.maxConsecutiveDays;
-                  return maxConsecutive ? `${maxConsecutive}일` : '5일';
-                })()}
-              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">이번달 Request</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">{currentUserPreferences.requestCount}건</p>
             </div>
           </div>
 

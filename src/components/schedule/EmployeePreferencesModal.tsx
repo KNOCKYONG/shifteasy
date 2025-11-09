@@ -1308,25 +1308,38 @@ export function EmployeePreferencesModal({
                   경력 정보
                 </h3>
                 <div className="space-y-4">
-                  {/* 입사일 */}
+                  {/* 입사연도 */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      입사일
+                      입사연도
                     </label>
                     <input
-                      type="date"
-                      value={(employee as any).hireDate ? format(new Date((employee as any).hireDate), 'yyyy-MM-dd') : ''}
+                      type="number"
+                      min="1970"
+                      max={new Date().getFullYear()}
+                      value={(() => {
+                        const hireDate = (employee as any).hireDate;
+                        return hireDate ? new Date(hireDate).getFullYear() : '';
+                      })()}
                       onChange={(e) => {
-                        // Update through mutation
-                        updateStaffProfile.mutate({
-                          id: employee.id,
-                          hireDate: e.target.value ? new Date(e.target.value) : null,
-                        });
+                        const hireYear = parseInt(e.target.value);
+                        if (hireYear && hireYear >= 1970 && hireYear <= new Date().getFullYear()) {
+                          const currentYear = new Date().getFullYear();
+                          const calculatedYearsOfService = currentYear - hireYear + 1;
+
+                          // Update both hireDate and yearsOfService
+                          updateStaffProfile.mutate({
+                            id: employee.id,
+                            hireDate: new Date(`${hireYear}-01-01`),
+                            yearsOfService: calculatedYearsOfService,
+                          });
+                        }
                       }}
+                      placeholder="예: 2025"
                       className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
                     />
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      입사일을 입력하면 근속 년수를 자동으로 계산합니다
+                      입사연도를 입력하면 근속 년수를 자동으로 계산합니다
                     </p>
                   </div>
 
@@ -1341,15 +1354,23 @@ export function EmployeePreferencesModal({
                       max="50"
                       value={(employee as any).yearsOfService || 0}
                       onChange={(e) => {
-                        updateStaffProfile.mutate({
-                          id: employee.id,
-                          yearsOfService: parseInt(e.target.value) || 0,
-                        });
+                        const yearsOfService = parseInt(e.target.value) || 0;
+                        if (yearsOfService >= 0 && yearsOfService <= 50) {
+                          const currentYear = new Date().getFullYear();
+                          const calculatedHireYear = currentYear - yearsOfService + 1;
+
+                          // Update both yearsOfService and hireDate
+                          updateStaffProfile.mutate({
+                            id: employee.id,
+                            yearsOfService: yearsOfService,
+                            hireDate: new Date(`${calculatedHireYear}-01-01`),
+                          });
+                        }
                       }}
                       className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
                     />
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      현재까지의 총 경력 년수 (예: 3년)
+                      근속 년수를 입력하면 입사연도를 자동으로 계산합니다
                     </p>
                   </div>
 

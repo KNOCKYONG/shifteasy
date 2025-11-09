@@ -40,6 +40,16 @@ export function ShiftTypesTab({
 }: ShiftTypesTabProps) {
   const handleAddShiftType = () => {
     if (newShiftType.code && newShiftType.name) {
+      // Check for duplicate code (case-insensitive)
+      const isDuplicate = shiftTypes.some(
+        st => st.code.toUpperCase() === newShiftType.code.toUpperCase()
+      );
+
+      if (isDuplicate) {
+        alert('이미 존재하는 코드입니다.');
+        return;
+      }
+
       const updatedShiftTypes = [...shiftTypes, newShiftType];
       setShiftTypes(updatedShiftTypes);
       setNewShiftType({
