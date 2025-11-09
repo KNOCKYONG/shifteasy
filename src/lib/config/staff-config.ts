@@ -188,11 +188,12 @@ export async function saveExperienceWeights(weights: ExperienceWeights, tenantId
   await db.insert(configs)
     .values({
       tenantId,
+      departmentId: null, // Tenant-level config
       configKey: 'staff_experience_weights',
       configValue: weights,
     })
     .onConflictDoUpdate({
-      target: [configs.tenantId, configs.configKey],
+      target: [configs.tenantId, configs.departmentId, configs.configKey],
       set: {
         configValue: weights,
         updatedAt: new Date(),
@@ -207,11 +208,12 @@ export async function saveTeamBalance(balance: TeamBalance, tenantId: string = D
   await db.insert(configs)
     .values({
       tenantId,
+      departmentId: null, // Tenant-level config
       configKey: 'team_balance_rules',
       configValue: balance,
     })
     .onConflictDoUpdate({
-      target: [configs.tenantId, configs.configKey],
+      target: [configs.tenantId, configs.departmentId, configs.configKey],
       set: {
         configValue: balance,
         updatedAt: new Date(),
@@ -226,11 +228,12 @@ export async function saveBalanceWeights(weights: BalanceWeights, tenantId: stri
   await db.insert(configs)
     .values({
       tenantId,
+      departmentId: null, // Tenant-level config
       configKey: 'balance_weights',
       configValue: weights,
     })
     .onConflictDoUpdate({
-      target: [configs.tenantId, configs.configKey],
+      target: [configs.tenantId, configs.departmentId, configs.configKey],
       set: {
         configValue: weights,
         updatedAt: new Date(),
@@ -245,11 +248,12 @@ export async function saveStaffDefaultValues(values: StaffDefaultValues, tenantI
   await db.insert(configs)
     .values({
       tenantId,
+      departmentId: null, // Tenant-level config
       configKey: 'staff_default_values',
       configValue: values,
     })
     .onConflictDoUpdate({
-      target: [configs.tenantId, configs.configKey],
+      target: [configs.tenantId, configs.departmentId, configs.configKey],
       set: {
         configValue: values,
         updatedAt: new Date(),

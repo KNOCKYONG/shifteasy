@@ -117,11 +117,12 @@ export const preferencesRouter = createTRPCRouter({
       const result = await db.insert(configs)
         .values({
           tenantId,
+          departmentId: null, // Preferences are tenant-level, not department-specific
           configKey,
           configValue: preferences,
         })
         .onConflictDoUpdate({
-          target: [configs.tenantId, configs.configKey],
+          target: [configs.tenantId, configs.departmentId, configs.configKey],
           set: {
             configValue: preferences,
             updatedAt: new Date(),
