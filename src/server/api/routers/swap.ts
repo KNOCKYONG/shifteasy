@@ -34,12 +34,15 @@ export const swapRouter = createTRPCRouter({
         conditions.push(eq(swapRequests.targetUserId, (ctx.user?.id || 'dev-user-id')));
       }
 
-      // Department filtering
+      // Department filtering and role-based filtering
       if (input.departmentId) {
         conditions.push(eq(swapRequests.departmentId, input.departmentId));
       } else if (currentUser?.role === 'manager' && currentUser.departmentId) {
         // Managers can only see requests from their department
         conditions.push(eq(swapRequests.departmentId, currentUser.departmentId));
+      } else if (currentUser?.role === 'member') {
+        // Members can only see their own requests (where they are the requester)
+        conditions.push(eq(swapRequests.requesterId, (ctx.user?.id || 'dev-user-id')));
       }
 
       const where = conditions.length > 0 ? and(...conditions) : undefined;

@@ -114,9 +114,9 @@ function RequestsPageContent() {
 
   const swapRequests = (swapRequestsData?.items || []) as SwapRequest[];
 
-  // Filter requests - member only sees their own requests
+  // Filter requests - member only sees their own requests (where they are the requester)
   const userFilteredRequests = role === 'member'
-    ? swapRequests.filter(req => req.requesterId === dbUser?.id || req.targetUserId === dbUser?.id)
+    ? swapRequests.filter(req => req.requesterId === dbUser?.id)
     : swapRequests;
 
   // Filter requests by status
