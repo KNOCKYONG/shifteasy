@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isWeekend } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -2126,6 +2126,11 @@ function SchedulePageContent() {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [scheduleName, setScheduleName] = useState<string>(''); // 스케줄 명 상태 추가
 
+  // Memoize schedule name change handler to prevent unnecessary re-renders
+  const handleScheduleNameChange = useCallback((name: string) => {
+    setScheduleName(name);
+  }, []);
+
   // Swap 관련 상태
   const [swapMode, setSwapMode] = useState(false);
   const [selectedSwapCell, setSelectedSwapCell] = useState<{ date: string; employeeId: string; assignment: any } | null>(null);
@@ -3023,7 +3028,7 @@ function SchedulePageContent() {
         isConfirming={modals.isConfirming}
         validationScore={modals.validationScore}
         scheduleName={scheduleName}
-        onScheduleNameChange={setScheduleName}
+        onScheduleNameChange={handleScheduleNameChange}
         defaultScheduleName={`${format(monthStart, 'yyyy년 M월')} 스케줄`}
       />
 

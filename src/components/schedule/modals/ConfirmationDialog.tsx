@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Lock, X, RefreshCcw } from 'lucide-react';
 
 interface ConfirmationDialogProps {
@@ -12,7 +12,7 @@ interface ConfirmationDialogProps {
   defaultScheduleName: string;
 }
 
-export function ConfirmationDialog({
+export const ConfirmationDialog = memo(function ConfirmationDialog({
   isOpen,
   onClose,
   onConfirm,
@@ -137,4 +137,4 @@ export function ConfirmationDialog({
       </div>
     </div>
   );
-}
+});
