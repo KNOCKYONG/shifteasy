@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useCallback, Suspense } from "react";
+import React, { useState, useEffect, useCallback, Suspense, useDeferredValue } from "react";
 import { useSearchParams } from "next/navigation";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isWeekend } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -414,6 +414,9 @@ function SchedulePageContent() {
   // Custom hooks for state management
   const filters = useScheduleFilters();
   const modals = useScheduleModals();
+
+  // Deferred view for non-blocking tab transitions
+  const deferredActiveView = useDeferredValue(filters.activeView);
 
   // Initialize dates from URL parameters
   const getInitialMonth = () => {
@@ -2781,7 +2784,7 @@ function SchedulePageContent() {
         />
 
         {/* Preferences View */}
-        {canViewStaffPreferences && filters.activeView === 'preferences' && (
+        {canViewStaffPreferences && deferredActiveView === 'preferences' && (
           <StaffPreferencesGrid
             allMembers={allMembers}
             onEmployeeClick={handleEmployeeClick}
@@ -2789,7 +2792,7 @@ function SchedulePageContent() {
         )}
 
         {/* Today View */}
-        {filters.activeView === 'today' && (
+        {deferredActiveView === 'today' && (
           <TodayScheduleBoard
             employees={allMembers}
             assignments={schedule}
@@ -2800,7 +2803,7 @@ function SchedulePageContent() {
         )}
 
         {/* Schedule View */}
-        {filters.activeView === 'schedule' && (
+        {deferredActiveView === 'schedule' && (
           <>
         {/* 토글 버튼들 - 가로 한 줄 배치 */}
         <ViewToggles
