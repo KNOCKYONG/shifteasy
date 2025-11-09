@@ -978,42 +978,47 @@ function SchedulePageContent() {
 
     const employee = toEmployee(latestMember);
 
-    // Fetch saved preferences from database (bypass cache)
+    // Fetch saved preferences from database using /api/preferences
     try {
-      const savedPreferences = await utils.preferences.get.fetch({
-        staffId: member.id,
-      });
-      console.log('Loaded preferences for', member.name, ':', savedPreferences);
+      const response = await fetch(`/api/preferences?employeeId=${member.id}`);
+      const savedData = await response.json();
+
+      console.log('Loaded preferences API response for', member.name, ':', savedData);
+      const savedPreferences = savedData.success ? savedData.data : null;
 
       // Merge saved preferences with employee data
       if (savedPreferences) {
         const prefs = savedPreferences as any;
-        const mentorshipPreference = prefs.mentorshipPreference;
+
+        // ComprehensivePreferences에서 ExtendedEmployeePreferences로 변환
+        const workPrefs = prefs.workPreferences || {};
+        const teamPrefs = prefs.teamPreferences || {};
+
         const normalizedMentorshipRole: 'none' | 'mentor' | 'mentee' =
-          mentorshipPreference === 'mentor' || mentorshipPreference === 'mentee'
-            ? mentorshipPreference
+          teamPrefs.mentorshipRole === 'mentor' || teamPrefs.mentorshipRole === 'mentee'
+            ? teamPrefs.mentorshipRole
+            : teamPrefs.mentorshipRole === 'both'
+            ? 'mentor'
             : 'none';
 
         employee.preferences = {
           ...employee.preferences,
-          preferredShifts: [],
-          avoidShifts: [],
+          preferredShifts: workPrefs.preferredShifts || [],
+          avoidShifts: workPrefs.avoidShifts || [],
           preferredDaysOff: [],
-          maxConsecutiveDays: prefs.maxConsecutiveDaysPreferred || 5,
+          maxConsecutiveDays: workPrefs.maxConsecutiveDays || 5,
           preferNightShift: false,
 
-          // Convert saved data to ExtendedEmployeePreferences format
-          workPatternType: prefs.workPatternType || 'three-shift',
-          workLoadPreference: 'normal' as const,
-          flexibilityLevel: prefs.preferAlternatingWeekends ? 'high' as const : 'medium' as const,
-          preferredPatterns: (() => {
-            const patterns = prefs.preferredPatterns?.map((p: any) => p.pattern) || [];
-            console.log('Loaded preferredPatterns from DB:', prefs.preferredPatterns);
-            console.log('Converted to UI format:', patterns);
-            return patterns;
-          })(),
-          preferredPartners: prefs.preferredColleagues || [],
-          avoidPartners: prefs.avoidColleagues || [],
+          // Convert ComprehensivePreferences to ExtendedEmployeePreferences format
+          workPatternType: workPrefs.workPatternType || 'three-shift',
+          workLoadPreference: (workPrefs.preferredWorkload === 'light' ? 'light' :
+                               workPrefs.preferredWorkload === 'heavy' ? 'heavy' :
+                               'normal') as const,
+          flexibilityLevel: 'medium' as const,
+          preferredPatterns: workPrefs.preferredPatterns || [],
+          avoidPatterns: workPrefs.avoidPatterns || [],
+          preferredPartners: teamPrefs.preferredPartners || [],
+          avoidPartners: teamPrefs.avoidPartners || [],
           personalConstraints: [],
           trainingDays: [],
           mentorshipRole: normalizedMentorshipRole,
