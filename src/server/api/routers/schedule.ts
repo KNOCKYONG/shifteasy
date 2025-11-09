@@ -769,9 +769,11 @@ export const scheduleRouter = createTRPCRouter({
         const isNonWorkingShift = (assignment: any): boolean => {
           if (!assignment.shiftId && !assignment.shiftType) return true; // 빈 배정
 
-          const nonWorkingCodes = ['OFF', 'O', 'LEAVE', 'VAC', '연차'];
+          const nonWorkingCodes = ['off', 'OFF', 'O', 'LEAVE', 'VAC', '연차'];
 
           return (
+            nonWorkingCodes.includes(assignment.shiftId) ||
+            nonWorkingCodes.includes(assignment.shiftType) ||
             nonWorkingCodes.includes(assignment.shiftId?.toUpperCase()) ||
             nonWorkingCodes.includes(assignment.shiftType?.toUpperCase())
           );

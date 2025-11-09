@@ -176,7 +176,7 @@ export default function StaffPreferencePage() {
   const loadPreferences = useCallback(async () => {
     try {
       // Try loading from API first
-      const response = await fetch(`/api/preferences?staffId=${staffId}`)
+      const response = await fetch(`/api/preferences?employeeId=${staffId}`)
       
       if (response.ok) {
         const result = await response.json()
