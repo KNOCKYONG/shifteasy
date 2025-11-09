@@ -2535,8 +2535,8 @@ function SchedulePageContent() {
     return map;
   }, [specialRequestsData]);
 
-  // Calculate current user's preferences for display
-  const currentUserPreferences = React.useMemo(() => {
+  // Calculate current user's summary info for display
+  const currentUserSummary = React.useMemo(() => {
     const currentEmployee = allMembers.find(m => m.id === currentUser.dbUser?.id);
 
     if (!currentEmployee) {
@@ -2673,15 +2673,15 @@ function SchedulePageContent() {
           <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4">
             <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">근무 패턴</p>
-              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">{currentUserPreferences.workPattern}</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">{currentUserSummary.workPattern}</p>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">팀 배정</p>
-              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">{currentUserPreferences.teamName}</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">{currentUserSummary.teamName}</p>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">이번달 Request</p>
-              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">{currentUserPreferences.requestCount}건</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">{currentUserSummary.requestCount}건</p>
             </div>
           </div>
 
