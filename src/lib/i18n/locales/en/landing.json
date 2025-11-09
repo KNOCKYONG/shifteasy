@@ -1,0 +1,201 @@
+{
+  "hero": {
+    "headline": "AI-Powered Shift Scheduling Made Simple",
+    "subheadline": "Intelligent scheduling solution for healthcare, manufacturing, and service industries",
+    "description": "Let AI solve complex shift patterns, staffing shortages, and fairness issues. Reduce scheduling time by 98% with ShiftEasy.",
+    "ctaPrimary": "Start Free",
+    "ctaSecondary": "Watch Demo",
+    "trustBadge": "Trusted by 1,000+ teams worldwide"
+  },
+  "features": {
+    "title": "Why ShiftEasy?",
+    "subtitle": "Solve all your scheduling challenges at once",
+    "feature1": {
+      "title": "AI Auto-Scheduling",
+      "description": "Automatically analyze work rules, staff preferences, and workload to generate optimal schedules in 5 minutes."
+    },
+    "feature2": {
+      "title": "Real-time Collaboration",
+      "description": "Handle shift swaps, time-off requests, and special requests in real-time with automatic schedule updates."
+    },
+    "feature3": {
+      "title": "Auto Rule Validation",
+      "description": "Automatically verify labor laws, internal policies, and fairness standards to eliminate legal risks."
+    },
+    "feature4": {
+      "title": "Multi-language Support",
+      "description": "Support for Korean, English, and Japanese makes it easy for global teams to use."
+    }
+  },
+  "benefits": {
+    "title": "Industry-Specific Solutions",
+    "subtitle": "Experience scheduling optimized for your industry",
+    "healthcare": {
+      "title": "Healthcare",
+      "pain": "Challenges with nurse shift rotations, on-call assignments, and ER staffing",
+      "solution": "Automated scheduling that considers 24/7 operations, special qualifications, and patient safety standards",
+      "stat1": "Schedule creation time",
+      "stat1Value": "5 hours → 5 minutes",
+      "stat2": "Rule violations",
+      "stat2Value": "95% reduction",
+      "stat3": "Staff satisfaction",
+      "stat3Value": "40% increase"
+    },
+    "manufacturing": {
+      "title": "Manufacturing",
+      "pain": "Production line shift rotations, skill management, emergency response",
+      "solution": "Optimal staffing linked to production plans, machine utilization, and worker skill levels",
+      "stat1": "Productivity",
+      "stat1Value": "18% improvement",
+      "stat2": "Absence response time",
+      "stat2Value": "2 hours → 10 minutes",
+      "stat3": "Labor costs",
+      "stat3Value": "12% reduction"
+    },
+    "service": {
+      "title": "Service",
+      "pain": "Weekend/holiday shifts, demand fluctuations, part-time management",
+      "solution": "Smart scheduling with demand forecasting, peak time response, and flexible work support",
+      "stat1": "Customer wait time",
+      "stat1Value": "30% reduction",
+      "stat2": "Overtime",
+      "stat2Value": "25% decrease",
+      "stat3": "Schedule adjustment time",
+      "stat3Value": "90% reduction"
+    }
+  },
+  "howItWorks": {
+    "title": "Start Smart Scheduling in 3 Steps",
+    "subtitle": "Get started immediately without complex setup",
+    "step1": {
+      "title": "Enter Team Info",
+      "description": "Simply input staff information, work rules, and special requirements."
+    },
+    "step2": {
+      "title": "AI Schedule Generation",
+      "description": "AI analyzes all conditions and automatically generates optimal schedules."
+    },
+    "step3": {
+      "title": "Real-time Management",
+      "description": "Reflect changes in real-time and collaborate with team members."
+    }
+  },
+  "testimonials": {
+    "title": "Customer Success Stories",
+    "subtitle": "Companies that revolutionized efficiency with ShiftEasy",
+    "testimonial1": {
+      "quote": "What used to take 20 hours per month for nurse scheduling now takes just 5 minutes. Staff satisfaction has greatly increased too.",
+      "author": "Sujin Kim",
+      "role": "Nursing Team Lead",
+      "company": "Seoul National University Hospital",
+      "stat": "200 hours saved monthly"
+    },
+    "testimonial2": {
+      "quote": "Optimal staffing by production line improved productivity by 18%, and emergency absence response became much easier.",
+      "author": "Minho Park",
+      "role": "Production Manager",
+      "company": "Hyundai Motor Company",
+      "stat": "18% productivity gain"
+    },
+    "testimonial3": {
+      "quote": "Automated peak time staffing reduced customer wait times by 30% and significantly decreased staff overtime.",
+      "author": "Jihyun Lee",
+      "role": "Store Operations Manager",
+      "company": "Starbucks Korea",
+      "stat": "30% wait time reduction"
+    }
+  },
+  "pricing": {
+    "title": "Fair Pricing, Clear Value",
+    "subtitle": "Choose a plan that fits your team size",
+    "monthly": "Monthly",
+    "annually": "Annually",
+    "savePercent": "Save 20%",
+    "starter": {
+      "name": "Starter",
+      "price": "Free",
+      "description": "Essential features for small teams",
+      "features": [
+        "Up to 10 users",
+        "Basic scheduling",
+        "Shift swap feature",
+        "Mobile app",
+        "Email support"
+      ],
+      "cta": "Start Free"
+    },
+    "professional": {
+      "name": "Professional",
+      "price": "$29",
+      "priceUnit": "/month",
+      "description": "Advanced features for growing teams",
+      "popular": true,
+      "features": [
+        "Up to 50 users",
+        "AI auto-scheduling",
+        "Auto rule validation",
+        "Real-time collaboration",
+        "Data analytics",
+        "Priority support"
+      ],
+      "cta": "14-Day Free Trial"
+    },
+    "enterprise": {
+      "name": "Enterprise",
+      "price": "Custom",
+      "description": "Complete solution for large organizations",
+      "features": [
+        "Unlimited users",
+        "All Professional features",
+        "Custom work rules",
+        "Dedicated account manager",
+        "SSO integration",
+        "24/7 phone support",
+        "SLA guarantee"
+      ],
+      "cta": "Contact Sales"
+    }
+  },
+  "cta": {
+    "headline": "Limited Free Offer for First 100 Teams",
+    "subheadline": "Stop wasting time on complex schedule management",
+    "description": "Experience ShiftEasy's powerful features with a 14-day free trial. Start immediately without credit card registration.",
+    "ctaPrimary": "Start Free",
+    "ctaSecondary": "Contact Sales",
+    "trustBadge1": "1,000+ Teams",
+    "trustBadge2": "ISO 27001 Certified",
+    "trustBadge3": "99.9% Uptime",
+    "trustBadge4": "GDPR Compliant"
+  },
+  "footer": {
+    "product": {
+      "title": "Product",
+      "features": "Features",
+      "pricing": "Pricing",
+      "demo": "Demo",
+      "updates": "Updates"
+    },
+    "company": {
+      "title": "Company",
+      "about": "About Us",
+      "careers": "Careers",
+      "contact": "Contact",
+      "blog": "Blog"
+    },
+    "support": {
+      "title": "Support",
+      "docs": "Documentation",
+      "faq": "FAQ",
+      "community": "Community",
+      "status": "Status"
+    },
+    "legal": {
+      "title": "Legal",
+      "privacy": "Privacy Policy",
+      "terms": "Terms of Service",
+      "security": "Security"
+    },
+    "copyright": "© 2024 ShiftEasy. All rights reserved.",
+    "madeWith": "Made with ❤️ in Seoul"
+  }
+}
