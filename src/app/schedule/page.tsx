@@ -769,6 +769,11 @@ function SchedulePageContent() {
       if (savedPreferences) {
         const prefs = savedPreferences as SimplifiedPreferences;
 
+        // Convert preferredPatterns from { pattern, preference }[] to string[] for modal
+        const preferredPatternsAsStrings = (prefs.preferredPatterns || []).map(p =>
+          typeof p === 'string' ? p : p.pattern
+        );
+
         (employee.preferences as any) = {
           ...employee.preferences,
           avoidShifts: [],
@@ -779,7 +784,7 @@ function SchedulePageContent() {
           workPatternType: prefs.workPatternType || 'three-shift',
           workLoadPreference: 'normal' as const,
           flexibilityLevel: 'medium' as const,
-          preferredPatterns: prefs.preferredPatterns || [],
+          preferredPatterns: preferredPatternsAsStrings,
           avoidPatterns: prefs.avoidPatterns || [],
           preferredPartners: [],
           avoidPartners: [],
