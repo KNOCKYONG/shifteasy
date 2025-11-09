@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useCallback, Suspense, useDeferredValue } from "react";
+import React, { useState, useEffect, useCallback, Suspense } from "react";
 import equal from "fast-deep-equal";
 import { useSearchParams } from "next/navigation";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isWeekend } from "date-fns";
@@ -125,9 +125,6 @@ function SchedulePageContent() {
   const filters = useScheduleFilters();
   const modals = useScheduleModals();
 
-  // Deferred view for non-blocking tab transitions
-  const deferredActiveView = useDeferredValue(filters.activeView);
-
   // Initialize dates from URL parameters
   const getInitialMonth = () => {
     if (monthParam) {
@@ -170,6 +167,15 @@ function SchedulePageContent() {
   const [showMyPreferences, setShowMyPreferences] = useState(false);
   const [loadedScheduleId, setLoadedScheduleId] = useState<string | null>(null); // 이미 로드된 스케줄 ID
   const [selectedDate, setSelectedDate] = useState<Date>(getInitialDate()); // 오늘의 근무 날짜 선택
+
+  // 오늘의 근무 탭에서 날짜를 이동하면 해당 월 전체 데이터를 사전 로드
+  useEffect(() => {
+    if (filters.activeView !== 'today') return;
+    const selectedMonthStart = startOfMonth(selectedDate);
+    if (selectedMonthStart.getTime() !== currentMonth.getTime()) {
+      setCurrentMonth(selectedMonthStart);
+    }
+  }, [filters.activeView, selectedDate, currentMonth]);
 
   // Swap 관련 상태
   const [showScheduleSwapModal, setShowScheduleSwapModal] = useState(false);
@@ -221,8 +227,8 @@ function SchedulePageContent() {
     return new Set(holidays?.map(h => h.date) || []);
   }, [holidays]);
 
-  // ✅ Load full month schedule only when needed (schedule or calendar view)
-  const needsFullSchedule = filters.activeView === 'schedule' || filters.activeView === 'calendar';
+  // ✅ Load full month schedule for all views except preferences (오늘의 근무도 한번에 로드)
+  const needsFullSchedule = filters.activeView !== 'preferences';
   const { data: savedSchedules } = api.schedule.list.useQuery({
     departmentId: (isManager || isMember) && memberDepartmentId ? memberDepartmentId :
                   selectedDepartment !== 'all' && selectedDepartment !== 'no-department' ? selectedDepartment : undefined,
@@ -230,33 +236,17 @@ function SchedulePageContent() {
     startDate: monthStart,
     endDate: monthEnd,
   }, {
-    enabled: needsFullSchedule, // Only fetch when viewing schedule or calendar
+    enabled: needsFullSchedule, // preferences 뷰가 아닐 때만 로드
     staleTime: 5 * 60 * 1000, // 5분 동안 fresh 유지
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
 
-  // ✅ Load today's assignments only (optimized for today view)
-  const { data: todayAssignmentsData } = api.schedule.getTodayAssignments.useQuery({
-    date: selectedDate,
-    departmentId: (isManager || isMember) && memberDepartmentId ? memberDepartmentId : undefined,
-  }, {
-    enabled: filters.activeView === 'today', // Only fetch when viewing today tab
-    staleTime: 2 * 60 * 1000, // 2분 동안 fresh 유지
-    refetchOnWindowFocus: false,
-  });
-
-  // ✅ Convert today's assignments to proper format
+  // ✅ Derive today's assignments from loaded schedule to avoid 반복 fetch
   const todayAssignments = React.useMemo(() => {
-    if (!todayAssignmentsData) return [];
-
-    return todayAssignmentsData.map((a: any) => ({
-      employeeId: a.employeeId || a.staffId,
-      shiftId: a.shiftId,
-      date: typeof a.date === 'string' ? new Date(a.date) : a.date,
-      isLocked: a.isLocked || false,
-      shiftType: a.shiftType || 'custom',
-    }));
-  }, [todayAssignmentsData]);
+    if (schedule.length === 0) return [];
+    const targetDateStr = format(selectedDate, 'yyyy-MM-dd');
+    return schedule.filter(assignment => format(assignment.date, 'yyyy-MM-dd') === targetDateStr);
+  }, [schedule, selectedDate]);
 
   // ✅ Track last loaded schedule ID and updatedAt
   const lastLoadedRef = React.useRef<{ id: string; updatedAt: string } | null>(null);
@@ -2421,7 +2411,7 @@ function SchedulePageContent() {
         />
 
         {/* Preferences View */}
-        {canViewStaffPreferences && deferredActiveView === 'preferences' && (
+        {canViewStaffPreferences && filters.activeView === 'preferences' && (
           <StaffPreferencesGrid
             allMembers={allMembers}
             onEmployeeClick={handleEmployeeClick}
@@ -2429,7 +2419,7 @@ function SchedulePageContent() {
         )}
 
         {/* Today View */}
-        {deferredActiveView === 'today' && (
+        {filters.activeView === 'today' && (
           <TodayScheduleBoard
             employees={allMembers}
             assignments={todayAssignments}
@@ -2440,7 +2430,7 @@ function SchedulePageContent() {
         )}
 
         {/* Schedule View */}
-        {deferredActiveView === 'schedule' && (
+        {filters.activeView === 'schedule' && (
           <>
         {/* 토글 버튼들 - 가로 한 줄 배치 */}
         <ViewToggles
