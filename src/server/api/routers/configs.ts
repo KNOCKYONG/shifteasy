@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createTRPCRouter, protectedProcedure } from '../trpc';
+import { createTRPCRouter, protectedProcedure, longCachedProcedure } from '../trpc';
 import { db } from '@/db';
 import { configs } from '@/db/schema/configs';
 import { eq, and, isNull } from 'drizzle-orm';
@@ -44,7 +44,7 @@ const DEFAULT_PREFERENCES = {
 
 export const configsRouter = createTRPCRouter({
   // Get config by key (supports department-level override)
-  getByKey: protectedProcedure
+  getByKey: longCachedProcedure // 30 min cache for configs
     .input(z.object({
       configKey: z.string(),
       departmentId: z.string().optional(), // Optional department filter
@@ -83,7 +83,7 @@ export const configsRouter = createTRPCRouter({
     }),
 
   // Get all configs for tenant (optionally filtered by department)
-  getAll: protectedProcedure
+  getAll: longCachedProcedure // 30 min cache for configs
     .input(z.object({
       departmentId: z.string().optional(),
     }).optional())

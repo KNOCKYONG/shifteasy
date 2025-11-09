@@ -20,13 +20,29 @@ function getBaseUrl() {
 }
 
 export function TRPCProvider({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 5 * 60 * 1000, // 5 minutes - data stays fresh
+        gcTime: 10 * 60 * 1000, // 10 minutes - garbage collection time (replaced cacheTime in v5)
+        refetchOnWindowFocus: false, // Don't refetch on tab switch
+        refetchOnReconnect: false, // Don't refetch on reconnect
+        retry: 1, // Only retry failed queries once
+        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
+      },
+      mutations: {
+        retry: 0, // Don't retry mutations
+      },
+    },
+  }));
+
   const [trpcClient] = useState(() =>
     api.createClient({
       links: [
         httpBatchLink({
           url: `${getBaseUrl()}/api/trpc`,
           transformer: superjson,
+          maxURLLength: 2083, // Batch requests efficiently
         }),
       ],
     })

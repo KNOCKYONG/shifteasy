@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, protectedProcedure, adminProcedure } from '../trpc';
 import { scopedDb, createAuditLog } from '@/lib/db-helpers';
-import { schedules, users, departments, nursePreferences, offBalanceLedger } from '@/db/schema';
+import { schedules, users, departments, nursePreferences, offBalanceLedger, holidays, specialRequests, teams } from '@/db/schema';
 import { eq, and, gte, lte, desc, inArray, isNull, ne, or } from 'drizzle-orm';
 import { db } from '@/db';
 
@@ -574,5 +574,150 @@ export const scheduleRouter = createTRPCRouter({
       });
 
       return updated;
+    }),
+
+  // Composite query to fetch all schedule page data in one request
+  getPageData: protectedProcedure
+    .input(z.object({
+      departmentId: z.string().optional(),
+      startDate: z.string(), // yyyy-MM-dd format
+      endDate: z.string(),   // yyyy-MM-dd format
+      includeDraft: z.boolean().default(false),
+    }))
+    .query(async ({ ctx, input }) => {
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const userRole = ctx.user?.role;
+      const userDepartmentId = ctx.user?.departmentId;
+
+      // Parse dates (keep as strings for database queries)
+      const startDate = input.startDate;
+      const endDate = input.endDate;
+
+      // Determine department filter
+      let departmentFilter = input.departmentId;
+      if (userRole === 'member' || userRole === 'manager') {
+        if (!userDepartmentId) {
+          return {
+            schedules: [],
+            holidays: [],
+            teams: [],
+            users: [],
+            specialRequests: [],
+            configs: {},
+          };
+        }
+        departmentFilter = userDepartmentId;
+      }
+
+      // Execute all queries in parallel
+      const [schedulesData, holidaysData, teamsData, usersData, specialRequestsData] = await Promise.all([
+        // Schedules
+        (async () => {
+          const conditions = [
+            eq(schedules.tenantId, tenantId),
+            or(
+              isNull(schedules.deletedFlag),
+              ne(schedules.deletedFlag, 'X')
+            ),
+          ];
+
+          if (departmentFilter) {
+            conditions.push(eq(schedules.departmentId, departmentFilter));
+          }
+
+          if (userRole === 'member') {
+            conditions.push(eq(schedules.status, 'published'));
+          } else if (!input.includeDraft) {
+            conditions.push(eq(schedules.status, 'published'));
+          }
+
+          return await db
+            .select({
+              id: schedules.id,
+              departmentId: schedules.departmentId,
+              startDate: schedules.startDate,
+              endDate: schedules.endDate,
+              status: schedules.status,
+              publishedAt: schedules.publishedAt,
+              metadata: schedules.metadata,
+              createdAt: schedules.createdAt,
+            })
+            .from(schedules)
+            .where(and(...conditions))
+            .orderBy(desc(schedules.createdAt))
+            .limit(10);
+        })(),
+
+        // Holidays
+        db
+          .select()
+          .from(holidays)
+          .where(and(
+            eq(holidays.tenantId, tenantId),
+            gte(holidays.date, startDate),
+            lte(holidays.date, endDate)
+          )),
+
+        // Teams
+        departmentFilter
+          ? db
+              .select()
+              .from(teams)
+              .where(and(
+                eq(teams.tenantId, tenantId),
+                eq(teams.departmentId, departmentFilter),
+                isNull(teams.deletedAt)
+              ))
+          : [],
+
+        // Users (only active users from the relevant department)
+        (async () => {
+          const conditions = [
+            eq(users.tenantId, tenantId),
+            eq(users.status, 'active'),
+            isNull(users.deletedAt),
+          ];
+
+          if (departmentFilter) {
+            conditions.push(eq(users.departmentId, departmentFilter));
+          }
+
+          return await db
+            .select({
+              id: users.id,
+              name: users.name,
+              email: users.email,
+              employeeId: users.employeeId,
+              position: users.position,
+              role: users.role,
+              departmentId: users.departmentId,
+              teamId: users.teamId,
+              status: users.status,
+            })
+            .from(users)
+            .where(and(...conditions))
+            .limit(100);
+        })(),
+
+        // Special Requests
+        departmentFilter
+          ? db
+              .select()
+              .from(specialRequests)
+              .where(and(
+                eq(specialRequests.tenantId, tenantId),
+                gte(specialRequests.date, startDate),
+                lte(specialRequests.date, endDate)
+              ))
+          : [],
+      ]);
+
+      return {
+        schedules: schedulesData,
+        holidays: holidaysData,
+        teams: teamsData,
+        users: usersData,
+        specialRequests: specialRequestsData,
+      };
     }),
 });

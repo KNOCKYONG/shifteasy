@@ -2,6 +2,7 @@ import { TRPCError, initTRPC } from '@trpc/server';
 import superjson from 'superjson';
 import { ZodError } from 'zod';
 import { type Context } from '../trpc-context';
+import { cacheManager } from '@/lib/cache/cache-manager';
 
 const t = initTRPC.context<Context>().create({
   transformer: superjson,
@@ -49,3 +50,40 @@ const enforceUserIsAdmin = t.middleware(({ ctx, next }) => {
 });
 
 export const adminProcedure = t.procedure.use(enforceUserIsAdmin);
+
+// Redis cache middleware for read-only operations
+const withCache = (ttl: number = 300) => // Default 5 minutes
+  t.middleware(async ({ ctx, next, path, type, input }) => {
+    // Only cache queries, not mutations
+    if (type !== 'query') {
+      return next();
+    }
+
+    try {
+      // Try to get from cache
+      const cached = await cacheManager.getCachedApiResponse(path, { input, tenantId: ctx.tenantId });
+      if (cached) {
+        console.log(`[Cache HIT] ${path}`);
+        return cached;
+      }
+
+      console.log(`[Cache MISS] ${path}`);
+      // Execute the procedure
+      const result = await next();
+
+      // Cache the result (don't await to not slow down response)
+      cacheManager.cacheApiResponse(path, { input, tenantId: ctx.tenantId }, result, ttl).catch(err => {
+        console.error('Cache write error:', err);
+      });
+
+      return result;
+    } catch (error) {
+      // If cache fails, continue without it
+      console.error('Cache middleware error:', error);
+      return next();
+    }
+  });
+
+// Cached procedures with different TTLs
+export const cachedProcedure = protectedProcedure.use(withCache(300)); // 5 min
+export const longCachedProcedure = protectedProcedure.use(withCache(1800)); // 30 min
