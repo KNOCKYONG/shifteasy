@@ -42,6 +42,7 @@ import { convertShiftTypesToShifts, type ShiftType } from "@/lib/utils/shift-uti
 import { normalizeDate } from "@/lib/utils/date-utils";
 import { useScheduleModals } from "@/hooks/useScheduleModals";
 import { useScheduleFilters } from "@/hooks/useScheduleFilters";
+import { ScheduleSkeleton } from "@/components/schedule/ScheduleSkeleton";
 
 // 스케줄 페이지에서 사용하는 확장된 ScheduleAssignment 타입
 interface ExtendedScheduleAssignment extends ScheduleAssignment {
@@ -3091,8 +3092,8 @@ export default function SchedulePage() {
   return (
     <Suspense fallback={
       <MainLayout>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-gray-600 dark:text-gray-400">로딩 중...</div>
+        <div className="container mx-auto px-4 py-6">
+          <ScheduleSkeleton />
         </div>
       </MainLayout>
     }>
