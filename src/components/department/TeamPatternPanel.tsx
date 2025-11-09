@@ -46,6 +46,8 @@ interface TeamPatternPanelProps {
   shiftTypes: ShiftType[];
 }
 
+const teamPatternCache = new Map<string, { pattern: Partial<TeamPattern>; timestamp: number }>();
+
 export function TeamPatternPanel({
   departmentId,
   departmentName,
@@ -78,43 +80,65 @@ export function TeamPatternPanel({
   const [avoidPatternValidation, setAvoidPatternValidation] = useState<ReturnType<typeof validatePattern> | null>(null);
   const [showAvoidPatternHelp, setShowAvoidPatternHelp] = useState(false);
 
-  // Department Pattern 불러오기
-  useEffect(() => {
-    // departmentId가 유효할 때만 fetch
-    if (departmentId && departmentId !== 'all') {
-      fetchTeamPattern();
-    } else {
-      // departmentId가 없거나 'all'인 경우 로딩 종료
-      setLoading(false);
-    }
-  }, [departmentId]);
+  const fetchTeamPattern = React.useCallback(
+    async (options: { silent?: boolean; force?: boolean } = {}) => {
+      const { silent, force } = options;
+      if (!departmentId || departmentId === 'all') {
+        return;
+      }
 
-  const fetchTeamPattern = async () => {
+      if (!silent) {
+        setLoading(true);
+      }
+
+      try {
+        const response = await fetch(`/api/department-patterns?departmentId=${departmentId}`);
+        const data = await response.json();
+
+        let nextPattern: Partial<TeamPattern> | undefined;
+        if (data.pattern) {
+          nextPattern = data.pattern;
+        } else if (data.defaultPattern) {
+          nextPattern = { ...data.defaultPattern, totalMembers };
+        }
+
+        if (nextPattern) {
+          setPattern(nextPattern);
+          teamPatternCache.set(departmentId, { pattern: nextPattern, timestamp: Date.now() });
+        } else if (force) {
+          teamPatternCache.delete(departmentId);
+        }
+      } catch (error) {
+        console.error('Failed to fetch team pattern:', error);
+      } finally {
+        if (!silent) {
+          setLoading(false);
+        }
+      }
+    },
+    [departmentId, totalMembers]
+  );
+
+  // Department Pattern 불러오기 및 캐싱
+  useEffect(() => {
     if (!departmentId || departmentId === 'all') {
+      setLoading(false);
       return;
     }
 
-    setLoading(true);
-    try {
-      const response = await fetch(`/api/department-patterns?departmentId=${departmentId}`);
-      const data = await response.json();
-
-      if (data.pattern) {
-        setPattern(data.pattern);
-      } else if (data.defaultPattern) {
-        setPattern({ ...data.defaultPattern, totalMembers });
-      }
-
-      // API에서 받은 shiftTypes가 있으면 로그 출력 (디버깅용)
-      if (data.shiftTypes) {
-        console.log('[TeamPatternPanel] Received shiftTypes from API:', data.shiftTypes);
-      }
-    } catch (error) {
-      console.error('Failed to fetch team pattern:', error);
-    } finally {
+    const cachedEntry = teamPatternCache.get(departmentId);
+    if (cachedEntry) {
+      setPattern(prev => ({
+        ...cachedEntry.pattern,
+        totalMembers: cachedEntry.pattern.totalMembers ?? prev.totalMembers ?? totalMembers,
+      }));
       setLoading(false);
+      // 백그라운드 최신화
+      void fetchTeamPattern({ silent: true });
+    } else {
+      void fetchTeamPattern();
     }
-  };
+  }, [departmentId, totalMembers, fetchTeamPattern]);
 
   // 시프트별 필요 인원 변경
   const handleRequiredStaffChange = (shift: 'Day' | 'Evening' | 'Night', inputValue: string) => {
@@ -443,6 +467,7 @@ export function TeamPatternPanel({
       console.log('✅ ================================================\n');
 
       setPattern(result.pattern);
+      teamPatternCache.set(departmentId, result.pattern);
       setSuccessMessage('부서 패턴이 성공적으로 저장되었습니다.');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
