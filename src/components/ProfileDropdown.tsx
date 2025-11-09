@@ -42,17 +42,18 @@ export function ProfileDropdown() {
       // 3. Clear sessionStorage
       sessionStorage.clear();
 
-      // 4. Sign out from Clerk and redirect
-      await signOut(() => {
-        router.push('/sign-in');
-      });
+      // 4. Sign out from Clerk
+      await signOut();
+
+      // 5. Force full page reload to clear all state
+      window.location.href = '/sign-in';
     } catch (error) {
       console.error('Sign out error:', error);
       // Force cleanup and redirect even if there's an error
       queryClient.clear();
       localStorage.clear();
       sessionStorage.clear();
-      router.push('/sign-in');
+      window.location.href = '/sign-in';
     }
   };
 
