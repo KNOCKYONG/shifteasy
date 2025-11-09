@@ -779,4 +779,64 @@ export const scheduleRouter = createTRPCRouter({
         approvedTodayCount: 0, // Will be implemented with swap feature
       };
     }),
+
+  // Get today's assignments only - optimized for quick loading
+  getTodayAssignments: protectedProcedure
+    .input(z.object({
+      date: z.date().optional(), // Default to today if not provided
+      departmentId: z.string().optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const targetDate = input.date || new Date();
+      targetDate.setHours(0, 0, 0, 0);
+      const targetDateStr = targetDate.toISOString().split('T')[0];
+
+      // Find schedule that includes the target date
+      const conditions = [
+        eq(schedules.tenantId, tenantId),
+        eq(schedules.status, 'published'),
+        or(
+          isNull(schedules.deletedFlag),
+          ne(schedules.deletedFlag, 'X')
+        ),
+        lte(schedules.startDate, targetDate),
+        gte(schedules.endDate, targetDate),
+      ];
+
+      // Apply department filter if provided or if member/manager
+      if (ctx.user?.role === 'member' && ctx.user.departmentId) {
+        conditions.push(eq(schedules.departmentId, ctx.user.departmentId));
+      } else if (input.departmentId) {
+        conditions.push(eq(schedules.departmentId, input.departmentId));
+      }
+
+      const schedule = await db
+        .select({
+          id: schedules.id,
+          metadata: schedules.metadata,
+          startDate: schedules.startDate,
+          endDate: schedules.endDate,
+        })
+        .from(schedules)
+        .where(and(...conditions))
+        .orderBy(desc(schedules.publishedAt))
+        .limit(1)
+        .then(rows => rows[0] || null);
+
+      if (!schedule || !schedule.metadata) {
+        return [];
+      }
+
+      // Extract only today's assignments from metadata
+      const metadata = schedule.metadata as any;
+      const allAssignments = metadata?.assignments || [];
+
+      const todayAssignments = allAssignments.filter((a: any) => {
+        const assignmentDate = new Date(a.date).toISOString().split('T')[0];
+        return assignmentDate === targetDateStr;
+      });
+
+      return todayAssignments;
+    }),
 });

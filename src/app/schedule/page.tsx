@@ -493,7 +493,8 @@ function SchedulePageContent() {
     return new Set(holidays?.map(h => h.date) || []);
   }, [holidays]);
 
-  // ✅ Load saved schedules from DB
+  // ✅ Load full month schedule only when needed (schedule or calendar view)
+  const needsFullSchedule = filters.activeView === 'schedule' || filters.activeView === 'calendar';
   const { data: savedSchedules } = api.schedule.list.useQuery({
     departmentId: (isManager || isMember) && memberDepartmentId ? memberDepartmentId :
                   selectedDepartment !== 'all' && selectedDepartment !== 'no-department' ? selectedDepartment : undefined,
@@ -501,9 +502,33 @@ function SchedulePageContent() {
     startDate: monthStart,
     endDate: monthEnd,
   }, {
-    staleTime: 2 * 60 * 1000, // 2분 동안 fresh 유지 (스케줄은 자주 변경될 수 있음)
+    enabled: needsFullSchedule, // Only fetch when viewing schedule or calendar
+    staleTime: 5 * 60 * 1000, // 5분 동안 fresh 유지
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
+
+  // ✅ Load today's assignments only (optimized for today view)
+  const { data: todayAssignmentsData } = api.schedule.getTodayAssignments.useQuery({
+    date: selectedDate,
+    departmentId: (isManager || isMember) && memberDepartmentId ? memberDepartmentId : undefined,
+  }, {
+    enabled: filters.activeView === 'today', // Only fetch when viewing today tab
+    staleTime: 2 * 60 * 1000, // 2분 동안 fresh 유지
+    refetchOnWindowFocus: false,
+  });
+
+  // ✅ Convert today's assignments to proper format
+  const todayAssignments = React.useMemo(() => {
+    if (!todayAssignmentsData) return [];
+
+    return todayAssignmentsData.map((a: any) => ({
+      employeeId: a.employeeId || a.staffId,
+      shiftId: a.shiftId,
+      date: typeof a.date === 'string' ? new Date(a.date) : a.date,
+      isLocked: a.isLocked || false,
+      shiftType: a.shiftType || 'custom',
+    }));
+  }, [todayAssignmentsData]);
 
   // ✅ Track last loaded schedule ID and updatedAt
   const lastLoadedRef = React.useRef<{ id: string; updatedAt: string } | null>(null);
@@ -2796,7 +2821,7 @@ function SchedulePageContent() {
         {deferredActiveView === 'today' && (
           <TodayScheduleBoard
             employees={allMembers}
-            assignments={schedule}
+            assignments={todayAssignments}
             shiftTypes={customShiftTypes}
             today={selectedDate}
             onDateChange={setSelectedDate}
