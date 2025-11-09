@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useCallback, Suspense } from "react";
+import React, { useState, useEffect, useCallback, Suspense, useDeferredValue } from "react";
 import equal from "fast-deep-equal";
 import { useSearchParams } from "next/navigation";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isWeekend } from "date-fns";
@@ -139,6 +139,7 @@ function SchedulePageContent() {
 
   // Custom hooks for state management
   const filters = useScheduleFilters(initialActiveView);
+  const deferredActiveView = useDeferredValue(filters.activeView);
   const modals = useScheduleModals();
 
   // Initialize dates from URL parameters
@@ -206,16 +207,12 @@ function SchedulePageContent() {
     if (!viewParam) return;
 
     if (viewParam === 'preferences' && !canViewStaffPreferences) {
-      if (filters.activeView !== 'today') {
-        filters.setActiveView('today');
-      }
+      filters.setActiveView('today');
       return;
     }
 
-    if (filters.activeView !== viewParam) {
-      filters.setActiveView(viewParam);
-    }
-  }, [viewParam, canViewStaffPreferences, filters.activeView, filters.setActiveView]);
+    filters.setActiveView(viewParam);
+  }, [viewParam, canViewStaffPreferences, filters.setActiveView]);
 
   // Employee preferences modal state
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -408,14 +405,6 @@ function SchedulePageContent() {
       filters.setActiveView('today');
     }
   }, [isMember, canViewStaffPreferences, filters.activeView, filters.setActiveView]);
-
-  // URL 파라미터로부터 view 설정
-  useEffect(() => {
-    const view = searchParams.get('view');
-    if (view && (view === 'preferences' || view === 'today' || view === 'schedule')) {
-      filters.setActiveView(view as 'preferences' | 'today' | 'schedule');
-    }
-  }, [searchParams, filters.setActiveView]);
 
   // Determine which departmentId to use for configs
   const configDepartmentId = React.useMemo(() => {
@@ -2381,7 +2370,7 @@ function SchedulePageContent() {
         />
 
         {/* Preferences View */}
-        {canViewStaffPreferences && filters.activeView === 'preferences' && (
+        {canViewStaffPreferences && deferredActiveView === 'preferences' && (
           <StaffPreferencesGrid
             allMembers={allMembers}
             onEmployeeClick={handleEmployeeClick}
@@ -2389,7 +2378,7 @@ function SchedulePageContent() {
         )}
 
         {/* Today View */}
-        {filters.activeView === 'today' && (
+        {deferredActiveView === 'today' && (
           <TodayScheduleBoard
             employees={allMembers}
             assignments={todayAssignments}
@@ -2400,7 +2389,7 @@ function SchedulePageContent() {
         )}
 
         {/* Schedule View */}
-        {filters.activeView === 'schedule' && (
+        {deferredActiveView === 'schedule' && (
           <>
         {/* 토글 버튼들 - 가로 한 줄 배치 */}
         <ViewToggles
