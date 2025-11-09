@@ -2337,7 +2337,11 @@ function SchedulePageContent() {
                   const preferredPatterns = (currentEmployee as any)?.preferences?.preferredPatterns;
                   if (!preferredPatterns || preferredPatterns.length === 0) return '미설정';
                   // preferredPatterns is array of { pattern: string, preference: number }
-                  return preferredPatterns.map((p: any) => p.pattern || p).join(', ');
+                  return preferredPatterns.map((p: any) => {
+                    if (typeof p === 'string') return p;
+                    if (p && typeof p === 'object' && p.pattern) return p.pattern;
+                    return String(p);
+                  }).join(', ');
                 })()}
               </p>
             </div>
@@ -2351,7 +2355,10 @@ function SchedulePageContent() {
                   const avoidPatterns = (currentEmployee as any)?.preferences?.avoidPatterns;
                   if (!avoidPatterns || avoidPatterns.length === 0) return '없음';
                   // avoidPatterns is array of arrays: string[][]
-                  return avoidPatterns.map((p: string[]) => p.join('→')).join(', ');
+                  return avoidPatterns.map((p: any) => {
+                    if (Array.isArray(p)) return p.join('→');
+                    return String(p);
+                  }).join(', ');
                 })()}
               </p>
             </div>
