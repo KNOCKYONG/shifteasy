@@ -201,6 +201,8 @@ export * from './notifications';
 ```bash
 # Generate migration based on schema changes
 npx drizzle-kit generate
+# OR use npm script
+npm run db:generate
 
 # This creates a migration file in src/db/migrations/
 # Example: 0001_cool_doctor_doom.sql
@@ -223,12 +225,54 @@ cat src/db/migrations/0001_*.sql
 - No unintended changes
 
 #### Step 6: Apply Migration
-```bash
-# Push to database (development)
-npx drizzle-kit push
 
-# OR for production
+⚠️ **IMPORTANT: Choose the Right Method**
+
+**Method 1: `drizzle-kit push` (Development Only)**
+```bash
+npm run db:push
+# OR
+npx drizzle-kit push
+```
+
+**When to use:**
+- ✅ Local development
+- ✅ Quick prototyping
+- ✅ Database is empty or test data only
+
+**⚠️ WARNING:**
+- ❌ Skips migration history
+- ❌ Can cause data loss
+- ❌ Not reversible
+- ❌ **NEVER use in production**
+
+**Method 2: `drizzle-kit migrate` (Recommended)**
+```bash
+npm run db:migrate
+# OR
 npx drizzle-kit migrate
+```
+
+**When to use:**
+- ✅ Production deployments
+- ✅ When you need migration history
+- ✅ When data preservation is critical
+- ✅ Team collaboration
+
+**Benefits:**
+- ✅ Creates migration history
+- ✅ Safer for production
+- ✅ Can be rolled back (manually)
+- ✅ Trackable changes
+
+**Our Project Recommendation:**
+```bash
+# Development workflow:
+1. npm run db:generate    # Generate migration
+2. Review the SQL file    # Check changes
+3. npm run db:migrate     # Apply migration (preferred)
+# OR
+3. npm run db:push        # Quick push (dev only)
 ```
 
 ## Phase 3: Type Safety Validation
