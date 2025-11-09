@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import {
   Calendar, Clock, Users, ArrowRightLeft, AlertTriangle,
@@ -26,6 +27,13 @@ export function AdminDashboard() {
     staleTime: 2 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
+
+  // Debug: Check if we're getting data from DB
+  useEffect(() => {
+    if (upcomingShifts) {
+      console.log('📅 Upcoming shifts from DB:', upcomingShifts);
+    }
+  }, [upcomingShifts]);
 
   // Get colleagues working with me this week
   const { data: workmatesData, isLoading: isLoadingWorkmates } = api.schedule.getMyWorkmates.useQuery(undefined, {
@@ -303,7 +311,7 @@ export function AdminDashboard() {
                         )}
                       </p>
                       <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
-                        {shift.shiftType || shift.shiftId || '근무'}
+                        Shift: {shift.shiftId || shift.shiftType || '-'}
                       </p>
                     </div>
                     <Link
