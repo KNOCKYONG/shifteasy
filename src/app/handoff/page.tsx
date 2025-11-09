@@ -78,12 +78,17 @@ export default function HandoffPage() {
     limit: 50,
   });
 
-  // Statistics
-  const { data: stats } = api.handoff.stats.useQuery({
-    departmentId: selectedDepartment || "default-dept-id",
-    startDate: new Date(new Date().setDate(new Date().getDate() - 30)),
-    endDate: new Date(),
-  });
+  // Statistics - disabled for now until we have valid department context
+  const { data: stats } = api.handoff.stats.useQuery(
+    {
+      departmentId: selectedDepartment,
+      startDate: new Date(new Date().setDate(new Date().getDate() - 30)),
+      endDate: new Date(),
+    },
+    {
+      enabled: !!selectedDepartment, // Only fetch when we have a valid department
+    }
+  );
 
   const activeHandoffs = activeTab === "to-give" ? handoffsToGive : handoffsToReceive;
   const isLoading = activeTab === "to-give" ? loadingToGive : loadingToReceive;
