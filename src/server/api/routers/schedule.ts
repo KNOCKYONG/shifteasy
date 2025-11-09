@@ -769,13 +769,23 @@ export const scheduleRouter = createTRPCRouter({
         const isNonWorkingShift = (assignment: any): boolean => {
           if (!assignment.shiftId && !assignment.shiftType) return true; // 빈 배정
 
-          const nonWorkingCodes = ['off', 'OFF', 'O', 'LEAVE', 'VAC', '연차'];
+          const nonWorkingCodes = [
+            'off', 'OFF', 'O',           // 휴무
+            'LEAVE', 'VAC', '연차',      // 연차/휴가
+            'SICK', '병가',              // 병가
+            'HD', '반차',                // 반차
+            '휴직', '결근',              // 휴직/결근
+            'X',                         // 빈 슬롯
+          ];
+
+          const shiftIdUpper = assignment.shiftId?.toUpperCase();
+          const shiftTypeUpper = assignment.shiftType?.toUpperCase();
 
           return (
             nonWorkingCodes.includes(assignment.shiftId) ||
             nonWorkingCodes.includes(assignment.shiftType) ||
-            nonWorkingCodes.includes(assignment.shiftId?.toUpperCase()) ||
-            nonWorkingCodes.includes(assignment.shiftType?.toUpperCase())
+            nonWorkingCodes.some(code => code.toUpperCase() === shiftIdUpper) ||
+            nonWorkingCodes.some(code => code.toUpperCase() === shiftTypeUpper)
           );
         };
 
