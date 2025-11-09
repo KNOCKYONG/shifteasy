@@ -778,6 +778,7 @@ function SchedulePageContent() {
       modals.setIsPreferencesModalOpen(false);
       setSelectedEmployee(null);
       setSelectedPreferences(null);
+      void utils.tenant.users.list.invalidate();
     } catch (error) {
       console.error('Error saving preferences:', error);
       alert('선호도 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
@@ -785,12 +786,11 @@ function SchedulePageContent() {
   };
 
   // Handle modal close
-  const handleModalClose = async () => {
-    // 모달을 닫을 때 캐시 무효화하여 업데이트된 employee 데이터 가져오기
-    await utils.tenant.users.list.invalidate();
+  const handleModalClose = () => {
     modals.setIsPreferencesModalOpen(false);
     setSelectedEmployee(null);
     setSelectedPreferences(null);
+    void utils.tenant.users.list.invalidate();
   };
 
   // My Preferences 핸들러 함수들
