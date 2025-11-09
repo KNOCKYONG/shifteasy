@@ -5,8 +5,26 @@ description: Automatically manage and update database schema documentation when 
 
 # Database Schema Manager Skill
 
+## 🚨 CRITICAL: Schema-First Philosophy
+
+**EVERY database change MUST follow this exact workflow:**
+1. **FIRST**: Modify TypeScript schema files in `src/db/schema/`
+2. **SECOND**: Generate migration with `drizzle-kit generate`
+3. **THIRD**: Review generated SQL
+4. **FOURTH**: Apply to database with `drizzle-kit push/migrate`
+
+**❌ NEVER:**
+- Create SQL migration files manually
+- Skip updating schema files
+- Modify database without updating schema files
+
+**✅ ALWAYS:**
+- Update schema files FIRST
+- Keep schema files and database synchronized
+- Generate migrations from schema changes
+
 ## Core Philosophy
-This skill ensures all database schema changes are managed through Drizzle ORM, maintaining type safety and avoiding manual SQL migrations.
+This skill ensures all database schema changes are managed through Drizzle ORM, maintaining type safety and avoiding manual SQL migrations. Schema files in `src/db/schema/` are the ONLY source of truth.
 
 ## Project Database Architecture
 
@@ -58,24 +76,55 @@ src/db/schema/
 // DON'T create raw SQL files in migrations/
 // DON'T bypass Drizzle schema definitions
 // DON'T manually write SQL for schema changes
+// DON'T modify only migration files without updating schema files
 ```
 
-#### ✅ ALWAYS Do This
+#### ✅ ALWAYS Do This - MANDATORY WORKFLOW
 ```typescript
-// DO modify the TypeScript schema files in src/db/schema/
-// DO use Drizzle's schema builder functions
-// DO let Drizzle Kit generate migrations
-// DO update the index.ts to export new schemas
+// 1. FIRST: Modify TypeScript schema files in src/db/schema/
+// 2. SECOND: Generate migration with drizzle-kit
+// 3. THIRD: Verify generated SQL matches your intent
+// 4. FOURTH: Apply migration to database
+// 5. ALWAYS: Keep schema files and database in sync
 ```
+
+#### 🚨 CRITICAL: Schema-Database Synchronization Rule
+**EVERY schema change MUST follow this exact sequence:**
+
+1. **Modify Schema File First** (`src/db/schema/*.ts`)
+   - This is the source of truth
+   - TypeScript types are generated from these files
+   - Drizzle Kit uses these to generate migrations
+
+2. **Generate Migration** (`npx drizzle-kit generate`)
+   - Creates SQL migration from schema changes
+   - Never skip this step
+   - Review the generated SQL
+
+3. **Apply to Database** (`npx drizzle-kit push` or `migrate`)
+   - Updates actual database tables
+   - Database structure must match schema files
+
+**⚠️ WARNING**: If schema files and database don't match:
+- TypeScript types will be incorrect
+- Runtime errors will occur
+- Queries will fail unexpectedly
+- Data integrity issues may arise
 
 ### Step-by-Step Schema Modification Process
 
-#### Step 1: Locate the Schema File
+#### Step 0: VERIFY Current Schema State (DO THIS FIRST)
 ```bash
-# Check which file contains the table
+# 1. Check which schema file contains the table you want to modify
 ls src/db/schema/
 
-# Common mappings:
+# 2. Read the current schema definition
+cat src/db/schema/[table-file].ts
+
+# 3. Verify database state matches schema (optional but recommended)
+npx drizzle-kit introspect
+
+# Common file mappings:
 # - users, departments, schedules → tenants.ts
 # - holidays → holidays.ts
 # - special_requests → special-requests.ts
@@ -83,7 +132,8 @@ ls src/db/schema/
 # - teams → teams.ts
 ```
 
-#### Step 2: Modify the Schema File
+#### Step 1: Modify the Schema File (MANDATORY FIRST STEP)
+**⚠️ NEVER skip this step - Schema files in `src/db/schema/` are the ONLY source of truth**
 
 **Example: Adding a Column**
 ```typescript
@@ -177,7 +227,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
 }));
 ```
 
-#### Step 3: Update Schema Index
+#### Step 2: Update Schema Index (If Adding New Table)
 ```typescript
 // src/db/schema/index.ts
 
@@ -197,7 +247,8 @@ export * from './teams';
 export * from './notifications';
 ```
 
-#### Step 4: Generate Migration with Drizzle Kit
+#### Step 3: Generate Migration with Drizzle Kit (MANDATORY)
+**🚨 CRITICAL: This step generates SQL from your schema changes**
 ```bash
 # Generate migration based on schema changes
 npx drizzle-kit generate
@@ -208,7 +259,9 @@ npm run db:generate
 # Example: 0001_cool_doctor_doom.sql
 ```
 
-#### Step 5: Review Generated Migration
+#### Step 4: Review Generated Migration (MANDATORY)
+**⚠️ ALWAYS review the SQL before applying to database**
+
 ```bash
 # Check the latest migration file
 ls -lt src/db/migrations/ | head -5
@@ -218,13 +271,15 @@ cat src/db/migrations/0001_*.sql
 ```
 
 **Verify Migration Contents**:
-- Correct table/column names
-- Proper data types
-- Indexes are created
-- Foreign keys are set
-- No unintended changes
+- ✅ Correct table/column names match schema file
+- ✅ Proper data types match TypeScript definitions
+- ✅ Indexes are created as defined
+- ✅ Foreign keys are set correctly
+- ✅ No unintended changes included
+- ⚠️ Check for DROP statements (data loss risk)
+- ⚠️ Verify ALTER statements won't break existing data
 
-#### Step 6: Apply Migration
+#### Step 5: Apply Migration to Database (FINAL STEP)
 
 ⚠️ **IMPORTANT: Choose the Right Method**
 
@@ -520,38 +575,100 @@ async function migratePhoneNumbers() {
 
 ## Success Criteria
 
-A schema change is complete when:
-- [ ] Schema TypeScript files updated
-- [ ] Migration generated and reviewed
-- [ ] Migration applied to database
+**🚨 CRITICAL: A schema change is ONLY complete when ALL of the following are done:**
+
+### 1. Schema File Changes (Source of Truth)
+- [ ] **MANDATORY**: Schema TypeScript files in `src/db/schema/` updated
+- [ ] New tables exported in `src/db/schema/index.ts`
+- [ ] Column types match intended database types
+- [ ] Indexes and foreign keys defined
+- [ ] Relations added if needed
+
+### 2. Migration Management
+- [ ] **MANDATORY**: Migration generated with `drizzle-kit generate`
+- [ ] **MANDATORY**: Generated SQL reviewed and verified
+- [ ] **MANDATORY**: Migration applied to database (`push` or `migrate`)
+- [ ] Migration file saved in `src/db/migrations/`
+
+### 3. Code Synchronization
 - [ ] TypeScript compiles without errors
-- [ ] Related routers/components updated
-- [ ] Tests pass
-- [ ] No breaking changes or migrations handled
+- [ ] Related tRPC routers updated to use new schema
+- [ ] Related React components updated if needed
+- [ ] No type mismatches between schema and usage
+
+### 4. Quality Assurance
+- [ ] Tests pass (if applicable)
+- [ ] No breaking changes or migration strategy documented
 - [ ] Performance indexes added where needed
-- [ ] Documentation updated
+- [ ] Database and schema files are in sync
+
+### 5. Verification Steps
+```bash
+# Verify TypeScript compilation
+npx tsc --noEmit
+
+# Verify database matches schema
+npx drizzle-kit introspect
+
+# Test queries work
+npm run dev
+```
+
+**⚠️ WARNING: If you skip Step 1 (schema file update), your changes will cause:**
+- TypeScript type errors in routers and components
+- Runtime query failures
+- Database-code mismatch issues
+- Difficult debugging sessions
+
+**✅ ALWAYS follow this order:**
+1. Update schema files (`src/db/schema/*.ts`)
+2. Generate migration (`drizzle-kit generate`)
+3. Review SQL
+4. Apply to database (`drizzle-kit push/migrate`)
+5. Verify everything works
 
 ## Command Quick Reference
 
+**🚨 MANDATORY WORKFLOW - Always in this order:**
+
 ```bash
-# Generate migration from schema changes
+# Step 1: Edit schema files in src/db/schema/
+# (Use your editor, NOT commands)
+
+# Step 2: Generate migration from schema changes
 npx drizzle-kit generate
+# OR
+npm run db:generate
 
-# Push schema directly to DB (dev only)
-npx drizzle-kit push
+# Step 3: Review the generated SQL migration file
+cat src/db/migrations/[latest-file].sql
 
-# Run migrations
-npx drizzle-kit migrate
+# Step 4: Apply to database
+npx drizzle-kit push      # Dev only - fast but no history
+# OR
+npx drizzle-kit migrate   # Recommended - creates history
+# OR
+npm run db:push          # Dev shortcut
+npm run db:migrate       # Recommended shortcut
+```
 
-# Check schema
+**Other useful commands:**
+```bash
+# Check schema for issues
 npx drizzle-kit check
 
 # Open Drizzle Studio (DB GUI)
 npx drizzle-kit studio
 
-# Introspect existing database
+# Introspect existing database (verify sync)
 npx drizzle-kit introspect
 ```
+
+**⚠️ CRITICAL REMINDERS:**
+- NEVER run `drizzle-kit generate` without first updating schema files
+- NEVER manually edit migration SQL files (regenerate instead)
+- ALWAYS review generated SQL before applying
+- ALWAYS verify TypeScript compiles after schema changes
 
 ## Integration with Other Skills
 
