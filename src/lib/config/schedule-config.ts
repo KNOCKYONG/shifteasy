@@ -136,11 +136,12 @@ export async function saveScheduleConfig(config: ScheduleConfig, tenantId: strin
   await db.insert(configs)
     .values({
       tenantId,
+      departmentId: null, // Tenant-level config
       configKey: 'schedule_rules',
       configValue: config,
     })
     .onConflictDoUpdate({
-      target: [configs.tenantId, configs.configKey],
+      target: [configs.tenantId, configs.departmentId, configs.configKey],
       set: {
         configValue: config,
         updatedAt: new Date(),
@@ -155,11 +156,12 @@ export async function saveShiftRules(rules: ShiftRule[], tenantId: string = DEFA
   await db.insert(configs)
     .values({
       tenantId,
+      departmentId: null, // Tenant-level config
       configKey: 'shift_rules',
       configValue: rules,
     })
     .onConflictDoUpdate({
-      target: [configs.tenantId, configs.configKey],
+      target: [configs.tenantId, configs.departmentId, configs.configKey],
       set: {
         configValue: rules,
         updatedAt: new Date(),
@@ -174,11 +176,12 @@ export async function savePerformanceThresholds(thresholds: PerformanceThreshold
   await db.insert(configs)
     .values({
       tenantId,
+      departmentId: null, // Tenant-level config
       configKey: 'performance_thresholds',
       configValue: thresholds,
     })
     .onConflictDoUpdate({
-      target: [configs.tenantId, configs.configKey],
+      target: [configs.tenantId, configs.departmentId, configs.configKey],
       set: {
         configValue: thresholds,
         updatedAt: new Date(),
