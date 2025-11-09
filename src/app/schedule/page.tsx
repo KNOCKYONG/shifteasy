@@ -1995,16 +1995,47 @@ function SchedulePageContent() {
   };
 
   // 날짜별 스케줄 그룹화
-  const getScheduleForDay = React.useCallback((date: Date) => {
-    return schedule.filter(assignment => {
+  const scheduleByDate = React.useMemo(() => {
+    const map = new Map<string, ScheduleAssignment[]>();
+    schedule.forEach((assignment) => {
       const assignmentDate = normalizeDate(assignment.date);
-      return (
-        assignmentDate >= monthStart &&
-        assignmentDate <= monthEnd &&
-        format(assignmentDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
-      );
+      if (assignmentDate < monthStart || assignmentDate > monthEnd) return;
+      const key = format(assignmentDate, 'yyyy-MM-dd');
+      if (!map.has(key)) {
+        map.set(key, []);
+      }
+      map.get(key)!.push(assignment);
     });
+    return map;
   }, [schedule, monthStart, monthEnd]);
+
+  const getScheduleForDay = React.useCallback((date: Date) => {
+    const key = format(normalizeDate(date), 'yyyy-MM-dd');
+    return scheduleByDate.get(key) ?? [];
+  }, [scheduleByDate]);
+
+  const scheduleByDateAndEmployee = React.useMemo(() => {
+    const map = new Map<string, ScheduleAssignment[]>();
+    scheduleByDate.forEach((assignments, dateKey) => {
+      assignments.forEach((assignment) => {
+        const key = `${dateKey}|${assignment.employeeId}`;
+        if (!map.has(key)) {
+          map.set(key, []);
+        }
+        map.get(key)!.push(assignment);
+      });
+    });
+    return map;
+  }, [scheduleByDate]);
+
+  const getAssignmentsForCell = React.useCallback(
+    (date: Date, employeeId: string) => {
+      const dateKey = format(normalizeDate(date), 'yyyy-MM-dd');
+      const key = `${dateKey}|${employeeId}`;
+      return scheduleByDateAndEmployee.get(key) ?? [];
+    },
+    [scheduleByDateAndEmployee]
+  );
 
   // 시프트별 색상 가져오기
   const getShiftColor = React.useCallback((shiftId: string) => {
@@ -2471,6 +2502,7 @@ function SchedulePageContent() {
                 holidayDates={holidayDates}
                 showCodeFormat={filters.showCodeFormat}
                 getScheduleForDay={getScheduleForDay}
+                getAssignmentsForCell={getAssignmentsForCell}
                 getShiftColor={getShiftColor}
                 getShiftName={getShiftName}
                 getShiftCode={getShiftCode}

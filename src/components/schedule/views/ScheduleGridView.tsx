@@ -29,6 +29,7 @@ interface ScheduleGridViewProps {
   holidayDates: Set<string>;
   showCodeFormat?: boolean;
   getScheduleForDay: (date: Date) => Assignment[];
+  getAssignmentsForCell: (date: Date, employeeId: string) => Assignment[];
   getShiftColor: (shiftId: string) => string;
   getShiftName: (shiftId: string) => string;
   getShiftCode?: (assignment: Assignment) => string;
@@ -49,6 +50,7 @@ export const ScheduleGridView = React.memo(function ScheduleGridView({
   holidayDates,
   showCodeFormat = false,
   getScheduleForDay,
+  getAssignmentsForCell,
   getShiftColor,
   getShiftName,
   getShiftCode,
@@ -127,8 +129,8 @@ export const ScheduleGridView = React.memo(function ScheduleGridView({
                 <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{member.position}</div>
               </div>
 
-              {daysInMonth.map((date) => {
-                const dayAssignments = getScheduleForDay(date).filter(a => a.employeeId === member.id);
+                    {daysInMonth.map((date) => {
+                      const dayAssignments = getAssignmentsForCell(date, member.id);
                 const dateStr = format(date, 'yyyy-MM-dd');
                 const isSelected = selectedSwapCell?.date === dateStr && selectedSwapCell?.employeeId === member.id;
                 const isMyCell = currentUserId === member.id;
