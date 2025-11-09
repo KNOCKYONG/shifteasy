@@ -3,7 +3,7 @@
  */
 
 import type { Employee, EmployeePreferences, EmployeeAvailability } from '@/lib/scheduler/types';
-import type { ComprehensivePreferences } from '@/components/team/MyPreferencesPanel';
+import type { ComprehensivePreferences } from '@/components/department/MyPreferencesPanel';
 import type { UnifiedEmployee, EmployeeStatistics } from '@/lib/types/unified-employee';
 
 // Generic team member interface

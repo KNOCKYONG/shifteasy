@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Calendar, Heart, Clock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -12,13 +13,28 @@ interface ViewTabsProps {
 
 export function ViewTabs({ activeView, canViewStaffPreferences, onViewChange }: ViewTabsProps) {
   const { t } = useTranslation('schedule');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Handle tab change with URL update
+  const handleViewChange = (view: 'preferences' | 'today' | 'schedule' | 'calendar') => {
+    // Update internal state
+    onViewChange(view);
+
+    // Update URL parameters to enable navigation
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('view', view);
+
+    // Push new URL to enable browser back/forward and navigation
+    router.push(`/schedule?${params.toString()}`, { scroll: false });
+  };
 
   return (
     <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
       <nav className="flex flex-wrap gap-2 sm:flex-nowrap sm:gap-4 md:gap-8">
         {canViewStaffPreferences && (
           <button
-            onClick={() => onViewChange('preferences')}
+            onClick={() => handleViewChange('preferences')}
             className={`pb-3 px-1 text-xs sm:text-sm font-medium border-b-2 transition-colors flex items-center gap-1 sm:gap-2 whitespace-nowrap ${
               activeView === 'preferences'
                 ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
@@ -30,7 +46,7 @@ export function ViewTabs({ activeView, canViewStaffPreferences, onViewChange }: 
           </button>
         )}
         <button
-          onClick={() => onViewChange('today')}
+          onClick={() => handleViewChange('today')}
           className={`pb-3 px-1 text-xs sm:text-sm font-medium border-b-2 transition-colors flex items-center gap-1 sm:gap-2 whitespace-nowrap ${
             activeView === 'today'
               ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
@@ -41,7 +57,7 @@ export function ViewTabs({ activeView, canViewStaffPreferences, onViewChange }: 
           {t('views.today')}
         </button>
         <button
-          onClick={() => onViewChange('schedule')}
+          onClick={() => handleViewChange('schedule')}
           className={`pb-3 px-1 text-xs sm:text-sm font-medium border-b-2 transition-colors flex items-center gap-1 sm:gap-2 whitespace-nowrap ${
             activeView === 'schedule'
               ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"

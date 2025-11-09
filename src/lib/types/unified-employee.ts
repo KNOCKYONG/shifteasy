@@ -4,8 +4,8 @@
  */
 
 import type { Employee, EmployeePreferences, ShiftType } from '@/lib/scheduler/types';
-import type { ComprehensivePreferences } from '@/components/team/MyPreferencesPanel';
-import type { SpecialRequest } from '@/components/team/SpecialRequestModal';
+import type { ComprehensivePreferences } from '@/components/department/MyPreferencesPanel';
+import type { SpecialRequest } from '@/components/department/SpecialRequestModal';
 
 /**
  * 통합된 직원 인터페이스

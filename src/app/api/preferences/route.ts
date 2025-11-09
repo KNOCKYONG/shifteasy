@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import type { ComprehensivePreferences } from '@/components/team/MyPreferencesPanel';
+import type { ComprehensivePreferences } from '@/components/department/MyPreferencesPanel';
 import { db } from '@/db';
 import { configs } from '@/db/schema/configs';
 import { nursePreferences } from '@/db/schema/nurse-preferences';

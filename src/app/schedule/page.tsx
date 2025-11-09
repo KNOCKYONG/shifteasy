@@ -15,7 +15,7 @@ import { EmployeeAdapter } from "../../lib/adapters/employee-adapter";
 import type { UnifiedEmployee } from "@/lib/types/unified-employee";
 import { validateSchedulingRequest, validateEmployee } from "@/lib/validation/schemas";
 import { EmployeePreferencesModal, type ExtendedEmployeePreferences } from "@/components/schedule/EmployeePreferencesModal";
-import { type ComprehensivePreferences } from "@/components/team/MyPreferencesPanel";
+import { type ComprehensivePreferences } from "@/components/department/MyPreferencesPanel";
 import { toEmployee } from "@/lib/utils/employee-converter";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { ImportModal } from "@/components/schedule/modals/ImportModal";
