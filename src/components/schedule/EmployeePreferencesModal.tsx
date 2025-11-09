@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { User, Heart, Calendar, Clock, Users, Shield, X, Save, AlertCircle, Star, UserCheck, UserMinus, Info, Edit2, Trash2, CheckCircle } from "lucide-react";
+import { User, Heart, Calendar, Clock, Users, Shield, X, Save, AlertCircle, Star, UserCheck, UserMinus, Info, Edit2, Trash2, CheckCircle, Briefcase, Wallet } from "lucide-react";
 import { type Employee, type EmployeePreferences, type ShiftType } from "@/lib/scheduler/types";
 import { validatePattern as validatePatternUtil, describePattern, EXAMPLE_PATTERNS, KEYWORD_DESCRIPTIONS, type ShiftToken } from "@/lib/utils/pattern-validator";
 import { api } from "@/lib/trpc/client";
@@ -138,6 +138,7 @@ export function EmployeePreferencesModal({
     } as ExtendedEmployeePreferences;
   });
 
+  const [activeTab, setActiveTab] = useState<'basic' | 'personal' | 'career' | 'request' | 'off-balance'>('basic');
   const [selectedTeam, setSelectedTeam] = useState<string>((employee as any).teamId || '');
 
   // employee가 변경될 때 selectedTeam 업데이트
@@ -519,9 +520,35 @@ export function EmployeePreferencesModal({
           </div>
         </div>
 
+        {/* Tabs */}
+        <div className="border-b border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900">
+          <nav className="flex space-x-4 px-6" aria-label="Tabs">
+            {[
+              { id: 'basic', label: '기본 선호도', icon: Clock },
+              { id: 'personal', label: '개인 사정', icon: Calendar },
+              { id: 'career', label: '경력 관리', icon: Briefcase },
+              { id: 'off-balance', label: '잔여 OFF', icon: Wallet },
+              { id: 'request', label: 'Request', icon: Star },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`py-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${
+                  activeTab === tab.id
+                    ? 'border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                }`}
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+
         {/* Content */}
         <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 200px)' }}>
-          {(
+          {activeTab === 'basic' && (
             <div className="space-y-6">
               {/* 근무 패턴 */}
               <div>
@@ -980,6 +1007,42 @@ export function EmployeePreferencesModal({
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'personal' && (
+            <div className="space-y-6">
+              <div className="text-center py-12">
+                <Calendar className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">개인 사정 관리 기능은 준비 중입니다.</p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'career' && (
+            <div className="space-y-6">
+              <div className="text-center py-12">
+                <Briefcase className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">경력 관리 기능은 준비 중입니다.</p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'off-balance' && (
+            <div className="space-y-6">
+              <div className="text-center py-12">
+                <Wallet className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">잔여 OFF 관리 기능은 준비 중입니다.</p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'request' && (
+            <div className="space-y-6">
+              <div className="text-center py-12">
+                <Star className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">Request 관리 기능은 준비 중입니다.</p>
               </div>
             </div>
           )}
