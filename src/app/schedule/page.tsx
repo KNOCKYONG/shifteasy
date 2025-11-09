@@ -3,6 +3,7 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useCallback, Suspense, useDeferredValue } from "react";
+import equal from "fast-deep-equal";
 import { useSearchParams } from "next/navigation";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isWeekend } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -154,7 +155,18 @@ function SchedulePageContent() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationResult, setGenerationResult] = useState<SchedulingResult | null>(null);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
-  const [customShiftTypes, setCustomShiftTypes] = useState<ShiftType[]>([]); // Config의 근무 타입 데이터
+  const [customShiftTypes, setCustomShiftTypes] = useState<ShiftType[]>(() => {
+    if (typeof window === 'undefined') {
+      return [];
+    }
+    try {
+      const saved = window.localStorage.getItem('customShiftTypes');
+      return saved ? JSON.parse(saved) : [];
+    } catch (error) {
+      console.error('Failed to parse cached shift types:', error);
+      return [];
+    }
+  }); // Config의 근무 타입 데이터
   const [showMyPreferences, setShowMyPreferences] = useState(false);
   const [loadedScheduleId, setLoadedScheduleId] = useState<string | null>(null); // 이미 로드된 스케줄 ID
   const [selectedDate, setSelectedDate] = useState<Date>(getInitialDate()); // 오늘의 근무 날짜 선택
@@ -407,9 +419,10 @@ function SchedulePageContent() {
     configKey: 'shift_types',
     departmentId: configDepartmentId, // Use department-specific config
   }, {
-    staleTime: 0, // 항상 최신 데이터 가져오기
-    refetchOnWindowFocus: true, // 탭 전환 시 refetch 활성화
-    refetchOnMount: true, // 마운트 시 항상 refetch
+    staleTime: 30 * 60 * 1000, // 서버 캐시 TTL(30분)과 맞춰 과도한 refetch 방지
+    gcTime: 35 * 60 * 1000, // 캐시도 비슷한 기간 유지
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
   // Load shift config (나이트 집중 근무 유급 휴가 설정 등)
@@ -440,7 +453,15 @@ function SchedulePageContent() {
         color: st.color,
         allowOvertime: st.allowOvertime ?? false, // Default value for backward compatibility
       }));
-      setCustomShiftTypes(transformedShiftTypes);
+      setCustomShiftTypes(prev => {
+        if (equal(prev, transformedShiftTypes)) {
+          return prev;
+        }
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('customShiftTypes', JSON.stringify(transformedShiftTypes));
+        }
+        return transformedShiftTypes;
+      });
       console.log('✅ Loaded custom shift types from tenant_configs:', transformedShiftTypes);
       console.log('📊 Total shift types loaded:', transformedShiftTypes.length);
     } else {
@@ -450,7 +471,7 @@ function SchedulePageContent() {
       if (savedShiftTypes) {
         try {
           const parsed = JSON.parse(savedShiftTypes);
-          setCustomShiftTypes(parsed);
+          setCustomShiftTypes(prev => equal(prev, parsed) ? prev : parsed);
           console.log('✅ Loaded custom shift types from localStorage (fallback):', parsed);
         } catch (error) {
           console.error('Failed to load custom shift types:', error);
