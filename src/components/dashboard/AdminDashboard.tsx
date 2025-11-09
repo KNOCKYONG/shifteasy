@@ -3,7 +3,7 @@
 import { Card } from '@/components/ui/card';
 import {
   Calendar, Clock, Users, ArrowRightLeft, AlertTriangle,
-  CheckCircle, Activity, Briefcase
+  CheckCircle, Activity, Briefcase, CalendarDays, UserCheck
 } from 'lucide-react';
 import Link from 'next/link';
 import { api } from '@/lib/trpc/client';
@@ -18,6 +18,18 @@ export function AdminDashboard() {
   // Optimized dashboard data query - single request with caching
   const { data: dashboardData, isLoading } = api.schedule.getDashboardData.useQuery(undefined, {
     staleTime: 2 * 60 * 1000, // 2 minutes cache
+    refetchOnWindowFocus: false,
+  });
+
+  // Get my upcoming shifts (next 7 days)
+  const { data: upcomingShifts, isLoading: isLoadingShifts } = api.schedule.getMyUpcomingShifts.useQuery(undefined, {
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  // Get colleagues working with me this week
+  const { data: workmatesData, isLoading: isLoadingWorkmates } = api.schedule.getMyWorkmates.useQuery(undefined, {
+    staleTime: 2 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 
@@ -248,6 +260,142 @@ export function AdminDashboard() {
           )}
         </div>
       </Card>
+
+      {/* Personalized Quick Views - Grid Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* My Upcoming Shifts */}
+        <Card className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-blue-100 dark:bg-blue-950 rounded-lg">
+              <CalendarDays className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+              나의 다가오는 근무
+            </h2>
+          </div>
+
+          <div className="space-y-2">
+            {isLoadingShifts ? (
+              <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                로딩 중...
+              </div>
+            ) : upcomingShifts && upcomingShifts.length > 0 ? (
+              upcomingShifts.slice(0, 5).map((shift: any, idx: number) => {
+                const shiftDate = new Date(shift.date);
+                const isTodayShift = isToday(shiftDate);
+
+                return (
+                  <div
+                    key={idx}
+                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                      isTodayShift
+                        ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800'
+                        : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                    }`}
+                  >
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {format(shiftDate, 'MM/dd (E)', { locale: ko })}
+                        {isTodayShift && (
+                          <span className="ml-2 text-xs px-2 py-0.5 bg-blue-600 text-white rounded-full">
+                            오늘
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                        {shift.shiftType || shift.shiftId || '근무'}
+                      </p>
+                    </div>
+                    <Link
+                      href={`/schedule?date=${format(shiftDate, 'yyyy-MM-dd')}`}
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      상세보기
+                    </Link>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                다가오는 근무가 없습니다
+              </p>
+            )}
+          </div>
+
+          {upcomingShifts && upcomingShifts.length > 5 && (
+            <Link href="/schedule" className="block mt-4">
+              <button className="w-full px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800 transition-colors">
+                전체 일정 보기 ({upcomingShifts.length}개)
+              </button>
+            </Link>
+          )}
+        </Card>
+
+        {/* My Workmates This Week */}
+        <Card className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-green-100 dark:bg-green-950 rounded-lg">
+              <UserCheck className="w-5 h-5 text-green-600 dark:text-green-400" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+              이번 주 같이 근무하는 동료
+            </h2>
+          </div>
+
+          <div className="space-y-2">
+            {isLoadingWorkmates ? (
+              <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                로딩 중...
+              </div>
+            ) : workmatesData && workmatesData.workmates && workmatesData.workmates.length > 0 ? (
+              workmatesData.workmates.slice(0, 6).map((workmate: any) => (
+                <div
+                  key={workmate.id}
+                  className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
+                >
+                  <div className="flex items-center gap-3 flex-1">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center text-white text-sm font-semibold">
+                      {workmate.name?.charAt(0) || '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                        {workmate.name}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        {workmate.role === 'member' ? '일반' : workmate.role === 'manager' ? '매니저' : '관리자'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-semibold text-green-600 dark:text-green-400">
+                      {workmate.sharedDays}일
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      함께 근무
+                    </p>
+                  </div>
+                </div>
+              ))
+            ) : workmatesData && workmatesData.myShifts && workmatesData.myShifts.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                이번 주 근무 일정이 없습니다
+              </p>
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                같이 근무하는 동료가 없습니다
+              </p>
+            )}
+          </div>
+
+          {workmatesData && workmatesData.workmates && workmatesData.workmates.length > 6 && (
+            <Link href="/department" className="block mt-4">
+              <button className="w-full px-4 py-2 text-sm text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800 transition-colors">
+                전체 부서원 보기
+              </button>
+            </Link>
+          )}
+        </Card>
+      </div>
     </div>
   );
 }

@@ -853,4 +853,200 @@ export const scheduleRouter = createTRPCRouter({
 
       return todayAssignments;
     }),
+
+  // Get my upcoming shifts (next 7 days)
+  getMyUpcomingShifts: protectedProcedure
+    .query(async ({ ctx }) => {
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const sevenDaysLater = new Date(today);
+      sevenDaysLater.setDate(today.getDate() + 7);
+
+      // Find schedules that overlap with the next 7 days
+      const scheduleList = await db
+        .select({
+          id: schedules.id,
+          startDate: schedules.startDate,
+          endDate: schedules.endDate,
+          metadata: schedules.metadata,
+        })
+        .from(schedules)
+        .where(and(
+          eq(schedules.tenantId, tenantId),
+          eq(schedules.status, 'published'),
+          or(
+            isNull(schedules.deletedFlag),
+            ne(schedules.deletedFlag, 'X')
+          ),
+          lte(schedules.startDate, sevenDaysLater),
+          gte(schedules.endDate, today)
+        ))
+        .orderBy(desc(schedules.publishedAt));
+
+      // Get current user's database ID
+      const currentUserId = ctx.user?.id;
+      if (!currentUserId) return [];
+
+      // Extract my assignments from all schedules
+      const myShifts: any[] = [];
+      for (const schedule of scheduleList) {
+        if (!schedule.metadata) continue;
+
+        const metadata = schedule.metadata as any;
+        const assignments = metadata?.assignments || [];
+
+        // Filter assignments for current user within the date range
+        const userAssignments = assignments.filter((a: any) => {
+          if (a.employeeId !== currentUserId) return false;
+
+          const assignmentDate = new Date(a.date);
+          return assignmentDate >= today && assignmentDate <= sevenDaysLater;
+        });
+
+        myShifts.push(...userAssignments);
+      }
+
+      // Sort by date
+      myShifts.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      return myShifts;
+    }),
+
+  // Get colleagues working with me this week
+  getMyWorkmates: protectedProcedure
+    .query(async ({ ctx }) => {
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Get start of this week (Monday)
+      const startOfWeek = new Date(today);
+      const dayOfWeek = startOfWeek.getDay();
+      const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Adjust to Monday
+      startOfWeek.setDate(startOfWeek.getDate() + diff);
+
+      // Get end of this week (Sunday)
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+      // Find schedules that overlap with this week
+      const scheduleList = await db
+        .select({
+          id: schedules.id,
+          startDate: schedules.startDate,
+          endDate: schedules.endDate,
+          metadata: schedules.metadata,
+        })
+        .from(schedules)
+        .where(and(
+          eq(schedules.tenantId, tenantId),
+          eq(schedules.status, 'published'),
+          or(
+            isNull(schedules.deletedFlag),
+            ne(schedules.deletedFlag, 'X')
+          ),
+          lte(schedules.startDate, endOfWeek),
+          gte(schedules.endDate, startOfWeek)
+        ))
+        .orderBy(desc(schedules.publishedAt));
+
+      // Get current user's database ID
+      const currentUserId = ctx.user?.id;
+      if (!currentUserId) return { workmates: [], myShifts: [] };
+
+      // Extract assignments from all schedules
+      const myShifts: any[] = [];
+      const allAssignments: any[] = [];
+
+      for (const schedule of scheduleList) {
+        if (!schedule.metadata) continue;
+
+        const metadata = schedule.metadata as any;
+        const assignments = metadata?.assignments || [];
+
+        // Filter assignments within this week
+        const weekAssignments = assignments.filter((a: any) => {
+          const assignmentDate = new Date(a.date);
+          return assignmentDate >= startOfWeek && assignmentDate <= endOfWeek;
+        });
+
+        // Separate my shifts
+        const userAssignments = weekAssignments.filter((a: any) => a.employeeId === currentUserId);
+        myShifts.push(...userAssignments);
+
+        allAssignments.push(...weekAssignments);
+      }
+
+      // Helper to check if non-working shift
+      const isNonWorkingShift = (assignment: any): boolean => {
+        if (!assignment.shiftId && !assignment.shiftType) return true;
+        const nonWorkingCodes = ['off', 'OFF', 'O', 'LEAVE', 'VAC', '연차'];
+        return (
+          nonWorkingCodes.includes(assignment.shiftId) ||
+          nonWorkingCodes.includes(assignment.shiftType) ||
+          nonWorkingCodes.includes(assignment.shiftId?.toUpperCase()) ||
+          nonWorkingCodes.includes(assignment.shiftType?.toUpperCase())
+        );
+      };
+
+      // Find colleagues who work on the same days as me
+      const workmateMap = new Map<string, { employeeId: string; sharedDays: number }>();
+
+      for (const myShift of myShifts) {
+        if (isNonWorkingShift(myShift)) continue;
+
+        const myDate = new Date(myShift.date).toISOString().split('T')[0];
+
+        // Find others working on the same day
+        const sameDayWorkers = allAssignments.filter((a: any) => {
+          if (a.employeeId === currentUserId) return false;
+          if (isNonWorkingShift(a)) return false;
+
+          const aDate = new Date(a.date).toISOString().split('T')[0];
+          return aDate === myDate;
+        });
+
+        for (const worker of sameDayWorkers) {
+          const existing = workmateMap.get(worker.employeeId);
+          if (existing) {
+            existing.sharedDays++;
+          } else {
+            workmateMap.set(worker.employeeId, {
+              employeeId: worker.employeeId,
+              sharedDays: 1,
+            });
+          }
+        }
+      }
+
+      // Get employee details
+      const workmateIds = Array.from(workmateMap.keys());
+      const employees = workmateIds.length > 0
+        ? await db
+            .select({
+              id: users.id,
+              name: users.name,
+              email: users.email,
+              role: users.role,
+            })
+            .from(users)
+            .where(and(
+              eq(users.tenantId, tenantId),
+              inArray(users.id, workmateIds)
+            ))
+        : [];
+
+      // Combine with shared days count
+      const workmates = employees.map(emp => ({
+        ...emp,
+        sharedDays: workmateMap.get(emp.id)?.sharedDays || 0,
+      })).sort((a, b) => b.sharedDays - a.sharedDays);
+
+      return {
+        workmates,
+        myShifts: myShifts.filter(s => !isNonWorkingShift(s)),
+      };
+    }),
 });

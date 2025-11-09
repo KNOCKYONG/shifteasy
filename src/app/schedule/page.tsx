@@ -2271,7 +2271,8 @@ function SchedulePageContent() {
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">근무 패턴 유형</p>
               <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
                 {(() => {
-                  const workPatternType = storedUserPreferences?.workPatternType;
+                  const currentEmployee = allMembers.find(m => m.id === currentUser.dbUser?.id);
+                  const workPatternType = (currentEmployee as any)?.preferences?.workPatternType;
                   const typeMap: Record<string, string> = {
                     'three-shift': '3교대 근무',
                     'night-intensive': '야간 집중',
@@ -2301,7 +2302,8 @@ function SchedulePageContent() {
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">선호 근무 패턴</p>
               <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
                 {(() => {
-                  const preferredPatterns = storedUserPreferences?.preferredPatterns;
+                  const currentEmployee = allMembers.find(m => m.id === currentUser.dbUser?.id);
+                  const preferredPatterns = (currentEmployee as any)?.preferences?.preferredPatterns;
                   if (!preferredPatterns || preferredPatterns.length === 0) return '미설정';
                   // preferredPatterns is array of { pattern: string, preference: number }
                   const patterns = preferredPatterns.map((p: any) => {
@@ -2320,7 +2322,8 @@ function SchedulePageContent() {
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">기피 패턴</p>
               <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
                 {(() => {
-                  const avoidPatterns = storedUserPreferences?.avoidPatterns;
+                  const currentEmployee = allMembers.find(m => m.id === currentUser.dbUser?.id);
+                  const avoidPatterns = (currentEmployee as any)?.preferences?.avoidPatterns;
                   if (!avoidPatterns || avoidPatterns.length === 0) return '없음';
                   // avoidPatterns is array of arrays: string[][]
                   return avoidPatterns.map((p: any) => {
