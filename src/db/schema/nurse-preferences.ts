@@ -21,6 +21,9 @@ import { users } from './tenants';
 // ==========================================
 
 export const nursePreferences = pgTable('nurse_preferences', {
+  // ==========================================
+  // Basic Information (기본 정보)
+  // ==========================================
   id: uuid('id').defaultRandom().primaryKey(),
   tenantId: uuid('tenant_id').notNull(),
   nurseId: uuid('nurse_id').notNull().references(() => users.id),
@@ -33,13 +36,6 @@ export const nursePreferences = pgTable('nurse_preferences', {
   // Work pattern type
   workPatternType: text('work_pattern_type').default('three-shift'), // 'three-shift', 'night-intensive', 'weekday-only'
 
-  // Preferred shift types
-  preferredShiftTypes: jsonb('preferred_shift_types').$type<{
-    D: number; // Day preference (0-10)
-    E: number; // Evening preference (0-10)
-    N: number; // Night preference (0-10)
-  }>(),
-
   // Shift pattern preferences
   preferredPatterns: jsonb('preferred_patterns').$type<{
     pattern: string; // 예: 'DD-EE-NN-OFF'
@@ -48,70 +44,6 @@ export const nursePreferences = pgTable('nurse_preferences', {
 
   // Avoid patterns (기피 근무 패턴 - 개인)
   avoidPatterns: jsonb('avoid_patterns').$type<string[][]>(), // 기피하는 근무 패턴 배열
-
-  // Preferred off days (선호하는 휴무일)
-  preferredOffDays: jsonb('preferred_off_days').$type<string[]>(), // 선호하는 휴무 날짜 배열 (예: ['2024-01-15', '2024-01-20'])
-
-  // Consecutive shifts preferences
-  maxConsecutiveDaysPreferred: integer('max_consecutive_days_preferred').default(4),
-  maxConsecutiveNightsPreferred: integer('max_consecutive_nights_preferred').default(2),
-  preferConsecutiveDaysOff: integer('prefer_consecutive_days_off').default(2),
-  avoidBackToBackShifts: boolean('avoid_back_to_back_shifts').default(false),
-
-  // ==========================================
-  // Day/Time Preferences (요일/시간 선호도)
-  // ==========================================
-
-  // Weekday preferences (0-10 scale)
-  weekdayPreferences: jsonb('weekday_preferences').$type<{
-    monday: number;
-    tuesday: number;
-    wednesday: number;
-    thursday: number;
-    friday: number;
-    saturday: number;
-    sunday: number;
-  }>(),
-
-  // Off day preferences
-  offPreference: text('off_preference'), // 'prefer', 'avoid', 'neutral' - general off day preference
-
-  // Weekend preferences
-  weekendPreference: text('weekend_preference'), // 'prefer', 'avoid', 'neutral'
-  maxWeekendsPerMonth: integer('max_weekends_per_month'),
-  preferAlternatingWeekends: boolean('prefer_alternating_weekends').default(false),
-
-  // Holiday preferences
-  holidayPreference: text('holiday_preference'), // 'prefer', 'avoid', 'neutral'
-  specificHolidayPreferences: jsonb('specific_holiday_preferences').$type<{
-    dayOfWeek: number; // 0=Sunday, 1=Monday, ..., 6=Saturday
-    preference: 'work' | 'off' | 'neutral';
-  }[]>(),
-
-  // ==========================================
-  // Team/Colleague Preferences (팀/동료 선호도)
-  // ==========================================
-
-  preferredColleagues: jsonb('preferred_colleagues').$type<string[]>(), // User IDs
-  avoidColleagues: jsonb('avoid_colleagues').$type<string[]>(), // User IDs
-  preferredTeamSize: text('preferred_team_size'), // 'small', 'medium', 'large'
-  mentorshipPreference: text('mentorship_preference'), // 'mentor', 'mentee', 'neither'
-
-  // ==========================================
-  // Personal Constraints (개인 제약사항)
-  // ==========================================
-
-  // Transportation constraints
-  hasTransportationIssues: boolean('has_transportation_issues').default(false),
-  transportationNotes: text('transportation_notes'),
-
-  // Family/Care responsibilities
-  hasCareResponsibilities: boolean('has_care_responsibilities').default(false),
-  careResponsibilityDetails: jsonb('care_responsibility_details').$type<{
-    type: 'childcare' | 'eldercare' | 'other';
-    affectedTimes: string[];
-    flexibilityLevel: 'none' | 'low' | 'medium' | 'high';
-  }>(),
 
   // ==========================================
   // Off-Balance System (잔여 OFF 관리)

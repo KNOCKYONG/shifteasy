@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import type { ComprehensivePreferences } from '@/components/department/MyPreferencesPanel';
 import { db } from '@/db';
 import { nursePreferences } from '@/db/schema/nurse-preferences';
 import { users } from '@/db/schema';
@@ -11,87 +10,16 @@ export const dynamic = 'force-dynamic';
 // Default tenant ID (나중에 인증 시스템에서 가져와야 함)
 const DEFAULT_TENANT_ID = '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
 
-// 선호도 검증 스키마 (실제 사용 필드만)
+// 선호도 검증 스키마 (간소화된 버전)
 const PreferencesSchema = z.object({
   employeeId: z.string(),
   preferences: z.object({
-    workPreferences: z.object({
-      workPatternType: z.enum(['three-shift', 'night-intensive', 'weekday-only']),
-      preferredShifts: z.array(z.enum(['day', 'evening', 'night'])),
-      avoidShifts: z.array(z.enum(['day', 'evening', 'night'])).optional(),
-      preferredPatterns: z.array(z.string()).optional(), // 선호 근무 패턴 배열
-      avoidPatterns: z.array(z.array(z.string())).optional(), // 기피 근무 패턴 배열 (개인)
-      preferredOffDays: z.array(z.string()).optional(), // 선호하는 휴무일
-      maxConsecutiveDays: z.number().min(1).max(7),
-      minRestDays: z.number().min(1).max(4),
-      preferredWorkload: z.enum(['light', 'moderate', 'heavy', 'flexible']),
-      weekendPreference: z.enum(['prefer', 'avoid', 'neutral']),
-      holidayPreference: z.enum(['prefer', 'avoid', 'neutral']),
-      overtimeWillingness: z.enum(['never', 'emergency', 'sometimes', 'always']),
-      offDayPattern: z.enum(['short', 'long', 'flexible']),
-    }),
-    personalCircumstances: z.object({
-      hasYoungChildren: z.boolean(),
-      isSingleParent: z.boolean(),
-      hasCaregivingResponsibilities: z.boolean(),
-      isStudying: z.boolean(),
-    }),
-    healthConsiderations: z.object({
-      hasChronicCondition: z.boolean(),
-      needsFrequentBreaks: z.boolean(),
-      mobilityRestrictions: z.boolean(),
-      visualImpairment: z.boolean(),
-      hearingImpairment: z.boolean(),
-      mentalHealthSupport: z.boolean(),
-    }),
-    commutePreferences: z.object({
-      commuteTime: z.number(),
-      transportMode: z.enum(['car', 'public', 'walk', 'bike', 'mixed']),
-      parkingRequired: z.boolean(),
-      nightTransportDifficulty: z.boolean(),
-      weatherSensitive: z.boolean(),
-      needsTransportAssistance: z.boolean(),
-      carpoolInterested: z.boolean(),
-    }),
-    teamPreferences: z.object({
-      preferredPartners: z.array(z.string()),
-      avoidPartners: z.array(z.string()),
-      mentorshipRole: z.enum(['mentor', 'mentee', 'both', 'none']),
-      languagePreferences: z.array(z.string()),
-      communicationStyle: z.enum(['direct', 'gentle', 'detailed', 'brief']),
-      conflictResolution: z.enum(['immediate', 'planned', 'mediator', 'avoid']),
-    }),
-    professionalDevelopment: z.object({
-      specializations: z.array(z.string()),
-      certifications: z.array(z.string()),
-      trainingInterests: z.array(z.string()),
-      careerGoals: z.string(),
-      preferredDepartments: z.array(z.string()),
-      avoidDepartments: z.array(z.string()),
-      teachingInterest: z.boolean(),
-      researchInterest: z.boolean(),
-      administrativeInterest: z.boolean(),
-    }),
-    specialRequests: z.object({
-      religiousObservances: z.object({
-        needed: z.boolean(),
-      }),
-      culturalConsiderations: z.string(),
-      emergencyContact: z.object({
-        name: z.string(),
-        relationship: z.string(),
-        phone: z.string(),
-      }),
-      temporaryRequests: z.array(z.any()),
-    }),
-    priorities: z.object({
-      workLifeBalance: z.number().min(1).max(10),
-      careerGrowth: z.number().min(1).max(10),
-      teamHarmony: z.number().min(1).max(10),
-      incomeMaximization: z.number().min(1).max(10),
-      healthWellbeing: z.number().min(1).max(10),
-      familyTime: z.number().min(1).max(10),
-    }),
+    workPatternType: z.enum(['three-shift', 'night-intensive', 'weekday-only']).optional(),
+    preferredPatterns: z.array(z.object({
+      pattern: z.string(),
+      preference: z.number().min(0).max(10),
+    })).optional(),
+    avoidPatterns: z.array(z.array(z.string())).optional(),
   }),
 });
 
@@ -111,31 +39,11 @@ export async function GET(request: NextRequest) {
       const allPreferences: Record<string, any> = {};
 
       allNursePrefs.forEach(pref => {
-        // Convert nurse_preferences to ComprehensivePreferences format
+        // Convert nurse_preferences to simplified format
         allPreferences[pref.nurseId] = {
-          workPreferences: {
-            workPatternType: pref.workPatternType,
-            preferredShifts: [], // Will be derived from preferredShiftTypes
-            avoidShifts: [],
-            preferredPatterns: pref.preferredPatterns?.map((p: any) => p.pattern) || [],
-            avoidPatterns: pref.avoidPatterns || [], // 기피 근무 패턴 (개인)
-            preferredOffDays: pref.preferredOffDays || [], // 선호하는 휴무일
-            maxConsecutiveDays: pref.maxConsecutiveDaysPreferred || 5,
-            minRestDays: pref.preferConsecutiveDaysOff || 2,
-            preferredWorkload: 'moderate',
-            weekendPreference: pref.weekendPreference || 'neutral',
-            holidayPreference: pref.holidayPreference || 'neutral',
-            overtimeWillingness: 'sometimes',
-            offDayPattern: 'flexible',
-          },
-          teamPreferences: {
-            preferredPartners: pref.preferredColleagues || [],
-            avoidPartners: pref.avoidColleagues || [],
-            mentorshipRole: pref.mentorshipPreference || 'none',
-            languagePreferences: ['korean'],
-            communicationStyle: 'direct',
-            conflictResolution: 'immediate',
-          },
+          workPatternType: pref.workPatternType,
+          preferredPatterns: pref.preferredPatterns || [],
+          avoidPatterns: pref.avoidPatterns || [],
         };
       });
 
@@ -164,36 +72,16 @@ export async function GET(request: NextRequest) {
 
     const pref = result[0];
 
-    // Convert nurse_preferences to ComprehensivePreferences format
-    const comprehensivePrefs = {
-      workPreferences: {
-        workPatternType: pref.workPatternType,
-        preferredShifts: [], // Will be derived from preferredShiftTypes
-        avoidShifts: [],
-        preferredPatterns: pref.preferredPatterns?.map((p: any) => p.pattern) || [],
-        avoidPatterns: pref.avoidPatterns || [], // 기피 근무 패턴 (개인)
-        preferredOffDays: pref.preferredOffDays || [], // 선호하는 휴무일
-        maxConsecutiveDays: pref.maxConsecutiveDaysPreferred || 5,
-        minRestDays: pref.preferConsecutiveDaysOff || 2,
-        preferredWorkload: 'moderate',
-        weekendPreference: pref.weekendPreference || 'neutral',
-        holidayPreference: pref.holidayPreference || 'neutral',
-        overtimeWillingness: 'sometimes',
-        offDayPattern: 'flexible',
-      },
-      teamPreferences: {
-        preferredPartners: pref.preferredColleagues || [],
-        avoidPartners: pref.avoidColleagues || [],
-        mentorshipRole: pref.mentorshipPreference || 'none',
-        languagePreferences: ['korean'],
-        communicationStyle: 'direct',
-        conflictResolution: 'immediate',
-      },
+    // Convert nurse_preferences to simplified format
+    const simplifiedPrefs = {
+      workPatternType: pref.workPatternType,
+      preferredPatterns: pref.preferredPatterns || [],
+      avoidPatterns: pref.avoidPatterns || [],
     };
 
     return NextResponse.json({
       success: true,
-      data: comprehensivePrefs,
+      data: simplifiedPrefs,
       employeeId,
     });
   } catch (error) {
@@ -248,59 +136,14 @@ export async function POST(request: NextRequest) {
       .where(eq(nursePreferences.nurseId, employeeId))
       .limit(1);
 
-    // Map ComprehensivePreferences to nurse_preferences format
-    const workPrefs = preferences.workPreferences;
-    const teamPrefs = preferences.teamPreferences;
-    const prefs = workPrefs.preferredShifts || [];
-    const preferredPatterns = workPrefs.preferredPatterns || [];
-
+    // Map simplified preferences to nurse_preferences format
     const nursePrefsData = {
       tenantId,
       nurseId: employeeId,
       departmentId,
-
-      // Shift Preferences
-      workPatternType: workPrefs.workPatternType || 'three-shift',
-      preferredShiftTypes: {
-        D: prefs.includes('day') ? 10 : 0,
-        E: prefs.includes('evening') ? 10 : 0,
-        N: prefs.includes('night') ? 10 : 0,
-      },
-      preferredPatterns: preferredPatterns.map(pattern => ({
-        pattern,
-        preference: 10,
-      })),
-      avoidPatterns: workPrefs.avoidPatterns || [], // 기피 근무 패턴 (개인)
-      preferredOffDays: workPrefs.preferredOffDays || [], // 선호하는 휴무일
-      maxConsecutiveDaysPreferred: workPrefs.maxConsecutiveDays || 5,
-      maxConsecutiveNightsPreferred: 2,
-      preferConsecutiveDaysOff: workPrefs.minRestDays || 2,
-      avoidBackToBackShifts: false,
-
-      // Weekday Preferences
-      weekdayPreferences: {
-        monday: 5,
-        tuesday: 5,
-        wednesday: 5,
-        thursday: 5,
-        friday: 5,
-        saturday: 5,
-        sunday: 5,
-      },
-
-      // Off/Weekend Preferences
-      offPreference: 'neutral',
-      weekendPreference: workPrefs.weekendPreference || 'neutral',
-      maxWeekendsPerMonth: null,
-      preferAlternatingWeekends: false,
-      holidayPreference: workPrefs.holidayPreference || 'neutral',
-
-      // Team Preferences
-      preferredColleagues: teamPrefs.preferredPartners || [],
-      avoidColleagues: teamPrefs.avoidPartners || [],
-      preferredTeamSize: null,
-      mentorshipPreference: teamPrefs.mentorshipRole || 'neither',
-
+      workPatternType: preferences.workPatternType || 'three-shift',
+      preferredPatterns: preferences.preferredPatterns || [],
+      avoidPatterns: preferences.avoidPatterns || [],
       updatedAt: new Date(),
     };
 

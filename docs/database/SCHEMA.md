@@ -469,9 +469,11 @@ CREATE TABLE "team_patterns" (
 ## Preference Tables
 
 ### nurse_preferences
-**목적**: 직원 근무 선호사항 및 제약사항
+**목적**: 직원 근무 선호사항 및 제약사항 (간소화됨)
 
 **행 수**: 29
+
+**업데이트**: 2025-11-09 - 불필요한 칼럼 제거, 필수 필드만 유지
 
 ```sql
 CREATE TABLE "nurse_preferences" (
@@ -480,71 +482,48 @@ CREATE TABLE "nurse_preferences" (
   "nurse_id" uuid NOT NULL REFERENCES "users"("id"),
   "department_id" uuid,
 
-  -- Shift preferences
-  "work_pattern_type" text DEFAULT 'three-shift',
-  "preferred_shift_types" jsonb,
-  "preferred_patterns" jsonb,
-  "max_consecutive_days_preferred" integer DEFAULT 4,
-  "max_consecutive_nights_preferred" integer DEFAULT 2,
-  "prefer_consecutive_days_off" integer DEFAULT 2,
-  "avoid_back_to_back_shifts" boolean DEFAULT false,
+  -- Shift preferences (근무 선호도)
+  "work_pattern_type" text DEFAULT 'three-shift',  -- 'three-shift', 'night-intensive', 'weekday-only'
+  "preferred_patterns" jsonb,  -- 선호 근무 패턴 배열
+  "avoid_patterns" jsonb,  -- 기피 근무 패턴 배열 (개인)
 
-  -- Day/Time preferences
-  "weekday_preferences" jsonb,
-  "off_preference" text,
-  "weekend_preference" text,
-  "max_weekends_per_month" integer,
-  "prefer_alternating_weekends" boolean DEFAULT false,
-  "holiday_preference" text,
-  "specific_holiday_preferences" jsonb,
-
-  -- Team preferences
-  "preferred_colleagues" jsonb,
-  "avoid_colleagues" jsonb,
-  "preferred_team_size" text,
-  "mentorship_preference" text,
-
-  -- Personal constraints
-  "has_transportation_issues" boolean DEFAULT false,
-  "transportation_notes" text,
-  "has_care_responsibilities" boolean DEFAULT false,
-  "care_responsibility_details" jsonb,
-
-  -- Off-balance system
-  "accumulated_off_days" integer DEFAULT 0,
-  "allocated_to_accumulation" integer DEFAULT 0,
-  "allocated_to_allowance" integer DEFAULT 0,
+  -- Off-balance system (잔여 OFF 관리)
+  "accumulated_off_days" integer DEFAULT 0,  -- 누적된 잔여 OFF 일수
+  "allocated_to_accumulation" integer DEFAULT 0,  -- 향후 사용을 위해 저축된 일수
+  "allocated_to_allowance" integer DEFAULT 0,  -- 수당으로 지급할 일수
 
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now()
 );
 ```
 
+**Validation**: `allocated_to_accumulation + allocated_to_allowance <= accumulated_off_days`
+
 **Indexes**:
 - `nurse_preferences_nurse_idx` on (nurse_id)
 - `nurse_preferences_tenant_idx` on (tenant_id)
 - `nurse_preferences_department_idx` on (department_id)
 
-**Preferred Shift Types Example**:
+**Preferred Patterns Example**:
 ```json
-{
-  "D": 8,  // 주간 선호도 (0-10)
-  "E": 5,  // 저녁 선호도
-  "N": 2   // 야간 선호도
-}
+[
+  {
+    "pattern": "DD-EE-NN-OFF",
+    "preference": 10
+  },
+  {
+    "pattern": "D-D-E-E-N-N-OFF-OFF",
+    "preference": 8
+  }
+]
 ```
 
-**Weekday Preferences Example**:
+**Avoid Patterns Example**:
 ```json
-{
-  "monday": 5,
-  "tuesday": 7,
-  "wednesday": 8,
-  "thursday": 6,
-  "friday": 4,
-  "saturday": 3,
-  "sunday": 2
-}
+[
+  ["N", "D"],  // 야간 후 주간 기피
+  ["E", "N", "D"]  // 저녁-야간-주간 연속 기피
+]
 ```
 
 ---

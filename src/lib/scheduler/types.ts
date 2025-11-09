@@ -65,6 +65,7 @@ export interface EmployeePreferences {
   workLoadPreference?: 'light' | 'normal' | 'heavy';
   flexibilityLevel?: 'low' | 'medium' | 'high';
   preferredPatterns?: string[];
+  avoidPatterns?: string[][];
   preferredPartners?: string[];
   avoidPartners?: string[];
   personalConstraints?: Array<{

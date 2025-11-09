@@ -1,10 +1,9 @@
 /**
  * 통합 직원 데이터 모델
- * Employee, MockTeamMember, ComprehensivePreferences를 통합
  */
 
 import type { Employee, EmployeePreferences, ShiftType } from '@/lib/scheduler/types';
-import type { ComprehensivePreferences } from '@/components/department/MyPreferencesPanel';
+import type { SimplifiedPreferences } from '@/components/department/MyPreferencesPanel';
 import type { SpecialRequest } from '@/components/department/SpecialRequestModal';
 
 /**
@@ -21,8 +20,8 @@ export interface UnifiedEmployee extends Employee {
   avatar?: string;
   status: 'active' | 'on-leave' | 'inactive';
 
-  // 확장된 선호도 (선택적)
-  comprehensivePreferences?: ComprehensivePreferences;
+  // 간소화된 선호도 (선택적)
+  simplifiedPreferences?: SimplifiedPreferences;
 
   // 특별 요청 목록
   specialRequests?: SpecialRequest[];
@@ -188,7 +187,7 @@ export interface UnifiedScheduleResponse {
 export type PartialEmployee = Partial<UnifiedEmployee>;
 export type RequiredEmployee = Required<UnifiedEmployee>;
 export type EmployeeWithPreferences = UnifiedEmployee & {
-  comprehensivePreferences: ComprehensivePreferences;
+  simplifiedPreferences: SimplifiedPreferences;
 };
 
 /**
@@ -201,10 +200,10 @@ export const isUnifiedEmployee = (obj: any): obj is UnifiedEmployee => {
     typeof obj.email === 'string';
 };
 
-export const hasComprehensivePreferences = (
+export const hasSimplifiedPreferences = (
   employee: UnifiedEmployee
 ): employee is EmployeeWithPreferences => {
-  return employee.comprehensivePreferences !== undefined;
+  return employee.simplifiedPreferences !== undefined;
 };
 
 export const isActiveEmployee = (employee: UnifiedEmployee): boolean => {

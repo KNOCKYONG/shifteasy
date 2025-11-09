@@ -13,62 +13,14 @@ const preferenceUpdateSchema = z.object({
   // Work pattern type
   workPatternType: z.enum(['three-shift', 'night-intensive', 'weekday-only']).optional(),
 
-  // Shift preferences
-  preferredShiftTypes: z.object({
-    D: z.number().min(0).max(10).optional(),
-    E: z.number().min(0).max(10).optional(),
-    N: z.number().min(0).max(10).optional(),
-  }).optional(),
-
+  // Shift pattern preferences
   preferredPatterns: z.array(z.object({
     pattern: z.string(),
     preference: z.number().min(0).max(10),
   })).optional(),
 
-  maxConsecutiveDaysPreferred: z.number().optional(),
-  maxConsecutiveNightsPreferred: z.number().optional(),
-  preferConsecutiveDaysOff: z.number().optional(),
-  avoidBackToBackShifts: z.boolean().optional(),
-
-  // Weekday preferences
-  weekdayPreferences: z.object({
-    monday: z.number().min(0).max(10),
-    tuesday: z.number().min(0).max(10),
-    wednesday: z.number().min(0).max(10),
-    thursday: z.number().min(0).max(10),
-    friday: z.number().min(0).max(10),
-    saturday: z.number().min(0).max(10),
-    sunday: z.number().min(0).max(10),
-  }).optional(),
-
-  offPreference: z.enum(['prefer', 'avoid', 'neutral']).optional(),
-  weekendPreference: z.enum(['prefer', 'avoid', 'neutral']).optional(),
-  maxWeekendsPerMonth: z.number().optional(),
-  preferAlternatingWeekends: z.boolean().optional(),
-
-  holidayPreference: z.enum(['prefer', 'avoid', 'neutral']).optional(),
-  preferredDaysOff: z.array(z.number().min(0).max(6)).optional(), // 0=Sunday, 1=Monday, ..., 6=Saturday
-
-  // Team preferences
-  preferredColleagues: z.array(z.string()).optional(),
-  avoidColleagues: z.array(z.string()).optional(),
-  preferredTeamSize: z.enum(['small', 'medium', 'large']).optional(),
-  mentorshipPreference: z.enum(['mentor', 'mentee', 'neither']).optional(),
-
-  // Work-life balance
-  workLifeBalance: z.object({
-    childcare: z.boolean().optional(),
-    eldercare: z.boolean().optional(),
-    education: z.boolean().optional(),
-    secondJob: z.boolean().optional(),
-  }).optional(),
-
-  // Commute preferences
-  commutePreferences: z.object({
-    maxCommuteTime: z.number().optional(),
-    preferPublicTransport: z.boolean().optional(),
-    parkingRequired: z.boolean().optional(),
-  }).optional(),
+  // Avoid patterns (기피 근무 패턴 - 개인)
+  avoidPatterns: z.array(z.array(z.string())).optional(),
 });
 
 export const preferencesRouter = createTRPCRouter({
@@ -118,26 +70,8 @@ export const preferencesRouter = createTRPCRouter({
         nurseId: staffId,
         departmentId,
         workPatternType: preferences.workPatternType,
-        preferredShiftTypes: preferences.preferredShiftTypes ? {
-          D: preferences.preferredShiftTypes.D ?? 0,
-          E: preferences.preferredShiftTypes.E ?? 0,
-          N: preferences.preferredShiftTypes.N ?? 0,
-        } : undefined,
         preferredPatterns: preferences.preferredPatterns,
-        maxConsecutiveDaysPreferred: preferences.maxConsecutiveDaysPreferred,
-        maxConsecutiveNightsPreferred: preferences.maxConsecutiveNightsPreferred,
-        preferConsecutiveDaysOff: preferences.preferConsecutiveDaysOff,
-        avoidBackToBackShifts: preferences.avoidBackToBackShifts,
-        weekdayPreferences: preferences.weekdayPreferences,
-        offPreference: preferences.offPreference,
-        weekendPreference: preferences.weekendPreference,
-        maxWeekendsPerMonth: preferences.maxWeekendsPerMonth,
-        preferAlternatingWeekends: preferences.preferAlternatingWeekends,
-        holidayPreference: preferences.holidayPreference,
-        preferredColleagues: preferences.preferredColleagues,
-        avoidColleagues: preferences.avoidColleagues,
-        preferredTeamSize: preferences.preferredTeamSize,
-        mentorshipPreference: preferences.mentorshipPreference,
+        avoidPatterns: preferences.avoidPatterns,
         updatedAt: new Date(),
       };
 
