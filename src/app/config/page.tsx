@@ -6,7 +6,6 @@ import { useTranslation } from "react-i18next";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { ShiftTypesTab } from "./ShiftTypesTab";
-import { PositionGroupsTab } from "./PositionGroupsTab";
 import { api as trpc } from "@/lib/trpc/client";
 
 interface ContractType {
@@ -34,8 +33,8 @@ function ConfigPageContent() {
   const setConfigMutation = trpc.configs.set.useMutation();
 
   // URL 파라미터에서 tab 읽기
-  const tabFromUrl = searchParams.get('tab') as "preferences" | "positions" | "positionGroups" | "shifts" | "secretCode" | null;
-  const [activeTab, setActiveTab] = useState<"preferences" | "positions" | "positionGroups" | "shifts" | "secretCode">(tabFromUrl || "preferences");
+  const tabFromUrl = searchParams.get('tab') as "preferences" | "positions" | "shifts" | "secretCode" | null;
+  const [activeTab, setActiveTab] = useState<"preferences" | "positions" | "shifts" | "secretCode">(tabFromUrl || "preferences");
   const [currentUser, setCurrentUser] = useState<{ role: string } | null>(null);
   const [positions, setPositions] = useState<{value: string; label: string; level: number}[]>([]);
   const [newPosition, setNewPosition] = useState({ value: '', label: '', level: 1 });
@@ -113,15 +112,6 @@ function ConfigPageContent() {
   });
   const [editingEmployeeStatus, setEditingEmployeeStatus] = useState<string | null>(null);
 
-  // Position groups state
-  const [positionGroups, setPositionGroups] = useState<{
-    id: string;
-    name: string;
-    description: string;
-    positionCodes: string[];
-    color: string;
-  }[]>([]);
-
   useEffect(() => {
     // Fetch current user role
     fetch('/api/users/me')
@@ -195,7 +185,6 @@ function ConfigPageContent() {
     setDepartments(allConfigs.departments || defaultDepartments);
     setContractTypes(allConfigs.contract_types || defaultContractTypes);
     setEmployeeStatuses(allConfigs.employee_statuses || defaultEmployeeStatuses);
-    setPositionGroups(allConfigs.position_groups || []);
 
     // Load preferences
     if (allConfigs.preferences) {
@@ -218,7 +207,6 @@ function ConfigPageContent() {
         setConfigMutation.mutateAsync({ configKey: 'departments', configValue: departments }),
         setConfigMutation.mutateAsync({ configKey: 'contract_types', configValue: contractTypes }),
         setConfigMutation.mutateAsync({ configKey: 'employee_statuses', configValue: employeeStatuses }),
-        setConfigMutation.mutateAsync({ configKey: 'position_groups', configValue: positionGroups }),
         setConfigMutation.mutateAsync({ configKey: 'preferences', configValue: config.preferences }),
       ]);
 
@@ -269,16 +257,6 @@ function ConfigPageContent() {
               }`}
             >
               {t('tabs.positions', { ns: 'config', defaultValue: '직책 관리' })}
-            </button>
-            <button
-              onClick={() => setActiveTab("positionGroups")}
-              className={`pb-3 px-1 text-sm border-b-2 transition-colors ${
-                activeTab === "positionGroups"
-                  ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
-                  : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
-              }`}
-            >
-              {t('tabs.positionGroups', { ns: 'config', defaultValue: '직책 그룹' })}
             </button>
             <button
               onClick={() => setActiveTab("shifts")}
@@ -499,15 +477,6 @@ function ConfigPageContent() {
               )}
             </div>
           </div>
-        )}
-
-        {/* Position Groups Tab */}
-        {activeTab === "positionGroups" && (
-          <PositionGroupsTab
-            positionGroups={positionGroups}
-            setPositionGroups={setPositionGroups}
-            positions={positions}
-          />
         )}
 
         {/* Shifts Tab */}
