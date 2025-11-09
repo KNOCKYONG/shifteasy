@@ -644,9 +644,23 @@ function SchedulePageContent() {
     }
   }, [searchParams, filters.setActiveView]);
 
-  // Load shift types from configs table
+  // Determine which departmentId to use for configs
+  const configDepartmentId = React.useMemo(() => {
+    // Manager/Member: Use their actual department
+    if (isManager || isMember) {
+      return memberDepartmentId || undefined;
+    }
+    // Admin/Owner: Use selected department (if not 'all' or 'no-department')
+    if (selectedDepartment !== 'all' && selectedDepartment !== 'no-department') {
+      return selectedDepartment;
+    }
+    return undefined;
+  }, [isManager, isMember, memberDepartmentId, selectedDepartment]);
+
+  // Load shift types from configs table (department-specific)
   const { data: shiftTypesConfig } = api.configs.getByKey.useQuery({
-    configKey: 'shift_types'
+    configKey: 'shift_types',
+    departmentId: configDepartmentId, // Use department-specific config
   }, {
     staleTime: 0, // 항상 최신 데이터 가져오기
     refetchOnWindowFocus: true, // 탭 전환 시 refetch 활성화
@@ -655,7 +669,8 @@ function SchedulePageContent() {
 
   // Load shift config (나이트 집중 근무 유급 휴가 설정 등)
   const { data: shiftConfigData } = api.configs.getByKey.useQuery({
-    configKey: 'shiftConfig'
+    configKey: 'shiftConfig',
+    departmentId: configDepartmentId, // Use department-specific config
   }, {
     staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
