@@ -11,7 +11,7 @@ import { holidaysRouter } from './routers/holidays';
 import { specialRequestsRouter } from './routers/special-requests';
 import { configsRouter } from './routers/configs';
 import { shiftTypesRouter } from './routers/shift-types';
-// import { handoffRouter } from './routers/handoff'; // DEPRECATED: handoffs, handoffItems tables removed
+import { handoffRouter } from './routers/handoff';
 import { teamsRouter } from './routers/teams';
 import { offBalanceRouter } from './routers/off-balance';
 
@@ -28,7 +28,7 @@ export const appRouter = createTRPCRouter({
   specialRequests: specialRequestsRouter,
   configs: configsRouter,
   shiftTypes: shiftTypesRouter,
-  // handoff: handoffRouter, // DEPRECATED
+  handoff: handoffRouter,
   teams: teamsRouter,
   offBalance: offBalanceRouter,
 });

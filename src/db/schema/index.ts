@@ -9,6 +9,7 @@ export * from './holidays';
 export * from './special-requests';
 export * from './configs';
 export * from './teams';
+export * from './handoffs';
 
 // Alias for backward compatibility
 export { auditLog as auditLogs } from './system';
