@@ -20,6 +20,8 @@ const PreferencesSchema = z.object({
       workPatternType: z.enum(['three-shift', 'night-intensive', 'weekday-only']),
       preferredShifts: z.array(z.enum(['day', 'evening', 'night'])),
       avoidShifts: z.array(z.enum(['day', 'evening', 'night'])).optional(),
+      preferredPatterns: z.array(z.string()).optional(), // 선호 근무 패턴 배열
+      avoidPatterns: z.array(z.array(z.string())).optional(), // 기피 근무 패턴 배열 (각 패턴은 string 배열)
       maxConsecutiveDays: z.number().min(1).max(7),
       minRestDays: z.number().min(1).max(4),
       preferredWorkload: z.enum(['light', 'moderate', 'heavy', 'flexible']),
@@ -232,6 +234,9 @@ export async function POST(request: NextRequest) {
 
       // Map ComprehensivePreferences to nurse_preferences format
       const prefs = preferences.workPreferences.preferredShifts || [];
+      const preferredPatterns = preferences.workPreferences.preferredPatterns || [];
+      const avoidPatterns = preferences.workPreferences.avoidPatterns || [];
+
       const nursePrefsData = {
         tenantId,
         nurseId: employeeId,
@@ -242,6 +247,10 @@ export async function POST(request: NextRequest) {
           E: prefs.includes('evening') ? 10 : 0,
           N: prefs.includes('night') ? 10 : 0,
         },
+        preferredPatterns: preferredPatterns.map(pattern => ({
+          pattern,
+          preference: 10, // Default high preference
+        })),
         maxConsecutiveDaysPreferred: preferences.workPreferences.maxConsecutiveDays,
         maxConsecutiveNightsPreferred: null, // Optional field
         updatedAt: new Date(),
