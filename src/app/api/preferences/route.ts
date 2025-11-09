@@ -20,7 +20,8 @@ const PreferencesSchema = z.object({
       preferredShifts: z.array(z.enum(['day', 'evening', 'night'])),
       avoidShifts: z.array(z.enum(['day', 'evening', 'night'])).optional(),
       preferredPatterns: z.array(z.string()).optional(), // 선호 근무 패턴 배열
-      avoidPatterns: z.array(z.array(z.string())).optional(), // 기피 근무 패턴 배열 (각 패턴은 string 배열)
+      avoidPatterns: z.array(z.array(z.string())).optional(), // 기피 근무 패턴 배열 (개인)
+      preferredOffDays: z.array(z.string()).optional(), // 선호하는 휴무일
       maxConsecutiveDays: z.number().min(1).max(7),
       minRestDays: z.number().min(1).max(4),
       preferredWorkload: z.enum(['light', 'moderate', 'heavy', 'flexible']),
@@ -117,7 +118,8 @@ export async function GET(request: NextRequest) {
             preferredShifts: [], // Will be derived from preferredShiftTypes
             avoidShifts: [],
             preferredPatterns: pref.preferredPatterns?.map((p: any) => p.pattern) || [],
-            avoidPatterns: [],
+            avoidPatterns: pref.avoidPatterns || [], // 기피 근무 패턴 (개인)
+            preferredOffDays: pref.preferredOffDays || [], // 선호하는 휴무일
             maxConsecutiveDays: pref.maxConsecutiveDaysPreferred || 5,
             minRestDays: pref.preferConsecutiveDaysOff || 2,
             preferredWorkload: 'moderate',
@@ -169,7 +171,8 @@ export async function GET(request: NextRequest) {
         preferredShifts: [], // Will be derived from preferredShiftTypes
         avoidShifts: [],
         preferredPatterns: pref.preferredPatterns?.map((p: any) => p.pattern) || [],
-        avoidPatterns: [],
+        avoidPatterns: pref.avoidPatterns || [], // 기피 근무 패턴 (개인)
+        preferredOffDays: pref.preferredOffDays || [], // 선호하는 휴무일
         maxConsecutiveDays: pref.maxConsecutiveDaysPreferred || 5,
         minRestDays: pref.preferConsecutiveDaysOff || 2,
         preferredWorkload: 'moderate',
@@ -266,6 +269,8 @@ export async function POST(request: NextRequest) {
           pattern,
           preference: 10,
         })),
+        avoidPatterns: workPrefs.avoidPatterns || [], // 기피 근무 패턴 (개인)
+        preferredOffDays: workPrefs.preferredOffDays || [], // 선호하는 휴무일
         maxConsecutiveDaysPreferred: workPrefs.maxConsecutiveDays || 5,
         maxConsecutiveNightsPreferred: 2,
         preferConsecutiveDaysOff: workPrefs.minRestDays || 2,

@@ -18,6 +18,9 @@ export interface ComprehensivePreferences {
     workPatternType: WorkPatternType; // 근무 패턴: 3교대 근무, 나이트 집중 근무, 행정 근무
     preferredShifts: ('day' | 'evening' | 'night')[];
     avoidShifts?: ('day' | 'evening' | 'night')[];
+    preferredPatterns?: string[]; // 선호 근무 패턴 배열
+    avoidPatterns?: string[][]; // 기피 근무 패턴 배열 (개인)
+    preferredOffDays?: string[]; // 선호하는 휴무일 (날짜 배열)
     maxConsecutiveDays: number;
     minRestDays: number;
     preferredWorkload: 'light' | 'moderate' | 'heavy' | 'flexible';

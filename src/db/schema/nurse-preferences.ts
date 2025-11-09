@@ -46,6 +46,12 @@ export const nursePreferences = pgTable('nurse_preferences', {
     preference: number; // 0-10
   }[]>(),
 
+  // Avoid patterns (기피 근무 패턴 - 개인)
+  avoidPatterns: jsonb('avoid_patterns').$type<string[][]>(), // 기피하는 근무 패턴 배열
+
+  // Preferred off days (선호하는 휴무일)
+  preferredOffDays: jsonb('preferred_off_days').$type<string[]>(), // 선호하는 휴무 날짜 배열 (예: ['2024-01-15', '2024-01-20'])
+
   // Consecutive shifts preferences
   maxConsecutiveDaysPreferred: integer('max_consecutive_days_preferred').default(4),
   maxConsecutiveNightsPreferred: integer('max_consecutive_nights_preferred').default(2),
