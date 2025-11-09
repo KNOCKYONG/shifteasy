@@ -896,6 +896,7 @@ export const scheduleRouter = createTRPCRouter({
 
         const metadata = schedule.metadata as any;
         const assignments = metadata?.assignments || [];
+        const shiftTypes = metadata?.shiftTypes || [];
 
         // Filter assignments for current user within the date range
         const userAssignments = assignments.filter((a: any) => {
@@ -905,7 +906,19 @@ export const scheduleRouter = createTRPCRouter({
           return assignmentDate >= today && assignmentDate <= sevenDaysLater;
         });
 
-        myShifts.push(...userAssignments);
+        // Add shift type information to each assignment
+        const enrichedAssignments = userAssignments.map((assignment: any) => {
+          const shiftType = shiftTypes.find((st: any) => st.id === assignment.shiftId);
+          return {
+            ...assignment,
+            shiftName: shiftType?.name || assignment.shiftId,
+            startTime: shiftType?.startTime,
+            endTime: shiftType?.endTime,
+            color: shiftType?.color,
+          };
+        });
+
+        myShifts.push(...enrichedAssignments);
       }
 
       // Sort by date

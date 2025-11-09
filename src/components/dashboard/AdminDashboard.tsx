@@ -311,7 +311,12 @@ export function AdminDashboard() {
                         )}
                       </p>
                       <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
-                        Shift: {shift.shiftId || shift.shiftType || '-'}
+                        {shift.shiftName || shift.shiftId || '-'}
+                        {shift.startTime && shift.endTime && (
+                          <span className="ml-1">
+                            {shift.startTime.substring(0, 5)}~{shift.endTime.substring(0, 5)}
+                          </span>
+                        )}
                       </p>
                     </div>
                     <Link
