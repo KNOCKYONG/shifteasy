@@ -219,6 +219,7 @@ function SchedulePageContent() {
 
   // Employee preferences modal state
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [selectedPreferences, setSelectedPreferences] = useState<SimplifiedPreferences | null>(null);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -691,6 +692,7 @@ function SchedulePageContent() {
 
     // 1️⃣ 우선 현재 화면의 데이터를 즉시 사용해 모달을 연다
     setSelectedEmployee(toEmployee(member));
+    setSelectedPreferences(null);
     modals.setIsPreferencesModalOpen(true);
 
     try {
@@ -729,6 +731,7 @@ function SchedulePageContent() {
 
       if (savedPreferences) {
         employee.workPatternType = savedPreferences.workPatternType || employee.workPatternType || 'three-shift';
+        setSelectedPreferences(savedPreferences);
       }
 
       setSelectedEmployee(employee);
@@ -778,6 +781,7 @@ function SchedulePageContent() {
       // Close modal
       modals.setIsPreferencesModalOpen(false);
       setSelectedEmployee(null);
+      setSelectedPreferences(null);
     } catch (error) {
       console.error('Error saving preferences:', error);
       alert('선호도 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
@@ -790,6 +794,7 @@ function SchedulePageContent() {
     await utils.tenant.users.list.invalidate();
     modals.setIsPreferencesModalOpen(false);
     setSelectedEmployee(null);
+    setSelectedPreferences(null);
   };
 
   // My Preferences 핸들러 함수들
@@ -2185,11 +2190,12 @@ function SchedulePageContent() {
               </div>
             </div>
             <button
-              onClick={async () => {
+              onClick={() => {
                 // member는 자신의 정보로 EmployeePreferencesModal 열기
                 const currentEmployee = allMembers.find(m => m.id === currentUser.dbUser?.id);
                 if (currentEmployee) {
-                  await handleEmployeeClick(currentEmployee);
+                  // 비동기 작업을 기다리지 않아 모달이 즉시 열리도록 처리
+                  void handleEmployeeClick(currentEmployee);
                 }
               }}
               className="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
@@ -2684,6 +2690,7 @@ function SchedulePageContent() {
           onSave={handlePreferencesSave}
           onClose={handleModalClose}
           canManageTeams={canManageSchedules}
+          initialPreferences={selectedPreferences || undefined}
         />
       )}
 

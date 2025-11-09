@@ -5,6 +5,7 @@ import { type Employee, type EmployeePreferences, type ShiftType } from "@/lib/s
 import { validatePattern as validatePatternUtil, describePattern, EXAMPLE_PATTERNS, KEYWORD_DESCRIPTIONS, type ShiftToken } from "@/lib/utils/pattern-validator";
 import { api } from "@/lib/trpc/client";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
+import type { SimplifiedPreferences } from "@/components/department/MyPreferencesPanel";
 
 interface EmployeePreferencesModalProps {
   employee: Employee;
@@ -12,6 +13,7 @@ interface EmployeePreferencesModalProps {
   onClose: () => void;
   teamMembers: Employee[];
   canManageTeams?: boolean; // manager 이상 권한
+  initialPreferences?: SimplifiedPreferences;
 }
 
 // 근무 패턴 타입 정의
@@ -65,10 +67,10 @@ export function EmployeePreferencesModal({
   onSave,
   onClose,
   teamMembers,
-  canManageTeams = false
+  canManageTeams = false,
+  initialPreferences,
 }: EmployeePreferencesModalProps) {
-  const [preferences, setPreferences] = useState<ExtendedEmployeePreferences>(() => {
-    // Spread employee.preferences first, then apply defaults for undefined fields
+  const buildInitialPreferences = (source?: SimplifiedPreferences): ExtendedEmployeePreferences => {
     const basePrefs = {
       workPatternType: 'three-shift' as WorkPatternType,
       workLoadPreference: 'normal' as const,
@@ -98,17 +100,38 @@ export function EmployeePreferencesModal({
       avoidPatterns: [],
     };
 
-    // Merge with employee preferences, using loaded values where available
+    const normalizedPreferredPatterns = (source?.preferredPatterns || []).map((patternEntry) => {
+      if (typeof patternEntry === 'string') {
+        return patternEntry;
+      }
+      return patternEntry?.pattern ?? '';
+    }).filter(Boolean);
+
     return {
       ...basePrefs,
-      // Use employee workPatternType if available
-      workPatternType: employee.workPatternType || 'three-shift',
-      // Ensure arrays are never undefined
-      avoidShifts: [],
-      preferredPartners: [],
-      avoidPartners: [],
+      workPatternType: source?.workPatternType || employee.workPatternType || 'three-shift',
+      preferredPatterns: normalizedPreferredPatterns,
+      avoidPatterns: source?.avoidPatterns || [],
     } as ExtendedEmployeePreferences;
+  };
+
+  const [preferences, setPreferences] = useState<ExtendedEmployeePreferences>(() => {
+    return buildInitialPreferences(initialPreferences);
   });
+  const [hasHydratedFromInitial, setHasHydratedFromInitial] = useState<boolean>(!!initialPreferences);
+
+  useEffect(() => {
+    setPreferences(buildInitialPreferences(initialPreferences));
+    setHasHydratedFromInitial(!!initialPreferences);
+  }, [employee.id]);
+
+  useEffect(() => {
+    if (!initialPreferences || hasHydratedFromInitial) {
+      return;
+    }
+    setPreferences(buildInitialPreferences(initialPreferences));
+    setHasHydratedFromInitial(true);
+  }, [initialPreferences, hasHydratedFromInitial]);
 
   const [activeTab, setActiveTab] = useState<'basic' | 'personal' | 'career' | 'request' | 'off-balance'>('basic');
   const [selectedTeam, setSelectedTeam] = useState<string>((employee as any).teamId || '');
