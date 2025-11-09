@@ -30,12 +30,7 @@ export function staffToEmployee(staff: Staff): Employee {
     name: staff.name,
     departmentId: staff.wardId || '', // Map wardId to departmentId
     role: staff.role,
-    contractType: 'full-time', // Default to full-time, could be enhanced
-    maxHoursPerWeek: staff.maxWeeklyHours,
-    minHoursPerWeek: 0, // Default minimum
-    skills: staff.skills || [],
-    preferences,
-    availability,
+    workPatternType: 'three-shift',
   };
 }
 

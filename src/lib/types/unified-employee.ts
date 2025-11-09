@@ -215,20 +215,4 @@ export const isActiveEmployee = (employee: UnifiedEmployee): boolean => {
  */
 export const createDefaultEmployee = (): Partial<UnifiedEmployee> => ({
   status: 'active',
-  contractType: 'full-time',
-  maxHoursPerWeek: 40,
-  minHoursPerWeek: 36,
-  skills: [],
-  preferences: {
-    preferredShifts: ['day'],
-    avoidShifts: [],
-    preferredDaysOff: [0, 6],
-    maxConsecutiveDays: 5,
-    preferNightShift: false
-  },
-  availability: {
-    availableDays: [true, true, true, true, true, true, false],
-    unavailableDates: [],
-    timeOffRequests: [],
-  },
 });

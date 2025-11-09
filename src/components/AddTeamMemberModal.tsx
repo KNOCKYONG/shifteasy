@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
-import { X, User, Mail, Phone, Building, Briefcase, Calendar, Clock, Star, Loader2 } from "lucide-react";
+import { X, User, Mail, Phone, Building, Briefcase, Loader2 } from "lucide-react";
 
-// Type definition for team member
+// Type definition for team member - 간소화된 버전
 interface TeamMember {
   id: string;
   name: string;
@@ -11,13 +11,7 @@ interface TeamMember {
   departmentId: string;
   position: string;
   role: "admin" | "manager" | "employee" | "staff";
-  contractType: "full-time" | "part-time" | "contract";
-  status: "active" | "inactive" | "on-leave";
   joinDate: string;
-  maxHoursPerWeek: number;
-  preferredShifts: ("day" | "evening" | "night")[];
-  skills: string[];
-  availability: Record<string, boolean>;
   avatar?: string;
 }
 
@@ -40,24 +34,8 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments, curren
     position: "",
     experienceYears: 0,
     role: "employee" as "admin" | "manager" | "employee",
-    contractType: "full-time" as "full-time" | "part-time" | "contract",
-    status: "active" as "active" | "inactive" | "on-leave",
     joinDate: new Date().toISOString().split("T")[0],
-    maxHoursPerWeek: 40,
-    preferredShifts: [] as ("day" | "evening" | "night")[],
-    skills: [] as string[],
-    availability: {
-      monday: true,
-      tuesday: true,
-      wednesday: true,
-      thursday: true,
-      friday: true,
-      saturday: false,
-      sunday: false,
-    },
   });
-
-  const [skillInput, setSkillInput] = useState("");
   const [customPositions, setCustomPositions] = useState<{value: string; label: string; level: number}[]>([]);
 
   // Load custom positions from localStorage
@@ -115,13 +93,7 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments, curren
       departmentId: formData.departmentId,
       position: formData.position as any,
       role: formData.role === 'employee' ? 'staff' : formData.role as 'staff' | 'admin' | 'manager',
-      contractType: formData.contractType,
-      status: formData.status,
       joinDate: formData.joinDate,
-      maxHoursPerWeek: formData.maxHoursPerWeek,
-      preferredShifts: formData.preferredShifts,
-      skills: formData.skills,
-      availability: formData.availability,
     };
 
     onAdd(newMember);
@@ -135,51 +107,11 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments, curren
       position: "",
       experienceYears: 0,
       role: "employee",
-      contractType: "full-time",
-      status: "active",
       joinDate: new Date().toISOString().split("T")[0],
-      maxHoursPerWeek: 40,
-      preferredShifts: [],
-      skills: [],
-      availability: {
-        monday: true,
-        tuesday: true,
-        wednesday: true,
-        thursday: true,
-        friday: true,
-        saturday: false,
-        sunday: false,
-      },
     });
-    setSkillInput("");
     onClose();
   };
 
-  const handleAddSkill = () => {
-    if (skillInput.trim() && !formData.skills.includes(skillInput.trim())) {
-      setFormData({
-        ...formData,
-        skills: [...formData.skills, skillInput.trim()],
-      });
-      setSkillInput("");
-    }
-  };
-
-  const handleRemoveSkill = (skill: string) => {
-    setFormData({
-      ...formData,
-      skills: formData.skills.filter(s => s !== skill),
-    });
-  };
-
-  const toggleShift = (shift: "day" | "evening" | "night") => {
-    setFormData({
-      ...formData,
-      preferredShifts: formData.preferredShifts.includes(shift)
-        ? formData.preferredShifts.filter(s => s !== shift)
-        : [...formData.preferredShifts, shift],
-    });
-  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -336,178 +268,6 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments, curren
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  계약 유형
-                </label>
-                <select
-                  value={formData.contractType}
-                  onChange={(e) => setFormData({ ...formData, contractType: e.target.value as any })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="full-time">정규직</option>
-                  <option value="part-time">파트타임</option>
-                  <option value="contract">계약직</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  상태
-                </label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="active">근무중</option>
-                  <option value="on-leave">휴가</option>
-                  <option value="inactive">비활성</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  주 최대 근무시간
-                </label>
-                <input
-                  type="number"
-                  value={formData.maxHoursPerWeek}
-                  onChange={(e) => setFormData({ ...formData, maxHoursPerWeek: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  min="0"
-                  max="60"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Preferences */}
-          <div className="space-y-4">
-            <h3 className="font-medium text-gray-900 flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              선호 시프트
-            </h3>
-
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => toggleShift("day")}
-                className={`px-4 py-2 rounded-lg border transition-colors ${
-                  formData.preferredShifts.includes("day")
-                    ? "bg-blue-500 text-white border-blue-500"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                }`}
-              >
-                주간
-              </button>
-              <button
-                type="button"
-                onClick={() => toggleShift("evening")}
-                className={`px-4 py-2 rounded-lg border transition-colors ${
-                  formData.preferredShifts.includes("evening")
-                    ? "bg-purple-500 text-white border-purple-500"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                }`}
-              >
-                저녁
-              </button>
-              <button
-                type="button"
-                onClick={() => toggleShift("night")}
-                className={`px-4 py-2 rounded-lg border transition-colors ${
-                  formData.preferredShifts.includes("night")
-                    ? "bg-indigo-500 text-white border-indigo-500"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                }`}
-              >
-                야간
-              </button>
-            </div>
-          </div>
-
-          {/* Skills */}
-          <div className="space-y-4">
-            <h3 className="font-medium text-gray-900 flex items-center gap-2">
-              <Star className="w-4 h-4" />
-              기술 및 자격
-            </h3>
-
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={skillInput}
-                onChange={(e) => setSkillInput(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), handleAddSkill())}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="기술 또는 자격증 입력"
-              />
-              <button
-                type="button"
-                onClick={handleAddSkill}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                추가
-              </button>
-            </div>
-
-            {formData.skills.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {formData.skills.map(skill => (
-                  <span
-                    key={skill}
-                    className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm"
-                  >
-                    {skill}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveSkill(skill)}
-                      className="hover:text-blue-900"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Availability */}
-          <div className="space-y-4">
-            <h3 className="font-medium text-gray-900 flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              근무 가능 요일
-            </h3>
-
-            <div className="grid grid-cols-7 gap-2">
-              {Object.entries({
-                monday: "월",
-                tuesday: "화",
-                wednesday: "수",
-                thursday: "목",
-                friday: "금",
-                saturday: "토",
-                sunday: "일",
-              }).map(([day, label]) => (
-                <button
-                  key={day}
-                  type="button"
-                  onClick={() => setFormData({
-                    ...formData,
-                    availability: {
-                      ...formData.availability,
-                      [day]: !formData.availability[day as keyof typeof formData.availability],
-                    },
-                  })}
-                  className={`py-2 rounded-lg border transition-colors ${
-                    formData.availability[day as keyof typeof formData.availability]
-                      ? "bg-green-500 text-white border-green-500"
-                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
             </div>
           </div>
 

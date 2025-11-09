@@ -87,6 +87,12 @@ function TeamManagementPageContent() {
     },
   });
 
+  const activateUserMutation = api.tenant.users.activate.useMutation({
+    onSuccess: () => {
+      refetchUsers();
+    },
+  });
+
   const updatePositionMutation = api.tenant.users.updatePosition.useMutation({
     onSuccess: () => {
       refetchUsers();
@@ -158,36 +164,40 @@ const departments =
   const rawTeamMembers = (usersData?.items || []) as any[];
 
   const teamMembers = useMemo(() => {
-    // 먼저 비활성 인원 제외
-    const activeMembers = rawTeamMembers.filter((member: any) => member.status !== 'inactive');
-
+    // Show ALL users including inactive in department management
+    // (Inactive users will be filtered out only from schedule views)
     if (currentUserRole === 'admin') {
       // Admins can see all users in the tenant
-      return activeMembers;
+      return rawTeamMembers;
     } else if (currentUserRole === 'manager') {
       // Managers can only see themselves and members in their department
       const myUserId = currentUser.dbUser?.id;
-      return activeMembers.filter((member: any) => {
+      return rawTeamMembers.filter((member: any) => {
         if (member.id === myUserId) {
           return true;
         }
         return member.role === 'member';
       });
     }
-    return activeMembers;
+    return rawTeamMembers;
   }, [rawTeamMembers, currentUserRole, currentUser.dbUser?.id]);
 
-  // 통계 계산
+  // 통계 계산 (비활성 인원 제외)
+  const activeMembers = teamMembers.filter((m: any) => m.status !== 'inactive');
   const stats = {
-    total: teamMembers.length,
-    active: teamMembers.filter((m: any) => m.status === 'active').length,
-    onLeave: teamMembers.filter((m: any) => m.status === 'on_leave').length,
-    managers: teamMembers.filter((m: any) => ['manager', 'admin'].includes(m.role)).length,
+    total: activeMembers.length,
+    active: activeMembers.filter((m: any) => m.status === 'active').length,
+    onLeave: activeMembers.filter((m: any) => m.status === 'on_leave').length,
+    managers: activeMembers.filter((m: any) => ['manager', 'admin'].includes(m.role)).length,
     partTime: 0, // TODO: Add contract type to schema
   };
 
-  // Department Pattern용 필터링된 전체 인원 (근무 패턴이 '행정 근무'인 사람만 제외)
+  // Department Pattern용 필터링된 전체 인원 (비활성 및 근무 패턴이 '행정 근무'인 사람 제외)
   const filteredTotalMembers = teamMembers.filter((m: any) => {
+    // 비활성 인원 제외
+    if (m.status === 'inactive') {
+      return false;
+    }
     // 근무 패턴이 'weekday-only' (행정 근무)인 경우만 제외
     if (m.workPatternType === 'weekday-only') {
       return false;
@@ -195,9 +205,15 @@ const departments =
     return true;
   }).length;
 
-  const handleRemoveMember = async (id: string) => {
-    if (confirm('정말로 이 부서원을 비활성화하시겠습니까?')) {
-      await deactivateUserMutation.mutateAsync({ userId: id });
+  const handleToggleActivation = async (id: string, currentStatus: string) => {
+    if (currentStatus === 'inactive') {
+      if (confirm('이 부서원을 활성화하시겠습니까?')) {
+        await activateUserMutation.mutateAsync({ userId: id });
+      }
+    } else {
+      if (confirm('이 부서원을 비활성화하시겠습니까? 비활성화된 직원은 모든 목록과 스케줄에서 숨겨집니다.')) {
+        await deactivateUserMutation.mutateAsync({ userId: id });
+      }
     }
   };
 
@@ -499,10 +515,21 @@ const departments =
                 </div>
                 <div className="flex gap-1">
                   <button
-                    onClick={() => handleRemoveMember(member.id)}
-                    className="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors"
+                    onClick={() => handleToggleActivation(member.id, member.status)}
+                    className={`p-1.5 rounded-lg transition-colors ${
+                      member.status === 'inactive'
+                        ? 'hover:bg-green-50 dark:hover:bg-green-950/30'
+                        : 'hover:bg-red-50 dark:hover:bg-red-950/30'
+                    }`}
+                    title={member.status === 'inactive' ? '활성화' : '비활성화'}
                   >
-                    <Trash2 className="w-4 h-4 text-red-500 dark:text-red-400" />
+                    {member.status === 'inactive' ? (
+                      <svg className="w-4 h-4 text-green-500 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <Trash2 className="w-4 h-4 text-red-500 dark:text-red-400" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -531,24 +558,6 @@ const departments =
                     {member.role === 'admin' ? '관리자' : '매니저'}
                   </span>
                 )}
-                <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusBadgeColor(member.status === 'on_leave' ? 'on-leave' : member.status)}`}>
-                  {member.status === 'active' ? '근무중' : member.status === 'on_leave' ? '휴직' : '비활성'}
-                </span>
-              </div>
-
-              <div className="pt-3 sm:pt-4 border-t border-gray-100 dark:border-gray-800">
-                <div className="flex items-center justify-between text-xs sm:text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">부서</span>
-                  <span className="font-medium text-gray-900 dark:text-gray-100">
-                    {member.department?.name || '미지정'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-xs sm:text-sm mt-1">
-                  <span className="text-gray-500 dark:text-gray-400">사원번호</span>
-                  <span className="font-medium text-gray-900 dark:text-gray-100">
-                    {member.employeeId || '-'}
-                  </span>
-                </div>
               </div>
             </div>
           ))}

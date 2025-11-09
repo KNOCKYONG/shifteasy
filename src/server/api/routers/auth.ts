@@ -29,12 +29,6 @@ export const authRouter = createTRPCRouter({
       name: z.string().optional(),
       phone: z.string().optional(),
       position: z.string().optional(),
-      preferences: z.object({
-        preferredShifts: z.array(z.string()).optional(),
-        unavailableDates: z.array(z.string()).optional(),
-        maxHoursPerWeek: z.number().optional(),
-        minHoursPerWeek: z.number().optional(),
-      }).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
@@ -45,7 +39,6 @@ export const authRouter = createTRPCRouter({
           name: input.name,
           profile: {
             phone: input.phone,
-            preferences: input.preferences,
           },
           position: input.position,
         },

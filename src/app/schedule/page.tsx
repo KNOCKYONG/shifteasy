@@ -96,78 +96,6 @@ const DEFAULT_CONSTRAINTS: Constraint[] = [
 ];
 
 /**
- * 선호 시프트와 휴무일을 기반으로 맞춤 패턴 생성
- * @param preferredShift 선호하는 근무 시간 (1개)
- * @param preferredDaysOff 선호하는 휴무일 (예: [4, 5] = 목금)
- * @returns 생성된 패턴 문자열 (예: "N-N-N-OFF-OFF")
- */
-function generateCustomPatternFromPreferences(
-  preferredShift: 'day' | 'evening' | 'night',
-  preferredDaysOff: number[]
-): string {
-  // 시프트 타입 매핑
-  const shiftMap = {
-    day: 'D',
-    evening: 'E',
-    night: 'N'
-  };
-
-  // 선호 휴무일이 없으면 기본 주말 (토일)
-  const offDays = preferredDaysOff.length > 0 ? preferredDaysOff : [0, 6];
-
-  // 7일 주기 패턴 생성
-  const weekPattern: string[] = [];
-
-  // 휴무일이 아닌 날에 근무 배치
-  const nonOffDays = [0, 1, 2, 3, 4, 5, 6].filter(day => !offDays.includes(day));
-
-  // 선호 시프트로 대부분 채우기
-  const preferredShiftCode = shiftMap[preferredShift];
-
-  for (let day = 0; day < 7; day++) {
-    if (offDays.includes(day)) {
-      weekPattern.push('OFF');
-    } else {
-      weekPattern.push(preferredShiftCode);
-    }
-  }
-
-  return weekPattern.join('-');
-}
-
-/**
- * 선호 시프트에 1.2 비중을 적용하여 월간 시프트 배분 계산
- * @param preferredShift 선호하는 근무 시간
- * @param totalWorkDays 총 근무일 수
- * @returns 각 시프트 타입별 일수 { day: number, evening: number, night: number }
- */
-function calculateShiftDistribution(
-  preferredShift: 'day' | 'evening' | 'night',
-  totalWorkDays: number
-): { day: number; evening: number; night: number } {
-  const preferenceWeight = 1.2;
-
-  // 기본 배분 (균등)
-  const baseAllocation = totalWorkDays / 3;
-
-  // 선호 시프트에 1.2 배 적용
-  const preferredAllocation = Math.round(baseAllocation * preferenceWeight);
-
-  // 나머지를 다른 시프트에 균등 배분
-  const remainingDays = totalWorkDays - preferredAllocation;
-  const otherAllocation = Math.floor(remainingDays / 2);
-  const lastAllocation = remainingDays - otherAllocation; // 나머지 처리
-
-  const distribution = {
-    day: preferredShift === 'day' ? preferredAllocation : (preferredShift === 'evening' ? otherAllocation : lastAllocation),
-    evening: preferredShift === 'evening' ? preferredAllocation : (preferredShift === 'night' ? otherAllocation : lastAllocation),
-    night: preferredShift === 'night' ? preferredAllocation : (preferredShift === 'day' ? otherAllocation : lastAllocation)
-  };
-
-  return distribution;
-}
-
-/**
  * 나이트 집중 근무 후 유급 휴가 추가
  * @param schedule 생성된 스케줄 배열
  * @param employees UnifiedEmployee 배열
@@ -596,8 +524,6 @@ function SchedulePageContent() {
       teamId: item.teamId || null,
       workSchedule: item.profile?.preferences || {
         preferredShifts: [],
-        maxHoursPerWeek: 40,
-        minHoursPerWeek: 30,
         availableDays: [1, 2, 3, 4, 5],
         unavailableDates: []
       }
@@ -735,8 +661,6 @@ function SchedulePageContent() {
       teamId: latestMemberData.teamId || null,
       workSchedule: latestMemberData.profile?.preferences || {
         preferredShifts: [],
-        maxHoursPerWeek: 40,
-        minHoursPerWeek: 30,
         availableDays: [1, 2, 3, 4, 5],
         unavailableDates: []
       }
@@ -756,42 +680,8 @@ function SchedulePageContent() {
       if (savedPreferences) {
         const prefs = savedPreferences as SimplifiedPreferences;
 
-        // Convert preferredPatterns from { pattern, preference }[] to string[] for modal
-        const preferredPatternsAsStrings = (prefs.preferredPatterns || []).map(p =>
-          typeof p === 'string' ? p : p.pattern
-        );
-
-        (employee.preferences as any) = {
-          ...employee.preferences,
-          avoidShifts: [],
-          maxConsecutiveDays: 5,
-          preferNightShift: false,
-
-          // Use SimplifiedPreferences directly
-          workPatternType: prefs.workPatternType || 'three-shift',
-          workLoadPreference: 'normal' as const,
-          flexibilityLevel: 'medium' as const,
-          preferredPatterns: preferredPatternsAsStrings,
-          avoidPatterns: prefs.avoidPatterns || [],
-          preferredPartners: [],
-          avoidPartners: [],
-          personalConstraints: [],
-          trainingDays: [],
-          mentorshipRole: 'none' as const,
-          specialization: [],
-          healthConsiderations: {
-            needsLightDuty: false,
-            avoidLongShifts: false,
-            requiresRegularBreaks: false,
-            pregnancyAccommodation: false,
-          },
-          commuteConsiderations: {
-            maxCommuteTime: 60,
-            avoidRushHour: false,
-            needsParking: false,
-            publicTransportDependent: false,
-          },
-        };
+        // Update employee with saved preferences (only fields that exist in Employee type)
+        employee.workPatternType = prefs.workPatternType || 'three-shift';
       }
     } catch (error) {
       console.error('Failed to load preferences:', error);

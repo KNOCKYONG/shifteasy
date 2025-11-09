@@ -50,25 +50,10 @@ export class EmployeeAdapter {
       department: member.departmentName || member.department || '',
       departmentId: member.departmentId || '',
       role: member.role === 'admin' ? 'admin' : member.role === 'manager' ? 'manager' : 'staff',
-      contractType: 'full-time' as any,
       status: member.status as any || 'active',
       joinDate: member.joinedAt || new Date().toISOString(),
       avatar: member.avatar || '',
-      maxHoursPerWeek: member.workSchedule?.maxHoursPerWeek || 40,
-      minHoursPerWeek: member.workSchedule?.minHoursPerWeek || 30,
-      skills: member.skills || [],
-      preferences: {
-        preferredShifts: (member.workSchedule?.preferredShifts || []) as any,
-        avoidShifts: [],
-        preferredDaysOff: [0, 6],
-        maxConsecutiveDays: 5,
-        preferNightShift: (member.workSchedule?.preferredShifts || []).includes('night')
-      },
-      availability: {
-        availableDays: [true, true, true, true, true, true, false],
-        unavailableDates: [],
-        timeOffRequests: [],
-      },
+      workPatternType: simplifiedPrefs?.workPatternType || 'three-shift',
       simplifiedPreferences: simplifiedPrefs,
       statistics,
       specialRequests: [],
@@ -79,14 +64,12 @@ export class EmployeeAdapter {
    * UnifiedEmployee를 스케줄러용 Employee로 변환
    */
   static toSchedulerEmployee(unified: UnifiedEmployee): Employee {
-    const preferences = unified.simplifiedPreferences
-      ? this.convertSimplifiedToBasic(unified.simplifiedPreferences)
-      : unified.preferences;
-
     let workPatternType: 'three-shift' | 'night-intensive' | 'weekday-only' | undefined;
 
     if (unified.simplifiedPreferences) {
       workPatternType = unified.simplifiedPreferences.workPatternType;
+    } else if (unified.workPatternType) {
+      workPatternType = unified.workPatternType;
     }
 
     return {
@@ -94,12 +77,6 @@ export class EmployeeAdapter {
       name: unified.name,
       departmentId: unified.departmentId,
       role: unified.position,
-      contractType: unified.contractType,
-      maxHoursPerWeek: unified.maxHoursPerWeek,
-      minHoursPerWeek: unified.minHoursPerWeek,
-      skills: unified.skills,
-      preferences,
-      availability: unified.availability,
       workPatternType,
     };
   }
@@ -243,16 +220,6 @@ export class EmployeeAdapter {
     if (!employee.name) errors.push('이름은 필수입니다');
     if (!employee.email) errors.push('이메일은 필수입니다');
     if (!employee.departmentId) errors.push('부서 ID는 필수입니다');
-
-    if (employee.maxHoursPerWeek && employee.minHoursPerWeek) {
-      if (employee.maxHoursPerWeek < employee.minHoursPerWeek) {
-        errors.push('최대 근무시간은 최소 근무시간보다 커야 합니다');
-      }
-    }
-
-    if (employee.maxHoursPerWeek && employee.maxHoursPerWeek > 52) {
-      errors.push('주당 최대 근무시간은 52시간을 초과할 수 없습니다');
-    }
 
     return errors;
   }

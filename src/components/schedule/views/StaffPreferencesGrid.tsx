@@ -1,11 +1,9 @@
 import React, { useMemo } from 'react';
-import { ListChecks, Clock, AlertCircle, Users } from 'lucide-react';
+import { ListChecks, AlertCircle, Users } from 'lucide-react';
 import { api } from '@/lib/trpc/client';
 
 interface WorkSchedule {
   preferredShifts?: ('day' | 'evening' | 'night')[];
-  minHoursPerWeek?: number;
-  maxHoursPerWeek?: number;
 }
 
 interface Member {
@@ -77,13 +75,6 @@ export function StaffPreferencesGrid({ allMembers, onEmployeeClick }: StaffPrefe
                   <h4 className="font-medium text-gray-900 dark:text-gray-100">{member.name}</h4>
                   <p className="text-xs text-gray-500 dark:text-gray-400">{member.position}</p>
                 </div>
-                <span className={`text-xs px-2 py-1 rounded-full ${
-                  member.status === 'active'
-                    ? 'bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                }`}>
-                  {member.status === 'active' ? '근무중' : '휴직중'}
-                </span>
               </div>
 
               <div className="space-y-2 text-sm">
@@ -117,25 +108,12 @@ export function StaffPreferencesGrid({ allMembers, onEmployeeClick }: StaffPrefe
                   </div>
                 )}
 
-                {/* 주당 근무시간 */}
-                <div className="flex items-start gap-2">
-                  <Clock className="w-3.5 h-3.5 text-gray-400 mt-0.5" />
-                  <div>
-                    <span className="text-gray-600 dark:text-gray-400">주당:</span>
-                    <span className="ml-1 text-gray-900 dark:text-gray-100">
-                      {member.workSchedule?.minHoursPerWeek || 30}-{member.workSchedule?.maxHoursPerWeek || 40}시간
-                    </span>
-                  </div>
-                </div>
-
                 {/* 특별 요구사항 */}
-                {(member.status === 'on_leave' || member.skills?.includes('신입')) && (
+                {member.skills?.includes('신입') && (
                   <div className="flex items-start gap-2">
                     <AlertCircle className="w-3.5 h-3.5 text-amber-500 mt-0.5" />
                     <div>
-                      <span className="text-amber-600 dark:text-amber-400">
-                        {member.status === 'on_leave' ? '휴직 중' : member.skills?.includes('신입') ? '신입 교육 중' : ''}
-                      </span>
+                      <span className="text-amber-600 dark:text-amber-400">신입 교육 중</span>
                     </div>
                   </div>
                 )}
@@ -170,13 +148,6 @@ export function StaffPreferencesGrid({ allMembers, onEmployeeClick }: StaffPrefe
                       <h4 className="font-medium text-gray-900 dark:text-gray-100">{member.name}</h4>
                       <p className="text-xs text-gray-500 dark:text-gray-400">{member.position}</p>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      member.status === 'active'
-                        ? 'bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                    }`}>
-                      {member.status === 'active' ? '근무중' : '휴직중'}
-                    </span>
                   </div>
 
                   <div className="space-y-2 text-sm">
@@ -210,25 +181,12 @@ export function StaffPreferencesGrid({ allMembers, onEmployeeClick }: StaffPrefe
                       </div>
                     )}
 
-                    {/* 주당 근무시간 */}
-                    <div className="flex items-start gap-2">
-                      <Clock className="w-3.5 h-3.5 text-gray-400 mt-0.5" />
-                      <div>
-                        <span className="text-gray-600 dark:text-gray-400">주당:</span>
-                        <span className="ml-1 text-gray-900 dark:text-gray-100">
-                          {member.workSchedule?.minHoursPerWeek || 30}-{member.workSchedule?.maxHoursPerWeek || 40}시간
-                        </span>
-                      </div>
-                    </div>
-
                     {/* 특별 요구사항 */}
-                    {(member.status === 'on_leave' || member.skills?.includes('신입')) && (
+                    {member.skills?.includes('신입') && (
                       <div className="flex items-start gap-2">
                         <AlertCircle className="w-3.5 h-3.5 text-amber-500 mt-0.5" />
                         <div>
-                          <span className="text-amber-600 dark:text-amber-400">
-                            {member.status === 'on_leave' ? '휴직 중' : member.skills?.includes('신입') ? '신입 교육 중' : ''}
-                          </span>
+                          <span className="text-amber-600 dark:text-amber-400">신입 교육 중</span>
                         </div>
                       </div>
                     )}

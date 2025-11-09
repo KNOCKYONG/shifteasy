@@ -9,15 +9,6 @@ import { ShiftTypesTab } from "./ShiftTypesTab";
 import { api as trpc } from "@/lib/trpc/client";
 import { LoadingButton } from "@/components/ui/LoadingButton";
 
-interface ContractType {
-  code: string;
-  name: string;
-  description: string;
-  maxHoursPerWeek?: number;
-  minHoursPerWeek?: number;
-  isPrimary: boolean;
-}
-
 interface ConfigData {
   preferences: {
     nightIntensivePaidLeaveDays: number; // 나이트 집중 근무 월별 유급 휴가 일수 (0이면 비활성화)
@@ -75,24 +66,6 @@ function ConfigPageContent() {
   });
   const [editingDepartment, setEditingDepartment] = useState<string | null>(null);
 
-  // Contract types state
-  const [contractTypes, setContractTypes] = useState<{
-    code: string;
-    name: string;
-    description: string;
-    maxHoursPerWeek?: number;
-    minHoursPerWeek?: number;
-    isPrimary: boolean;
-  }[]>([]);
-  const [newContractType, setNewContractType] = useState<ContractType>({
-    code: '',
-    name: '',
-    description: '',
-    maxHoursPerWeek: undefined,
-    minHoursPerWeek: undefined,
-    isPrimary: false,
-  });
-  const [editingContractType, setEditingContractType] = useState<string | null>(null);
 
   // Employee status state
   const [employeeStatuses, setEmployeeStatuses] = useState<{
@@ -174,13 +147,6 @@ function ConfigPageContent() {
       { id: 'dept-ward', name: '일반병동', code: 'WARD', requiresSpecialSkills: false },
     ];
 
-    const defaultContractTypes = [
-      { code: 'FT', name: '정규직', description: '정규 고용 계약', isPrimary: true },
-      { code: 'PT', name: '파트타임', description: '시간제 계약', maxHoursPerWeek: 30, isPrimary: false },
-      { code: 'CT', name: '계약직', description: '기간 계약직', isPrimary: false },
-      { code: 'IN', name: '인턴', description: '인턴십 프로그램', maxHoursPerWeek: 40, isPrimary: false },
-    ];
-
     const defaultEmployeeStatuses = [
       { code: 'ACTIVE', name: '활성', description: '정상 근무', isActive: true, allowScheduling: true, color: 'green' },
       { code: 'LEAVE', name: '휴가', description: '휴가 중', isActive: false, allowScheduling: false, color: 'amber' },
@@ -201,7 +167,6 @@ function ConfigPageContent() {
     }
 
     setDepartments(allConfigs.departments || defaultDepartments);
-    setContractTypes(allConfigs.contract_types || defaultContractTypes);
     setEmployeeStatuses(allConfigs.employee_statuses || defaultEmployeeStatuses);
 
     // Load career groups
@@ -230,7 +195,6 @@ function ConfigPageContent() {
         setConfigMutation.mutateAsync({ configKey: 'positions', configValue: positions }),
         setConfigMutation.mutateAsync({ configKey: 'shift_types', configValue: shiftTypes }),
         setConfigMutation.mutateAsync({ configKey: 'departments', configValue: departments }),
-        setConfigMutation.mutateAsync({ configKey: 'contract_types', configValue: contractTypes }),
         setConfigMutation.mutateAsync({ configKey: 'employee_statuses', configValue: employeeStatuses }),
         setConfigMutation.mutateAsync({ configKey: 'career_groups', configValue: careerGroups }),
         setConfigMutation.mutateAsync({ configKey: 'preferences', configValue: config.preferences }),

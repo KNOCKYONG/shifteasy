@@ -103,7 +103,6 @@ export function StaffCard({ staff, compact = false, onClick, workPatternType, pr
           </div>
           <div>
             <h3 className="font-medium text-gray-900 dark:text-white">{staff.name || "미배정"}</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{staff.wardId}</p>
             {preferenceSummary.length > 0 && (
               <div className="flex gap-1 mt-1 flex-wrap">
                 {preferenceSummary.map((pref, idx) => (

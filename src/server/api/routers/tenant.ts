@@ -198,6 +198,63 @@ export const tenantRouter = createTRPCRouter({
         return { success: true, user: updated };
       }),
 
+    activate: protectedProcedure
+      .input(z.object({
+        userId: z.string(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const tenantId = ctx.tenantId;
+        if (!tenantId) {
+          throw new Error('Tenant not found');
+        }
+
+        const target = await ctx.db
+          .select()
+          .from(users)
+          .where(
+            and(
+              eq(users.id, input.userId),
+              eq(users.tenantId, tenantId)
+            )
+          )
+          .limit(1);
+
+        if (!target || target.length === 0) {
+          throw new Error('사용자를 찾을 수 없습니다.');
+        }
+
+        const targetUser = target[0];
+
+        if (ctx.user?.role === 'manager') {
+          if (!ctx.user.departmentId || targetUser.departmentId !== ctx.user.departmentId) {
+            throw new Error('권한이 없습니다. 담당 병동 팀원만 관리할 수 있습니다.');
+          }
+          if (['owner', 'admin', 'manager'].includes(targetUser.role) && targetUser.id !== ctx.user.id) {
+            throw new Error('권한이 없습니다. 관리자 계정은 수정할 수 없습니다.');
+          }
+        }
+
+        const [updated] = await ctx.db
+          .update(users)
+          .set({
+            status: 'active',
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(users.id, input.userId),
+              eq(users.tenantId, tenantId)
+            )
+          )
+          .returning();
+
+        if (!updated) {
+          throw new Error('사용자 상태를 업데이트할 수 없습니다.');
+        }
+
+        return { success: true, user: updated };
+      }),
+
     updatePosition: protectedProcedure
       .input(z.object({
         userId: z.string(),
