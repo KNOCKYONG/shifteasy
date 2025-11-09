@@ -194,7 +194,8 @@ export const scheduleRequests = pgTable('schedule_requests', {
 // ==========================================
 // Preference History (선호도 이력)
 // ==========================================
-
+// COMMENTED OUT - Not currently needed
+/*
 export const preferenceHistory = pgTable('preference_history', {
   id: uuid('id').defaultRandom().primaryKey(),
   tenantId: uuid('tenant_id').notNull(),
@@ -217,6 +218,7 @@ export const preferenceHistory = pgTable('preference_history', {
   preferenceIdx: index('preference_history_pref_idx').on(table.preferenceId),
   dateIdx: index('preference_history_date_idx').on(table.createdAt),
 }));
+*/
 
 // ==========================================
 // Off-Balance Ledger (잔여 OFF 기록)
@@ -264,12 +266,12 @@ export const offBalanceLedger = pgTable('off_balance_ledger', {
 // Relations
 // ==========================================
 
-export const nursePreferenceRelations = relations(nursePreferences, ({ one, many }) => ({
+export const nursePreferenceRelations = relations(nursePreferences, ({ one }) => ({
   nurse: one(users, {
     fields: [nursePreferences.nurseId],
     references: [users.id],
   }),
-  history: many(preferenceHistory),
+  // history: many(preferenceHistory), // COMMENTED OUT
 }));
 
 export const scheduleRequestRelations = relations(scheduleRequests, ({ one }) => ({
@@ -287,6 +289,8 @@ export const scheduleRequestRelations = relations(scheduleRequests, ({ one }) =>
   }),
 }));
 
+// COMMENTED OUT - preferenceHistory relations
+/*
 export const preferenceHistoryRelations = relations(preferenceHistory, ({ one }) => ({
   nurse: one(users, {
     fields: [preferenceHistory.nurseId],
@@ -301,6 +305,7 @@ export const preferenceHistoryRelations = relations(preferenceHistory, ({ one })
     references: [users.id],
   }),
 }));
+*/
 
 export const offBalanceLedgerRelations = relations(offBalanceLedger, ({ one }) => ({
   nurse: one(users, {

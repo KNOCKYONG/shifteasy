@@ -2,9 +2,9 @@ import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { createAuditLog } from '@/lib/db-helpers';
 import { db } from '@/db';
-import { configs } from '@/db/schema/configs';
+import { nursePreferences } from '@/db/schema/nurse-preferences';
 import { users } from '@/db/schema/tenants';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 // Schema for preference updates
 const preferenceUpdateSchema = z.object({
@@ -76,25 +76,20 @@ export const preferencesRouter = createTRPCRouter({
   get: protectedProcedure
     .input(z.object({
       staffId: z.string(),
-      departmentId: z.string().optional(), // Optional department filter (not used in configs)
+      departmentId: z.string().optional(),
     }))
     .query(async ({ ctx, input }) => {
-      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
-      const configKey = `preferences_${input.staffId}`;
-
       const result = await db.select()
-        .from(configs)
-        .where(and(
-          eq(configs.tenantId, tenantId),
-          eq(configs.configKey, configKey)
-        ))
+        .from(nursePreferences)
+        .where(eq(nursePreferences.nurseId, input.staffId))
         .limit(1);
 
       if (result.length === 0) {
         return null;
       }
 
-      return result[0].configValue;
+      // Return nurse_preferences data
+      return result[0];
     }),
 
   // Create or update preferences
@@ -103,41 +98,71 @@ export const preferencesRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
       const { staffId, ...preferences } = input;
-      const configKey = `preferences_${staffId}`;
+
+      // Get user's department
+      const user = await db.select()
+        .from(users)
+        .where(eq(users.id, staffId))
+        .limit(1);
+
+      const departmentId = user.length > 0 ? user[0].departmentId : null;
 
       // Check if preferences exist
       const existing = await db.select()
-        .from(configs)
-        .where(and(
-          eq(configs.tenantId, tenantId),
-          eq(configs.configKey, configKey)
-        ))
+        .from(nursePreferences)
+        .where(eq(nursePreferences.nurseId, staffId))
         .limit(1);
 
-      const result = await db.insert(configs)
-        .values({
-          tenantId,
-          departmentId: null, // Preferences are tenant-level, not department-specific
-          configKey,
-          configValue: preferences,
-        })
-        .onConflictDoUpdate({
-          target: [configs.tenantId, configs.departmentId, configs.configKey],
-          set: {
-            configValue: preferences,
-            updatedAt: new Date(),
-          },
-        })
-        .returning();
+      const nursePrefsData = {
+        tenantId,
+        nurseId: staffId,
+        departmentId,
+        workPatternType: preferences.workPatternType,
+        preferredShiftTypes: preferences.preferredShiftTypes ? {
+          D: preferences.preferredShiftTypes.D ?? 0,
+          E: preferences.preferredShiftTypes.E ?? 0,
+          N: preferences.preferredShiftTypes.N ?? 0,
+        } : undefined,
+        preferredPatterns: preferences.preferredPatterns,
+        maxConsecutiveDaysPreferred: preferences.maxConsecutiveDaysPreferred,
+        maxConsecutiveNightsPreferred: preferences.maxConsecutiveNightsPreferred,
+        preferConsecutiveDaysOff: preferences.preferConsecutiveDaysOff,
+        avoidBackToBackShifts: preferences.avoidBackToBackShifts,
+        weekdayPreferences: preferences.weekdayPreferences,
+        offPreference: preferences.offPreference,
+        weekendPreference: preferences.weekendPreference,
+        maxWeekendsPerMonth: preferences.maxWeekendsPerMonth,
+        preferAlternatingWeekends: preferences.preferAlternatingWeekends,
+        holidayPreference: preferences.holidayPreference,
+        preferredColleagues: preferences.preferredColleagues,
+        avoidColleagues: preferences.avoidColleagues,
+        preferredTeamSize: preferences.preferredTeamSize,
+        mentorshipPreference: preferences.mentorshipPreference,
+        updatedAt: new Date(),
+      };
+
+      let result;
+      if (existing.length > 0) {
+        // Update existing
+        result = await db.update(nursePreferences)
+          .set(nursePrefsData)
+          .where(eq(nursePreferences.nurseId, staffId))
+          .returning();
+      } else {
+        // Insert new
+        result = await db.insert(nursePreferences)
+          .values(nursePrefsData)
+          .returning();
+      }
 
       // Create audit log
       await createAuditLog({
         tenantId,
         actorId: (ctx.user?.id || 'dev-user-id'),
         action: existing.length > 0 ? 'preferences.updated' : 'preferences.created',
-        entityType: 'configs',
-        entityId: configKey,
-        before: existing[0]?.configValue,
+        entityType: 'nurse_preferences',
+        entityId: staffId,
+        before: existing[0] || null,
         after: preferences,
       });
 
@@ -151,13 +176,9 @@ export const preferencesRouter = createTRPCRouter({
     }))
     .mutation(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
-      const configKey = `preferences_${input.staffId}`;
 
-      const deleted = await db.delete(configs)
-        .where(and(
-          eq(configs.tenantId, tenantId),
-          eq(configs.configKey, configKey)
-        ))
+      const deleted = await db.delete(nursePreferences)
+        .where(eq(nursePreferences.nurseId, input.staffId))
         .returning();
 
       if (deleted.length > 0) {
@@ -165,9 +186,9 @@ export const preferencesRouter = createTRPCRouter({
           tenantId,
           actorId: (ctx.user?.id || 'dev-user-id'),
           action: 'preferences.deleted',
-          entityType: 'configs',
-          entityId: configKey,
-          before: deleted[0].configValue,
+          entityType: 'nurse_preferences',
+          entityId: input.staffId,
+          before: deleted[0],
         });
       }
 
