@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import type { ComprehensivePreferences } from '@/components/department/MyPreferencesPanel';
 import { db } from '@/db';
-import { configs } from '@/db/schema/configs';
 import { nursePreferences } from '@/db/schema/nurse-preferences';
 import { users } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -104,18 +103,38 @@ export async function GET(request: NextRequest) {
 
     if (!employeeId) {
       // 모든 직원의 선호도 반환
-      const allConfigs = await db.select()
-        .from(configs)
-        .where(eq(configs.tenantId, tenantId));
+      const allNursePrefs = await db.select()
+        .from(nursePreferences)
+        .where(eq(nursePreferences.tenantId, tenantId));
 
-      const allPreferences: Record<string, ComprehensivePreferences> = {};
+      const allPreferences: Record<string, any> = {};
 
-      // 'preferences_' prefix로 시작하는 config만 필터링
-      allConfigs.forEach(config => {
-        if (config.configKey.startsWith('preferences_')) {
-          const empId = config.configKey.replace('preferences_', '');
-          allPreferences[empId] = config.configValue as ComprehensivePreferences;
-        }
+      allNursePrefs.forEach(pref => {
+        // Convert nurse_preferences to ComprehensivePreferences format
+        allPreferences[pref.nurseId] = {
+          workPreferences: {
+            workPatternType: pref.workPatternType,
+            preferredShifts: [], // Will be derived from preferredShiftTypes
+            avoidShifts: [],
+            preferredPatterns: pref.preferredPatterns?.map((p: any) => p.pattern) || [],
+            avoidPatterns: [],
+            maxConsecutiveDays: pref.maxConsecutiveDaysPreferred || 5,
+            minRestDays: pref.preferConsecutiveDaysOff || 2,
+            preferredWorkload: 'moderate',
+            weekendPreference: pref.weekendPreference || 'neutral',
+            holidayPreference: pref.holidayPreference || 'neutral',
+            overtimeWillingness: 'sometimes',
+            offDayPattern: 'flexible',
+          },
+          teamPreferences: {
+            preferredPartners: pref.preferredColleagues || [],
+            avoidPartners: pref.avoidColleagues || [],
+            mentorshipRole: pref.mentorshipPreference || 'none',
+            languagePreferences: ['korean'],
+            communicationStyle: 'direct',
+            conflictResolution: 'immediate',
+          },
+        };
       });
 
       return NextResponse.json({
@@ -126,13 +145,9 @@ export async function GET(request: NextRequest) {
     }
 
     // 특정 직원의 선호도 반환
-    const configKey = `preferences_${employeeId}`;
     const result = await db.select()
-      .from(configs)
-      .where(and(
-        eq(configs.tenantId, tenantId),
-        eq(configs.configKey, configKey)
-      ))
+      .from(nursePreferences)
+      .where(eq(nursePreferences.nurseId, employeeId))
       .limit(1);
 
     if (result.length === 0) {
@@ -145,9 +160,37 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const pref = result[0];
+
+    // Convert nurse_preferences to ComprehensivePreferences format
+    const comprehensivePrefs = {
+      workPreferences: {
+        workPatternType: pref.workPatternType,
+        preferredShifts: [], // Will be derived from preferredShiftTypes
+        avoidShifts: [],
+        preferredPatterns: pref.preferredPatterns?.map((p: any) => p.pattern) || [],
+        avoidPatterns: [],
+        maxConsecutiveDays: pref.maxConsecutiveDaysPreferred || 5,
+        minRestDays: pref.preferConsecutiveDaysOff || 2,
+        preferredWorkload: 'moderate',
+        weekendPreference: pref.weekendPreference || 'neutral',
+        holidayPreference: pref.holidayPreference || 'neutral',
+        overtimeWillingness: 'sometimes',
+        offDayPattern: 'flexible',
+      },
+      teamPreferences: {
+        preferredPartners: pref.preferredColleagues || [],
+        avoidPartners: pref.avoidColleagues || [],
+        mentorshipRole: pref.mentorshipPreference || 'none',
+        languagePreferences: ['korean'],
+        communicationStyle: 'direct',
+        conflictResolution: 'immediate',
+      },
+    };
+
     return NextResponse.json({
       success: true,
-      data: result[0].configValue,
+      data: comprehensivePrefs,
       employeeId,
     });
   } catch (error) {
@@ -183,39 +226,8 @@ export async function POST(request: NextRequest) {
     }
 
     const { employeeId, preferences } = validationResult.data;
-    const configKey = `preferences_${employeeId}`;
 
-    // 1. Update configs (primary storage)
-    const existing = await db.select()
-      .from(configs)
-      .where(and(
-        eq(configs.tenantId, tenantId),
-        eq(configs.configKey, configKey)
-      ))
-      .limit(1);
-
-    if (existing.length > 0) {
-      // Update
-      await db.update(configs)
-        .set({
-          configValue: preferences,
-          updatedAt: new Date(),
-        })
-        .where(and(
-          eq(configs.tenantId, tenantId),
-          eq(configs.configKey, configKey)
-        ));
-    } else {
-      // Insert
-      await db.insert(configs)
-        .values({
-          tenantId,
-          configKey,
-          configValue: preferences,
-        });
-    }
-
-    // 2. Get user's department_id
+    // 1. Get user's department_id
     const user = await db.select()
       .from(users)
       .where(eq(users.id, employeeId))
@@ -233,15 +245,18 @@ export async function POST(request: NextRequest) {
         .limit(1);
 
       // Map ComprehensivePreferences to nurse_preferences format
-      const prefs = preferences.workPreferences.preferredShifts || [];
-      const preferredPatterns = preferences.workPreferences.preferredPatterns || [];
-      const avoidPatterns = preferences.workPreferences.avoidPatterns || [];
+      const workPrefs = preferences.workPreferences;
+      const teamPrefs = preferences.teamPreferences;
+      const prefs = workPrefs.preferredShifts || [];
+      const preferredPatterns = workPrefs.preferredPatterns || [];
 
       const nursePrefsData = {
         tenantId,
         nurseId: employeeId,
         departmentId,
-        workPatternType: preferences.workPreferences.workPatternType,
+
+        // Shift Preferences
+        workPatternType: workPrefs.workPatternType || 'three-shift',
         preferredShiftTypes: {
           D: prefs.includes('day') ? 10 : 0,
           E: prefs.includes('evening') ? 10 : 0,
@@ -249,10 +264,37 @@ export async function POST(request: NextRequest) {
         },
         preferredPatterns: preferredPatterns.map(pattern => ({
           pattern,
-          preference: 10, // Default high preference
+          preference: 10,
         })),
-        maxConsecutiveDaysPreferred: preferences.workPreferences.maxConsecutiveDays,
-        maxConsecutiveNightsPreferred: null, // Optional field
+        maxConsecutiveDaysPreferred: workPrefs.maxConsecutiveDays || 5,
+        maxConsecutiveNightsPreferred: 2,
+        preferConsecutiveDaysOff: workPrefs.minRestDays || 2,
+        avoidBackToBackShifts: false,
+
+        // Weekday Preferences
+        weekdayPreferences: {
+          monday: 5,
+          tuesday: 5,
+          wednesday: 5,
+          thursday: 5,
+          friday: 5,
+          saturday: 5,
+          sunday: 5,
+        },
+
+        // Off/Weekend Preferences
+        offPreference: 'neutral',
+        weekendPreference: workPrefs.weekendPreference || 'neutral',
+        maxWeekendsPerMonth: null,
+        preferAlternatingWeekends: false,
+        holidayPreference: workPrefs.holidayPreference || 'neutral',
+
+        // Team Preferences
+        preferredColleagues: teamPrefs.preferredPartners || [],
+        avoidColleagues: teamPrefs.avoidPartners || [],
+        preferredTeamSize: null,
+        mentorshipPreference: teamPrefs.mentorshipRole || 'neither',
+
         updatedAt: new Date(),
       };
 
@@ -302,7 +344,6 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const employeeId = searchParams.get('employeeId');
-    const tenantId = DEFAULT_TENANT_ID; // TODO: Get from auth
 
     if (!employeeId) {
       return NextResponse.json(
@@ -314,15 +355,10 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const configKey = `preferences_${employeeId}`;
-
     // 삭제 전 존재 여부 확인
     const existing = await db.select()
-      .from(configs)
-      .where(and(
-        eq(configs.tenantId, tenantId),
-        eq(configs.configKey, configKey)
-      ))
+      .from(nursePreferences)
+      .where(eq(nursePreferences.nurseId, employeeId))
       .limit(1);
 
     if (existing.length === 0) {
@@ -335,11 +371,8 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await db.delete(configs)
-      .where(and(
-        eq(configs.tenantId, tenantId),
-        eq(configs.configKey, configKey)
-      ));
+    await db.delete(nursePreferences)
+      .where(eq(nursePreferences.nurseId, employeeId));
 
     return NextResponse.json({
       success: true,
@@ -367,12 +400,11 @@ function notifySchedulerUpdate(employeeId: string) {
   // await redis.publish('scheduler:preferences:updated', JSON.stringify({ employeeId }));
 }
 
-// PATCH: 부분 업데이트
+// PATCH: 부분 업데이트 (nurse_preferences 기반)
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
     const { employeeId, updates } = body;
-    const tenantId = DEFAULT_TENANT_ID; // TODO: Get from auth
 
     if (!employeeId) {
       return NextResponse.json(
@@ -384,15 +416,10 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const configKey = `preferences_${employeeId}`;
-
     // 기존 레코드 조회
     const existing = await db.select()
-      .from(configs)
-      .where(and(
-        eq(configs.tenantId, tenantId),
-        eq(configs.configKey, configKey)
-      ))
+      .from(nursePreferences)
+      .where(eq(nursePreferences.nurseId, employeeId))
       .limit(1);
 
     if (existing.length === 0) {
@@ -405,18 +432,13 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // 깊은 병합
-    const merged = deepMerge(existing[0].configValue, updates);
-
-    await db.update(configs)
+    // 부분 업데이트
+    await db.update(nursePreferences)
       .set({
-        configValue: merged,
+        ...updates,
         updatedAt: new Date(),
       })
-      .where(and(
-        eq(configs.tenantId, tenantId),
-        eq(configs.configKey, configKey)
-      ));
+      .where(eq(nursePreferences.nurseId, employeeId));
 
     return NextResponse.json({
       success: true,
@@ -434,19 +456,4 @@ export async function PATCH(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-// 깊은 병합 유틸리티
-function deepMerge(target: any, source: any): any {
-  const result = { ...target };
-
-  for (const key in source) {
-    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-      result[key] = deepMerge(target[key] || {}, source[key]);
-    } else {
-      result[key] = source[key];
-    }
-  }
-
-  return result;
 }
