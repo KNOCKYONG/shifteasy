@@ -2669,19 +2669,120 @@ function SchedulePageContent() {
             </button>
           </div>
 
-          {/* 현재 설정된 선호도 요약 - 모바일에서는 2열 그리드 */}
+          {/* 현재 설정된 선호도 요약 - 모바일에서는 2열, 데스크톱에서는 3열 그리드 */}
           <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4">
+            {/* 근무 패턴 */}
             <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">근무 패턴</p>
               <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">{currentUserSummary.workPattern}</p>
             </div>
+
+            {/* 선호 시프트 */}
             <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">팀 배정</p>
-              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">{currentUserSummary.teamName}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">선호 시프트</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
+                {(() => {
+                  const preferredShift = currentUserPreferences?.workPreferences?.preferredShifts?.[0];
+                  const shiftMap: Record<string, string> = { day: '주간', evening: '저녁', night: '야간' };
+                  return preferredShift ? (shiftMap[preferredShift] || preferredShift) : '미설정';
+                })()}
+              </p>
             </div>
+
+            {/* 휴무 패턴 */}
             <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">이번달 Request</p>
-              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">{currentUserSummary.requestCount}건</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">휴무 패턴</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
+                {(() => {
+                  const offDayPattern = currentUserPreferences?.workPreferences?.offDayPattern;
+                  const patternMap: Record<string, string> = {
+                    short: '짧은 휴무',
+                    long: '긴 휴무',
+                    flexible: '유연하게'
+                  };
+                  return offDayPattern ? (patternMap[offDayPattern] || offDayPattern) : '유연하게';
+                })()}
+              </p>
+            </div>
+
+            {/* 주말 근무 */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">주말 근무</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
+                {(() => {
+                  const weekendPref = currentUserPreferences?.workPreferences?.weekendPreference;
+                  const prefMap: Record<string, string> = { prefer: '선호', avoid: '회피', neutral: '상관없음' };
+                  return weekendPref ? (prefMap[weekendPref] || weekendPref) : '상관없음';
+                })()}
+              </p>
+            </div>
+
+            {/* 최대 연속 근무 */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">최대 연속</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
+                {(() => {
+                  const maxConsecutive = currentUserPreferences?.workPreferences?.maxConsecutiveDays;
+                  return maxConsecutive ? `${maxConsecutive}일` : '5일';
+                })()}
+              </p>
+            </div>
+
+            {/* 최소 휴식일 */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">최소 휴식</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
+                {(() => {
+                  const minRestDays = currentUserPreferences?.workPreferences?.minRestDays;
+                  return minRestDays ? `${minRestDays}일` : '1일';
+                })()}
+              </p>
+            </div>
+
+            {/* 선호 업무량 */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">선호 업무량</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
+                {(() => {
+                  const workload = currentUserPreferences?.workPreferences?.preferredWorkload;
+                  const workloadMap: Record<string, string> = {
+                    light: '가벼움',
+                    moderate: '보통',
+                    heavy: '많음',
+                    flexible: '유연하게'
+                  };
+                  return workload ? (workloadMap[workload] || workload) : '보통';
+                })()}
+              </p>
+            </div>
+
+            {/* 공휴일 근무 */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">공휴일 근무</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
+                {(() => {
+                  const holidayPref = currentUserPreferences?.workPreferences?.holidayPreference;
+                  const prefMap: Record<string, string> = { prefer: '선호', avoid: '회피', neutral: '상관없음' };
+                  return holidayPref ? (prefMap[holidayPref] || holidayPref) : '상관없음';
+                })()}
+              </p>
+            </div>
+
+            {/* 초과근무 의향 */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">초과근무</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
+                {(() => {
+                  const overtime = currentUserPreferences?.workPreferences?.overtimeWillingness;
+                  const overtimeMap: Record<string, string> = {
+                    never: '불가',
+                    emergency: '긴급시만',
+                    sometimes: '가끔',
+                    always: '가능'
+                  };
+                  return overtime ? (overtimeMap[overtime] || overtime) : '긴급시만';
+                })()}
+              </p>
             </div>
           </div>
 
