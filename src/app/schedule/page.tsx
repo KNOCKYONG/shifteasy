@@ -451,6 +451,14 @@ function SchedulePageContent() {
   const [loadedScheduleId, setLoadedScheduleId] = useState<string | null>(null); // 이미 로드된 스케줄 ID
   const [selectedDate, setSelectedDate] = useState<Date>(getInitialDate()); // 오늘의 근무 날짜 선택
 
+  // Swap 관련 상태
+  const [swapMode, setSwapMode] = useState(false);
+  const [swapStep, setSwapStep] = useState<'select-my-schedule' | 'select-target' | null>(null); // 교환 단계
+  const [selectedSwapDate, setSelectedSwapDate] = useState<string | null>(null); // 선택한 날짜
+  const [selectedSwapCell, setSelectedSwapCell] = useState<{ date: string; employeeId: string; assignment: any } | null>(null);
+  const [targetSwapCell, setTargetSwapCell] = useState<{ date: string; employeeId: string; assignment: any } | null>(null);
+  const [showSwapModal, setShowSwapModal] = useState(false);
+
   // Handle URL parameter changes for view
   useEffect(() => {
     if (viewParam && ['schedule', 'calendar', 'today'].includes(viewParam)) {
@@ -893,10 +901,22 @@ function SchedulePageContent() {
   }, []);
 
   const handleToggleSwapMode = React.useCallback(() => {
-    setSwapMode(prev => !prev);
-    setSelectedSwapCell(null);
-    setTargetSwapCell(null);
-  }, []);
+    const newSwapMode = !swapMode;
+    setSwapMode(newSwapMode);
+
+    if (newSwapMode) {
+      // 교환 모드 활성화: 1단계 - 내 스케줄만 보기
+      setSwapStep('select-my-schedule');
+      filters.setShowMyScheduleOnly(true);
+    } else {
+      // 교환 모드 비활성화: 모든 상태 초기화
+      setSwapStep(null);
+      setSelectedSwapDate(null);
+      setSelectedSwapCell(null);
+      setTargetSwapCell(null);
+      filters.setShowMyScheduleOnly(false);
+    }
+  }, [swapMode, filters]);
 
   const handleCloseGenerationResult = React.useCallback(() => {
     setGenerationResult(null);
@@ -925,6 +945,9 @@ function SchedulePageContent() {
       setSelectedSwapCell(null);
       setTargetSwapCell(null);
       setSwapMode(false);
+      setSwapStep(null);
+      setSelectedSwapDate(null);
+      filters.setShowMyScheduleOnly(false);
     },
     onError: (error) => {
       console.error('Swap request failed:', error);
@@ -2134,12 +2157,6 @@ function SchedulePageContent() {
     setScheduleName(name);
   }, []);
 
-  // Swap 관련 상태
-  const [swapMode, setSwapMode] = useState(false);
-  const [selectedSwapCell, setSelectedSwapCell] = useState<{ date: string; employeeId: string; assignment: any } | null>(null);
-  const [targetSwapCell, setTargetSwapCell] = useState<{ date: string; employeeId: string; assignment: any } | null>(null);
-  const [showSwapModal, setShowSwapModal] = useState(false);
-
   // Manager 셀 편집 관련 상태
   const [showEditShiftModal, setShowEditShiftModal] = useState(false);
   const [editingCell, setEditingCell] = useState<{ date: Date; employeeId: string; currentShift: any } | null>(null);
@@ -2163,25 +2180,52 @@ function SchedulePageContent() {
   const handleSwapCellClick = React.useCallback((date: Date, employeeId: string, assignment: any) => {
     const dateStr = format(date, 'yyyy-MM-dd');
 
-    // 자신의 셀을 클릭한 경우
-    if (employeeId === currentUser.dbUser?.id) {
-      if (!assignment) {
-        alert('교환할 스케줄이 없습니다.');
-        return;
+    // Step 1: 내 스케줄 선택 단계
+    if (swapStep === 'select-my-schedule') {
+      // 자신의 셀을 클릭한 경우
+      if (employeeId === currentUser.dbUser?.id) {
+        if (!assignment) {
+          alert('교환할 스케줄이 없습니다.');
+          return;
+        }
+        // 내 스케줄 저장하고 다음 단계로
+        setSelectedSwapCell({ date: dateStr, employeeId, assignment });
+        setSelectedSwapDate(dateStr);
+        setTargetSwapCell(null);
+        setSwapStep('select-target');
+        // 모든 직원의 스케줄 보이도록 필터 해제
+        filters.setShowMyScheduleOnly(false);
       }
-      setSelectedSwapCell({ date: dateStr, employeeId, assignment });
-      setTargetSwapCell(null);
+      return;
     }
-    // 자신의 셀을 선택한 후 다른 사람의 셀을 클릭한 경우
-    else if (selectedSwapCell && selectedSwapCell.date === dateStr) {
+
+    // Step 2: 교환 대상 선택 단계
+    if (swapStep === 'select-target') {
+      // 같은 날짜가 아니면 무시
+      if (dateStr !== selectedSwapDate) {
+        alert('같은 날짜의 스케줄만 선택할 수 있습니다.');
+        return;
+      }
+
+      // 자기 자신을 다시 클릭한 경우 1단계로 돌아가기
+      if (employeeId === currentUser.dbUser?.id) {
+        setSelectedSwapCell(null);
+        setSelectedSwapDate(null);
+        setSwapStep('select-my-schedule');
+        filters.setShowMyScheduleOnly(true);
+        return;
+      }
+
+      // 다른 직원의 스케줄 선택
       if (!assignment) {
         alert('교환할 스케줄이 없습니다.');
         return;
       }
+
       setTargetSwapCell({ date: dateStr, employeeId, assignment });
       setShowSwapModal(true);
     }
-  }, [currentUser.dbUser?.id, selectedSwapCell]);
+  }, [currentUser.dbUser?.id, swapStep, selectedSwapDate, filters]);
 
   const handleSwapSubmit = (reason: string) => {
     if (!selectedSwapCell || !targetSwapCell) return;
@@ -2236,6 +2280,13 @@ function SchedulePageContent() {
   const handleSwapModalClose = () => {
     setShowSwapModal(false);
     setTargetSwapCell(null);
+    // 모달을 닫아도 교환 모드는 유지 (Step 1로 돌아가기)
+    if (swapMode) {
+      setSwapStep('select-my-schedule');
+      setSelectedSwapCell(null);
+      setSelectedSwapDate(null);
+      filters.setShowMyScheduleOnly(true);
+    }
   };
 
   const handleImport = async () => {
