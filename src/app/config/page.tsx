@@ -203,6 +203,11 @@ function ConfigPageContent() {
     setContractTypes(allConfigs.contract_types || defaultContractTypes);
     setEmployeeStatuses(allConfigs.employee_statuses || defaultEmployeeStatuses);
 
+    // Load career groups
+    if (allConfigs.career_groups) {
+      setCareerGroups(allConfigs.career_groups);
+    }
+
     // Load preferences
     if (allConfigs.preferences) {
       setConfig({ preferences: allConfigs.preferences });
@@ -224,6 +229,7 @@ function ConfigPageContent() {
         setConfigMutation.mutateAsync({ configKey: 'departments', configValue: departments }),
         setConfigMutation.mutateAsync({ configKey: 'contract_types', configValue: contractTypes }),
         setConfigMutation.mutateAsync({ configKey: 'employee_statuses', configValue: employeeStatuses }),
+        setConfigMutation.mutateAsync({ configKey: 'career_groups', configValue: careerGroups }),
         setConfigMutation.mutateAsync({ configKey: 'preferences', configValue: config.preferences }),
       ]);
 
@@ -571,8 +577,9 @@ function ConfigPageContent() {
                   <input
                     type="number"
                     min="0"
-                    value={newCareerGroup.minYears}
-                    onChange={(e) => setNewCareerGroup({ ...newCareerGroup, minYears: parseInt(e.target.value) || 0 })}
+                    value={newCareerGroup.minYears === 0 ? '' : newCareerGroup.minYears}
+                    onChange={(e) => setNewCareerGroup({ ...newCareerGroup, minYears: e.target.value === '' ? 0 : parseInt(e.target.value) })}
+                    placeholder="0"
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
                   />
                 </div>
@@ -583,8 +590,9 @@ function ConfigPageContent() {
                   <input
                     type="number"
                     min="0"
-                    value={newCareerGroup.maxYears}
-                    onChange={(e) => setNewCareerGroup({ ...newCareerGroup, maxYears: parseInt(e.target.value) || 0 })}
+                    value={newCareerGroup.maxYears === 0 ? '' : newCareerGroup.maxYears}
+                    onChange={(e) => setNewCareerGroup({ ...newCareerGroup, maxYears: e.target.value === '' ? 0 : parseInt(e.target.value) })}
+                    placeholder="0"
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
                   />
                 </div>
