@@ -38,29 +38,32 @@ export function ShiftTypesTab({
   editingShiftType,
   setEditingShiftType,
 }: ShiftTypesTabProps) {
+  const normalizedNewCode = newShiftType.code.trim().toUpperCase();
+  const normalizedNewName = newShiftType.name.trim();
+  const isDuplicateCode = normalizedNewCode.length > 0 && shiftTypes.some(
+    st => st.code.toUpperCase() === normalizedNewCode
+  );
+  const canAddShiftType = normalizedNewCode.length > 0 && normalizedNewName.length > 0 && !isDuplicateCode;
+
   const handleAddShiftType = () => {
-    if (newShiftType.code && newShiftType.name) {
-      // Check for duplicate code (case-insensitive)
-      const isDuplicate = shiftTypes.some(
-        st => st.code.toUpperCase() === newShiftType.code.toUpperCase()
-      );
+    if (!canAddShiftType) return;
 
-      if (isDuplicate) {
-        alert('이미 존재하는 코드입니다.');
-        return;
-      }
+    const preparedShiftType: ShiftType = {
+      ...newShiftType,
+      code: normalizedNewCode,
+      name: normalizedNewName,
+    };
 
-      const updatedShiftTypes = [...shiftTypes, newShiftType];
-      setShiftTypes(updatedShiftTypes);
-      setNewShiftType({
-        code: '',
-        name: '',
-        startTime: '09:00',
-        endTime: '17:00',
-        color: 'blue',
-        allowOvertime: false,
-      });
-    }
+    const updatedShiftTypes = [...shiftTypes, preparedShiftType];
+    setShiftTypes(updatedShiftTypes);
+    setNewShiftType({
+      code: '',
+      name: '',
+      startTime: '09:00',
+      endTime: '17:00',
+      color: 'blue',
+      allowOvertime: false,
+    });
   };
 
   const handleUpdateShiftType = (code: string, updates: Partial<ShiftType>) => {
@@ -101,14 +104,21 @@ export function ShiftTypesTab({
 
         {/* Add new shift type form */}
         <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-          <input
-            type="text"
-            placeholder="코드 (예: M)"
-            value={newShiftType.code}
-            onChange={(e) => setNewShiftType({ ...newShiftType, code: e.target.value.toUpperCase() })}
-            className="px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
-            maxLength={3}
-          />
+          <div className="flex flex-col gap-1">
+            <input
+              type="text"
+              placeholder="코드 (예: M)"
+              value={newShiftType.code}
+              onChange={(e) => setNewShiftType({ ...newShiftType, code: e.target.value.toUpperCase() })}
+              className="px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+              maxLength={3}
+            />
+            {isDuplicateCode && (
+              <p className="text-sm text-red-500 dark:text-red-400">
+                이미 사용 중인 코드입니다. 다른 코드를 입력해 주세요.
+              </p>
+            )}
+          </div>
           <input
             type="text"
             placeholder="근무명 (예: 오전 근무)"
@@ -142,7 +152,12 @@ export function ShiftTypesTab({
             </select>
             <button
               onClick={handleAddShiftType}
-              className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 flex items-center gap-2"
+              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+                canAddShiftType
+                  ? "bg-blue-600 dark:bg-blue-500 text-white hover:bg-blue-700 dark:hover:bg-blue-600"
+                  : "bg-gray-200 dark:bg-gray-700 text-gray-500 cursor-not-allowed"
+              }`}
+              disabled={!canAddShiftType}
             >
               <Plus className="w-4 h-4" />
               추가
