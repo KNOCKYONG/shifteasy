@@ -1001,7 +1001,7 @@ function SchedulePageContent() {
             ? 'mentor'
             : 'none';
 
-        employee.preferences = {
+        (employee.preferences as any) = {
           ...employee.preferences,
           preferredShifts: workPrefs.preferredShifts || [],
           avoidShifts: workPrefs.avoidShifts || [],
@@ -1011,9 +1011,11 @@ function SchedulePageContent() {
 
           // Convert ComprehensivePreferences to ExtendedEmployeePreferences format
           workPatternType: workPrefs.workPatternType || 'three-shift',
-          workLoadPreference: (workPrefs.preferredWorkload === 'light' ? 'light' :
-                               workPrefs.preferredWorkload === 'heavy' ? 'heavy' :
-                               'normal') as const,
+          workLoadPreference: ((): 'light' | 'normal' | 'heavy' => {
+            if (workPrefs.preferredWorkload === 'light') return 'light';
+            if (workPrefs.preferredWorkload === 'heavy') return 'heavy';
+            return 'normal';
+          })(),
           flexibilityLevel: 'medium' as const,
           preferredPatterns: workPrefs.preferredPatterns || [],
           avoidPatterns: workPrefs.avoidPatterns || [],
