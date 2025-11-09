@@ -789,12 +789,32 @@ export const scheduleRouter = createTRPCRouter({
           );
         };
 
-        workingToday = assignments.filter((assignment: any) => {
-          const assignmentDate = new Date(assignment.date).toISOString().split('T')[0];
-          const isToday = assignmentDate === todayStr;
+        // Debug: Log all today's assignments
+        const todayAssignments = assignments.filter((a: any) => {
+          const assignmentDate = new Date(a.date).toISOString().split('T')[0];
+          return assignmentDate === todayStr;
+        });
+
+        console.log('📊 오늘 전체 배정:', todayAssignments.map((a: any) => ({
+          employeeId: a.employeeId,
+          shiftId: a.shiftId,
+          shiftType: a.shiftType,
+        })));
+
+        const workingAssignments = todayAssignments.filter((assignment: any) => {
           const isWorking = !isNonWorkingShift(assignment);
-          return isToday && isWorking;
-        }).length;
+          if (!isWorking) {
+            console.log('🚫 비근무 제외:', {
+              employeeId: assignment.employeeId,
+              shiftId: assignment.shiftId,
+              shiftType: assignment.shiftType,
+            });
+          }
+          return isWorking;
+        });
+
+        console.log('✅ 오늘 근무자 수:', workingAssignments.length);
+        workingToday = workingAssignments.length;
       }
 
       return {
@@ -917,15 +937,24 @@ export const scheduleRouter = createTRPCRouter({
         });
 
         // Add shift type information to each assignment
+        // Add shift type information to each assignment
         const enrichedAssignments = userAssignments.map((assignment: any) => {
           const shiftType = shiftTypes.find((st: any) => st.id === assignment.shiftId);
-          return {
+          const enriched = {
             ...assignment,
             shiftName: shiftType?.name || assignment.shiftId,
             startTime: shiftType?.startTime,
             endTime: shiftType?.endTime,
             color: shiftType?.color,
           };
+          console.log('📅 나의 다가오는 근무 enriched:', {
+            date: assignment.date,
+            shiftId: assignment.shiftId,
+            shiftName: enriched.shiftName,
+            startTime: enriched.startTime,
+            endTime: enriched.endTime,
+          });
+          return enriched;
         });
 
         myShifts.push(...enrichedAssignments);
