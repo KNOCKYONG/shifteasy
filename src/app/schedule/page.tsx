@@ -575,7 +575,7 @@ function SchedulePageContent() {
       // 현재 사용자가 근무하는 날짜들 추출
       const myWorkDates = new Set(
         schedule
-          .filter(s => s.employeeId === currentUser.dbUser?.id && s.shiftId !== 'shift-off')
+          .filter(s => s.employeeId === currentUser.dbUser?.id && !['O', 'shift-off', 'shift-o'].includes(s.shiftId))
           .map(s => format(new Date(s.date), 'yyyy-MM-dd'))
       );
 
@@ -587,7 +587,7 @@ function SchedulePageContent() {
           // 해당 직원이 같은 날짜에 근무하는지 확인
           return schedule.some(s =>
             s.employeeId === member.id &&
-            s.shiftId !== 'shift-off' &&
+            !['O', 'shift-off', 'shift-o'].includes(s.shiftId) &&
             myWorkDates.has(format(new Date(s.date), 'yyyy-MM-dd'))
           );
         });
@@ -1599,29 +1599,29 @@ function SchedulePageContent() {
 
       const convertedAssignments: ExtendedScheduleAssignment[] = scheduleAssignments.map(assignment => {
         // activeCustomShiftTypes에서 shift code로 shiftId 찾기
-        let shiftId = 'shift-off'; // Default
+        let shiftId = 'O'; // Default to OFF code
         let shiftType: ExtendedScheduleAssignment['shiftType'] = 'off';
 
         if (assignment.shift === 'OFF') {
-          // OFF: activeCustomShiftTypes에서 "O" 코드를 찾거나 기본 'shift-off' 사용 (대소문자 구분 없이)
+          // OFF: activeCustomShiftTypes에서 "O" 코드를 찾거나 기본 'O' 사용
           const offShiftType = activeCustomShiftTypes.find((st: any) =>
             st.code.toUpperCase() === 'O' || st.code.toUpperCase() === 'OFF'
           );
           if (offShiftType) {
-            shiftId = `shift-${offShiftType.code.toLowerCase()}`;
+            shiftId = offShiftType.code.toUpperCase();
           } else {
-            shiftId = 'shift-off'; // Fallback
+            shiftId = 'O'; // Fallback to OFF code
           }
           shiftType = 'off';
         } else if (assignment.shift === 'A') {
           // 행정 근무 (평일 행정 업무) - 대소문자 구분 없이
           const adminShiftType = activeCustomShiftTypes.find((st: any) => st.code.toUpperCase() === 'A');
           if (adminShiftType) {
-            shiftId = `shift-${adminShiftType.code.toLowerCase()}`;
+            shiftId = adminShiftType.code.toUpperCase();
             shiftType = 'custom';
           } else {
             // A 타입이 없으면 shift-a로 (D와 구분 필요)
-            shiftId = 'shift-a';
+            shiftId = 'A';
             shiftType = 'custom';
           }
         } else {
@@ -1630,10 +1630,10 @@ function SchedulePageContent() {
             st.code.toUpperCase() === assignment.shift.toUpperCase()
           );
           if (matchingShiftType) {
-            shiftId = `shift-${matchingShiftType.code.toLowerCase()}`;
+            shiftId = matchingShiftType.code.toUpperCase();
           } else {
             // activeCustomShiftTypes에 없으면 기본 shiftId 생성
-            shiftId = `shift-${assignment.shift.toLowerCase()}`;
+            shiftId = assignment.shift.toUpperCase();
           }
           shiftType = ((): ExtendedScheduleAssignment['shiftType'] => {
             switch (assignment.shift) {
@@ -2111,7 +2111,7 @@ function SchedulePageContent() {
   }) => {
     const shiftId = assignment.shiftId;
 
-    // shiftId format: 'shift-day', 'shift-evening', 'shift-night', 'shift-off', 'shift-o', 'shift-a'
+    // shiftId format: Now stores direct codes like 'O', 'A', 'D', 'E', 'N' (also supports legacy 'shift-' format)
     const codeMap: Record<string, string> = {
       'shift-off': 'O',
       'shift-o': 'O',
