@@ -81,6 +81,8 @@ export const tenantRouter = createTRPCRouter({
             position: users.position,
             profile: users.profile,
             status: users.status,
+            hireDate: users.hireDate,
+            yearsOfService: users.yearsOfService,
             createdAt: users.createdAt,
             updatedAt: users.updatedAt,
             deletedAt: users.deletedAt,
@@ -331,6 +333,10 @@ export const tenantRouter = createTRPCRouter({
         position: z.string().optional(),
         name: z.string().optional(),
         employeeId: z.string().optional(),
+        phone: z.string().optional(),
+        status: z.enum(['active', 'inactive', 'on_leave']).optional(),
+        hireDate: z.date().optional(),
+        yearsOfService: z.number().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         // Check if user has permission (owner, admin, or manager)
@@ -380,6 +386,18 @@ export const tenantRouter = createTRPCRouter({
         if (input.position !== undefined) updateData.position = input.position;
         if (input.name !== undefined) updateData.name = input.name;
         if (input.employeeId !== undefined) updateData.employeeId = input.employeeId;
+        if (input.status !== undefined) updateData.status = input.status;
+        if (input.hireDate !== undefined) updateData.hireDate = input.hireDate;
+        if (input.yearsOfService !== undefined) updateData.yearsOfService = input.yearsOfService;
+
+        // Handle profile update for phone
+        if (input.phone !== undefined) {
+          const currentProfile = targetUser.profile || {};
+          updateData.profile = {
+            ...currentProfile,
+            phone: input.phone,
+          };
+        }
 
         // Update user in database
         const result = await ctx.db

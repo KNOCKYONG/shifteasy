@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Trash2, Save, Upload, Download, Users, ChevronRight, Edit2, Mail, Phone, Calendar, Shield, Clock, Star, AlertCircle } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { AddTeamMemberModal } from "@/components/AddTeamMemberModal";
+import { EditTeamMemberModal } from "@/components/EditTeamMemberModal";
 import { TeamPatternTab } from "@/components/department/TeamPatternTab";
 import { DepartmentSelectModal } from "@/components/department/DepartmentSelectModal";
 import { TeamsTab } from "@/app/config/TeamsTab";
@@ -18,6 +19,8 @@ function TeamManagementPageContent() {
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<any | null>(null);
   const [showDepartmentModal, setShowDepartmentModal] = useState(false);
   const currentUserRole = currentUser.role || "member";
   const managerDepartmentId = currentUser.dbUser?.departmentId ?? null;
@@ -254,6 +257,14 @@ const departments =
     });
   };
 
+  const handleMemberClick = (member: any) => {
+    // Only allow managers and admins to edit member info
+    if (currentUserRole === 'manager' || currentUserRole === 'admin' || currentUserRole === 'owner') {
+      setSelectedMember(member);
+      setShowEditForm(true);
+    }
+  };
+
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'admin': return 'bg-purple-100 dark:bg-purple-950/30 text-purple-700 dark:text-purple-400';
@@ -445,7 +456,11 @@ const departments =
         {!isLoadingUsers && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {teamMembers.map((member) => (
-            <div key={member.id} className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6 hover:shadow-md dark:hover:shadow-gray-900/50 transition-shadow">
+            <div
+              key={member.id}
+              onClick={() => handleMemberClick(member)}
+              className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6 hover:shadow-md dark:hover:shadow-gray-900/50 transition-shadow cursor-pointer"
+            >
               <div className="flex items-start justify-between mb-3 sm:mb-4">
                 <div className="flex items-center gap-2 sm:gap-3">
                   {(member.profile as any)?.avatar ? (
@@ -502,7 +517,10 @@ const departments =
                         <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{member.position || '부서원'}</p>
                         {canEditPosition() && (
                           <button
-                            onClick={() => handleEditPosition(member.id, member.position || '')}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditPosition(member.id, member.position || '');
+                            }}
                             className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-opacity"
                             title="직급 수정"
                           >
@@ -515,7 +533,10 @@ const departments =
                 </div>
                 <div className="flex gap-1">
                   <button
-                    onClick={() => handleToggleActivation(member.id, member.status)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleActivation(member.id, member.status);
+                    }}
                     className={`p-1.5 rounded-lg transition-colors ${
                       member.status === 'inactive'
                         ? 'hover:bg-green-50 dark:hover:bg-green-950/30'
@@ -583,6 +604,20 @@ const departments =
         currentUserRole={currentUserRole}
         managerDepartmentId={currentUserRole === 'manager' ? managerDepartmentId : undefined}
         isLoading={inviteUserMutation.isPending}
+      />
+
+      {/* Edit Team Member Modal */}
+      <EditTeamMemberModal
+        isOpen={showEditForm}
+        onClose={() => {
+          setShowEditForm(false);
+          setSelectedMember(null);
+        }}
+        member={selectedMember}
+        departments={departments}
+        onUpdate={() => {
+          refetchUsers();
+        }}
       />
 
       {/* Department Select Modal */}
