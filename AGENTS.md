@@ -1,17 +1,17 @@
 # Repository Guidelines
 
-This repo contains a Next.js app under `web`. Use this guide to set up, develop, and contribute consistently.
+This repo contains a Next.js app in the repository root (the legacy `web/` note is outdated). Use this guide to set up, develop, and contribute consistently.
 
 ## Project Structure & Module Organization
-- Root: `prototype.txt` (notes), `web/` (app source).
-- App code: `web/src`
+- Root: Next.js app source lives directly under `src/`, plus config in the repo root.
+- App code: `src`
   - `app/` — App Router pages, layouts, and API route handlers under `app/api/*`.
-  - `lib/` — Shared utilities (`types.ts`, `testdata.ts`).
+  - `components/`, `hooks/`, `lib/`, `server/` — shared UI, hooks, utilities, and TRPC/server logic.
   - `public/` — Static assets.
-- Config: `web/eslint.config.mjs`, `web/next.config.ts`, `web/tsconfig.json`, `web/postcss.config.mjs`.
+- Config: `eslint.config.mjs`, `next.config.js`, `tsconfig.json`, `postcss.config.js`, `tailwind.config.js`.
 
 ## Build, Test, and Development Commands
-- From `web/`:
+- From repo root:
   - `npm install` — Install dependencies (Node 18+ recommended).
   - `npm run dev` — Start dev server with Turbopack on http://localhost:3000.
   - `npm run build` — Production build (Turbopack).
@@ -44,9 +44,12 @@ This repo contains a Next.js app under `web`. Use this guide to set up, develop,
 - Use environment files in `web/` (`.env.local`) for secrets; never commit them. Client-exposed vars must be prefixed `NEXT_PUBLIC_`.
 - Avoid storing real data in `testdata.ts`; use anonymized examples.
 
-## Skills
+## Frontend Performance & UX Notes
+- **Long lists/grids:** Schedule pages can render thousands of cells. Cache heavy lookups (e.g., group assignments by date/employee) and wrap bulk state updates in `React.startTransition` to avoid blocking the main thread.
+- **Modals:** Do not `await` cache invalidation or network calls when closing modals. Trigger them asynchronously so the modal dismisses immediately.
+- **Console logging:** The schedule view logs large objects; avoid `console.log` inside tight render loops to keep navigation responsive.
 
-You've got skills.
-
-- List your skills directly after reading this via `scripts/list-skills skills/`. Remember them.
-- If a skill matches a certain task at hand, only then read its full documentation (`SKILL.md`) and use it.
+## Schedule Feature Tips
+- `getAssignmentsForCell` already exposes per-cell data; reuse it instead of re-filtering the entire schedule array inside components.
+- When loading schedules from `savedSchedules`, respect the `lastLoadedRef` guard and only mutate state if the schedule `id`/`updatedAt` actually changed.
+- For “스케줄 보기” defaults, load into the lightweight “오늘의 근무” tab first, then let the heavy schedule view load in the background.
