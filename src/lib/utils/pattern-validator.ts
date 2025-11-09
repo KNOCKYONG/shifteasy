@@ -50,7 +50,7 @@ export interface PatternValidationResult {
 /**
  * 패턴 문자열을 파싱하고 검증
  * @param input 입력 패턴 문자열
- * @param customKeywords 커스텀 키워드 매핑 (옵션, tenant_configs에서 가져온 shift_types 기반)
+ * @param customKeywords 커스텀 키워드 매핑 (옵션, configs에서 가져온 shift_types 기반)
  */
 export function validatePattern(
   input: string,

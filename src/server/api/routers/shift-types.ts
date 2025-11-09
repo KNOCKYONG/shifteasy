@@ -27,7 +27,7 @@ export const shiftTypesRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
 
-      // Get shift types from tenant_configs
+      // Get shift types from configs
       const configResult = await db.select()
         .from(configs)
         .where(and(
@@ -153,7 +153,7 @@ export const shiftTypesRouter = createTRPCRouter({
         shiftTypes.push(newShiftType);
       }
 
-      // Save back to tenant_configs
+      // Save back to configs
       if (configResult[0]) {
         await db.update(configs)
           .set({

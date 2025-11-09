@@ -76,7 +76,7 @@ export const preferencesRouter = createTRPCRouter({
   get: protectedProcedure
     .input(z.object({
       staffId: z.string(),
-      departmentId: z.string().optional(), // Optional department filter (not used in tenant_configs)
+      departmentId: z.string().optional(), // Optional department filter (not used in configs)
     }))
     .query(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
@@ -135,7 +135,7 @@ export const preferencesRouter = createTRPCRouter({
         tenantId,
         actorId: (ctx.user?.id || 'dev-user-id'),
         action: existing.length > 0 ? 'preferences.updated' : 'preferences.created',
-        entityType: 'tenant_configs',
+        entityType: 'configs',
         entityId: configKey,
         before: existing[0]?.configValue,
         after: preferences,
@@ -165,7 +165,7 @@ export const preferencesRouter = createTRPCRouter({
           tenantId,
           actorId: (ctx.user?.id || 'dev-user-id'),
           action: 'preferences.deleted',
-          entityType: 'tenant_configs',
+          entityType: 'configs',
           entityId: configKey,
           before: deleted[0].configValue,
         });

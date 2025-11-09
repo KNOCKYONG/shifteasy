@@ -1,6 +1,6 @@
 /**
  * Staff Configuration Helper
- * Loads staff-related configurations from tenant_configs
+ * Loads staff-related configurations from configs
  */
 
 import { db } from '@/db';
@@ -90,7 +90,7 @@ export interface StaffDefaultValues {
 }
 
 /**
- * Get experience weights from tenant_configs
+ * Get experience weights from configs
  */
 export async function getExperienceWeights(tenantId: string = DEFAULT_TENANT_ID): Promise<ExperienceWeights> {
   try {
@@ -113,7 +113,7 @@ export async function getExperienceWeights(tenantId: string = DEFAULT_TENANT_ID)
 }
 
 /**
- * Get team balance rules from tenant_configs
+ * Get team balance rules from configs
  */
 export async function getTeamBalance(tenantId: string = DEFAULT_TENANT_ID): Promise<TeamBalance> {
   try {
@@ -136,7 +136,7 @@ export async function getTeamBalance(tenantId: string = DEFAULT_TENANT_ID): Prom
 }
 
 /**
- * Get balance weights from tenant_configs
+ * Get balance weights from configs
  */
 export async function getBalanceWeights(tenantId: string = DEFAULT_TENANT_ID): Promise<BalanceWeights> {
   try {
@@ -159,7 +159,7 @@ export async function getBalanceWeights(tenantId: string = DEFAULT_TENANT_ID): P
 }
 
 /**
- * Get default staff values from tenant_configs
+ * Get default staff values from configs
  */
 export async function getStaffDefaultValues(tenantId: string = DEFAULT_TENANT_ID): Promise<StaffDefaultValues> {
   try {
@@ -182,7 +182,7 @@ export async function getStaffDefaultValues(tenantId: string = DEFAULT_TENANT_ID
 }
 
 /**
- * Save experience weights to tenant_configs
+ * Save experience weights to configs
  */
 export async function saveExperienceWeights(weights: ExperienceWeights, tenantId: string = DEFAULT_TENANT_ID): Promise<void> {
   await db.insert(configs)
@@ -202,7 +202,7 @@ export async function saveExperienceWeights(weights: ExperienceWeights, tenantId
 }
 
 /**
- * Save team balance rules to tenant_configs
+ * Save team balance rules to configs
  */
 export async function saveTeamBalance(balance: TeamBalance, tenantId: string = DEFAULT_TENANT_ID): Promise<void> {
   await db.insert(configs)
@@ -222,7 +222,7 @@ export async function saveTeamBalance(balance: TeamBalance, tenantId: string = D
 }
 
 /**
- * Save balance weights to tenant_configs
+ * Save balance weights to configs
  */
 export async function saveBalanceWeights(weights: BalanceWeights, tenantId: string = DEFAULT_TENANT_ID): Promise<void> {
   await db.insert(configs)
@@ -242,7 +242,7 @@ export async function saveBalanceWeights(weights: BalanceWeights, tenantId: stri
 }
 
 /**
- * Save default staff values to tenant_configs
+ * Save default staff values to configs
  */
 export async function saveStaffDefaultValues(values: StaffDefaultValues, tenantId: string = DEFAULT_TENANT_ID): Promise<void> {
   await db.insert(configs)

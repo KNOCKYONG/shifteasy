@@ -1,6 +1,6 @@
 /**
  * Schedule Configuration Helper
- * Loads schedule-related configurations from tenant_configs
+ * Loads schedule-related configurations from configs
  */
 
 import { db } from '@/db';
@@ -61,7 +61,7 @@ export interface PerformanceThresholds {
 }
 
 /**
- * Get schedule configuration from tenant_configs
+ * Get schedule configuration from configs
  */
 export async function getScheduleConfig(tenantId: string = DEFAULT_TENANT_ID): Promise<ScheduleConfig> {
   try {
@@ -84,7 +84,7 @@ export async function getScheduleConfig(tenantId: string = DEFAULT_TENANT_ID): P
 }
 
 /**
- * Get shift rules from tenant_configs
+ * Get shift rules from configs
  */
 export async function getShiftRules(tenantId: string = DEFAULT_TENANT_ID): Promise<ShiftRule[]> {
   try {
@@ -107,7 +107,7 @@ export async function getShiftRules(tenantId: string = DEFAULT_TENANT_ID): Promi
 }
 
 /**
- * Get performance thresholds from tenant_configs
+ * Get performance thresholds from configs
  */
 export async function getPerformanceThresholds(tenantId: string = DEFAULT_TENANT_ID): Promise<PerformanceThresholds> {
   try {
@@ -130,7 +130,7 @@ export async function getPerformanceThresholds(tenantId: string = DEFAULT_TENANT
 }
 
 /**
- * Save schedule configuration to tenant_configs
+ * Save schedule configuration to configs
  */
 export async function saveScheduleConfig(config: ScheduleConfig, tenantId: string = DEFAULT_TENANT_ID): Promise<void> {
   await db.insert(configs)
@@ -150,7 +150,7 @@ export async function saveScheduleConfig(config: ScheduleConfig, tenantId: strin
 }
 
 /**
- * Save shift rules to tenant_configs
+ * Save shift rules to configs
  */
 export async function saveShiftRules(rules: ShiftRule[], tenantId: string = DEFAULT_TENANT_ID): Promise<void> {
   await db.insert(configs)
@@ -170,7 +170,7 @@ export async function saveShiftRules(rules: ShiftRule[], tenantId: string = DEFA
 }
 
 /**
- * Save performance thresholds to tenant_configs
+ * Save performance thresholds to configs
  */
 export async function savePerformanceThresholds(thresholds: PerformanceThresholds, tenantId: string = DEFAULT_TENANT_ID): Promise<void> {
   await db.insert(configs)

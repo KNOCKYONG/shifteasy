@@ -1,6 +1,6 @@
 /**
  * Shift Type Configuration Helper
- * Loads shift types from tenant_configs
+ * Loads shift types from configs
  */
 
 import { db } from '@/db';

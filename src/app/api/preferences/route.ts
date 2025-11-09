@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
     const { employeeId, preferences } = validationResult.data;
     const configKey = `preferences_${employeeId}`;
 
-    // 1. Update tenant_configs (legacy storage)
+    // 1. Update configs (primary storage)
     const existing = await db.select()
       .from(configs)
       .where(and(

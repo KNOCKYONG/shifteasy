@@ -1,6 +1,6 @@
 /**
  * Schedule-related constants (UI only)
- * Business logic configurations moved to tenant_configs
+ * Business logic configurations moved to configs
  * See: src/lib/config/schedule-config.ts
  */
 
