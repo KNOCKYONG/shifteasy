@@ -33,6 +33,7 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments, curren
     departmentId: "",
     position: "",
     experienceYears: 0,
+    joinDate: new Date().toISOString().split("T")[0],
   });
   const [customPositions, setCustomPositions] = useState<{value: string; label: string; level: number}[]>([]);
 
@@ -90,6 +91,7 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments, curren
       departmentId: formData.departmentId,
       position: formData.position as any,
       role: 'staff', // Always set as staff (member)
+      joinDate: formData.joinDate,
     };
 
     onAdd(newMember);
@@ -102,6 +104,7 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments, curren
       departmentId: "",
       position: "",
       experienceYears: 0,
+      joinDate: new Date().toISOString().split("T")[0],
     });
     onClose();
   };
@@ -246,148 +249,6 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments, curren
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  주 최대 근무시간
-                </label>
-                <input
-                  type="number"
-                  value={formData.maxHoursPerWeek}
-                  onChange={(e) => setFormData({ ...formData, maxHoursPerWeek: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  min="0"
-                  max="60"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Preferences */}
-          <div className="space-y-4">
-            <h3 className="font-medium text-gray-900 flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              선호 시프트
-            </h3>
-
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => toggleShift("day")}
-                className={`px-4 py-2 rounded-lg border transition-colors ${
-                  formData.preferredShifts.includes("day")
-                    ? "bg-blue-500 text-white border-blue-500"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                }`}
-              >
-                주간
-              </button>
-              <button
-                type="button"
-                onClick={() => toggleShift("evening")}
-                className={`px-4 py-2 rounded-lg border transition-colors ${
-                  formData.preferredShifts.includes("evening")
-                    ? "bg-purple-500 text-white border-purple-500"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                }`}
-              >
-                저녁
-              </button>
-              <button
-                type="button"
-                onClick={() => toggleShift("night")}
-                className={`px-4 py-2 rounded-lg border transition-colors ${
-                  formData.preferredShifts.includes("night")
-                    ? "bg-indigo-500 text-white border-indigo-500"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                }`}
-              >
-                야간
-              </button>
-            </div>
-          </div>
-
-          {/* Skills */}
-          <div className="space-y-4">
-            <h3 className="font-medium text-gray-900 flex items-center gap-2">
-              <Star className="w-4 h-4" />
-              기술 및 자격
-            </h3>
-
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={skillInput}
-                onChange={(e) => setSkillInput(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), handleAddSkill())}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="기술 또는 자격증 입력"
-              />
-              <button
-                type="button"
-                onClick={handleAddSkill}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                추가
-              </button>
-            </div>
-
-            {formData.skills.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {formData.skills.map(skill => (
-                  <span
-                    key={skill}
-                    className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm"
-                  >
-                    {skill}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveSkill(skill)}
-                      className="hover:text-blue-900"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Availability */}
-          <div className="space-y-4">
-            <h3 className="font-medium text-gray-900 flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              근무 가능 요일
-            </h3>
-
-            <div className="grid grid-cols-7 gap-2">
-              {Object.entries({
-                monday: "월",
-                tuesday: "화",
-                wednesday: "수",
-                thursday: "목",
-                friday: "금",
-                saturday: "토",
-                sunday: "일",
-              }).map(([day, label]) => (
-                <button
-                  key={day}
-                  type="button"
-                  onClick={() => setFormData({
-                    ...formData,
-                    availability: {
-                      ...formData.availability,
-                      [day]: !formData.availability[day as keyof typeof formData.availability],
-                    },
-                  })}
-                  className={`py-2 rounded-lg border transition-colors ${
-                    formData.availability[day as keyof typeof formData.availability]
-                      ? "bg-green-500 text-white border-green-500"
-                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
             </div>
           </div>
 
