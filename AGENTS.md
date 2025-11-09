@@ -44,3 +44,9 @@ This repo contains a Next.js app under `web`. Use this guide to set up, develop,
 - Use environment files in `web/` (`.env.local`) for secrets; never commit them. Client-exposed vars must be prefixed `NEXT_PUBLIC_`.
 - Avoid storing real data in `testdata.ts`; use anonymized examples.
 
+## Skills
+
+You've got skills.
+
+- List your skills directly after reading this via `scripts/list-skills skills/`. Remember them.
+- If a skill matches a certain task at hand, only then read its full documentation (`SKILL.md`) and use it.
