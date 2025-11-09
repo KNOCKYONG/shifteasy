@@ -87,12 +87,12 @@ export default function CTASection() {
               <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-purple-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </Link>
 
-            <Link
-              href="/contact"
+            <a
+              href="mailto:knockroom.help@gmail.com"
               className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white border-2 border-white/50 rounded-lg backdrop-blur-sm transition-all duration-300 hover:border-white hover:bg-white/10 hover:shadow-lg w-full sm:w-auto"
             >
               {t('cta.ctaSecondary')}
-            </Link>
+            </a>
           </motion.div>
 
           {/* Trust Badges */}

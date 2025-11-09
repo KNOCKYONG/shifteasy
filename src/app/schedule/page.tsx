@@ -786,6 +786,19 @@ function SchedulePageContent() {
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
 
+  // Load current user's preferences for display
+  const { data: currentUserPreferencesRaw } = api.preferences.get.useQuery(
+    { staffId: currentUser.dbUser?.id || '' },
+    {
+      enabled: !!currentUser.dbUser?.id,
+      staleTime: 5 * 60 * 1000, // 5분 동안 fresh 유지
+      refetchOnWindowFocus: false,
+    }
+  );
+
+  // Type-cast the preferences data
+  const currentUserPreferences = currentUserPreferencesRaw as ComprehensivePreferences | null;
+
   // Transform users data to match expected format
   // 전체 멤버 리스트 (필터링 없음 - 직원 선호사항 탭에서 사용)
   const allMembers = React.useMemo(() => {
@@ -2623,15 +2636,26 @@ function SchedulePageContent() {
           <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4">
             <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">선호 시프트</p>
-              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">주간</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">미설정</p>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">주말 근무</p>
-              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">상관없음</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
+                {(() => {
+                  const weekendPref = currentUserPreferences?.workPreferences?.weekendPreference;
+                  const prefMap: Record<string, string> = { prefer: '선호', avoid: '회피', neutral: '상관없음' };
+                  return weekendPref ? (prefMap[weekendPref] || weekendPref) : '상관없음';
+                })()}
+              </p>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">최대 연속</p>
-              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">5일</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
+                {(() => {
+                  const maxConsecutive = currentUserPreferences?.workPreferences?.maxConsecutiveDays;
+                  return maxConsecutive ? `${maxConsecutive}일` : '5일';
+                })()}
+              </p>
             </div>
           </div>
 

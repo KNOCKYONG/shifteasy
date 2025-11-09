@@ -102,16 +102,29 @@ export default function PricingSection() {
                   </ul>
 
                   {/* CTA Button */}
-                  <Link
-                    href={plan === 'enterprise' ? '/contact' : '/sign-up'}
-                    className={`block w-full text-center px-6 py-3 rounded-lg font-semibold transition-all duration-300 ${
-                      isPopular
-                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 hover:shadow-lg hover:scale-105'
-                        : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-                    }`}
-                  >
-                    {t(`pricing.${plan}.cta`)}
-                  </Link>
+                  {plan === 'enterprise' ? (
+                    <a
+                      href="mailto:knockroom.help@gmail.com"
+                      className={`block w-full text-center px-6 py-3 rounded-lg font-semibold transition-all duration-300 ${
+                        isPopular
+                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 hover:shadow-lg hover:scale-105'
+                          : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                      }`}
+                    >
+                      {t(`pricing.${plan}.cta`)}
+                    </a>
+                  ) : (
+                    <Link
+                      href="/sign-up"
+                      className={`block w-full text-center px-6 py-3 rounded-lg font-semibold transition-all duration-300 ${
+                        isPopular
+                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 hover:shadow-lg hover:scale-105'
+                          : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                      }`}
+                    >
+                      {t(`pricing.${plan}.cta`)}
+                    </Link>
+                  )}
                 </div>
               </motion.div>
             );
