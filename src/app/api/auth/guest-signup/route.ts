@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { tenants, departments, users } from '@/db/schema/tenants';
 import { clerkClient } from '@clerk/nextjs/server';
+import { eq, sql } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,8 @@ export const dynamic = 'force-dynamic';
  * - manager 권한으로 게스트 계정 생성
  * - tenant_id와 department_id는 guest_ 접두사 + 랜덤 문자열
  * - position은 HN으로 설정
+ * - employeeId는 GUEST_0000001 형식으로 자동 생성
+ * - 14일 Pro 플랜 무료 체험 제공
  */
 export async function POST(request: NextRequest) {
   try {
@@ -27,6 +30,10 @@ export async function POST(request: NextRequest) {
     const randomString = Math.random().toString(36).substring(2, 10);
     const guestPrefix = `guest_${randomString}`;
 
+    // 14일 후 날짜 계산
+    const planExpiresAt = new Date();
+    planExpiresAt.setDate(planExpiresAt.getDate() + 14);
+
     // 1. Clerk에 사용자 생성
     const clerk = await clerkClient();
     const clerkUser = await clerk.users.createUser({
@@ -39,21 +46,23 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // 2. Tenant 생성
+    // 2. Tenant 생성 (14일 Pro 플랜)
     const [tenant] = await db
       .insert(tenants)
       .values({
         name: `Guest Workspace - ${name}`,
         slug: guestPrefix,
         secretCode: guestPrefix,
-        plan: 'free',
+        plan: 'pro',
         settings: {
           timezone: 'Asia/Seoul',
           locale: 'ko',
-          maxUsers: 10,
-          maxDepartments: 3,
-          features: [],
+          maxUsers: 50, // Pro 플랜 제한
+          maxDepartments: 10, // Pro 플랜 제한
+          features: ['ai-scheduling', 'analytics', 'priority-support'], // Pro 플랜 기능
           signupEnabled: false, // 게스트 계정은 추가 회원가입 불가
+          planExpiresAt: planExpiresAt.toISOString(), // 14일 후 만료
+          isGuestTrial: true, // 게스트 체험판 표시
         },
       })
       .returning();
@@ -68,12 +77,30 @@ export async function POST(request: NextRequest) {
         secretCode: guestPrefix,
         settings: {
           minStaff: 1,
-          maxStaff: 10,
+          maxStaff: 50, // Pro 플랜 제한
         },
       })
       .returning();
 
-    // 4. User 생성 (데이터베이스에)
+    // 4. employeeId 생성 (GUEST_0000001 형식)
+    // 현재 최대 GUEST_ employeeId 조회
+    const maxEmployeeIdResult = await db
+      .select({ employeeId: users.employeeId })
+      .from(users)
+      .where(sql`${users.employeeId} LIKE 'GUEST_%'`)
+      .orderBy(sql`${users.employeeId} DESC`)
+      .limit(1);
+
+    let nextNumber = 1;
+    if (maxEmployeeIdResult.length > 0 && maxEmployeeIdResult[0].employeeId) {
+      // GUEST_0000001 형식에서 숫자 부분 추출
+      const currentNumber = parseInt(maxEmployeeIdResult[0].employeeId.replace('GUEST_', ''), 10);
+      nextNumber = currentNumber + 1;
+    }
+
+    const employeeId = `GUEST_${String(nextNumber).padStart(7, '0')}`;
+
+    // 5. User 생성 (데이터베이스에)
     const [user] = await db
       .insert(users)
       .values({
@@ -82,6 +109,7 @@ export async function POST(request: NextRequest) {
         clerkUserId: clerkUser.id,
         email: email,
         name: name,
+        employeeId: employeeId,
         role: 'manager',
         position: 'HN',
         status: 'active',
@@ -97,15 +125,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: true,
-        message: '게스트 계정이 생성되었습니다.',
+        message: '게스트 계정이 생성되었습니다. 14일간 Pro 플랜을 무료로 사용할 수 있습니다.',
         user: {
           id: user.id,
           email: user.email,
           name: user.name,
+          employeeId: user.employeeId,
           role: user.role,
           position: user.position,
           tenantId: user.tenantId,
           departmentId: user.departmentId,
+        },
+        trial: {
+          plan: 'pro',
+          expiresAt: planExpiresAt.toISOString(),
+          daysRemaining: 14,
         },
       },
       { status: 201 }

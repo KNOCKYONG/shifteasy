@@ -1,10 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useInView } from 'react-intersection-observer';
 import { Check, Star } from 'lucide-react';
 import Link from 'next/link';
+import ContactModal from './ContactModal';
 
 const plans = ['starter', 'professional', 'enterprise'];
 
@@ -14,6 +16,7 @@ export default function PricingSection() {
     triggerOnce: true,
     threshold: 0.2,
   });
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
 
   return (
     <section ref={ref} className="py-20 lg:py-32 bg-white">
@@ -103,8 +106,8 @@ export default function PricingSection() {
 
                   {/* CTA Button */}
                   {plan === 'enterprise' ? (
-                    <a
-                      href="mailto:knockroom.help@gmail.com"
+                    <button
+                      onClick={() => setIsContactModalOpen(true)}
                       className={`block w-full text-center px-6 py-3 rounded-lg font-semibold transition-all duration-300 ${
                         isPopular
                           ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 hover:shadow-lg hover:scale-105'
@@ -112,7 +115,7 @@ export default function PricingSection() {
                       }`}
                     >
                       {t(`pricing.${plan}.cta`)}
-                    </a>
+                    </button>
                   ) : (
                     <Link
                       href="/sign-up"
@@ -140,6 +143,12 @@ export default function PricingSection() {
         >
           <p>모든 플랜은 14일 무료 체험이 가능합니다 · 언제든지 취소 가능</p>
         </motion.div>
+
+        {/* Contact Modal */}
+        <ContactModal
+          isOpen={isContactModalOpen}
+          onClose={() => setIsContactModalOpen(false)}
+        />
       </div>
     </section>
   );

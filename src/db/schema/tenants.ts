@@ -16,6 +16,8 @@ export const tenants = pgTable('tenants', {
     maxDepartments?: number;
     features?: string[];
     signupEnabled?: boolean;
+    planExpiresAt?: string; // 플랜 만료일 (ISO 8601 형식)
+    isGuestTrial?: boolean; // 게스트 체험판 여부
   }>().default({
     timezone: 'Asia/Seoul',
     locale: 'ko',

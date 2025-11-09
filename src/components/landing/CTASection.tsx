@@ -1,10 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useInView } from 'react-intersection-observer';
 import { ArrowRight, Shield, Zap, Users, Globe } from 'lucide-react';
 import Link from 'next/link';
+import ContactModal from './ContactModal';
 
 const trustBadges = [
   { key: 'trustBadge1', icon: Users },
@@ -19,6 +21,7 @@ export default function CTASection() {
     triggerOnce: true,
     threshold: 0.2,
   });
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
 
   return (
     <section ref={ref} className="relative py-20 lg:py-32 overflow-hidden">
@@ -87,13 +90,19 @@ export default function CTASection() {
               <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-purple-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </Link>
 
-            <a
-              href="mailto:knockroom.help@gmail.com"
+            <button
+              onClick={() => setIsContactModalOpen(true)}
               className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white border-2 border-white/50 rounded-lg backdrop-blur-sm transition-all duration-300 hover:border-white hover:bg-white/10 hover:shadow-lg w-full sm:w-auto"
             >
               {t('cta.ctaSecondary')}
-            </a>
+            </button>
           </motion.div>
+
+          {/* Contact Modal */}
+          <ContactModal
+            isOpen={isContactModalOpen}
+            onClose={() => setIsContactModalOpen(false)}
+          />
 
           {/* Trust Badges */}
           <motion.div
