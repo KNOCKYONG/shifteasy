@@ -1,0 +1,39 @@
+# AI 스케줄 생성 설계안
+
+## 1. 데이터 수집 및 전처리
+- `special_requests`, `nurse_preferences`, `department_patterns`, `holidays`, `shifts`, `users` 등을 테넌트·부서 기준으로 로드하고, 한 달 동안의 토/일/공휴일 목록을 생성한다.
+- 날짜/직원별로 필요한 휴무 횟수를 계산해 후속 검증에 사용한다.
+- 모든 소스 데이터를 메모리에 캐시하거나 Map/Set 구조로 정규화해 빠르게 조회할 수 있도록 준비한다.
+
+## 2. 우선순위 기반 배정 엔진
+우선순위는 “특별 요청 → 개인 선호 → 부서 패턴” 순서로 적용하며, 앞선 단계의 결정은 뒤 단계에서 덮어쓰지 않는다.
+
+### 2.1 특별 요청(`special_requests`)
+- 요청 유형(오프/특정 시프트)을 확인해 해당 날짜의 슬롯을 먼저 채운다.
+- 충돌(인력 부족 등)로 수용 불가할 경우 `{employeeId, date, rule: 'special_request', reason}` 형태로 `violations`에 기록하고 나중에 보고한다.
+
+### 2.2 개인 선호(`nurse_preferences`)
+- `preferred_patterns`를 기준으로 남은 슬롯에 우선 배정하고, `avoid_patterns`에 해당하는 시프트는 피한다.
+- 선호를 지킬 수 없으면 같은 형식의 violation을 남긴다.
+
+### 2.3 부서 패턴(`department_patterns`)
+- `required` 규칙(예: 특정 시프트 필수 인원)과 `patterns`(근무 순환 규칙 등)를 적용해 남은 빈 슬롯을 채운다.
+- 충돌 시 fallback 전략(대체 시프트, 스왑 등)을 정의하고, 최종적으로 불가하면 violation으로 남긴다.
+
+## 3. 휴무 보장 및 잔여 휴무 기록
+- 해당 월의 토/일/공휴일에 대해 직원별로 보장해야 하는 오프 일수를 계산한다.
+- 배정 완료 후 실제 오프 일수와 비교해 부족분은 `off_balance_ledger`에 `remainingOffDays`로 적립한다.  
+  - 저장 필드 예시: `tenantId`, `nurseId`, `year`, `month`, `periodStart`, `periodEnd`, `guaranteedOffDays`, `actualOffDays`, `remainingOffDays`, `scheduleId`.
+
+## 4. 위반 사유 기록 체계
+- 각 단계에서 위반이 발생하면 `{employeeId, date, ruleType, reason, priority}` 구조로 `metadata.violations`에 누적한다.
+- 스케줄 생성 응답과 감사 로그(`createAuditLog`)에도 동일 정보를 남겨 나중에 UI/리포트에서 근거를 확인할 수 있게 한다.
+
+## 5. 후처리 및 확정 흐름
+- TRPC `schedule.generate`는 위 로직을 실행해 `draft` 스케줄과 메타데이터(`assignments`, `violations`, `generationContext`)를 저장한다.
+- 확정 시(`schedule.publish` 또는 `/api/schedule/confirm`) `metadata.assignments`를 사용해 `off_balance_ledger`를 실제로 갱신하고, 필요하면 직원 알림을 보낸다.
+
+## 6. 기술적 고려 사항
+- **알고리즘**: 제약 충족을 위한 백트래킹 + 우선순위 큐 조합 또는 선형계획/ILP 도입을 고려한다. 우선순위별 가중치를 둬 “최소 위반” 해를 탐색한다.
+- **성능**: 부서 단위로 입력을 분할하고, 날짜/시프트 별로 인덱싱된 구조를 사용해 O(1)에 가까운 탐색을 노린다.
+- **테스트**: 규칙별 단위 테스트와 통합 시나리오(특별 요청 충돌, 휴무 부족, 패턴 충돌 등)를 마련해 회귀를 방지한다.
