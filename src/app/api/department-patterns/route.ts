@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentUser } from '@/lib/auth';
 import { db } from '@/db';
-import { teamPatterns, configs, departments } from '@/db/schema';
+import { departmentPatterns, configs, departments } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { validateTeamPattern } from '@/lib/types/team-pattern';
 import { getShiftTypes } from '@/lib/config/shiftTypes';
@@ -10,7 +10,7 @@ import { getShiftTypes } from '@/lib/config/shiftTypes';
 export const dynamic = 'force-dynamic';
 
 // 요청 검증 스키마
-const CreateTeamPatternSchema = z.object({
+const CreateDepartmentPatternSchema = z.object({
   departmentId: z.string().uuid(),
   requiredStaffDay: z.number().min(1),
   requiredStaffEvening: z.number().min(1),
@@ -20,7 +20,7 @@ const CreateTeamPatternSchema = z.object({
   totalMembers: z.number().min(3),
 });
 
-const UpdateTeamPatternSchema = z.object({
+const UpdateDepartmentPatternSchema = z.object({
   requiredStaffDay: z.number().min(1).optional(),
   requiredStaffEvening: z.number().min(1).optional(),
   requiredStaffNight: z.number().min(1).optional(),
@@ -30,7 +30,7 @@ const UpdateTeamPatternSchema = z.object({
   isActive: z.boolean().transform(val => val ? 'true' : 'false').optional(),
 });
 
-// GET: Team Pattern 조회
+// GET: Department Pattern 조회
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const departmentId = searchParams.get('departmentId');
@@ -65,16 +65,16 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 부서의 Team Pattern 조회
-    console.log('[GET] Querying team patterns for departmentId:', departmentId);
+    // 부서의 Department Pattern 조회
+    console.log('[GET] Querying department patterns for departmentId:', departmentId);
 
     const patterns = await db
       .select()
-      .from(teamPatterns)
+      .from(departmentPatterns)
       .where(
         and(
-          eq(teamPatterns.departmentId, departmentId),
-          eq(teamPatterns.isActive, 'true')
+          eq(departmentPatterns.departmentId, departmentId),
+          eq(departmentPatterns.isActive, 'true')
         )
       );
 
@@ -113,7 +113,7 @@ export async function GET(request: NextRequest) {
       shiftTypes // shift_types 추가
     });
   } catch (error) {
-    console.error('Error fetching team pattern:', error);
+    console.error('Error fetching department pattern:', error);
     console.error('Error details:', {
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
@@ -121,7 +121,7 @@ export async function GET(request: NextRequest) {
     });
     return NextResponse.json(
       {
-        error: 'Failed to fetch team pattern',
+        error: 'Failed to fetch department pattern',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
@@ -129,10 +129,10 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST: Team Pattern 생성
+// POST: Department Pattern 생성
 export async function POST(request: NextRequest) {
   try {
-    console.log('[POST] Creating team pattern...');
+    console.log('[POST] Creating department pattern...');
 
     const user = await getCurrentUser();
     if (!user) {
@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
     // 권한 체크 (관리자 또는 매니저만)
     if (!['admin', 'manager'].includes(user.role)) {
       return NextResponse.json(
-        { error: '권한이 없습니다. Team Pattern 설정은 관리자 또는 매니저만 가능합니다.' },
+        { error: '권한이 없습니다. Department Pattern 설정은 관리자 또는 매니저만 가능합니다.' },
         { status: 403 }
       );
     }
@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     console.log('[POST] Request body:', JSON.stringify(body, null, 2));
 
-    const validationResult = CreateTeamPatternSchema.safeParse(body);
+    const validationResult = CreateDepartmentPatternSchema.safeParse(body);
 
     if (!validationResult.success) {
       console.log('[POST] Validation failed:', validationResult.error.issues);
@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
     // 매니저는 자신의 부서만 수정 가능
     if (user.role === 'manager' && user.departmentId !== data.departmentId) {
       return NextResponse.json(
-        { error: '다른 부서의 Team Pattern을 설정할 수 없습니다.' },
+        { error: '다른 부서의 Department Pattern을 설정할 수 없습니다.' },
         { status: 403 }
       );
     }
@@ -210,8 +210,8 @@ export async function POST(request: NextRequest) {
     console.log('[POST] Checking existing patterns...');
     const existing = await db
       .select()
-      .from(teamPatterns)
-      .where(eq(teamPatterns.departmentId, data.departmentId));
+      .from(departmentPatterns)
+      .where(eq(departmentPatterns.departmentId, data.departmentId));
 
     console.log('[POST] Found existing patterns:', existing.length);
 
@@ -219,15 +219,15 @@ export async function POST(request: NextRequest) {
       // 기존 패턴 비활성화
       console.log('[POST] Deactivating existing patterns...');
       await db
-        .update(teamPatterns)
+        .update(departmentPatterns)
         .set({ isActive: 'false', updatedAt: new Date() })
-        .where(eq(teamPatterns.departmentId, data.departmentId));
+        .where(eq(departmentPatterns.departmentId, data.departmentId));
     }
 
     // 새 패턴 생성
     console.log('[POST] Inserting new pattern...');
     const newPattern = await db
-      .insert(teamPatterns)
+      .insert(departmentPatterns)
       .values({
         ...data,
         isActive: 'true',
@@ -237,14 +237,14 @@ export async function POST(request: NextRequest) {
     console.log('[POST] Pattern created successfully');
     return NextResponse.json({ pattern: newPattern[0] }, { status: 201 });
   } catch (error) {
-    console.error('Error creating team pattern:', error);
+    console.error('Error creating department pattern:', error);
     console.error('Error details:', {
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
     });
     return NextResponse.json(
       {
-        error: 'Failed to create team pattern',
+        error: 'Failed to create department pattern',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
@@ -252,7 +252,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT: Team Pattern 수정
+// PUT: Department Pattern 수정
 export async function PUT(request: NextRequest) {
   try {
     const user = await getCurrentUser();
@@ -263,7 +263,7 @@ export async function PUT(request: NextRequest) {
     // 권한 체크 (관리자 또는 매니저만)
     if (!['admin', 'manager'].includes(user.role)) {
       return NextResponse.json(
-        { error: '권한이 없습니다. Team Pattern 수정은 관리자 또는 매니저만 가능합니다.' },
+        { error: '권한이 없습니다. Department Pattern 수정은 관리자 또는 매니저만 가능합니다.' },
         { status: 403 }
       );
     }
@@ -279,7 +279,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const validationResult = UpdateTeamPatternSchema.safeParse(body);
+    const validationResult = UpdateDepartmentPatternSchema.safeParse(body);
 
     if (!validationResult.success) {
       return NextResponse.json(
@@ -293,8 +293,8 @@ export async function PUT(request: NextRequest) {
     // 패턴 조회
     const patterns = await db
       .select()
-      .from(teamPatterns)
-      .where(eq(teamPatterns.id, patternId));
+      .from(departmentPatterns)
+      .where(eq(departmentPatterns.id, patternId));
 
     if (patterns.length === 0) {
       return NextResponse.json(
@@ -308,7 +308,7 @@ export async function PUT(request: NextRequest) {
     // 매니저는 자신의 부서만 수정 가능
     if (user.role === 'manager' && user.departmentId !== pattern.departmentId) {
       return NextResponse.json(
-        { error: '다른 부서의 Team Pattern을 수정할 수 없습니다.' },
+        { error: '다른 부서의 Department Pattern을 수정할 수 없습니다.' },
         { status: 403 }
       );
     }
@@ -350,25 +350,25 @@ export async function PUT(request: NextRequest) {
 
     // 패턴 업데이트
     const updated = await db
-      .update(teamPatterns)
+      .update(departmentPatterns)
       .set({
         ...data,
         updatedAt: new Date(),
       })
-      .where(eq(teamPatterns.id, patternId))
+      .where(eq(departmentPatterns.id, patternId))
       .returning();
 
     return NextResponse.json({ pattern: updated[0] });
   } catch (error) {
-    console.error('Error updating team pattern:', error);
+    console.error('Error updating department pattern:', error);
     return NextResponse.json(
-      { error: 'Failed to update team pattern' },
+      { error: 'Failed to update department pattern' },
       { status: 500 }
     );
   }
 }
 
-// DELETE: Team Pattern 삭제
+// DELETE: Department Pattern 삭제
 export async function DELETE(request: NextRequest) {
   try {
     const user = await getCurrentUser();
@@ -379,7 +379,7 @@ export async function DELETE(request: NextRequest) {
     // 권한 체크 (관리자만)
     if (user.role !== 'admin') {
       return NextResponse.json(
-        { error: '권한이 없습니다. Team Pattern 삭제는 관리자만 가능합니다.' },
+        { error: '권한이 없습니다. Department Pattern 삭제는 관리자만 가능합니다.' },
         { status: 403 }
       );
     }
@@ -396,15 +396,15 @@ export async function DELETE(request: NextRequest) {
 
     // 소프트 삭제 (비활성화)
     await db
-      .update(teamPatterns)
+      .update(departmentPatterns)
       .set({ isActive: 'false', updatedAt: new Date() })
-      .where(eq(teamPatterns.id, patternId));
+      .where(eq(departmentPatterns.id, patternId));
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting team pattern:', error);
+    console.error('Error deleting department pattern:', error);
     return NextResponse.json(
-      { error: 'Failed to delete team pattern' },
+      { error: 'Failed to delete department pattern' },
       { status: 500 }
     );
   }

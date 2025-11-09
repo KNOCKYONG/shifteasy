@@ -95,7 +95,7 @@ export function TeamPatternPanel({
 
     setLoading(true);
     try {
-      const response = await fetch(`/api/team-patterns?departmentId=${departmentId}`);
+      const response = await fetch(`/api/department-patterns?departmentId=${departmentId}`);
       const data = await response.json();
 
       if (data.pattern) {
@@ -376,8 +376,8 @@ export function TeamPatternPanel({
       // POST: 새 패턴 생성 - 필요한 필드만 전송
       // PUT: 기존 패턴 수정 - id를 쿼리 파라미터로 전송
       const url = pattern.id
-        ? `/api/team-patterns?id=${pattern.id}`
-        : '/api/team-patterns';
+        ? `/api/department-patterns?id=${pattern.id}`
+        : '/api/department-patterns';
 
       const body = pattern.id
         ? {

@@ -50,8 +50,8 @@ export function NavigationHeader() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   const teamSubMenuItems: SubMenuItem[] = [
-    { label: '팀 패턴', value: 'pattern' },
-    { label: '팀원 관리', value: 'management' },
+    { label: '부서 패턴', value: 'pattern' },
+    { label: '부서원 관리', value: 'management' },
     { label: '팀 배정', value: 'assignment' },
   ];
 
