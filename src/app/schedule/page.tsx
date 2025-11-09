@@ -128,7 +128,7 @@ function SchedulePageContent() {
   const dateParam = searchParams.get('date');
   const monthParam = searchParams.get('month');
   const viewParam = parseViewParam(searchParams.get('view'));
-  const defaultView: ScheduleView = !canViewStaffPreferences ? 'today' : 'schedule';
+  const defaultView: ScheduleView = 'today';
   const initialActiveView: ScheduleView = (() => {
     if (!viewParam) return defaultView;
     if (viewParam === 'preferences' && !canViewStaffPreferences) {
@@ -331,12 +331,14 @@ function SchedulePageContent() {
         shiftType: a.shiftType || 'custom',
       }));
 
-      setSchedule(convertedAssignments);
-      setOriginalSchedule(convertedAssignments);
-      setIsConfirmed(currentMonthSchedule.status === 'published'); // Only confirmed if published
-      setLoadedScheduleId(currentMonthSchedule.id);
-      lastLoadedRef.current = { id: currentMonthSchedule.id, updatedAt: currentUpdatedAt };
-      console.log(`✅ Loaded ${convertedAssignments.length} assignments from ${currentMonthSchedule.status} schedule ${currentMonthSchedule.id} (updated: ${currentMonthSchedule.updatedAt})`);
+      React.startTransition(() => {
+        setSchedule(convertedAssignments);
+        setOriginalSchedule(convertedAssignments);
+        setIsConfirmed(currentMonthSchedule.status === 'published'); // Only confirmed if published
+        setLoadedScheduleId(currentMonthSchedule.id);
+        lastLoadedRef.current = { id: currentMonthSchedule.id, updatedAt: currentUpdatedAt };
+        console.log(`✅ Loaded ${convertedAssignments.length} assignments from ${currentMonthSchedule.status} schedule ${currentMonthSchedule.id} (updated: ${currentMonthSchedule.updatedAt})`);
+      });
     }
   }, [savedSchedules, monthStart, canManageSchedules]);
 
