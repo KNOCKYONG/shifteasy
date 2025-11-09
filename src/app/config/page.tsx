@@ -676,7 +676,7 @@ function ConfigPageContent() {
         {/* Action Buttons */}
         <div className="mt-8 flex justify-between">
           <button
-            onClick={() => router.push("/team")}
+            onClick={() => router.push("/department")}
             className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             {t('actions.previousStep', { ns: 'config' })}

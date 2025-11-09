@@ -316,8 +316,8 @@ export function NavigationHeader() {
                     return null;
                   }
 
-                  // '팀 관리' 항목에 드롭다운 추가
-                  if (item.href === '/team') {
+                  // '부서 관리' 항목에 드롭다운 추가
+                  if (item.href === '/department') {
                     return (
                       <div key={item.href} className="relative team-dropdown">
                         <button
@@ -332,7 +332,7 @@ export function NavigationHeader() {
                           <ChevronDown className={`w-4 h-4 transition-transform ${showTeamDropdown ? 'rotate-180' : ''}`} />
                         </button>
 
-                        {/* Team Dropdown Menu */}
+                        {/* Department Dropdown Menu */}
                         {showTeamDropdown && (
                           <div className="absolute left-0 top-full mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-50 overflow-hidden">
                             {teamSubMenuItems.map((subItem) => (
@@ -342,7 +342,7 @@ export function NavigationHeader() {
                                   if (subItem.href) {
                                     router.push(subItem.href);
                                   } else {
-                                    router.push(`/team?tab=${subItem.value}`);
+                                    router.push(`/department?tab=${subItem.value}`);
                                   }
                                   setShowTeamDropdown(false);
                                 }}
@@ -578,8 +578,8 @@ export function NavigationHeader() {
               return null;
             }
 
-            // '팀 관리' 항목에 서브메뉴 추가
-            if (item.href === '/team') {
+            // '부서 관리' 항목에 서브메뉴 추가
+            if (item.href === '/department') {
               return (
                 <div key={item.href}>
                   <button
@@ -594,7 +594,7 @@ export function NavigationHeader() {
                     <ChevronDown className={`w-4 h-4 transition-transform ${showTeamDropdown ? 'rotate-180' : ''}`} />
                   </button>
 
-                  {/* Mobile Team Submenu */}
+                  {/* Mobile Department Submenu */}
                   {showTeamDropdown && (
                     <div className="ml-4 mt-1 space-y-1">
                       {teamSubMenuItems.map((subItem) => (
@@ -604,7 +604,7 @@ export function NavigationHeader() {
                             if (subItem.href) {
                               router.push(subItem.href);
                             } else {
-                              router.push(`/team?tab=${subItem.value}`);
+                              router.push(`/department?tab=${subItem.value}`);
                             }
                             setMobileMenuOpen(false);
                             setShowTeamDropdown(false);

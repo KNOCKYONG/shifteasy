@@ -77,11 +77,11 @@ export function AdminDashboard() {
       href: '/schedule',
     },
     {
-      title: '팀원 관리',
-      description: '팀원 정보 및 선호도 관리',
+      title: '부서원 관리',
+      description: '부서원 정보 및 선호도 관리',
       icon: Users,
       color: 'bg-green-500',
-      href: '/team',
+      href: '/department',
     },
     {
       title: '요청 처리',

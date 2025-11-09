@@ -211,5 +211,99 @@ i18n: Update [language] translations
 i18n: Fix missing translation in [component]
 ```
 
+## 대시보드 개발 가이드라인
+
+### 대시보드 컴포넌트 구조
+- **위치**: `src/components/dashboard/AdminDashboard.tsx`
+- **데이터 소스**: tRPC `api.schedule.getDashboardData`
+- **백엔드**: `src/server/api/routers/schedule.ts`
+
+### 네비게이션 패턴
+
+#### ✅ 올바른 패턴 (Link + div)
+```tsx
+<Link href="/schedule" className="block">
+  <div className="p-4 bg-white rounded-lg border hover:shadow-lg cursor-pointer">
+    {/* 카드 내용 */}
+  </div>
+</Link>
+```
+
+#### ❌ 잘못된 패턴 (Link + Card 중첩)
+```tsx
+<Link href="/schedule">
+  <Card className="p-4 hover:shadow-lg cursor-pointer">
+    {/* 카드 내용 */}
+  </Card>
+</Link>
+```
+
+**이유**: `<Link><Card>` 중첩 구조는 HTML 시맨틱 오류를 발생시켜 클릭 이벤트가 차단됩니다.
+
+### 데이터 집계 로직 주의사항
+
+#### 근무자 카운트 (`workingToday`)
+
+**반드시 제외해야 할 시프트 타입**:
+- `'O'` - 휴무 (OFF day)
+- `'OFF'` - 휴무 (영문)
+- `'off'` - 휴무 (소문자)
+- 연차, 휴가, 병가 등 비근무 상태
+
+**올바른 필터링 로직**:
+```typescript
+const isNonWorkingShift = (assignment: any): boolean => {
+  if (!assignment.shiftId && !assignment.shiftType) return true; // 빈 배정
+
+  const nonWorkingCodes = ['off', 'O', 'OFF', 'LEAVE', 'VAC', '연차'];
+
+  return (
+    nonWorkingCodes.includes(assignment.shiftId?.toUpperCase()) ||
+    nonWorkingCodes.includes(assignment.shiftType?.toUpperCase())
+  );
+};
+
+// 사용 예시
+const workingToday = assignments.filter(assignment => {
+  const assignmentDate = new Date(assignment.date).toISOString().split('T')[0];
+  const isToday = assignmentDate === todayStr;
+  const isWorking = !isNonWorkingShift(assignment);
+  return isToday && isWorking;
+}).length;
+```
+
+### 통계 카드 추가 시 체크리스트
+
+- [ ] href 경로 정확하게 설정
+- [ ] Link 컴포넌트 직접 사용 (Card 중첩 금지)
+- [ ] 데이터 집계 로직에 비근무 타입 제외 확인
+- [ ] 로딩 상태 처리 (`isLoading` 확인)
+- [ ] 다크모드 스타일 적용
+- [ ] 호버 효과 및 커서 스타일 설정
+
+### 대시보드 성능 최적화
+
+```tsx
+// 데이터 캐싱 설정
+const { data, isLoading } = api.schedule.getDashboardData.useQuery(undefined, {
+  staleTime: 2 * 60 * 1000, // 2분 캐시
+  refetchOnWindowFocus: false, // 포커스 시 재요청 비활성화
+});
+```
+
+### 일반적인 실수와 해결 방법
+
+#### 문제 1: 클릭이 작동하지 않음
+- **원인**: Card 컴포넌트가 Link 내부에 중첩됨
+- **해결**: Link에 직접 스타일 적용하고 div 사용
+
+#### 문제 2: 잘못된 카운트
+- **원인**: OFF/연차 등 비근무 타입이 포함됨
+- **해결**: 모든 비근무 코드를 명시적으로 제외
+
+#### 문제 3: 데이터 깜빡임
+- **원인**: 캐싱 설정 누락
+- **해결**: `staleTime` 및 `refetchOnWindowFocus` 설정
+
 ## 연락처
 문의사항이나 제안사항이 있으시면 이슈를 생성해 주세요.

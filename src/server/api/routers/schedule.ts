@@ -765,10 +765,22 @@ export const scheduleRouter = createTRPCRouter({
         const assignments = metadata?.assignments || [];
         const todayStr = today.toISOString().split('T')[0];
 
+        // Helper function to identify non-working shifts
+        const isNonWorkingShift = (assignment: any): boolean => {
+          if (!assignment.shiftId && !assignment.shiftType) return true; // 빈 배정
+
+          const nonWorkingCodes = ['OFF', 'O', 'LEAVE', 'VAC', '연차'];
+
+          return (
+            nonWorkingCodes.includes(assignment.shiftId?.toUpperCase()) ||
+            nonWorkingCodes.includes(assignment.shiftType?.toUpperCase())
+          );
+        };
+
         workingToday = assignments.filter((assignment: any) => {
           const assignmentDate = new Date(assignment.date).toISOString().split('T')[0];
           const isToday = assignmentDate === todayStr;
-          const isWorking = assignment.shiftId !== 'off';
+          const isWorking = !isNonWorkingShift(assignment);
           return isToday && isWorking;
         }).length;
       }

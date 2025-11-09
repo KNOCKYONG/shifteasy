@@ -256,8 +256,8 @@ export default function StaffPreferencePage() {
             <p className="text-gray-600 mt-1">날짜별로 선호하는 근무 시간대와 선호도를 설정하세요</p>
           </div>
           <div className="flex gap-2">
-            <Link href="/team" className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-sm transition-colors">
-              ← 팀 설정으로
+            <Link href="/department" className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-sm transition-colors">
+              ← 부서 설정으로
             </Link>
             <button
               onClick={savePreferences}

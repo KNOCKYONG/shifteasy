@@ -196,7 +196,7 @@ const departments =
   }).length;
 
   const handleRemoveMember = async (id: string) => {
-    if (confirm('정말로 이 팀원을 비활성화하시겠습니까?')) {
+    if (confirm('정말로 이 부서원을 비활성화하시겠습니까?')) {
       await deactivateUserMutation.mutateAsync({ userId: id });
     }
   };
@@ -412,7 +412,7 @@ const departments =
               className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-colors text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600"
             >
               <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">팀원 추가</span>
+              <span className="hidden sm:inline">부서원 추가</span>
               <span className="sm:hidden">추가</span>
             </button>
           </div>
@@ -483,7 +483,7 @@ const departments =
                       </div>
                     ) : (
                       <div className="flex items-center gap-1 group">
-                        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{member.position || '팀원'}</p>
+                        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{member.position || '부서원'}</p>
                         {canEditPosition() && (
                           <button
                             onClick={() => handleEditPosition(member.id, member.position || '')}
