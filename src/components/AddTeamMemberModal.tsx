@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { X, User, Mail, Phone, Building, Briefcase, Calendar, Clock, Star } from "lucide-react";
+import { X, User, Mail, Phone, Building, Briefcase, Calendar, Clock, Star, Loader2 } from "lucide-react";
 
 // Type definition for team member
 interface TeamMember {
@@ -28,9 +28,10 @@ interface AddTeamMemberModalProps {
   departments: Array<{ id: string; name: string }>;
   currentUserRole?: string;
   managerDepartmentId?: string | null;
+  isLoading?: boolean;
 }
 
-export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments, currentUserRole, managerDepartmentId }: AddTeamMemberModalProps) {
+export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments, currentUserRole, managerDepartmentId, isLoading = false }: AddTeamMemberModalProps) {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -521,9 +522,11 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments, curren
             </button>
             <button
               type="submit"
-              className="px-6 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+              disabled={isLoading}
+              className="inline-flex items-center gap-2 px-6 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              팀원 추가
+              {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+              {isLoading ? '추가 중...' : '팀원 추가'}
             </button>
           </div>
         </form>

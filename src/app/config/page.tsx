@@ -7,6 +7,7 @@ import { MainLayout } from "../../components/layout/MainLayout";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { ShiftTypesTab } from "./ShiftTypesTab";
 import { api as trpc } from "@/lib/trpc/client";
+import { LoadingButton } from "@/components/ui/LoadingButton";
 
 interface ContractType {
   code: string;
@@ -219,8 +220,10 @@ function ConfigPageContent() {
       nightIntensivePaidLeaveDays: 2, // 기본값: 월 2회
     },
   });
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
+    setIsSaving(true);
     try {
       // Save all configurations to tenant_configs via API
       await Promise.all([
@@ -240,6 +243,8 @@ function ConfigPageContent() {
     } catch (error) {
       console.error('Failed to save configurations:', error);
       alert('설정 저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -681,13 +686,16 @@ function ConfigPageContent() {
           >
             {t('actions.previousStep', { ns: 'config' })}
           </button>
-          <button
+          <LoadingButton
             onClick={handleSave}
-            className="inline-flex items-center gap-2 px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+            isLoading={isSaving}
+            variant="primary"
+            size="md"
+            className="px-6 py-2"
           >
             <Save className="w-4 h-4" />
-            저장
-          </button>
+            {isSaving ? '저장 중...' : '저장'}
+          </LoadingButton>
         </div>
     </MainLayout>
     </RoleGuard>

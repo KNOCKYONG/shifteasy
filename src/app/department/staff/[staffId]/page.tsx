@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useState, useEffect, useCallback } from 'react'
 import type { ShiftType } from '@/lib/types'
 import { ChartIcon, RefreshIcon, ClockIcon, CalendarIcon, TargetIcon, LightIcon, NoteIcon, SunIcon, MoonIcon, SunsetIcon } from '@/components/Icons'
+import { Loader2 } from 'lucide-react'
 
 const shiftTypes: { id: ShiftType; label: string; description: string; color: string }[] = [
   { id: "D", label: "Day", description: "07:00-15:00", color: "bg-yellow-100 text-yellow-800" },
@@ -262,8 +263,9 @@ export default function StaffPreferencePage() {
             <button
               onClick={savePreferences}
               disabled={loading}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
+              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               {loading ? '저장중...' : '저장'}
             </button>
           </div>

@@ -17,6 +17,7 @@ import {
   CheckCircle,
   Send,
   Plus,
+  Loader2,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { api } from "@/lib/trpc/client";
@@ -188,7 +189,7 @@ export default function HandoffDetailPage() {
                 disabled={items.length === 0 || submitMutation.isPending}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
-                <Send className="w-4 h-4" />
+                {submitMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 {submitMutation.isPending ? "제출중..." : "인수자에게 제출"}
               </button>
             )}
@@ -196,9 +197,9 @@ export default function HandoffDetailPage() {
               <button
                 onClick={handleComplete}
                 disabled={completeMutation.isPending}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-300"
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
-                <CheckCircle className="w-4 h-4" />
+                {completeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
                 {completeMutation.isPending ? "완료 처리중..." : "인수 완료"}
               </button>
             )}

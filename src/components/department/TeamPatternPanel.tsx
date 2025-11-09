@@ -11,7 +11,8 @@ import {
   AlertCircle,
   CheckCircle,
   Info,
-  Keyboard
+  Keyboard,
+  Loader2
 } from 'lucide-react';
 import {
   TeamPattern,
@@ -1132,9 +1133,9 @@ export function TeamPatternPanel({
           <button
             onClick={handleSave}
             disabled={saving || errors.length > 0}
-            className="px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+            className="px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
-            <Save className="w-4 h-4" />
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {saving ? '저장 중...' : '저장'}
           </button>
         </div>

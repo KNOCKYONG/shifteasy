@@ -573,6 +573,7 @@ const departments =
         departments={departments}
         currentUserRole={currentUserRole}
         managerDepartmentId={currentUserRole === 'manager' ? managerDepartmentId : undefined}
+        isLoading={inviteUserMutation.isPending}
       />
 
       {/* Department Select Modal */}

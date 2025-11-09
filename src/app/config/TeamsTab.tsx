@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Plus, Edit2, Trash2, Users, Save, ChevronDown, ChevronUp, X } from "lucide-react";
+import { Plus, Edit2, Trash2, Users, Save, ChevronDown, ChevronUp, X, Loader2 } from "lucide-react";
 import { api } from "@/lib/trpc/client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
@@ -431,11 +431,11 @@ export function TeamsTab() {
               </button>
               <button
                 onClick={handleCreateTeam}
-                disabled={!newTeam.name.trim() || !newTeam.code.trim()}
+                disabled={!newTeam.name.trim() || !newTeam.code.trim() || createTeam.isPending}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                <Save className="w-4 h-4" />
-                추가
+                {createTeam.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                {createTeam.isPending ? '생성 중...' : '추가'}
               </button>
             </div>
           </div>
@@ -503,11 +503,11 @@ export function TeamsTab() {
               </button>
               <button
                 onClick={handleUpdateTeam}
-                disabled={!editingTeam.name.trim() || !editingTeam.code.trim()}
+                disabled={!editingTeam.name.trim() || !editingTeam.code.trim() || updateTeam.isPending}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                <Save className="w-4 h-4" />
-                저장
+                {updateTeam.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                {updateTeam.isPending ? '저장 중...' : '저장'}
               </button>
             </div>
           </div>
@@ -535,10 +535,11 @@ export function TeamsTab() {
               </button>
               <button
                 onClick={handleDeleteTeam}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+                disabled={deleteTeam.isPending}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                <Trash2 className="w-4 h-4" />
-                삭제
+                {deleteTeam.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                {deleteTeam.isPending ? '삭제 중...' : '삭제'}
               </button>
             </div>
           </div>
@@ -569,9 +570,11 @@ export function TeamsTab() {
               </button>
               <button
                 onClick={confirmUnassign}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                disabled={updateUserTeam.isPending}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                배정 해제
+                {updateUserTeam.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+                {updateUserTeam.isPending ? '처리 중...' : '배정 해제'}
               </button>
             </div>
           </div>
