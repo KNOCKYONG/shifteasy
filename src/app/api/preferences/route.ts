@@ -236,87 +236,87 @@ export async function POST(request: NextRequest) {
       .where(eq(users.id, employeeId))
       .limit(1);
 
+    const departmentId = user.length > 0 ? user[0].departmentId : null;
+
     if (user.length === 0) {
-      console.warn(`User not found for employeeId: ${employeeId}`);
+      console.warn(`User not found for employeeId: ${employeeId}, will save without departmentId`);
+    }
+
+    // 2. Sync to nurse_preferences table (used by scheduler)
+    const existingNursePrefs = await db.select()
+      .from(nursePreferences)
+      .where(eq(nursePreferences.nurseId, employeeId))
+      .limit(1);
+
+    // Map ComprehensivePreferences to nurse_preferences format
+    const workPrefs = preferences.workPreferences;
+    const teamPrefs = preferences.teamPreferences;
+    const prefs = workPrefs.preferredShifts || [];
+    const preferredPatterns = workPrefs.preferredPatterns || [];
+
+    const nursePrefsData = {
+      tenantId,
+      nurseId: employeeId,
+      departmentId,
+
+      // Shift Preferences
+      workPatternType: workPrefs.workPatternType || 'three-shift',
+      preferredShiftTypes: {
+        D: prefs.includes('day') ? 10 : 0,
+        E: prefs.includes('evening') ? 10 : 0,
+        N: prefs.includes('night') ? 10 : 0,
+      },
+      preferredPatterns: preferredPatterns.map(pattern => ({
+        pattern,
+        preference: 10,
+      })),
+      avoidPatterns: workPrefs.avoidPatterns || [], // 기피 근무 패턴 (개인)
+      preferredOffDays: workPrefs.preferredOffDays || [], // 선호하는 휴무일
+      maxConsecutiveDaysPreferred: workPrefs.maxConsecutiveDays || 5,
+      maxConsecutiveNightsPreferred: 2,
+      preferConsecutiveDaysOff: workPrefs.minRestDays || 2,
+      avoidBackToBackShifts: false,
+
+      // Weekday Preferences
+      weekdayPreferences: {
+        monday: 5,
+        tuesday: 5,
+        wednesday: 5,
+        thursday: 5,
+        friday: 5,
+        saturday: 5,
+        sunday: 5,
+      },
+
+      // Off/Weekend Preferences
+      offPreference: 'neutral',
+      weekendPreference: workPrefs.weekendPreference || 'neutral',
+      maxWeekendsPerMonth: null,
+      preferAlternatingWeekends: false,
+      holidayPreference: workPrefs.holidayPreference || 'neutral',
+
+      // Team Preferences
+      preferredColleagues: teamPrefs.preferredPartners || [],
+      avoidColleagues: teamPrefs.avoidPartners || [],
+      preferredTeamSize: null,
+      mentorshipPreference: teamPrefs.mentorshipRole || 'neither',
+
+      updatedAt: new Date(),
+    };
+
+    if (existingNursePrefs.length > 0) {
+      // Update existing nurse_preferences
+      await db.update(nursePreferences)
+        .set(nursePrefsData)
+        .where(eq(nursePreferences.nurseId, employeeId));
+
+      console.log(`✅ Updated nurse_preferences for employee: ${employeeId}`);
     } else {
-      const departmentId = user[0].departmentId;
+      // Insert new nurse_preferences
+      await db.insert(nursePreferences)
+        .values(nursePrefsData);
 
-      // 3. Sync to nurse_preferences table (used by scheduler)
-      const existingNursePrefs = await db.select()
-        .from(nursePreferences)
-        .where(eq(nursePreferences.nurseId, employeeId))
-        .limit(1);
-
-      // Map ComprehensivePreferences to nurse_preferences format
-      const workPrefs = preferences.workPreferences;
-      const teamPrefs = preferences.teamPreferences;
-      const prefs = workPrefs.preferredShifts || [];
-      const preferredPatterns = workPrefs.preferredPatterns || [];
-
-      const nursePrefsData = {
-        tenantId,
-        nurseId: employeeId,
-        departmentId,
-
-        // Shift Preferences
-        workPatternType: workPrefs.workPatternType || 'three-shift',
-        preferredShiftTypes: {
-          D: prefs.includes('day') ? 10 : 0,
-          E: prefs.includes('evening') ? 10 : 0,
-          N: prefs.includes('night') ? 10 : 0,
-        },
-        preferredPatterns: preferredPatterns.map(pattern => ({
-          pattern,
-          preference: 10,
-        })),
-        avoidPatterns: workPrefs.avoidPatterns || [], // 기피 근무 패턴 (개인)
-        preferredOffDays: workPrefs.preferredOffDays || [], // 선호하는 휴무일
-        maxConsecutiveDaysPreferred: workPrefs.maxConsecutiveDays || 5,
-        maxConsecutiveNightsPreferred: 2,
-        preferConsecutiveDaysOff: workPrefs.minRestDays || 2,
-        avoidBackToBackShifts: false,
-
-        // Weekday Preferences
-        weekdayPreferences: {
-          monday: 5,
-          tuesday: 5,
-          wednesday: 5,
-          thursday: 5,
-          friday: 5,
-          saturday: 5,
-          sunday: 5,
-        },
-
-        // Off/Weekend Preferences
-        offPreference: 'neutral',
-        weekendPreference: workPrefs.weekendPreference || 'neutral',
-        maxWeekendsPerMonth: null,
-        preferAlternatingWeekends: false,
-        holidayPreference: workPrefs.holidayPreference || 'neutral',
-
-        // Team Preferences
-        preferredColleagues: teamPrefs.preferredPartners || [],
-        avoidColleagues: teamPrefs.avoidPartners || [],
-        preferredTeamSize: null,
-        mentorshipPreference: teamPrefs.mentorshipRole || 'neither',
-
-        updatedAt: new Date(),
-      };
-
-      if (existingNursePrefs.length > 0) {
-        // Update existing nurse_preferences
-        await db.update(nursePreferences)
-          .set(nursePrefsData)
-          .where(eq(nursePreferences.nurseId, employeeId));
-
-        console.log(`✅ Updated nurse_preferences for employee: ${employeeId}`);
-      } else {
-        // Insert new nurse_preferences
-        await db.insert(nursePreferences)
-          .values(nursePrefsData);
-
-        console.log(`✅ Created nurse_preferences for employee: ${employeeId}`);
-      }
+      console.log(`✅ Created nurse_preferences for employee: ${employeeId}`);
     }
 
     // 스케줄러에 변경 알림 (WebSocket 또는 SSE 사용 가능)
