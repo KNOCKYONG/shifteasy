@@ -667,64 +667,74 @@ function SchedulePageContent() {
 
   // Handle employee card click to open preferences modal
   const handleEmployeeClick = async (member: any) => {
-    // 최신 데이터를 직접 가져오기
-    const freshUsersData = await utils.tenant.users.list.fetch({
-      limit: 100,
-      offset: 0,
-      status: 'active',
-      departmentId:
-        !isMember && userRole !== 'manager' && selectedDepartment !== 'all' && selectedDepartment !== 'no-department'
-          ? selectedDepartment
-          : undefined,
-    });
-
-    // 최신 데이터에서 member 찾기
-    const latestMemberData = freshUsersData?.items?.find((item: any) => item.id === member.id);
-    const latestMember = latestMemberData ? {
-      id: latestMemberData.id,
-      employeeId: latestMemberData.employeeId || '',
-      name: latestMemberData.name,
-      email: latestMemberData.email,
-      role: latestMemberData.role as 'admin' | 'manager' | 'staff',
-      departmentId: latestMemberData.departmentId || '',
-      departmentName: latestMemberData.department?.name || '',
-      status: latestMemberData.status as 'active' | 'inactive' | 'on_leave',
-      position: latestMemberData.position || '',
-      joinedAt: latestMemberData.createdAt?.toISOString() || new Date().toISOString(),
+    const mapUserToMember = (userData: any) => ({
+      id: userData.id,
+      employeeId: userData.employeeId || '',
+      name: userData.name,
+      email: userData.email,
+      role: userData.role as 'admin' | 'manager' | 'staff',
+      departmentId: userData.departmentId || '',
+      departmentName: userData.department?.name || '',
+      status: userData.status as 'active' | 'inactive' | 'on_leave',
+      position: userData.position || '',
+      joinedAt: userData.createdAt?.toISOString() || new Date().toISOString(),
       avatar: '',
-      phone: latestMemberData.profile?.phone || '',
-      skills: latestMemberData.profile?.skills || [],
-      teamId: latestMemberData.teamId || null,
-      workSchedule: latestMemberData.profile?.preferences || {
+      phone: userData.profile?.phone || '',
+      skills: userData.profile?.skills || [],
+      teamId: userData.teamId || null,
+      workSchedule: userData.profile?.preferences || {
         preferredShifts: [],
         availableDays: [1, 2, 3, 4, 5],
         unavailableDates: []
       }
-    } : member;
+    });
 
-    const employee = toEmployee(latestMember);
-
-    // Fetch saved preferences from database using /api/preferences
-    try {
-      const response = await fetch(`/api/preferences?employeeId=${member.id}`);
-      const savedData = await response.json();
-
-      console.log('Loaded preferences API response for', member.name, ':', savedData);
-      const savedPreferences = savedData.success ? savedData.data : null;
-
-      // Merge saved preferences with employee data
-      if (savedPreferences) {
-        const prefs = savedPreferences as SimplifiedPreferences;
-
-        // Update employee with saved preferences (only fields that exist in Employee type)
-        employee.workPatternType = prefs.workPatternType || 'three-shift';
-      }
-    } catch (error) {
-      console.error('Failed to load preferences:', error);
-    }
-
-    setSelectedEmployee(employee);
+    // 1️⃣ 우선 현재 화면의 데이터를 즉시 사용해 모달을 연다
+    setSelectedEmployee(toEmployee(member));
     modals.setIsPreferencesModalOpen(true);
+
+    try {
+      const fetchLatestMember = utils.tenant.users.list.fetch({
+        limit: 100,
+        offset: 0,
+        status: 'active',
+        departmentId:
+          !isMember && userRole !== 'manager' && selectedDepartment !== 'all' && selectedDepartment !== 'no-department'
+            ? selectedDepartment
+            : undefined,
+      }).then(freshUsersData => {
+        const latest = freshUsersData?.items?.find((item: any) => item.id === member.id);
+        return latest ? mapUserToMember(latest) : null;
+      }).catch(error => {
+        console.error('Failed to refresh member data:', error);
+        return null;
+      });
+
+      const fetchPreferences = fetch(`/api/preferences?employeeId=${member.id}`)
+        .then(async response => {
+          if (!response.ok) return null;
+          const savedData = await response.json();
+          console.log('Loaded preferences API response for', member.name, ':', savedData);
+          return savedData.success ? (savedData.data as SimplifiedPreferences) : null;
+        })
+        .catch(error => {
+          console.error('Failed to load preferences:', error);
+          return null;
+        });
+
+      const [latestMember, savedPreferences] = await Promise.all([fetchLatestMember, fetchPreferences]);
+
+      const resolvedMember = latestMember || member;
+      const employee = toEmployee(resolvedMember);
+
+      if (savedPreferences) {
+        employee.workPatternType = savedPreferences.workPatternType || employee.workPatternType || 'three-shift';
+      }
+
+      setSelectedEmployee(employee);
+    } catch (error) {
+      console.error('Failed to prepare preferences modal:', error);
+    }
   };
 
   // Handle preferences save
@@ -2188,77 +2198,6 @@ function SchedulePageContent() {
               <span className="hidden sm:inline">선호도 설정</span>
               <span className="sm:hidden">설정</span>
             </button>
-          </div>
-
-          {/* 기본 근무 패턴 설정 요약 - 모바일에서는 2열, 데스크톱에서는 3열 그리드 */}
-          <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4">
-            {/* 근무 패턴 유형 */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">근무 패턴 유형</p>
-              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
-                {(() => {
-                  const currentEmployee = allMembers.find(m => m.id === currentUser.dbUser?.id);
-                  const workPatternType = (currentEmployee as any)?.preferences?.workPatternType;
-                  const typeMap: Record<string, string> = {
-                    'three-shift': '3교대 근무',
-                    'night-intensive': '야간 집중',
-                    'weekday-only': '주중 근무'
-                  };
-                  return workPatternType ? (typeMap[workPatternType] || workPatternType) : '미설정';
-                })()}
-              </p>
-            </div>
-
-            {/* 선호하는 휴무일 */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">선호 휴무일</p>
-              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
-                {(() => {
-                  const currentEmployee = allMembers.find(m => m.id === currentUser.dbUser?.id);
-                  const preferredDaysOff = (currentEmployee as any)?.preferences?.preferredDaysOff;
-                  if (!preferredDaysOff || preferredDaysOff.length === 0) return '미설정';
-                  const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
-                  return preferredDaysOff.map((day: number) => dayNames[day]).join(', ');
-                })()}
-              </p>
-            </div>
-
-            {/* 선호 근무 패턴 */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3 col-span-2">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">선호 근무 패턴</p>
-              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
-                {(() => {
-                  const currentEmployee = allMembers.find(m => m.id === currentUser.dbUser?.id);
-                  const preferredPatterns = (currentEmployee as any)?.preferences?.preferredPatterns;
-                  if (!preferredPatterns || preferredPatterns.length === 0) return '미설정';
-                  // preferredPatterns is array of { pattern: string, preference: number }
-                  const patterns = preferredPatterns.map((p: any) => {
-                    if (typeof p === 'string') return p;
-                    if (p && typeof p === 'object' && p.pattern) return p.pattern;
-                    return String(p);
-                  });
-                  const displayPatterns = patterns.slice(0, 3).join(', ');
-                  return patterns.length > 3 ? `${displayPatterns} 외 ${patterns.length - 3}개` : displayPatterns;
-                })()}
-              </p>
-            </div>
-
-            {/* 기피 근무 패턴 */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3 col-span-2">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">기피 패턴</p>
-              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
-                {(() => {
-                  const currentEmployee = allMembers.find(m => m.id === currentUser.dbUser?.id);
-                  const avoidPatterns = (currentEmployee as any)?.preferences?.avoidPatterns;
-                  if (!avoidPatterns || avoidPatterns.length === 0) return '없음';
-                  // avoidPatterns is array of arrays: string[][]
-                  return avoidPatterns.map((p: any) => {
-                    if (Array.isArray(p)) return p.join('→');
-                    return String(p);
-                  }).join(', ');
-                })()}
-              </p>
-            </div>
           </div>
 
         </div>
