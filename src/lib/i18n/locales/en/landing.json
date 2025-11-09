@@ -85,23 +85,23 @@
     "subtitle": "Companies that revolutionized efficiency with ShiftEasy",
     "testimonial1": {
       "quote": "What used to take 20 hours per month for nurse scheduling now takes just 5 minutes. Staff satisfaction has greatly increased too.",
-      "author": "Sujin Kim",
+      "author": "K** S**",
       "role": "Nursing Team Lead",
-      "company": "Seoul National University Hospital",
+      "company": "Seoul S Hospital",
       "stat": "200 hours saved monthly"
     },
     "testimonial2": {
       "quote": "Optimal staffing by production line improved productivity by 18%, and emergency absence response became much easier.",
-      "author": "Minho Park",
+      "author": "P** M**",
       "role": "Production Manager",
-      "company": "Hyundai Motor Company",
+      "company": "H Motors",
       "stat": "18% productivity gain"
     },
     "testimonial3": {
       "quote": "Automated peak time staffing reduced customer wait times by 30% and significantly decreased staff overtime.",
-      "author": "Jihyun Lee",
+      "author": "L** J**",
       "role": "Store Operations Manager",
-      "company": "Starbucks Korea",
+      "company": "S Coffee Chain",
       "stat": "30% wait time reduction"
     }
   },
@@ -118,9 +118,7 @@
       "features": [
         "Up to 10 users",
         "Basic scheduling",
-        "Shift swap feature",
-        "Mobile app",
-        "Email support"
+        "Shift swap feature"
       ],
       "cta": "Start Free"
     },

@@ -80,7 +80,8 @@ export default function PricingSection() {
                       <span className="text-5xl font-bold text-gray-900">
                         {t(`pricing.${plan}.price`)}
                       </span>
-                      {t(`pricing.${plan}.priceUnit`) && (
+                      {t(`pricing.${plan}.priceUnit`, { defaultValue: '' }) &&
+                       t(`pricing.${plan}.priceUnit`, { defaultValue: '' }) !== `pricing.${plan}.priceUnit` && (
                         <span className="text-gray-600">
                           {t(`pricing.${plan}.priceUnit`)}
                         </span>

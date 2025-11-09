@@ -139,7 +139,7 @@ export function EmployeePreferencesModal({
     } as ExtendedEmployeePreferences;
   });
 
-  const [activeTab, setActiveTab] = useState<'basic' | 'personal' | 'career' | 'team' | 'request' | 'off-balance'>('basic');
+  const [activeTab, setActiveTab] = useState<'basic' | 'personal' | 'career' | 'request' | 'off-balance'>('basic');
   const [selectedTeam, setSelectedTeam] = useState<string>((employee as any).teamId || '');
   const [showConstraintForm, setShowConstraintForm] = useState(false);
 
@@ -758,7 +758,6 @@ export function EmployeePreferencesModal({
               { id: 'career', label: '경력 관리', icon: Briefcase },
               { id: 'off-balance', label: '잔여 OFF', icon: Wallet },
               { id: 'request', label: 'Request', icon: Star },
-              ...(canManageTeams ? [{ id: 'team', label: '팀 배정', icon: Users }] : []),
             ].map((tab) => (
               <button
                 key={tab.id}

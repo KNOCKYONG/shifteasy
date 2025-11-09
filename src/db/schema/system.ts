@@ -23,17 +23,3 @@ export const auditLog = pgTable('audit_log', {
   entityIdx: index('audit_log_entity_idx').on(table.entityType, table.entityId),
   createdIdx: index('audit_log_created_at_idx').on(table.createdAt),
 }));
-
-// 시스템 설정
-export const systemConfig = pgTable('system_config', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  key: text('key').unique().notNull(),
-  value: jsonb('value').$type<any>().notNull(),
-
-  description: text('description'),
-
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
-}, (table) => ({
-  keyIdx: index('system_config_key_idx').on(table.key),
-}));
