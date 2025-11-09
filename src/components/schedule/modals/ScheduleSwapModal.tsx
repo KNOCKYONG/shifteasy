@@ -44,7 +44,7 @@ export function ScheduleSwapModal({
     return schedule
       .filter(s => s.employeeId === currentUserId)
       .map(s => ({
-        date: s.date,
+        date: typeof s.date === 'string' ? s.date : format(new Date(s.date), 'yyyy-MM-dd'),
         employeeId: s.employeeId,
         employeeName: currentUserName,
         shiftId: s.shiftId,
@@ -58,11 +58,14 @@ export function ScheduleSwapModal({
     if (!selectedMyShift) return [];
 
     return schedule
-      .filter(s => s.date === selectedMyShift.date && s.employeeId !== currentUserId)
+      .filter(s => {
+        const scheduleDate = typeof s.date === 'string' ? s.date : format(new Date(s.date), 'yyyy-MM-dd');
+        return scheduleDate === selectedMyShift.date && s.employeeId !== currentUserId;
+      })
       .map(s => {
         const member = allMembers.find(m => m.id === s.employeeId);
         return {
-          date: s.date,
+          date: typeof s.date === 'string' ? s.date : format(new Date(s.date), 'yyyy-MM-dd'),
           employeeId: s.employeeId,
           employeeName: member?.name || '알 수 없음',
           shiftId: s.shiftId,
