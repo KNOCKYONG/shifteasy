@@ -1,448 +1,517 @@
 ---
 name: database-schema-manager
-description: Automatically manage and update database schema documentation when schemas are added or modified
+description: Automatically manage and update database schema documentation when schemas are added or modified (project)
 ---
 
 # Database Schema Manager Skill
 
-**Purpose**: Automatically detect schema changes and update comprehensive database documentation to maintain accuracy and completeness.
+## Core Philosophy
+This skill ensures all database schema changes are managed through Drizzle ORM, maintaining type safety and avoiding manual SQL migrations.
 
-## Core Workflow Philosophy
+## Project Database Architecture
 
-This skill follows a **detect → analyze → update → validate** approach:
-1. **Detect** schema file changes in `src/db/schema/*.ts`
-2. **Analyze** current database state and schema definitions
-3. **Update** documentation files with changes
-4. **Validate** documentation completeness and accuracy
+### Technology Stack
+- **ORM**: Drizzle ORM (TypeScript-first)
+- **Database**: PostgreSQL (Supabase)
+- **Schema Location**: `src/db/schema/`
+- **Migration Tool**: Drizzle Kit
+- **Type Safety**: Full TypeScript inference
 
-## When This Skill Activates
+### Schema Directory Structure
+```
+src/db/schema/
+├── index.ts              # Re-exports all schemas
+├── tenants.ts            # Core multi-tenant tables (tenants, departments, users, schedules)
+├── system.ts             # System tables (audit logs)
+├── nurse-preferences.ts  # Nurse-specific preferences
+├── team-patterns.ts      # Team patterns
+├── holidays.ts           # Holiday management
+├── special-requests.ts   # Special shift requests
+├── configs.ts            # Configuration storage
+└── teams.ts              # Team management
+```
 
-**Automatic Triggers**:
-- Schema files modified in `src/db/schema/`
-- New `.ts` files added to schema directory
-- Migration files generated
-- User explicitly runs `/skill database-schema-manager`
+## Phase 1: Understanding Schema Change Requests
 
-**Manual Invocation**:
+### Request Analysis Checklist
+- [ ] What table(s) need modification?
+- [ ] What type of change? (add column, modify column, add index, new table)
+- [ ] Which schema file contains the table?
+- [ ] Does this affect relationships with other tables?
+- [ ] Are there breaking changes that need migration logic?
+- [ ] Does this require updating types in related routers/components?
+
+### Common Change Types
+1. **Add Column**: New field to existing table
+2. **Modify Column**: Change type, constraints, or default values
+3. **Add Index**: Performance optimization
+4. **Add Table**: New entity/feature
+5. **Add Relationship**: Foreign keys and relations
+6. **Remove Column**: Deprecation (prefer soft delete/nullable first)
+
+## Phase 2: Schema Modification with Drizzle
+
+### Critical Rules - READ CAREFULLY
+
+#### ❌ NEVER Do This
+```typescript
+// DON'T create raw SQL files in migrations/
+// DON'T bypass Drizzle schema definitions
+// DON'T manually write SQL for schema changes
+```
+
+#### ✅ ALWAYS Do This
+```typescript
+// DO modify the TypeScript schema files in src/db/schema/
+// DO use Drizzle's schema builder functions
+// DO let Drizzle Kit generate migrations
+// DO update the index.ts to export new schemas
+```
+
+### Step-by-Step Schema Modification Process
+
+#### Step 1: Locate the Schema File
 ```bash
-/skill database-schema-manager
+# Check which file contains the table
+ls src/db/schema/
+
+# Common mappings:
+# - users, departments, schedules → tenants.ts
+# - holidays → holidays.ts
+# - special_requests → special-requests.ts
+# - configs → configs.ts
+# - teams → teams.ts
 ```
 
-## 7-Phase Workflow
+#### Step 2: Modify the Schema File
 
-### Phase 1: 🔍 Schema Change Detection
-**Goal**: Identify what changed in the database schema
+**Example: Adding a Column**
+```typescript
+// src/db/schema/tenants.ts
+import { pgTable, uuid, text, timestamp, jsonb, boolean } from 'drizzle-orm/pg-core';
 
-**Actions**:
-1. Scan `src/db/schema/*.ts` for modifications
-2. Identify new tables, modified tables, or deleted tables
-3. Parse schema definitions to extract:
-   - Table names and structures
-   - Column definitions and types
-   - Foreign key relationships
-   - Indexes and constraints
-   - JSONB structures
+export const users = pgTable('users', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  name: text('name').notNull(),
+  email: text('email').notNull(),
 
-**Output Example**:
-```
-📋 Schema Changes Detected:
-  ✅ Modified: src/db/schema/tenants.ts
-     - users table: Added new column 'last_login_at'
-     - notifications table: Modified 'metadata' JSONB structure
-  ✅ New: src/db/schema/billing.ts
-     - subscriptions table (new)
-     - invoices table (new)
+  // ✅ Add new column
+  phoneNumber: text('phone_number'), // nullable by default
+  // OR
+  isActive: boolean('is_active').notNull().default(true),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
 ```
 
-**Tools Used**: `Glob`, `Read`, `Grep`
+**Example: Adding an Index**
+```typescript
+export const users = pgTable('users', {
+  // ... columns
+}, (table) => ({
+  // Existing indexes
+  tenantIdx: index('users_tenant_id_idx').on(table.tenantId),
 
----
+  // ✅ Add new index
+  phoneIdx: index('users_phone_number_idx').on(table.phoneNumber),
 
-### Phase 2: 📊 Database State Analysis
-**Goal**: Get current database statistics and validate schema consistency
-
-**Actions**:
-1. Run `npx tsx src/db/seed/check-all-tables.ts`
-2. Collect table row counts and statistics
-3. Validate schema definitions match database state
-4. Identify any inconsistencies
-
-**Output Example**:
-```
-📊 Database State:
-  Total Tables: 13 (+1 new)
-  Total Rows: 724 (+116)
-
-  New Tables:
-  - subscriptions: 5 rows
-  - invoices: 12 rows
-
-  Modified Tables:
-  - users: 75 rows (schema updated)
-  - notifications: 203 rows (+12)
+  // ✅ Add composite index
+  tenantEmailIdx: index('users_tenant_email_idx').on(table.tenantId, table.email),
+}));
 ```
 
-**Tools Used**: `Bash`, `Read`
+**Example: Adding a New Table**
+```typescript
+// src/db/schema/notifications.ts
+import { pgTable, uuid, text, timestamp, boolean, index } from 'drizzle-orm/pg-core';
+import { relations } from 'drizzle-orm';
+import { users, tenants } from './tenants';
 
----
+export const notifications = pgTable('notifications', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
 
-### Phase 3: 📝 Documentation Update Planning
-**Goal**: Plan what sections of documentation need updates
+  title: text('title').notNull(),
+  message: text('message').notNull(),
+  type: text('type').notNull(), // 'info', 'warning', 'error', 'success'
+  isRead: boolean('is_read').notNull().default(false),
 
-**Actions**:
-1. Map schema changes to documentation sections:
-   - Table definitions
-   - JSONB structure examples
-   - ER diagram relationships
-   - Index strategies
-2. Prepare update content
-3. Generate change log entry
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index('notifications_tenant_id_idx').on(table.tenantId),
+  userIdx: index('notifications_user_id_idx').on(table.userId),
+  isReadIdx: index('notifications_is_read_idx').on(table.isRead),
+}));
 
-**Output Example**:
-```
-📝 Documentation Update Plan:
-
-  SCHEMA.md Updates:
-  ✅ Add subscriptions table definition
-  ✅ Add invoices table definition
-  ✅ Update users table (new column)
-  ✅ Update ER diagram (new relationships)
-  ✅ Add change log entry
-
-  Content Prepared:
-  - SQL CREATE statements: 2 new, 1 modified
-  - JSONB examples: 1 new
-  - Mermaid diagram: 3 new relationships
-```
-
-**Tools Used**: `Read`, `TodoWrite`
-
----
-
-### Phase 4: ✏️ Execute Documentation Updates
-**Goal**: Apply all planned updates to documentation files
-
-**Actions**:
-1. Update `docs/database/SCHEMA.md`:
-   - Add/modify table definitions
-   - Update JSONB structure examples
-   - Modify ER diagram
-   - Update statistics
-   - Add change log entry
-2. Update table of contents if needed
-3. Ensure all cross-references are correct
-
-**Output Example**:
-```
-✏️ Executing Updates:
-
-  SCHEMA.md:
-  ✅ Added subscriptions table (lines 245-278)
-  ✅ Added invoices table (lines 280-315)
-  ✅ Updated users table definition (line 87)
-  ✅ Updated ER diagram (lines 520-545)
-  ✅ Updated statistics (lines 15-18)
-  ✅ Added change log entry (lines 650-658)
-
-  Total Changes: 6 sections updated
+// Add relations
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, {
+    fields: [notifications.userId],
+    references: [users.id],
+  }),
+  tenant: one(tenants, {
+    fields: [notifications.tenantId],
+    references: [tenants.id],
+  }),
+}));
 ```
 
-**Tools Used**: `Edit`, `Write`
+**Example: Adding a Relationship**
+```typescript
+// In the parent table file
+export const usersRelations = relations(users, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [users.tenantId],
+    references: [tenants.id],
+  }),
+  department: one(departments, {
+    fields: [users.departmentId],
+    references: [departments.id],
+  }),
 
----
-
-### Phase 5: 🔬 Validation & Quality Check
-**Goal**: Ensure documentation accuracy and completeness
-
-**Validation Checks**:
-1. **Schema Consistency**: All tables in schema files are documented
-2. **SQL Syntax**: CREATE TABLE statements are valid
-3. **JSONB Examples**: Match TypeScript interfaces
-4. **ER Diagram**: All relationships represented
-5. **Cross-References**: No broken links
-6. **Formatting**: Consistent markdown formatting
-
-**Output Example**:
-```
-🔬 Validation Results:
-
-  ✅ Schema Coverage: 13/13 tables documented (100%)
-  ✅ SQL Syntax: All CREATE statements valid
-  ✅ JSONB Examples: 8/8 structures match interfaces
-  ✅ ER Diagram: 18 relationships, all valid
-  ✅ Cross-References: No broken links
-  ✅ Markdown Formatting: Consistent
-
-  Quality Score: 100%
+  // ✅ Add new relationship
+  notifications: many(notifications),
+}));
 ```
 
-**Tools Used**: `Read`, `Grep`, `Bash`
+#### Step 3: Update Schema Index
+```typescript
+// src/db/schema/index.ts
 
----
+// Core multi-tenant schema
+export * from './tenants';
+export * from './system';
 
-### Phase 6: 📋 Generate Change Report
-**Goal**: Create comprehensive report of documentation changes
+// Domain schemas
+export * from './nurse-preferences';
+export * from './team-patterns';
+export * from './holidays';
+export * from './special-requests';
+export * from './configs';
+export * from './teams';
 
-**Report Sections**:
-1. **Summary**: High-level overview of changes
-2. **Schema Changes**: Detailed list of modifications
-3. **Documentation Updates**: What was updated in docs
-4. **Validation Results**: Quality checks passed
-5. **Next Steps**: Recommendations (if any)
-
-**Output Example**:
-```
-📋 Schema Documentation Update Report
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-## Summary
-- Tables Added: 2 (subscriptions, invoices)
-- Tables Modified: 1 (users)
-- Documentation Sections Updated: 6
-- Validation: ✅ All checks passed
-
-## Schema Changes
-1. New Table: subscriptions
-   - Purpose: Manage tenant subscription plans
-   - Columns: 8 (id, tenant_id, plan_id, status, ...)
-   - Relationships: tenants (FK)
-
-2. New Table: invoices
-   - Purpose: Track billing invoices
-   - Columns: 10 (id, subscription_id, amount, ...)
-   - Relationships: subscriptions (FK)
-
-3. Modified: users table
-   - Added: last_login_at (timestamptz)
-   - Purpose: Track user activity
-
-## Documentation Updates
-✅ SCHEMA.md: 6 sections updated
-✅ ER Diagram: 3 new relationships added
-✅ Change Log: Entry dated 2025-01-08
-
-## Validation
-All quality checks passed (100%)
-
-## Recommendations
-- Consider adding index on users.last_login_at
-- Document subscription workflow in separate guide
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ✅ Add new schema export
+export * from './notifications';
 ```
 
-**Tools Used**: `Write`, `TodoWrite`
+#### Step 4: Generate Migration with Drizzle Kit
+```bash
+# Generate migration based on schema changes
+npx drizzle-kit generate
 
----
-
-### Phase 7: ✅ Finalization & Cleanup
-**Goal**: Complete the workflow and prepare for next run
-
-**Actions**:
-1. Mark all tasks as complete
-2. Update skill execution log
-3. Clean up temporary files
-4. Prepare for next schema change detection
-
-**Output Example**:
-```
-✅ Documentation Update Complete!
-
-  Files Updated:
-  - docs/database/SCHEMA.md
-
-  Tasks Completed: 6/6
-  Time Elapsed: 2.3s
-  Quality Score: 100%
-
-  📚 Documentation is now up to date with all schema changes.
-
-  Next Run: Monitoring src/db/schema/ for changes...
+# This creates a migration file in src/db/migrations/
+# Example: 0001_cool_doctor_doom.sql
 ```
 
-**Tools Used**: `TodoWrite`, `Bash`
+#### Step 5: Review Generated Migration
+```bash
+# Check the latest migration file
+ls -lt src/db/migrations/ | head -5
 
----
-
-## Configuration
-
-### Monitored Paths
-```yaml
-schema_paths:
-  - src/db/schema/*.ts
-
-migration_paths:
-  - drizzle/migrations/*.sql
-
-documentation_paths:
-  - docs/database/SCHEMA.md
-  - docs/database/README.md
+# Review the SQL
+cat src/db/migrations/0001_*.sql
 ```
 
-### Validation Rules
-```yaml
-coverage_threshold: 100%  # All tables must be documented
-sql_validation: true      # Validate SQL syntax
-jsonb_validation: true    # Match TypeScript interfaces
-er_diagram: true          # Check relationship completeness
+**Verify Migration Contents**:
+- Correct table/column names
+- Proper data types
+- Indexes are created
+- Foreign keys are set
+- No unintended changes
+
+#### Step 6: Apply Migration
+```bash
+# Push to database (development)
+npx drizzle-kit push
+
+# OR for production
+npx drizzle-kit migrate
 ```
 
-### Auto-Update Settings
-```yaml
-auto_detect: true         # Automatically detect schema changes
-auto_update: false        # Require approval before updating
-backup_docs: true         # Create backup before updates
+## Phase 3: Type Safety Validation
+
+### Check TypeScript Compilation
+```bash
+# Ensure no type errors
+npx tsc --noEmit
+
+# Check Drizzle types
+npx drizzle-kit check
 ```
 
-## Error Handling
+### Update Related Code
+When schema changes, update:
+1. **tRPC Routers**: Update input/output types
+2. **Components**: Update type imports
+3. **Utilities**: Update helper functions
+4. **Tests**: Update test fixtures
 
-### Common Issues & Solutions
+## Phase 4: Documentation & Testing
 
-**Issue**: Schema file modified but database not migrated
-```
-⚠️ Warning: Schema mismatch detected
-   - users.last_login_at exists in schema file
-   - Column not present in database
-
-Solution: Run migrations first
-  $ npm run db:generate
-  $ npm run db:migrate
-```
-
-**Issue**: Documentation update conflict
-```
-❌ Error: SCHEMA.md has uncommitted changes
-
-Solution: Commit or stash changes first
-  $ git add docs/database/SCHEMA.md
-  $ git commit -m "docs: Update schema documentation"
+### Update Schema Documentation
+```typescript
+// Add JSDoc comments to schema
+export const users = pgTable('users', {
+  /**
+   * User's phone number for notifications and 2FA
+   * @example '+82-10-1234-5678'
+   */
+  phoneNumber: text('phone_number'),
+});
 ```
 
-**Issue**: Invalid SQL syntax in documentation
-```
-❌ Validation Failed: SQL syntax error at line 245
+### Test Checklist
+- [ ] Migration applies without errors
+- [ ] TypeScript compiles successfully
+- [ ] Related queries still work
+- [ ] Foreign keys enforce correctly
+- [ ] Indexes improve query performance
+- [ ] No data loss or corruption
 
-Solution: Auto-fix applied
-  - Fixed column definition syntax
-  - Validated against PostgreSQL 14
+## Common Scenarios
+
+### Scenario 1: Add New Column to Existing Table
+
+**Request**: "Add phone number field to users table"
+
+**Steps**:
+1. Open `src/db/schema/tenants.ts`
+2. Add column to `users` table:
+   ```typescript
+   phoneNumber: text('phone_number'),
+   ```
+3. Run `npx drizzle-kit generate`
+4. Review migration, then `npx drizzle-kit push`
+
+### Scenario 2: Add Index for Performance
+
+**Request**: "Add index on schedules for faster date range queries"
+
+**Steps**:
+1. Open `src/db/schema/tenants.ts`
+2. Add index to `schedules` table:
+   ```typescript
+   dateRangeIdx: index('schedules_date_range_idx').on(table.startDate, table.endDate),
+   ```
+3. Run `npx drizzle-kit generate`
+4. Review and apply migration
+
+### Scenario 3: Create New Table
+
+**Request**: "Create notifications table"
+
+**Steps**:
+1. Create `src/db/schema/notifications.ts`
+2. Define table schema with proper types
+3. Add relations to related tables
+4. Export from `src/db/schema/index.ts`
+5. Run `npx drizzle-kit generate`
+6. Review and apply migration
+
+### Scenario 4: Modify Existing Column
+
+**Request**: "Make email unique in users table"
+
+**Steps**:
+1. Open `src/db/schema/tenants.ts`
+2. Modify column:
+   ```typescript
+   // Before
+   email: text('email').notNull(),
+
+   // After
+   email: text('email').notNull().unique(),
+   ```
+3. Run `npx drizzle-kit generate`
+4. **IMPORTANT**: Check for duplicate emails first!
+5. Apply migration
+
+## Drizzle Column Types Reference
+
+### Common Types
+```typescript
+import {
+  text,           // VARCHAR/TEXT
+  integer,        // INTEGER
+  boolean,        // BOOLEAN
+  timestamp,      // TIMESTAMP
+  date,          // DATE
+  uuid,          // UUID
+  jsonb,         // JSONB
+  serial,        // SERIAL (auto-increment)
+  varchar,       // VARCHAR(n)
+  numeric,       // NUMERIC/DECIMAL
+} from 'drizzle-orm/pg-core';
+
+// Examples
+text('name').notNull()
+integer('age').default(0)
+boolean('is_active').notNull().default(true)
+timestamp('created_at').defaultNow().notNull()
+uuid('id').primaryKey().defaultRandom()
+jsonb('metadata').$type<{ key: string }>()
+```
+
+### Column Constraints
+```typescript
+.notNull()              // NOT NULL
+.default(value)         // DEFAULT value
+.defaultRandom()        // DEFAULT gen_random_uuid() for UUID
+.defaultNow()          // DEFAULT now() for timestamps
+.unique()              // UNIQUE constraint
+.primaryKey()          // PRIMARY KEY
+.references(() => table.column, { onDelete: 'cascade' })  // Foreign key
 ```
 
 ## Best Practices
 
-### Before Running
-1. ✅ Commit any pending schema changes
-2. ✅ Run and verify migrations
-3. ✅ Ensure database is accessible
-4. ✅ Backup existing documentation
-
-### During Execution
-1. 📋 Review change detection results
-2. 🔍 Verify SQL syntax in updates
-3. 📊 Check ER diagram accuracy
-4. ✅ Validate JSONB examples
-
-### After Completion
-1. 📖 Review updated documentation
-2. 🔍 Verify all cross-references
-3. 🧪 Test documentation examples
-4. 📝 Commit documentation changes
-
-## Integration with Development Workflow
-
-### Git Hooks Integration
-```bash
-# Pre-commit hook to check schema documentation
-.git/hooks/pre-commit:
-  - Check for schema file changes
-  - Verify documentation is updated
-  - Run validation checks
-```
-
-### CI/CD Pipeline
-```yaml
-# GitHub Actions workflow
-on:
-  pull_request:
-    paths:
-      - 'src/db/schema/**'
-
-jobs:
-  validate-docs:
-    - name: Check Schema Documentation
-      run: /skill database-schema-manager --validate
-```
-
-## Performance Metrics
-
-**Target Performance**:
-- Detection: < 1s
-- Analysis: < 2s
-- Updates: < 3s
-- Validation: < 2s
-- **Total**: < 8s for typical schema change
-
-## Examples
-
-### Example 1: Adding New Table
+### 1. Multi-Tenant Isolation
 ```typescript
-// src/db/schema/billing.ts (new file)
-export const subscriptions = pgTable('subscriptions', {
+// ✅ Always include tenantId for multi-tenant data
+export const myTable = pgTable('my_table', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenant_id: uuid('tenant_id').references(() => tenants.id),
-  plan_id: varchar('plan_id', { length: 50 }),
-  status: varchar('status', { length: 20 }),
-  // ...
-});
+  tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
+  // ... other columns
+}, (table) => ({
+  tenantIdx: index('my_table_tenant_id_idx').on(table.tenantId),  // Always index tenantId
+}));
 ```
 
-**Skill Output**:
-```
-🔍 Detected: New schema file billing.ts
-📊 Found: 1 new table (subscriptions)
-📝 Preparing documentation update...
-✏️ Adding table definition to SCHEMA.md
-✏️ Adding to ER diagram
-✏️ Adding change log entry
-🔬 Validating... ✅ All checks passed
-✅ Documentation updated successfully!
-```
-
-### Example 2: Modifying Existing Table
+### 2. Soft Deletes
 ```typescript
-// src/db/schema/tenants.ts (modified)
+// ✅ Prefer soft deletes over hard deletes
 export const users = pgTable('users', {
-  // ... existing columns
-  last_login_at: timestamp('last_login_at', { withTimezone: true }),
+  // ... columns
+  deletedAt: timestamp('deleted_at'),  // NULL = not deleted
 });
 ```
 
-**Skill Output**:
+### 3. Timestamps
+```typescript
+// ✅ Always include audit timestamps
+export const myTable = pgTable('my_table', {
+  // ... columns
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
+});
 ```
-🔍 Detected: Modified tenants.ts
-📊 Found: users table updated (1 new column)
-📝 Updating users table definition...
-✏️ Updated SCHEMA.md line 87
-✏️ Added change log entry
-🔬 Validating... ✅ All checks passed
-✅ Documentation updated successfully!
+
+### 4. Indexes for Performance
+```typescript
+// ✅ Index foreign keys
+// ✅ Index frequently queried columns
+// ✅ Use composite indexes for multi-column queries
+export const schedules = pgTable('schedules', {
+  // ... columns
+}, (table) => ({
+  tenantIdx: index('schedules_tenant_id_idx').on(table.tenantId),
+  departmentIdx: index('schedules_department_id_idx').on(table.departmentId),
+  dateRangeIdx: index('schedules_date_range_idx').on(table.startDate, table.endDate),
+  tenantDeptDateIdx: index('schedules_tenant_dept_date_idx').on(table.tenantId, table.departmentId, table.startDate),
+}));
 ```
 
----
+## Troubleshooting
 
-## Skill Metadata
+### Migration Conflicts
+```bash
+# If migrations are out of sync
+npx drizzle-kit drop      # Careful! Drops all tables
+npx drizzle-kit generate  # Regenerate from schema
+npx drizzle-kit push      # Apply to database
+```
 
-**Version**: 1.0.0
-**Last Updated**: 2025-01-08
-**Maintained By**: ShiftEasy Development Team
-**Dependencies**:
-- Drizzle ORM
-- PostgreSQL 14+
-- Node.js 18+
+### Type Errors After Schema Change
+```bash
+# Clear TypeScript cache
+rm -rf .next
+rm -rf node_modules/.cache
 
-**Related Skills**:
-- `vercel` - Build and deployment management
-- `git` - Version control workflows
+# Rebuild
+npm run build
+```
 
-**Related Documentation**:
-- `docs/database/SCHEMA.md` - Complete schema reference
-- `docs/database/README.md` - Workflow guide
-- `src/db/schema/` - Schema definitions
+### Database Connection Issues
+```bash
+# Check environment variables
+cat .env.local | grep DATABASE_URL
+
+# Test connection
+npx drizzle-kit introspect
+```
+
+## Emergency Procedures
+
+### Rollback Migration
+```bash
+# Manual rollback (no built-in rollback in Drizzle)
+# 1. Restore database from backup
+# 2. Revert schema changes in code
+# 3. Delete bad migration file
+# 4. Regenerate migrations
+```
+
+### Data Migration Required
+```typescript
+// For complex data transformations, use a separate script
+// src/db/migrations/scripts/migrate-phone-numbers.ts
+import { db } from '@/db';
+import { users } from '@/db/schema';
+
+async function migratePhoneNumbers() {
+  // Custom migration logic
+  const allUsers = await db.select().from(users);
+
+  for (const user of allUsers) {
+    // Transform data
+    await db.update(users)
+      .set({ phoneNumber: formatPhone(user.oldPhone) })
+      .where(eq(users.id, user.id));
+  }
+}
+```
+
+## Success Criteria
+
+A schema change is complete when:
+- [ ] Schema TypeScript files updated
+- [ ] Migration generated and reviewed
+- [ ] Migration applied to database
+- [ ] TypeScript compiles without errors
+- [ ] Related routers/components updated
+- [ ] Tests pass
+- [ ] No breaking changes or migrations handled
+- [ ] Performance indexes added where needed
+- [ ] Documentation updated
+
+## Command Quick Reference
+
+```bash
+# Generate migration from schema changes
+npx drizzle-kit generate
+
+# Push schema directly to DB (dev only)
+npx drizzle-kit push
+
+# Run migrations
+npx drizzle-kit migrate
+
+# Check schema
+npx drizzle-kit check
+
+# Open Drizzle Studio (DB GUI)
+npx drizzle-kit studio
+
+# Introspect existing database
+npx drizzle-kit introspect
+```
+
+## Integration with Other Skills
+
+This skill works with:
+- **Vercel Build Validator**: Ensures schema changes don't break builds
+- **Code Review**: Reviews schema changes for best practices
+- **Testing**: Validates migrations don't break functionality
