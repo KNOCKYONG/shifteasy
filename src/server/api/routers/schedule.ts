@@ -868,42 +868,7 @@ export const scheduleRouter = createTRPCRouter({
       const currentUserId = ctx.user?.id;
       if (!currentUserId) return [];
 
-      // Check user's work pattern type
-      const userPreferences = await db
-        .select({
-          workPatternType: nursePreferences.workPatternType,
-        })
-        .from(nursePreferences)
-        .where(eq(nursePreferences.nurseId, currentUserId))
-        .limit(1);
-
-      const workPatternType = userPreferences[0]?.workPatternType;
-
-      // For administrative staff (weekday-only), generate weekday shifts
-      if (workPatternType === 'weekday-only') {
-        const weekdayShifts: any[] = [];
-        let currentDate = new Date(today);
-
-        while (currentDate <= sevenDaysLater) {
-          const dayOfWeek = currentDate.getDay();
-          // Only include weekdays (Monday=1 to Friday=5)
-          if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-            weekdayShifts.push({
-              date: new Date(currentDate).toISOString(),
-              employeeId: currentUserId,
-              shiftId: '행정',
-              shiftType: 'weekday',
-              isWeekdayOnly: true,
-            });
-          }
-          currentDate = new Date(currentDate);
-          currentDate.setDate(currentDate.getDate() + 1);
-        }
-
-        return weekdayShifts;
-      }
-
-      // For shift workers, get from schedule table
+      // Get from schedule table for all users (including administrative staff)
       const scheduleList = await db
         .select({
           id: schedules.id,
