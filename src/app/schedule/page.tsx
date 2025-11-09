@@ -43,7 +43,7 @@ import { TodayScheduleBoard } from "@/components/schedule/TodayScheduleBoard";
 import { convertShiftTypesToShifts, type ShiftType } from "@/lib/utils/shift-utils";
 import { normalizeDate } from "@/lib/utils/date-utils";
 import { useScheduleModals } from "@/hooks/useScheduleModals";
-import { useScheduleFilters } from "@/hooks/useScheduleFilters";
+import { useScheduleFilters, type ScheduleView } from "@/hooks/useScheduleFilters";
 import { ScheduleSkeleton } from "@/components/schedule/ScheduleSkeleton";
 
 // 스케줄 페이지에서 사용하는 확장된 ScheduleAssignment 타입
@@ -116,13 +116,29 @@ function SchedulePageContent() {
   const currentUserName = currentUser.name || "사용자";
   const searchParams = useSearchParams();
 
+  const parseViewParam = (value: string | null): ScheduleView | null => {
+    if (!value) return null;
+    if (value === 'preferences' || value === 'today' || value === 'schedule' || value === 'calendar') {
+      return value;
+    }
+    return null;
+  };
+
   // Parse URL parameters for initial state
   const dateParam = searchParams.get('date');
   const monthParam = searchParams.get('month');
-  const viewParam = searchParams.get('view') as 'schedule' | 'calendar' | 'today' | null;
+  const viewParam = parseViewParam(searchParams.get('view'));
+  const defaultView: ScheduleView = !canViewStaffPreferences ? 'today' : 'schedule';
+  const initialActiveView: ScheduleView = (() => {
+    if (!viewParam) return defaultView;
+    if (viewParam === 'preferences' && !canViewStaffPreferences) {
+      return 'today';
+    }
+    return viewParam;
+  })();
 
   // Custom hooks for state management
-  const filters = useScheduleFilters();
+  const filters = useScheduleFilters(initialActiveView);
   const modals = useScheduleModals();
 
   // Initialize dates from URL parameters
@@ -187,10 +203,19 @@ function SchedulePageContent() {
 
   // Handle URL parameter changes for view
   useEffect(() => {
-    if (viewParam && ['schedule', 'calendar', 'today'].includes(viewParam)) {
+    if (!viewParam) return;
+
+    if (viewParam === 'preferences' && !canViewStaffPreferences) {
+      if (filters.activeView !== 'today') {
+        filters.setActiveView('today');
+      }
+      return;
+    }
+
+    if (filters.activeView !== viewParam) {
       filters.setActiveView(viewParam);
     }
-  }, [viewParam, filters]);
+  }, [viewParam, canViewStaffPreferences, filters.activeView, filters.setActiveView]);
 
   // Employee preferences modal state
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
