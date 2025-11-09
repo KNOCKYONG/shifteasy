@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useClerk } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { User, LogOut, ChevronDown } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -11,6 +12,7 @@ export function ProfileDropdown() {
   const { signOut } = useClerk();
   const currentUser = useCurrentUser();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [showDropdown, setShowDropdown] = useState(false);
@@ -27,14 +29,29 @@ export function ProfileDropdown() {
 
   const handleSignOut = async () => {
     try {
-      // Sign out and clear all sessions
+      // 1. Clear all TanStack Query cache
+      queryClient.clear();
+
+      // 2. Clear localStorage (keep only theme preference)
+      const theme = localStorage.getItem('theme');
+      const language = localStorage.getItem('i18nextLng');
+      localStorage.clear();
+      if (theme) localStorage.setItem('theme', theme);
+      if (language) localStorage.setItem('i18nextLng', language);
+
+      // 3. Clear sessionStorage
+      sessionStorage.clear();
+
+      // 4. Sign out from Clerk and redirect
       await signOut(() => {
-        // After signing out, redirect to sign-in page
         router.push('/sign-in');
       });
     } catch (error) {
       console.error('Sign out error:', error);
-      // Force redirect even if there's an error
+      // Force cleanup and redirect even if there's an error
+      queryClient.clear();
+      localStorage.clear();
+      sessionStorage.clear();
       router.push('/sign-in');
     }
   };
