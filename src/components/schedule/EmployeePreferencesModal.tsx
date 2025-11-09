@@ -1354,30 +1354,6 @@ export function EmployeePreferencesModal({
                     </p>
                   </div>
 
-                  {/* 경력 수준 */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      경력 수준
-                    </label>
-                    <select
-                      value={(employee as any).experienceLevel || 'junior'}
-                      onChange={(e) => {
-                        updateStaffProfile.mutate({
-                          id: employee.id,
-                          experienceLevel: e.target.value as 'junior' | 'intermediate' | 'senior' | 'expert',
-                        });
-                      }}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
-                    >
-                      <option value="junior">초급 (Junior)</option>
-                      <option value="intermediate">중급 (Intermediate)</option>
-                      <option value="senior">고급 (Senior)</option>
-                      <option value="expert">전문가 (Expert)</option>
-                    </select>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      스케줄링 시 경력 수준을 고려합니다
-                    </p>
-                  </div>
 
                   {/* 경력 정보 안내 */}
                   <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">

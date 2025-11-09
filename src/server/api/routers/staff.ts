@@ -105,7 +105,6 @@ export const staffRouter = createTRPCRouter({
       status: z.enum(['active', 'inactive', 'on_leave']).optional(),
       hireDate: z.date().nullable().optional(),
       yearsOfService: z.number().optional(),
-      experienceLevel: z.enum(['junior', 'intermediate', 'senior', 'expert']).optional(),
       profile: z.object({
         phone: z.string().optional(),
         avatar: z.string().optional(),

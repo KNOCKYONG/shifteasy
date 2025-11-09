@@ -24,7 +24,6 @@ export default function SignUpPage() {
   const [showGuestPassword, setShowGuestPassword] = useState(false);
   const [hireDate, setHireDate] = useState('');
   const [yearsOfService, setYearsOfService] = useState(0);
-  const [experienceLevel, setExperienceLevel] = useState<'junior' | 'intermediate' | 'senior' | 'expert'>('junior');
 
   const router = useRouter();
   const { isLoaded, signUp, setActive } = useSignUp();
@@ -84,7 +83,6 @@ export default function SignUpPage() {
           tenantId: tenantInfo?.id,
           hireDate: hireDate || undefined,
           yearsOfService: yearsOfService,
-          experienceLevel: experienceLevel,
         }),
       });
 
@@ -315,25 +313,6 @@ export default function SignUpPage() {
                   </p>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    <FileText className="w-4 h-4 inline mr-1" />
-                    경력 수준
-                  </label>
-                  <select
-                    value={experienceLevel}
-                    onChange={(e) => setExperienceLevel(e.target.value as 'junior' | 'intermediate' | 'senior' | 'expert')}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
-                  >
-                    <option value="junior">초급 (Junior)</option>
-                    <option value="intermediate">중급 (Intermediate)</option>
-                    <option value="senior">고급 (Senior)</option>
-                    <option value="expert">전문가 (Expert)</option>
-                  </select>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    스케줄링 시 경력 수준을 고려합니다
-                  </p>
-                </div>
 
                 {error && (
                   <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-2">

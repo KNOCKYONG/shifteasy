@@ -28,10 +28,7 @@ export type Staff = {
   communication: number
   adaptability: number
   reliability: number
-  
-  // 경력 레벨
-  experienceLevel: 'JUNIOR' | 'INTERMEDIATE' | 'SENIOR' | 'EXPERT'
-  
+
   active: boolean
   
   // 타임스탬프

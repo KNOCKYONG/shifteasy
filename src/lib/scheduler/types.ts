@@ -43,7 +43,6 @@ export interface Employee {
   skills: string[];
   preferences: EmployeePreferences;
   availability: EmployeeAvailability;
-  experienceLevel?: string;
   workPatternType?: 'three-shift' | 'night-intensive' | 'weekday-only';
   preferredShiftTypes?: {
     D?: number;

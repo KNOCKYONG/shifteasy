@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ConstraintValidator } from '@/lib/scheduler/constraints';
 import { z } from 'zod';
 import { getCurrentUser } from '@/lib/auth';
 
@@ -84,10 +83,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create validator with constraints
-    const validator = new ConstraintValidator(constraints);
-
-    // Convert data to required formats
+    // Convert data to maps for easy lookup
     const employeeMap = new Map(employees.map((e: any) => [e.id, e]));
     const shiftMap = new Map(shifts.map((s: any) => [s.id, s]));
 
@@ -97,26 +93,100 @@ export async function POST(request: NextRequest) {
       date: new Date(assignment.date),
     }));
 
-    // Validate the schedule
-    const violations = validator.validateSchedule(
-      convertedAssignments,
-      employeeMap,
-      shiftMap,
-      new Date(schedule.startDate),
-      new Date(schedule.endDate)
-    );
+    // Basic validation checks
+    const violations: any[] = [];
+
+    // Check 1: All employees exist
+    for (const assignment of convertedAssignments) {
+      if (!employeeMap.has(assignment.employeeId)) {
+        violations.push({
+          constraintId: 'employee-exists',
+          constraintName: 'Employee Exists',
+          type: 'hard',
+          severity: 'critical',
+          message: `직원 ${assignment.employeeId}를 찾을 수 없습니다`,
+          affectedEmployees: [assignment.employeeId],
+          affectedDates: [assignment.date],
+          cost: 100,
+        });
+      }
+    }
+
+    // Check 2: All shifts exist
+    for (const assignment of convertedAssignments) {
+      if (!shiftMap.has(assignment.shiftId)) {
+        violations.push({
+          constraintId: 'shift-exists',
+          constraintName: 'Shift Exists',
+          type: 'hard',
+          severity: 'critical',
+          message: `시프트 ${assignment.shiftId}를 찾을 수 없습니다`,
+          affectedEmployees: [assignment.employeeId],
+          affectedDates: [assignment.date],
+          cost: 100,
+        });
+      }
+    }
+
+    // Check 3: No duplicate assignments (same employee, same date)
+    const assignmentKeys = new Map<string, any>();
+    for (const assignment of convertedAssignments) {
+      const key = `${assignment.employeeId}-${assignment.date.toDateString()}`;
+      if (assignmentKeys.has(key)) {
+        const existing = assignmentKeys.get(key);
+        violations.push({
+          constraintId: 'no-duplicates',
+          constraintName: 'No Duplicate Assignments',
+          type: 'hard',
+          severity: 'high',
+          message: `직원 ${assignment.employeeId}가 ${assignment.date.toLocaleDateString()}에 중복 배정되었습니다`,
+          affectedEmployees: [assignment.employeeId],
+          affectedDates: [assignment.date],
+          cost: 50,
+        });
+      }
+      assignmentKeys.set(key, assignment);
+    }
+
+    // Check 4: Weekly rest days (basic check - at least 1 day off per week)
+    const employeeWeeklyAssignments = new Map<string, Map<string, number>>();
+    for (const assignment of convertedAssignments) {
+      const weekKey = getWeekKey(assignment.date);
+      if (!employeeWeeklyAssignments.has(assignment.employeeId)) {
+        employeeWeeklyAssignments.set(assignment.employeeId, new Map());
+      }
+      const weekMap = employeeWeeklyAssignments.get(assignment.employeeId)!;
+      weekMap.set(weekKey, (weekMap.get(weekKey) || 0) + 1);
+    }
+
+    for (const [employeeId, weekMap] of employeeWeeklyAssignments.entries()) {
+      for (const [weekKey, days] of weekMap.entries()) {
+        if (days >= 7) {
+          violations.push({
+            constraintId: 'weekly-rest',
+            constraintName: 'Weekly Rest Day',
+            type: 'soft',
+            severity: 'medium',
+            message: `직원 ${employeeMap.get(employeeId)?.name || employeeId}가 ${weekKey} 주간에 휴무일이 없습니다`,
+            affectedEmployees: [employeeId],
+            affectedDates: [],
+            cost: 30,
+          });
+        }
+      }
+    }
 
     // Categorize violations
     const hardViolations = violations.filter(v => v.type === 'hard');
     const softViolations = violations.filter(v => v.type === 'soft');
 
     // Calculate validation score
-    const totalWeight = constraints.reduce((sum, c) => sum + (c.active ? c.weight : 0), 0);
+    const totalWeight = constraints.filter(c => c.active).reduce((sum, c) => sum + c.weight, 0) || 100;
     const violationWeight = violations.reduce((sum, v) => sum + v.cost, 0);
     const validationScore = Math.max(0, 100 - (violationWeight / totalWeight * 100));
 
-    // Generate suggestions for violations
-    const suggestions = generateSuggestions(violations, employeeMap, shiftMap);
+    // Generate simple suggestions
+    const suggestions = generateSimpleSuggestions(violations, employeeMap);
 
     // Log validation
     console.log(`[${new Date().toISOString()}] Schedule validated for tenant: ${tenantId}, user: ${user.id}, violations: ${violations.length}`);
@@ -151,48 +221,60 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Generate improvement suggestions based on violations
-function generateSuggestions(violations: any[], employeeMap: Map<string, any>, shiftMap: Map<string, any>) {
+// Helper function to get week key (ISO week)
+function getWeekKey(date: Date): string {
+  const year = date.getFullYear();
+  const week = getWeekNumber(date);
+  return `${year}-W${week.toString().padStart(2, '0')}`;
+}
+
+// Get ISO week number
+function getWeekNumber(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+}
+
+// Generate simple improvement suggestions
+function generateSimpleSuggestions(violations: any[], employeeMap: Map<string, any>) {
   const suggestions = [];
 
-  // Group violations by type
-  const violationsByType = violations.reduce((acc, v) => {
-    if (!acc[v.constraintName]) acc[v.constraintName] = [];
-    acc[v.constraintName].push(v);
-    return acc;
-  }, {} as Record<string, any[]>);
+  if (violations.some(v => v.constraintId === 'employee-exists' || v.constraintId === 'shift-exists')) {
+    suggestions.push({
+      type: 'adjustment',
+      priority: 'high',
+      description: '존재하지 않는 직원 또는 시프트가 배정되었습니다',
+      impact: '스케줄을 사용할 수 없습니다',
+      proposedChange: '유효한 직원과 시프트만 배정하세요',
+    });
+  }
 
-  // Generate suggestions for each violation type
-  for (const [constraintName, constraintViolations] of Object.entries(violationsByType)) {
-    const violations = constraintViolations as any[];
-    if (constraintName.includes('consecutive')) {
-      suggestions.push({
-        type: 'swap',
-        priority: 'high',
-        description: `${violations.length} employees exceed consecutive work limit`,
-        impact: 'Legal compliance risk',
-        affectedEmployees: violations.flatMap((v: any) => v.affectedEmployees),
-        proposedChange: 'Add rest days or redistribute shifts',
-      });
-    } else if (constraintName.includes('hours')) {
-      suggestions.push({
-        type: 'adjustment',
-        priority: 'high',
-        description: `${violations.length} employees exceed working hours limit`,
-        impact: 'Labor law violation risk',
-        affectedEmployees: violations.flatMap((v: any) => v.affectedEmployees),
-        proposedChange: 'Adjust hours or add staff',
-      });
-    } else if (constraintName.includes('preference')) {
-      suggestions.push({
-        type: 'pattern',
-        priority: 'medium',
-        description: `${violations.length} preference violations`,
-        impact: 'Employee satisfaction impact',
-        affectedEmployees: violations.flatMap((v: any) => v.affectedEmployees),
-        proposedChange: 'Reassign preferred shifts where possible',
-      });
-    }
+  if (violations.some(v => v.constraintId === 'no-duplicates')) {
+    suggestions.push({
+      type: 'adjustment',
+      priority: 'high',
+      description: '중복 배정이 발견되었습니다',
+      impact: '동일한 직원이 같은 날 여러 시프트에 배정되었습니다',
+      proposedChange: '중복 배정을 제거하세요',
+    });
+  }
+
+  if (violations.some(v => v.constraintId === 'weekly-rest')) {
+    const affectedEmployees = violations
+      .filter(v => v.constraintId === 'weekly-rest')
+      .flatMap(v => v.affectedEmployees)
+      .map(id => employeeMap.get(id)?.name || id);
+
+    suggestions.push({
+      type: 'pattern',
+      priority: 'medium',
+      description: `${affectedEmployees.length}명의 직원에게 주간 휴무일이 없습니다`,
+      impact: '직원 피로도 증가 및 근로기준법 위반 가능성',
+      affectedEmployees: [...new Set(affectedEmployees)],
+      proposedChange: '주당 최소 1일의 휴무를 배정하세요',
+    });
   }
 
   return suggestions;

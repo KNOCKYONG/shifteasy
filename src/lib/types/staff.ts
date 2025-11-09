@@ -120,7 +120,6 @@ export interface TeamComposition {
  */
 export interface StaffFilterOptions {
   roles?: Role[];
-  experienceLevels?: string[];
   minSkillLevel?: number;
   maxSkillLevel?: number;
   active?: boolean;

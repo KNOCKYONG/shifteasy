@@ -81,7 +81,6 @@ export const users = pgTable('users', {
   // Career/Experience fields
   hireDate: timestamp('hire_date', { withTimezone: true }), // 입사일 (근속 년수 계산용)
   yearsOfService: integer('years_of_service').default(0), // 근속 년수 (경력)
-  experienceLevel: text('experience_level'), // junior, intermediate, senior, expert (선택사항)
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),

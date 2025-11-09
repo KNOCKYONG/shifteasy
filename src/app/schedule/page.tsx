@@ -1385,60 +1385,7 @@ function SchedulePageContent() {
   };
 
   // Optimize current schedule
-  const handleOptimizeSchedule = async () => {
-    if (!canManageSchedules) {
-      alert('스케줄 최적화 권한이 없습니다.');
-      return;
-    }
-
-    modals.setIsOptimizing(true);
-
-    try {
-      const schedulePayload = buildSchedulePayload();
-
-      const response = await fetch('/api/schedule/optimize', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': 'user-1', // 임시 사용자 ID
-          'x-tenant-id': 'default-tenant',
-        },
-        body: JSON.stringify({
-          schedule: schedulePayload,
-          employees: filteredMembers,
-          shifts: shifts,
-          constraints: DEFAULT_CONSTRAINTS,
-          targetScore: 90,
-          maxIterations: 10,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (result.success && result.data.optimizedSchedule) {
-        // Update schedule with optimized version
-        const newSchedule = result.data.optimizedSchedule.map((item: any) => ({
-          ...item,
-          id: `${item.employeeId}-${item.date}-${item.shiftId}`,
-        }));
-
-        setSchedule(newSchedule);
-
-        const improvement = result.data.finalScore - result.data.initialScore;
-        alert(`스케줄 최적화 완료!\n개선도: ${improvement.toFixed(1)}점\n최종 점수: ${result.data.finalScore}점`);
-
-        // Validate the optimized schedule
-        setTimeout(() => handleValidateSchedule(), 500);
-      } else {
-        alert('스케줄 최적화에 실패했습니다: ' + (result.error || '알 수 없는 오류'));
-      }
-    } catch (error) {
-      console.error('Optimization error:', error);
-      alert('스케줄 최적화 중 오류가 발생했습니다.');
-    } finally {
-      modals.setIsOptimizing(false);
-    }
-  };
+  // handleOptimizeSchedule function removed - complex genetic algorithm optimizer not needed
 
   // Load saved schedule from database
   const handleLoadSchedule = async (scheduleId: string) => {
@@ -1918,7 +1865,6 @@ function SchedulePageContent() {
         id: emp.id,
         name: emp.name,
         role: emp.role as 'RN' | 'CN' | 'SN' | 'NA',
-        experienceLevel: emp.experienceLevel,
         workPatternType: emp.workPatternType,
         preferredShiftTypes: emp.preferredShiftTypes,
         maxConsecutiveDaysPreferred: emp.maxConsecutiveDaysPreferred,
@@ -2762,17 +2708,6 @@ function SchedulePageContent() {
                       <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
                         {schedule.length > 0 && (
                           <>
-                            <button
-                              onClick={() => {
-                                handleOptimizeSchedule();
-                                setShowMoreMenu(false);
-                              }}
-                              className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
-                            >
-                              <Zap className="w-4 h-4" />
-                              스케줄 최적화
-                            </button>
-
                             {generationResult && (
                               <>
                                 <button
@@ -3017,7 +2952,6 @@ function SchedulePageContent() {
         onClose={() => modals.setShowValidationResults(false)}
         validationScore={modals.validationScore}
         validationIssues={modals.validationIssues}
-        onOptimize={handleOptimizeSchedule}
       />
 
       {/* Schedule Confirmation Dialog */}

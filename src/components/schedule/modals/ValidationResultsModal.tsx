@@ -15,7 +15,6 @@ interface ValidationResultsModalProps {
   onClose: () => void;
   validationScore: number | null;
   validationIssues: ValidationIssue[];
-  onOptimize: () => void;
 }
 
 export function ValidationResultsModal({
@@ -23,7 +22,6 @@ export function ValidationResultsModal({
   onClose,
   validationScore,
   validationIssues,
-  onOptimize,
 }: ValidationResultsModalProps) {
   if (!isOpen) return null;
 
@@ -134,17 +132,6 @@ export function ValidationResultsModal({
             >
               닫기
             </button>
-            {validationScore && validationScore < 80 && (
-              <button
-                onClick={() => {
-                  onClose();
-                  onOptimize();
-                }}
-                className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 rounded-lg"
-              >
-                최적화 실행
-              </button>
-            )}
           </div>
         </div>
       </div>

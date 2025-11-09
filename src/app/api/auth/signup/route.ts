@@ -18,7 +18,6 @@ export async function POST(req: NextRequest) {
       departmentId,
       hireDate,
       yearsOfService,
-      experienceLevel,
     } = await req.json();
 
     // 필수 필드 검증
@@ -126,7 +125,6 @@ export async function POST(req: NextRequest) {
           departmentId: assignedDepartmentId || existingUser[0].departmentId, // 부서 업데이트 (부서 코드 우선)
           hireDate: hireDate ? new Date(hireDate) : existingUser[0].hireDate,
           yearsOfService: yearsOfService !== undefined ? yearsOfService : existingUser[0].yearsOfService,
-          experienceLevel: experienceLevel || existingUser[0].experienceLevel,
           updatedAt: new Date(),
         })
         .where(eq(users.id, existingUser[0].id))
@@ -203,7 +201,6 @@ export async function POST(req: NextRequest) {
           status: 'active',
           hireDate: hireDate ? new Date(hireDate) : new Date(),
           yearsOfService: yearsOfService !== undefined ? yearsOfService : 0,
-          experienceLevel: experienceLevel || 'junior',
         })
         .returning();
 

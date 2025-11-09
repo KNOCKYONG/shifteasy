@@ -30,42 +30,42 @@ const nurseData = {
   ],
   regular_nurses: [
     // 시니어 간호사 (경력 5년 이상, DL/EL 가능)
-    { name: '조훈화', experienceLevel: 'SENIOR' },
-    { name: '권정희', experienceLevel: 'SENIOR' },
-    { name: '박정혜', experienceLevel: 'SENIOR' },
-    { name: '박세영', experienceLevel: 'SENIOR' },
-    { name: '황은정', experienceLevel: 'SENIOR' },
+    { name: '조훈화', yearsOfService: 6 },
+    { name: '권정희', yearsOfService: 7 },
+    { name: '박정혜', yearsOfService: 8 },
+    { name: '박세영', yearsOfService: 6 },
+    { name: '황은정', yearsOfService: 9 },
 
     // 중간 경력 간호사 (2-5년)
-    { name: '이소연', experienceLevel: 'JUNIOR' },
-    { name: '김가현', experienceLevel: 'JUNIOR' },
-    { name: '용민영', experienceLevel: 'JUNIOR' },
-    { name: '김시연', experienceLevel: 'JUNIOR' },
-    { name: '박채린', experienceLevel: 'JUNIOR' },
-    { name: '백정민', experienceLevel: 'JUNIOR' },
-    { name: '양하은', experienceLevel: 'JUNIOR' },
-    { name: '김태연', experienceLevel: 'JUNIOR' },
-    { name: '김선우', experienceLevel: 'JUNIOR' },
-    { name: '주희진', experienceLevel: 'JUNIOR' },
+    { name: '이소연', yearsOfService: 3 },
+    { name: '김가현', yearsOfService: 4 },
+    { name: '용민영', yearsOfService: 3 },
+    { name: '김시연', yearsOfService: 4 },
+    { name: '박채린', yearsOfService: 3 },
+    { name: '백정민', yearsOfService: 5 },
+    { name: '양하은', yearsOfService: 4 },
+    { name: '김태연', yearsOfService: 3 },
+    { name: '김선우', yearsOfService: 4 },
+    { name: '주희진', yearsOfService: 3 },
 
     // 주니어 간호사 (2년 미만)
-    { name: '정서하', experienceLevel: 'NEWBIE' },
-    { name: '김수진', experienceLevel: 'NEWBIE' },
-    { name: '김승희', experienceLevel: 'NEWBIE' },
-    { name: '조예서', experienceLevel: 'NEWBIE' },
-    { name: '전예지', experienceLevel: 'NEWBIE' },
-    { name: '이효진', experienceLevel: 'NEWBIE' },
-    { name: '이유민', experienceLevel: 'NEWBIE' },
-    { name: '송수민', experienceLevel: 'NEWBIE' },
-    { name: '이지원', experienceLevel: 'NEWBIE' },
-    { name: '이채연', experienceLevel: 'NEWBIE' },
-    { name: '정혜민', experienceLevel: 'NEWBIE' },
-    { name: '송선희', experienceLevel: 'NEWBIE' },
-    { name: '도은솔', experienceLevel: 'NEWBIE' },
-    { name: '나혜지', experienceLevel: 'NEWBIE' },
-    { name: '김민지', experienceLevel: 'NEWBIE' },
-    { name: '김하진', experienceLevel: 'NEWBIE' },
-    { name: '장민서', experienceLevel: 'NEWBIE' }
+    { name: '정서하', yearsOfService: 1 },
+    { name: '김수진', yearsOfService: 1 },
+    { name: '김승희', yearsOfService: 2 },
+    { name: '조예서', yearsOfService: 1 },
+    { name: '전예지', yearsOfService: 1 },
+    { name: '이효진', yearsOfService: 2 },
+    { name: '이유민', yearsOfService: 1 },
+    { name: '송수민', yearsOfService: 1 },
+    { name: '이지원', yearsOfService: 2 },
+    { name: '이채연', yearsOfService: 1 },
+    { name: '정혜민', yearsOfService: 1 },
+    { name: '송선희', yearsOfService: 2 },
+    { name: '도은솔', yearsOfService: 1 },
+    { name: '나혜지', yearsOfService: 1 },
+    { name: '김민지', yearsOfService: 2 },
+    { name: '김하진', yearsOfService: 1 },
+    { name: '장민서', yearsOfService: 1 }
   ]
 };
 
@@ -183,7 +183,6 @@ async function seedAll() {
         communication: 5,
         adaptability: 5,
         reliability: 5,
-        experienceLevel: 'EXPERT',
         active: true
       });
     });
@@ -203,29 +202,42 @@ async function seedAll() {
         communication: 4,
         adaptability: 5,
         reliability: 4,
-        experienceLevel: 'SENIOR',
         active: true
       });
     });
 
     // Regular nurses
     nurseData.regular_nurses.forEach((nurse, index) => {
-      const experienceConfig = getExperienceConfig(nurse.experienceLevel);
+      const yearsOfService = nurse.yearsOfService || 1;
+      const baseDate = new Date();
+      const hireDate = new Date(baseDate.getFullYear() - yearsOfService, 0, 1);
+
+      // Years of service에 따른 스킬 배정
+      const skills = yearsOfService >= 6
+        ? ['emergency', 'critical_care', 'mentoring', 'leadership']
+        : yearsOfService >= 3
+        ? ['basic_care', 'emergency', 'teamwork']
+        : ['basic_care', 'learning'];
+
+      const technicalSkill = yearsOfService >= 6 ? 4 : yearsOfService >= 3 ? 3 : 2;
+      const leadership = yearsOfService >= 6 ? 4 : yearsOfService >= 3 ? 3 : 2;
+      const communication = yearsOfService >= 6 ? 4 : yearsOfService >= 3 ? 3 : 3;
+      const adaptability = yearsOfService >= 6 ? 4 : yearsOfService >= 3 ? 4 : 3;
+      const reliability = yearsOfService >= 6 ? 5 : yearsOfService >= 3 ? 4 : 3;
 
       staffData.push({
         wardId: ward.id,
         name: nurse.name,
         role: 'RN' as const,
         employeeId: `RN-${String(index + 1).padStart(3, '0')}`,
-        hireDate: experienceConfig.hireDate,
+        hireDate,
         maxWeeklyHours: 52,
-        skills: experienceConfig.skills,
-        technicalSkill: experienceConfig.technicalSkill,
-        leadership: experienceConfig.leadership,
-        communication: experienceConfig.communication,
-        adaptability: experienceConfig.adaptability,
-        reliability: experienceConfig.reliability,
-        experienceLevel: nurse.experienceLevel,
+        skills,
+        technicalSkill,
+        leadership,
+        communication,
+        adaptability,
+        reliability,
         active: true
       });
     });
@@ -251,46 +263,6 @@ async function seedAll() {
   } catch (error) {
     console.error('❌ 시드 실패:', error);
     throw error;
-  }
-}
-
-function getExperienceConfig(experienceLevel: string) {
-  const baseDate = new Date();
-
-  switch (experienceLevel) {
-    case 'SENIOR':
-      return {
-        hireDate: new Date(baseDate.getFullYear() - 6, 0, 1),
-        skills: ['emergency', 'critical_care', 'mentoring', 'leadership'],
-        technicalSkill: 4,
-        leadership: 4,
-        communication: 4,
-        adaptability: 4,
-        reliability: 5
-      };
-
-    case 'JUNIOR':
-      return {
-        hireDate: new Date(baseDate.getFullYear() - 3, 6, 1),
-        skills: ['basic_care', 'emergency', 'teamwork'],
-        technicalSkill: 3,
-        leadership: 3,
-        communication: 3,
-        adaptability: 4,
-        reliability: 4
-      };
-
-    case 'NEWBIE':
-    default:
-      return {
-        hireDate: new Date(baseDate.getFullYear() - 1, 0, 1),
-        skills: ['basic_care', 'learning'],
-        technicalSkill: 2,
-        leadership: 2,
-        communication: 3,
-        adaptability: 3,
-        reliability: 3
-      };
   }
 }
 

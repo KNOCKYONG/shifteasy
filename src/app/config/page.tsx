@@ -118,18 +118,14 @@ function ConfigPageContent() {
     name: string;
     minYears: number;
     maxYears: number;
-    experienceLevel: 'junior' | 'intermediate' | 'senior' | 'expert';
     description: string;
-    color: string;
   }[]>([]);
   const [newCareerGroup, setNewCareerGroup] = useState({
     code: '',
     name: '',
     minYears: 0,
     maxYears: 2,
-    experienceLevel: 'junior' as 'junior' | 'intermediate' | 'senior' | 'expert',
     description: '',
-    color: 'green',
   });
   const [editingCareerGroup, setEditingCareerGroup] = useState<string | null>(null);
 
@@ -594,37 +590,6 @@ function ConfigPageContent() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    경력 수준
-                  </label>
-                  <select
-                    value={newCareerGroup.experienceLevel}
-                    onChange={(e) => setNewCareerGroup({ ...newCareerGroup, experienceLevel: e.target.value as any })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
-                  >
-                    <option value="junior">초급 (Junior)</option>
-                    <option value="intermediate">중급 (Intermediate)</option>
-                    <option value="senior">고급 (Senior)</option>
-                    <option value="expert">전문가 (Expert)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    색상
-                  </label>
-                  <select
-                    value={newCareerGroup.color}
-                    onChange={(e) => setNewCareerGroup({ ...newCareerGroup, color: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
-                  >
-                    <option value="green">녹색</option>
-                    <option value="blue">파랑</option>
-                    <option value="purple">보라</option>
-                    <option value="orange">주황</option>
-                    <option value="red">빨강</option>
-                  </select>
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     설명
                   </label>
                   <input
@@ -645,9 +610,7 @@ function ConfigPageContent() {
                       name: '',
                       minYears: 0,
                       maxYears: 2,
-                      experienceLevel: 'junior',
                       description: '',
-                      color: 'green',
                     });
                   }
                 }}
@@ -668,17 +631,12 @@ function ConfigPageContent() {
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
-                        <span className={`px-2 py-1 rounded text-xs font-medium bg-${group.color}-100 text-${group.color}-700 dark:bg-${group.color}-900 dark:text-${group.color}-100`}>
+                        <span className="px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-100">
                           {group.code}
                         </span>
                         <span className="font-medium text-gray-900 dark:text-gray-100">{group.name}</span>
                         <span className="text-sm text-gray-600 dark:text-gray-400">
                           ({group.minYears}-{group.maxYears}년)
-                        </span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {group.experienceLevel === 'junior' ? '초급' :
-                           group.experienceLevel === 'intermediate' ? '중급' :
-                           group.experienceLevel === 'senior' ? '고급' : '전문가'}
                         </span>
                       </div>
                       {group.description && (

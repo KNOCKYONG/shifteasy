@@ -32,10 +32,6 @@ export function StaffCard({ staff, compact = false, onClick, workPatternType, pr
   const roleColor = ROLE_COLORS[staff.role] || ROLE_COLORS.RN;
   const roleName = STAFF_ROLES[staff.role]?.label || staff.role;
 
-  const getExperienceLabel = (level: string) => {
-    return t(`experienceLevels.${level}`, { ns: 'team' });
-  };
-
   // 선호도 요약
   const getPreferenceSummary = () => {
     const summary: string[] = [];
@@ -82,11 +78,6 @@ export function StaffCard({ staff, compact = false, onClick, workPatternType, pr
             } ${roleColor.text} ${roleColor.border} border`}>
               {roleName}
             </span>
-            {staff.experienceLevel && (
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                {getExperienceLabel(staff.experienceLevel)}
-              </span>
-            )}
             {preferenceSummary.length > 0 && (
               <span className="inline-flex px-1.5 py-0.5 text-xs font-medium rounded-md bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-900/30">
                 {preferenceSummary[0]}
@@ -148,15 +139,6 @@ export function StaffCard({ staff, compact = false, onClick, workPatternType, pr
         </div>
       )}
 
-      {/* Stats */}
-      <div className="pt-3 border-t border-gray-50 dark:border-slate-700">
-        <div>
-          <p className="text-xs text-gray-500 dark:text-gray-400">{t('staffCard.experience', { ns: 'components' })}</p>
-          <p className="text-sm font-medium text-gray-900 dark:text-white">
-            {staff.experienceLevel ? getExperienceLabel(staff.experienceLevel) : "-"}
-          </p>
-        </div>
-      </div>
 
       {/* Skill Meters */}
       <div className="mt-3 space-y-2">

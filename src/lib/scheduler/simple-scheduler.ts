@@ -14,7 +14,6 @@ export interface Employee {
   id: string;
   name: string;
   role: 'RN' | 'CN' | 'SN' | 'NA';
-  experienceLevel?: string;
   workPatternType?: 'three-shift' | 'night-intensive' | 'weekday-only';
   preferredShiftTypes?: {
     D?: number;
@@ -693,12 +692,7 @@ export class SimpleScheduler {
       const bConsecutive = bLastShift === shift ? (this.consecutiveShiftCounts.get(b.id) || 0) : 0;
       if (aConsecutive !== bConsecutive) return aConsecutive - bConsecutive;
 
-      // 5. Experience level (senior for quality)
-      const aExp = this.getExperienceScore(a);
-      const bExp = this.getExperienceScore(b);
-      if (aExp !== bExp) return bExp - aExp;
-
-      // 6. Shift preference
+      // 5. Shift preference
       const aPref = this.getShiftPreference(a, shift);
       const bPref = this.getShiftPreference(b, shift);
       if (aPref !== bPref) return bPref - aPref;
@@ -731,15 +725,6 @@ export class SimpleScheduler {
     }
   }
 
-  /**
-   * Get experience score for sorting (higher = more senior)
-   */
-  private getExperienceScore(employee: Employee): number {
-    const level = (employee.experienceLevel || 'junior').toLowerCase();
-    if (level.includes('senior') || level.includes('expert')) return 3;
-    if (level.includes('mid') || level.includes('intermediate')) return 2;
-    return 1; // junior or default
-  }
 
   /**
    * Get preference score for a shift
