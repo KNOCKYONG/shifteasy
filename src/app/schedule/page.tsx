@@ -25,6 +25,7 @@ import { ConfirmationDialog } from "@/components/schedule/modals/ConfirmationDia
 import { ReportModal } from "@/components/schedule/modals/ReportModal";
 import { ManageSchedulesModal } from "@/components/schedule/modals/ManageSchedulesModal";
 import { SwapRequestModal } from "@/components/schedule/modals/SwapRequestModal";
+import { ScheduleSwapModal } from "@/components/schedule/modals/ScheduleSwapModal";
 import {
   ViewTabs,
   ShiftTypeFilters,
@@ -452,12 +453,12 @@ function SchedulePageContent() {
   const [selectedDate, setSelectedDate] = useState<Date>(getInitialDate()); // 오늘의 근무 날짜 선택
 
   // Swap 관련 상태
-  const [swapMode, setSwapMode] = useState(false);
-  const [swapStep, setSwapStep] = useState<'select-my-schedule' | 'select-target' | null>(null); // 교환 단계
-  const [selectedSwapDate, setSelectedSwapDate] = useState<string | null>(null); // 선택한 날짜
-  const [selectedSwapCell, setSelectedSwapCell] = useState<{ date: string; employeeId: string; assignment: any } | null>(null);
-  const [targetSwapCell, setTargetSwapCell] = useState<{ date: string; employeeId: string; assignment: any } | null>(null);
-  const [showSwapModal, setShowSwapModal] = useState(false);
+  const [showScheduleSwapModal, setShowScheduleSwapModal] = useState(false);
+  const [showSwapRequestModal, setShowSwapRequestModal] = useState(false);
+  const [swapRequestData, setSwapRequestData] = useState<{
+    myShift: { date: string; employeeId: string; shiftId: string; employeeName: string };
+    targetShift: { date: string; employeeId: string; shiftId: string; employeeName: string };
+  } | null>(null);
 
   // Handle URL parameter changes for view
   useEffect(() => {
@@ -901,22 +902,8 @@ function SchedulePageContent() {
   }, []);
 
   const handleToggleSwapMode = React.useCallback(() => {
-    const newSwapMode = !swapMode;
-    setSwapMode(newSwapMode);
-
-    if (newSwapMode) {
-      // 교환 모드 활성화: 1단계 - 내 스케줄만 보기
-      setSwapStep('select-my-schedule');
-      filters.setShowMyScheduleOnly(true);
-    } else {
-      // 교환 모드 비활성화: 모든 상태 초기화
-      setSwapStep(null);
-      setSelectedSwapDate(null);
-      setSelectedSwapCell(null);
-      setTargetSwapCell(null);
-      filters.setShowMyScheduleOnly(false);
-    }
-  }, [swapMode, filters]);
+    setShowScheduleSwapModal(true);
+  }, []);
 
   const handleCloseGenerationResult = React.useCallback(() => {
     setGenerationResult(null);
@@ -941,13 +928,8 @@ function SchedulePageContent() {
   const createSwapRequest = api.swap.create.useMutation({
     onSuccess: () => {
       alert('교환 요청이 성공적으로 생성되었습니다. 관리자의 승인을 기다려주세요.');
-      setShowSwapModal(false);
-      setSelectedSwapCell(null);
-      setTargetSwapCell(null);
-      setSwapMode(false);
-      setSwapStep(null);
-      setSelectedSwapDate(null);
-      filters.setShowMyScheduleOnly(false);
+      setShowSwapRequestModal(false);
+      setSwapRequestData(null);
     },
     onError: (error) => {
       console.error('Swap request failed:', error);
@@ -2177,64 +2159,23 @@ function SchedulePageContent() {
   }, [canManageSchedules, showMoreMenu]);
 
   // Swap 관련 핸들러
-  const handleSwapCellClick = React.useCallback((date: Date, employeeId: string, assignment: any) => {
-    const dateStr = format(date, 'yyyy-MM-dd');
-
-    // Step 1: 내 스케줄 선택 단계
-    if (swapStep === 'select-my-schedule') {
-      // 자신의 셀을 클릭한 경우
-      if (employeeId === currentUser.dbUser?.id) {
-        if (!assignment) {
-          alert('교환할 스케줄이 없습니다.');
-          return;
-        }
-        // 내 스케줄 저장하고 다음 단계로
-        setSelectedSwapCell({ date: dateStr, employeeId, assignment });
-        setSelectedSwapDate(dateStr);
-        setTargetSwapCell(null);
-        setSwapStep('select-target');
-        // 모든 직원의 스케줄 보이도록 필터 해제
-        filters.setShowMyScheduleOnly(false);
-      }
-      return;
-    }
-
-    // Step 2: 교환 대상 선택 단계
-    if (swapStep === 'select-target') {
-      // 같은 날짜가 아니면 무시
-      if (dateStr !== selectedSwapDate) {
-        alert('같은 날짜의 스케줄만 선택할 수 있습니다.');
-        return;
-      }
-
-      // 자기 자신을 다시 클릭한 경우 1단계로 돌아가기
-      if (employeeId === currentUser.dbUser?.id) {
-        setSelectedSwapCell(null);
-        setSelectedSwapDate(null);
-        setSwapStep('select-my-schedule');
-        filters.setShowMyScheduleOnly(true);
-        return;
-      }
-
-      // 다른 직원의 스케줄 선택
-      if (!assignment) {
-        alert('교환할 스케줄이 없습니다.');
-        return;
-      }
-
-      setTargetSwapCell({ date: dateStr, employeeId, assignment });
-      setShowSwapModal(true);
-    }
-  }, [currentUser.dbUser?.id, swapStep, selectedSwapDate, filters]);
+  const handleSwapRequest = React.useCallback((
+    myShift: { date: string; employeeId: string; shiftId: string; employeeName: string },
+    targetShift: { date: string; employeeId: string; shiftId: string; employeeName: string }
+  ) => {
+    setSwapRequestData({ myShift, targetShift });
+    setShowScheduleSwapModal(false);
+    setShowSwapRequestModal(true);
+  }, []);
 
   const handleSwapSubmit = (reason: string) => {
-    if (!selectedSwapCell || !targetSwapCell) return;
+    if (!swapRequestData) return;
 
     createSwapRequest.mutate({
-      date: selectedSwapCell.date,
-      requesterShiftId: selectedSwapCell.assignment.shiftId,
-      targetUserId: targetSwapCell.employeeId,
-      targetShiftId: targetSwapCell.assignment.shiftId,
+      date: swapRequestData.myShift.date,
+      requesterShiftId: swapRequestData.myShift.shiftId,
+      targetUserId: swapRequestData.targetShift.employeeId,
+      targetShiftId: swapRequestData.targetShift.shiftId,
       reason,
     });
   };
@@ -2277,17 +2218,6 @@ function SchedulePageContent() {
     setEditingCell(null);
   };
 
-  const handleSwapModalClose = () => {
-    setShowSwapModal(false);
-    setTargetSwapCell(null);
-    // 모달을 닫아도 교환 모드는 유지 (Step 1로 돌아가기)
-    if (swapMode) {
-      setSwapStep('select-my-schedule');
-      setSelectedSwapCell(null);
-      setSelectedSwapDate(null);
-      filters.setShowMyScheduleOnly(true);
-    }
-  };
 
   const handleImport = async () => {
     if (!canManageSchedules) {
@@ -2720,7 +2650,7 @@ function SchedulePageContent() {
             </button>
           </div>
 
-          {/* 현재 설정된 선호도 요약 - 모바일에서는 2열, 데스크톱에서는 3열 그리드 */}
+          {/* 기본 근무 패턴 설정 요약 - 모바일에서는 2열, 데스크톱에서는 3열 그리드 */}
           <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4">
             {/* 근무 패턴 */}
             <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
@@ -2728,110 +2658,53 @@ function SchedulePageContent() {
               <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">{currentUserSummary.workPattern}</p>
             </div>
 
-            {/* 선호 시프트 */}
+            {/* 선호하는 휴무일 */}
             <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">선호 시프트</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">선호 휴무일</p>
               <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
                 {(() => {
-                  const preferredShift = currentUserPreferences?.workPreferences?.preferredShifts?.[0];
+                  const preferredDaysOff = (() => { const currentEmployee = allMembers.find(m => m.id === currentUser.dbUser?.id); return (currentEmployee as any)?.preferences?.preferredDaysOff; })();
+                  if (!preferredDaysOff || preferredDaysOff.length === 0) return '미설정';
+                  const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+                  return preferredDaysOff.map((day: number) => dayNames[day]).join(', ');
+                })()}
+              </p>
+            </div>
+
+            {/* 선호하는 근무 시간 */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">선호 근무시간</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
+                {(() => {
+                  const preferredShift = storedUserPreferences?.workPreferences?.preferredShifts?.[0];
                   const shiftMap: Record<string, string> = { day: '주간', evening: '저녁', night: '야간' };
                   return preferredShift ? (shiftMap[preferredShift] || preferredShift) : '미설정';
                 })()}
               </p>
             </div>
 
-            {/* 휴무 패턴 */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">휴무 패턴</p>
+            {/* 선호 근무 패턴 */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3 col-span-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">선호 근무 패턴</p>
               <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
                 {(() => {
-                  const offDayPattern = currentUserPreferences?.workPreferences?.offDayPattern;
-                  const patternMap: Record<string, string> = {
-                    short: '짧은 휴무',
-                    long: '긴 휴무',
-                    flexible: '유연하게'
-                  };
-                  return offDayPattern ? (patternMap[offDayPattern] || offDayPattern) : '유연하게';
+                  const currentEmployee = allMembers.find(m => m.id === currentUser.dbUser?.id);
+                  const preferredPatterns = (currentEmployee as any)?.preferences?.preferredPatterns;
+                  if (!preferredPatterns || preferredPatterns.length === 0) return '미설정';
+                  return preferredPatterns.join(', ');
                 })()}
               </p>
             </div>
 
-            {/* 주말 근무 */}
+            {/* 기피 근무 패턴 */}
             <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">주말 근무</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">기피 패턴</p>
               <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
                 {(() => {
-                  const weekendPref = currentUserPreferences?.workPreferences?.weekendPreference;
-                  const prefMap: Record<string, string> = { prefer: '선호', avoid: '회피', neutral: '상관없음' };
-                  return weekendPref ? (prefMap[weekendPref] || weekendPref) : '상관없음';
-                })()}
-              </p>
-            </div>
-
-            {/* 최대 연속 근무 */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">최대 연속</p>
-              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
-                {(() => {
-                  const maxConsecutive = currentUserPreferences?.workPreferences?.maxConsecutiveDays;
-                  return maxConsecutive ? `${maxConsecutive}일` : '5일';
-                })()}
-              </p>
-            </div>
-
-            {/* 최소 휴식일 */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">최소 휴식</p>
-              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
-                {(() => {
-                  const minRestDays = currentUserPreferences?.workPreferences?.minRestDays;
-                  return minRestDays ? `${minRestDays}일` : '1일';
-                })()}
-              </p>
-            </div>
-
-            {/* 선호 업무량 */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">선호 업무량</p>
-              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
-                {(() => {
-                  const workload = currentUserPreferences?.workPreferences?.preferredWorkload;
-                  const workloadMap: Record<string, string> = {
-                    light: '가벼움',
-                    moderate: '보통',
-                    heavy: '많음',
-                    flexible: '유연하게'
-                  };
-                  return workload ? (workloadMap[workload] || workload) : '보통';
-                })()}
-              </p>
-            </div>
-
-            {/* 공휴일 근무 */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">공휴일 근무</p>
-              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
-                {(() => {
-                  const holidayPref = currentUserPreferences?.workPreferences?.holidayPreference;
-                  const prefMap: Record<string, string> = { prefer: '선호', avoid: '회피', neutral: '상관없음' };
-                  return holidayPref ? (prefMap[holidayPref] || holidayPref) : '상관없음';
-                })()}
-              </p>
-            </div>
-
-            {/* 초과근무 의향 */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5 sm:mb-1">초과근무</p>
-              <p className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100">
-                {(() => {
-                  const overtime = currentUserPreferences?.workPreferences?.overtimeWillingness;
-                  const overtimeMap: Record<string, string> = {
-                    never: '불가',
-                    emergency: '긴급시만',
-                    sometimes: '가끔',
-                    always: '가능'
-                  };
-                  return overtime ? (overtimeMap[overtime] || overtime) : '긴급시만';
+                  const currentEmployee = allMembers.find(m => m.id === currentUser.dbUser?.id);
+                  const avoidPatterns = (currentEmployee as any)?.preferences?.avoidPatterns;
+                  if (!avoidPatterns || avoidPatterns.length === 0) return '없음';
+                  return `${avoidPatterns.length}개`;
                 })()}
               </p>
             </div>
@@ -3081,7 +2954,7 @@ function SchedulePageContent() {
           filteredMembersCount={filteredMembers.length}
           selectedShiftTypesSize={filters.selectedShiftTypes.size}
           isMember={isMember}
-          swapMode={swapMode}
+          swapMode={false}
           hasSchedule={schedule.length > 0}
           onPreviousMonth={handlePreviousMonth}
           onThisMonth={handleThisMonth}
@@ -3111,10 +2984,10 @@ function SchedulePageContent() {
                 getShiftColor={getShiftColor}
                 getShiftName={getShiftName}
                 getShiftCode={getShiftCode}
-                enableSwapMode={isMember && swapMode}
+                enableSwapMode={false}
                 currentUserId={currentUser.dbUser?.id}
-                selectedSwapCell={selectedSwapCell}
-                onCellClick={isManager ? handleManagerCellClick : handleSwapCellClick}
+                selectedSwapCell={null}
+                onCellClick={isManager ? handleManagerCellClick : undefined}
                 enableManagerEdit={isManager}
                 offBalanceData={offBalanceMap}
                 showOffBalance={true}
@@ -3210,26 +3083,43 @@ function SchedulePageContent() {
       />
 
       {/* Swap Request Modal */}
-      {selectedSwapCell && targetSwapCell && (
+      {/* Schedule Swap Modal - Step 1 & 2 */}
+      <ScheduleSwapModal
+        isOpen={showScheduleSwapModal}
+        onClose={() => setShowScheduleSwapModal(false)}
+        currentUserId={currentUser.dbUser?.id || ''}
+        currentUserName={currentUser.dbUser?.name || ''}
+        schedule={schedule}
+        allMembers={allMembers}
+        getShiftName={getShiftName}
+        getShiftColor={getShiftColor}
+        onSwapRequest={handleSwapRequest}
+      />
+
+      {/* Swap Request Confirmation Modal */}
+      {swapRequestData && (
         <SwapRequestModal
-          isOpen={showSwapModal}
-          onClose={handleSwapModalClose}
+          isOpen={showSwapRequestModal}
+          onClose={() => {
+            setShowSwapRequestModal(false);
+            setSwapRequestData(null);
+          }}
           onSubmit={handleSwapSubmit}
           myAssignment={{
-            date: selectedSwapCell.date,
-            employeeName: currentUser.dbUser?.name || '',
-            shiftName: getShiftName(selectedSwapCell.assignment.shiftId),
+            date: swapRequestData.myShift.date,
+            employeeName: swapRequestData.myShift.employeeName,
+            shiftName: getShiftName(swapRequestData.myShift.shiftId),
             shiftTime: (() => {
-              const shift = shifts.find(s => s.id === selectedSwapCell.assignment.shiftId);
+              const shift = shifts.find(s => s.id === swapRequestData.myShift.shiftId);
               return shift?.time ? `${shift.time.start} - ${shift.time.end}` : '';
             })(),
           }}
           targetAssignment={{
-            date: targetSwapCell.date,
-            employeeName: allMembers.find(m => m.id === targetSwapCell.employeeId)?.name || '',
-            shiftName: getShiftName(targetSwapCell.assignment.shiftId),
+            date: swapRequestData.targetShift.date,
+            employeeName: swapRequestData.targetShift.employeeName,
+            shiftName: getShiftName(swapRequestData.targetShift.shiftId),
             shiftTime: (() => {
-              const shift = shifts.find(s => s.id === targetSwapCell.assignment.shiftId);
+              const shift = shifts.find(s => s.id === swapRequestData.targetShift.shiftId);
               return shift?.time ? `${shift.time.start} - ${shift.time.end}` : '';
             })(),
           }}
