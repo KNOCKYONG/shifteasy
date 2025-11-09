@@ -258,10 +258,14 @@ const departments =
   };
 
   const handleMemberClick = (member: any) => {
+    console.log('Member clicked:', member.name, 'Current role:', currentUserRole);
     // Only allow managers and admins to edit member info
     if (currentUserRole === 'manager' || currentUserRole === 'admin' || currentUserRole === 'owner') {
+      console.log('Opening edit modal for:', member.name);
       setSelectedMember(member);
       setShowEditForm(true);
+    } else {
+      console.log('User does not have permission to edit. Role:', currentUserRole);
     }
   };
 
