@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { User, Heart, Calendar, Clock, Users, Shield, X, Save, AlertCircle, Star, UserCheck, UserMinus, ChevronLeft, ChevronRight, Info, CheckCircle, Edit2, Trash2, Wallet } from "lucide-react";
+import { User, Heart, Calendar, Clock, Users, Shield, X, Save, AlertCircle, Star, UserCheck, UserMinus, ChevronLeft, ChevronRight, Info, CheckCircle, Edit2, Trash2, Wallet, Briefcase } from "lucide-react";
 import { type Employee, type EmployeePreferences, type ShiftType } from "@/lib/scheduler/types";
 import { validatePattern as validatePatternUtil, describePattern, EXAMPLE_PATTERNS, KEYWORD_DESCRIPTIONS, type ShiftToken } from "@/lib/utils/pattern-validator";
 import { api } from "@/lib/trpc/client";
@@ -34,6 +34,7 @@ export interface ExtendedEmployeePreferences extends EmployeePreferences {
   workLoadPreference: 'light' | 'normal' | 'heavy'; // 업무량 선호
   flexibilityLevel: 'low' | 'medium' | 'high'; // 유연성 수준
   preferredPatterns?: string[]; // 선호하는 근무 패턴들 (멀티 선택)
+  avoidPatterns?: string[][]; // 기피하는 근무 패턴들 (개인)
 
   // 팀 선호도
   preferredPartners: string[]; // 선호하는 동료 ID
@@ -122,6 +123,7 @@ export function EmployeePreferencesModal({
       },
       preferredPattern: '',
       preferredPatterns: [],
+      avoidPatterns: [],
     };
 
     // Merge with employee preferences, using loaded values where available
@@ -137,7 +139,7 @@ export function EmployeePreferencesModal({
     } as ExtendedEmployeePreferences;
   });
 
-  const [activeTab, setActiveTab] = useState<'basic' | 'personal' | 'team' | 'request' | 'off-balance'>('basic');
+  const [activeTab, setActiveTab] = useState<'basic' | 'personal' | 'career' | 'team' | 'request' | 'off-balance'>('basic');
   const [selectedTeam, setSelectedTeam] = useState<string>((employee as any).teamId || '');
   const [showConstraintForm, setShowConstraintForm] = useState(false);
 
@@ -148,6 +150,11 @@ export function EmployeePreferencesModal({
   const [customPatternInput, setCustomPatternInput] = useState('');
   const [patternValidation, setPatternValidation] = useState<ReturnType<typeof validatePatternUtil> | null>(null);
   const [showPatternHelp, setShowPatternHelp] = useState(false);
+
+  // 기피 패턴 텍스트 입력 관련 상태
+  const [avoidPatternInput, setAvoidPatternInput] = useState('');
+  const [avoidPatternValidation, setAvoidPatternValidation] = useState<ReturnType<typeof validatePatternUtil> | null>(null);
+  const [showAvoidPatternHelp, setShowAvoidPatternHelp] = useState(false);
 
   // Off-balance data state
   const [offBalanceData, setOffBalanceData] = useState<{
@@ -410,6 +417,8 @@ export function EmployeePreferencesModal({
               workPatternType: preferences.workPatternType,
               preferredShifts: preferences.preferredShifts || [], // Use actual selected shifts
               avoidShifts: preferences.avoidShifts || [],
+              preferredPatterns: preferences.preferredPatterns || [], // 개인 선호 패턴
+              avoidPatterns: preferences.avoidPatterns || [], // 개인 기피 패턴
               maxConsecutiveDays: preferences.maxConsecutiveDays || 5,
               minRestDays: 2,
               preferredWorkload: preferences.workLoadPreference === 'light' ? 'light' : preferences.workLoadPreference === 'heavy' ? 'heavy' : 'moderate',
@@ -664,6 +673,58 @@ export function EmployeePreferencesModal({
     });
   };
 
+  // 기피 패턴 텍스트 입력 핸들러
+  const handleAvoidPatternInputChange = (value: string) => {
+    setAvoidPatternInput(value);
+
+    // 실시간 검증
+    if (value.trim()) {
+      const validation = validatePatternUtil(value);
+      // 기피 패턴은 OFF를 포함할 수 없음 - 추가 검증
+      if (validation.isValid && validation.tokens.includes('O')) {
+        setAvoidPatternValidation({
+          ...validation,
+          isValid: false,
+          errors: ['기피 패턴에는 OFF(O)를 포함할 수 없습니다. 근무 시프트만 조합하세요.'],
+        });
+      } else {
+        setAvoidPatternValidation(validation);
+      }
+    } else {
+      setAvoidPatternValidation(null);
+    }
+  };
+
+  // 기피 패턴 텍스트를 적용
+  const applyAvoidPatternInput = () => {
+    if (!avoidPatternValidation || !avoidPatternValidation.isValid) {
+      return;
+    }
+
+    // 검증된 토큰을 패턴 배열에 추가
+    const newPatternArray = avoidPatternValidation.tokens as string[];
+
+    setPreferences(prev => ({
+      ...prev,
+      avoidPatterns: [
+        ...(prev.avoidPatterns || []),
+        newPatternArray,
+      ],
+    }));
+
+    // 입력 초기화
+    setAvoidPatternInput('');
+    setAvoidPatternValidation(null);
+  };
+
+  // 기피 패턴 삭제
+  const removeAvoidPattern = (index: number) => {
+    setPreferences({
+      ...preferences,
+      avoidPatterns: (preferences.avoidPatterns || []).filter((_, i) => i !== index),
+    });
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
@@ -694,6 +755,7 @@ export function EmployeePreferencesModal({
             {[
               { id: 'basic', label: '기본 선호도', icon: Clock },
               { id: 'personal', label: '개인 사정', icon: Calendar },
+              { id: 'career', label: '경력 관리', icon: Briefcase },
               { id: 'off-balance', label: '잔여 OFF', icon: Wallet },
               { id: 'request', label: 'Request', icon: Star },
               ...(canManageTeams ? [{ id: 'team', label: '팀 배정', icon: Users }] : []),
@@ -985,6 +1047,197 @@ export function EmployeePreferencesModal({
                   </div>
                 )}
               </div>
+
+              {/* 기피 근무 패턴 */}
+              <div className={preferences.workPatternType !== 'three-shift' ? 'opacity-50 pointer-events-none' : ''}>
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertCircle className="w-5 h-5 text-red-500" />
+                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                    기피 근무 패턴 (개인)
+                    {preferences.workPatternType !== 'three-shift' && (
+                      <span className="ml-2 text-sm text-gray-500 font-normal">(3교대 근무 선택 시 활성화)</span>
+                    )}
+                  </h3>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                  피하고 싶은 연속 시프트 조합을 설정하세요. 예: 야간 2일 후 주간 근무
+                </p>
+
+                {/* 기피 패턴 직접 입력 */}
+                {(() => {
+                  const isDisabled = preferences.workPatternType !== 'three-shift';
+                  return (
+                    <div className="mb-4 p-4 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
+                      <div className="flex items-start gap-2 mb-2">
+                        <div className="flex-1">
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            기피 패턴 직접 입력
+                          </label>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                            하이픈(-), 쉼표(,), 공백으로 구분하여 입력하세요. 예: N-N-D (야간 2일 후 주간 금지)
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setShowAvoidPatternHelp(!showAvoidPatternHelp)}
+                          className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                          title="도움말"
+                        >
+                          <Info className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* 도움말 */}
+                      {showAvoidPatternHelp && (
+                        <div className="mb-3 p-3 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded-md">
+                          <div className="text-xs text-red-900 dark:text-red-200 space-y-2">
+                            <div>
+                              <p className="font-medium mb-1">✅ 유효한 키워드 (OFF 제외):</p>
+                              <div className="grid grid-cols-2 gap-1 ml-2">
+                                <div className="flex items-center gap-1">
+                                  <span className="font-mono font-bold">D:</span>
+                                  <span className="text-gray-700 dark:text-gray-300">주간 근무</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <span className="font-mono font-bold">E:</span>
+                                  <span className="text-gray-700 dark:text-gray-300">저녁 근무</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <span className="font-mono font-bold">N:</span>
+                                  <span className="text-gray-700 dark:text-gray-300">야간 근무</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div>
+                              <p className="font-medium mb-1">📝 예시:</p>
+                              <div className="ml-2 space-y-1 text-gray-700 dark:text-gray-300">
+                                <div>• N-D: 야간 직후 주간 금지</div>
+                                <div>• N-N-D: 야간 2일 후 주간 금지</div>
+                                <div>• D-D-D-D-D-D: 주간 6일 연속 금지</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 입력 필드 */}
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            value={avoidPatternInput}
+                            onChange={(e) => handleAvoidPatternInputChange(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && avoidPatternValidation?.isValid && !isDisabled) {
+                                applyAvoidPatternInput();
+                              }
+                            }}
+                            placeholder="예: N-N-D 또는 E,E,N (Enter로 추가)"
+                            disabled={isDisabled}
+                            className={`w-full px-3 py-2 border rounded-md font-mono text-sm ${
+                              avoidPatternValidation?.isValid
+                                ? 'border-green-300 bg-green-50 dark:bg-green-950/20 focus:ring-green-500'
+                                : avoidPatternValidation?.errors.length
+                                ? 'border-red-300 bg-red-50 dark:bg-red-950/20 focus:ring-red-500'
+                                : isDisabled
+                                ? 'bg-gray-100 dark:bg-slate-800 cursor-not-allowed opacity-50'
+                                : 'border-gray-300 dark:border-slate-600 focus:ring-red-500'
+                            } focus:outline-none focus:ring-2`}
+                          />
+
+                          {/* 실시간 검증 피드백 */}
+                          {avoidPatternValidation && avoidPatternInput && (
+                            <div className="mt-2 space-y-1">
+                              {/* 에러 메시지 */}
+                              {avoidPatternValidation.errors.map((error, idx) => (
+                                <div key={idx} className="flex items-start gap-1 text-xs text-red-600 dark:text-red-400">
+                                  <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                                  <div>{error}</div>
+                                </div>
+                              ))}
+
+                              {/* 경고 메시지 */}
+                              {avoidPatternValidation.warnings.map((warn, idx) => (
+                                <div key={idx} className="flex items-start gap-1 text-xs text-amber-600 dark:text-amber-400">
+                                  <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                                  <div>{warn}</div>
+                                </div>
+                              ))}
+
+                              {/* 성공 메시지 */}
+                              {avoidPatternValidation.isValid && (
+                                <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                                  <CheckCircle className="w-3 h-3" />
+                                  <span>
+                                    유효한 기피 패턴: {describePattern(avoidPatternValidation.tokens)}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        <button
+                          onClick={applyAvoidPatternInput}
+                          disabled={!avoidPatternValidation?.isValid || isDisabled}
+                          className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                        >
+                          추가
+                        </button>
+                      </div>
+
+                      {isDisabled && (
+                        <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                          3교대 근무를 선택하면 기피 패턴을 추가할 수 있습니다.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* 선택된 기피 패턴들 표시 */}
+                {(preferences.avoidPatterns || []).length > 0 && (
+                  <div>
+                    <label className="block text-sm text-gray-600 dark:text-gray-400 mb-2">
+                      설정된 기피 패턴
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {(preferences.avoidPatterns || []).map((pattern, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg text-sm font-mono"
+                        >
+                          {pattern.join('-')}
+                          <button
+                            onClick={() => removeAvoidPattern(index)}
+                            className="hover:text-red-900 dark:hover:text-red-100"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 안내 메시지 */}
+                <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-md">
+                  <div className="flex items-start gap-2">
+                    <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                    <div className="text-xs text-amber-800 dark:text-amber-200">
+                      <p className="font-medium mb-1">기피 패턴 우선순위:</p>
+                      <ul className="list-disc list-inside space-y-1 ml-2">
+                        <li>개인 선호 패턴 (최우선)</li>
+                        <li>개인 기피 패턴</li>
+                        <li>팀 선호 패턴</li>
+                        <li>팀 기피 패턴</li>
+                      </ul>
+                      <p className="mt-2 text-amber-700 dark:text-amber-300">
+                        * 스케줄 생성 시 이 패턴들이 발생하지 않도록 조정됩니다.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1043,6 +1296,109 @@ export function EmployeePreferencesModal({
                     ))}
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'career' && (
+            <div className="space-y-6">
+              {/* 경력 정보 */}
+              <div>
+                <h3 className="font-semibold mb-3 text-gray-900 dark:text-white flex items-center gap-2">
+                  <Briefcase className="w-5 h-5 text-blue-500" />
+                  경력 정보
+                </h3>
+                <div className="space-y-4">
+                  {/* 입사일 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      입사일
+                    </label>
+                    <input
+                      type="date"
+                      value={(employee as any).hireDate ? format(new Date((employee as any).hireDate), 'yyyy-MM-dd') : ''}
+                      onChange={(e) => {
+                        // Update through mutation
+                        updateStaffProfile.mutate({
+                          id: employee.id,
+                          hireDate: e.target.value ? new Date(e.target.value) : null,
+                        });
+                      }}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      입사일을 입력하면 근속 년수를 자동으로 계산합니다
+                    </p>
+                  </div>
+
+                  {/* 근속 년수 (경력) */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      근속 년수 (경력)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="50"
+                      value={(employee as any).yearsOfService || 0}
+                      onChange={(e) => {
+                        updateStaffProfile.mutate({
+                          id: employee.id,
+                          yearsOfService: parseInt(e.target.value) || 0,
+                        });
+                      }}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      현재까지의 총 경력 년수 (예: 3년)
+                    </p>
+                  </div>
+
+                  {/* 경력 수준 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      경력 수준
+                    </label>
+                    <select
+                      value={(employee as any).experienceLevel || 'junior'}
+                      onChange={(e) => {
+                        updateStaffProfile.mutate({
+                          id: employee.id,
+                          experienceLevel: e.target.value as 'junior' | 'intermediate' | 'senior' | 'expert',
+                        });
+                      }}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
+                    >
+                      <option value="junior">초급 (Junior)</option>
+                      <option value="intermediate">중급 (Intermediate)</option>
+                      <option value="senior">고급 (Senior)</option>
+                      <option value="expert">전문가 (Expert)</option>
+                    </select>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      스케줄링 시 경력 수준을 고려합니다
+                    </p>
+                  </div>
+
+                  {/* 경력 정보 안내 */}
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-1">
+                          경력 정보 활용
+                        </h4>
+                        <p className="text-sm text-blue-800 dark:text-blue-200">
+                          입력한 경력 정보는 스케줄 작성 시 자동으로 고려됩니다:
+                        </p>
+                        <ul className="text-sm text-blue-800 dark:text-blue-200 mt-2 space-y-1 list-disc list-inside">
+                          <li>각 근무조에 다양한 경력 수준의 직원이 배치되도록 조정</li>
+                          <li>경력 그룹별 밸런스를 고려한 스케줄링</li>
+                          <li>신규(Junior) 직원과 숙련(Senior) 직원의 균형 배분</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}

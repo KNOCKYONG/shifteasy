@@ -17,7 +17,8 @@ export async function POST(req: NextRequest) {
       password,
       departmentId,
       hireDate,
-      annualLeaveDays,
+      yearsOfService,
+      experienceLevel,
     } = await req.json();
 
     // 필수 필드 검증
@@ -124,7 +125,8 @@ export async function POST(req: NextRequest) {
           name, // 입력받은 이름으로 업데이트
           departmentId: assignedDepartmentId || existingUser[0].departmentId, // 부서 업데이트 (부서 코드 우선)
           hireDate: hireDate ? new Date(hireDate) : existingUser[0].hireDate,
-          annualLeaveDays: annualLeaveDays !== undefined ? annualLeaveDays : existingUser[0].annualLeaveDays,
+          yearsOfService: yearsOfService !== undefined ? yearsOfService : existingUser[0].yearsOfService,
+          experienceLevel: experienceLevel || existingUser[0].experienceLevel,
           updatedAt: new Date(),
         })
         .where(eq(users.id, existingUser[0].id))
@@ -200,8 +202,8 @@ export async function POST(req: NextRequest) {
           departmentId: assignedDepartmentId, // 부서 설정 (부서 코드 우선)
           status: 'active',
           hireDate: hireDate ? new Date(hireDate) : new Date(),
-          annualLeaveDays: annualLeaveDays !== undefined ? annualLeaveDays : 15,
-          usedLeaveDays: 0,
+          yearsOfService: yearsOfService !== undefined ? yearsOfService : 0,
+          experienceLevel: experienceLevel || 'junior',
         })
         .returning();
 

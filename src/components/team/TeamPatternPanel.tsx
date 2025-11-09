@@ -59,15 +59,10 @@ export function TeamPatternPanel({
 
   const [pattern, setPattern] = useState<Partial<TeamPattern>>({
     departmentId,
-    requiredStaffDay: 5,
-    requiredStaffEvening: 4,
-    requiredStaffNight: 3,
-    defaultPatterns: [['D', 'D', 'D', 'OFF', 'OFF']],
-    avoidPatterns: [], // 기피 패턴 초기화
     totalMembers,
   });
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [successMessage, setSuccessMessage] = useState('');
@@ -87,6 +82,9 @@ export function TeamPatternPanel({
     // departmentId가 유효할 때만 fetch
     if (departmentId && departmentId !== 'all') {
       fetchTeamPattern();
+    } else {
+      // departmentId가 없거나 'all'인 경우 로딩 종료
+      setLoading(false);
     }
   }, [departmentId]);
 

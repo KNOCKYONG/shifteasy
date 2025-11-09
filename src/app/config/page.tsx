@@ -33,8 +33,8 @@ function ConfigPageContent() {
   const setConfigMutation = trpc.configs.set.useMutation();
 
   // URL 파라미터에서 tab 읽기
-  const tabFromUrl = searchParams.get('tab') as "preferences" | "positions" | "shifts" | "secretCode" | null;
-  const [activeTab, setActiveTab] = useState<"preferences" | "positions" | "shifts" | "secretCode">(tabFromUrl || "preferences");
+  const tabFromUrl = searchParams.get('tab') as "preferences" | "positions" | "shifts" | "careers" | "secretCode" | null;
+  const [activeTab, setActiveTab] = useState<"preferences" | "positions" | "shifts" | "careers" | "secretCode">(tabFromUrl || "preferences");
   const [currentUser, setCurrentUser] = useState<{ role: string } | null>(null);
   const [positions, setPositions] = useState<{value: string; label: string; level: number}[]>([]);
   const [newPosition, setNewPosition] = useState({ value: '', label: '', level: 1 });
@@ -111,6 +111,27 @@ function ConfigPageContent() {
     color: 'green',
   });
   const [editingEmployeeStatus, setEditingEmployeeStatus] = useState<string | null>(null);
+
+  // Career groups state
+  const [careerGroups, setCareerGroups] = useState<{
+    code: string;
+    name: string;
+    minYears: number;
+    maxYears: number;
+    experienceLevel: 'junior' | 'intermediate' | 'senior' | 'expert';
+    description: string;
+    color: string;
+  }[]>([]);
+  const [newCareerGroup, setNewCareerGroup] = useState({
+    code: '',
+    name: '',
+    minYears: 0,
+    maxYears: 2,
+    experienceLevel: 'junior' as 'junior' | 'intermediate' | 'senior' | 'expert',
+    description: '',
+    color: 'green',
+  });
+  const [editingCareerGroup, setEditingCareerGroup] = useState<string | null>(null);
 
   useEffect(() => {
     // Fetch current user role
@@ -267,6 +288,16 @@ function ConfigPageContent() {
               }`}
             >
               {t('tabs.shifts', { ns: 'config', defaultValue: '근무 타입' })}
+            </button>
+            <button
+              onClick={() => setActiveTab("careers")}
+              className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === "careers"
+                  ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
+                  : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
+              }`}
+            >
+              {t('tabs.careers', { ns: 'config', defaultValue: '경력 그룹' })}
             </button>
           </nav>
         </div>
@@ -489,6 +520,189 @@ function ConfigPageContent() {
             editingShiftType={editingShiftType}
             setEditingShiftType={setEditingShiftType}
           />
+        )}
+
+        {/* Careers Tab */}
+        {activeTab === "careers" && (
+          <div className="space-y-6">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 flex items-start gap-3">
+              <Briefcase className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-1">
+                  경력 그룹 관리
+                </h4>
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  직원들의 경력 년수를 그룹으로 묶어 관리합니다. 스케줄 작성 시 각 근무조에 다양한 경력 수준의 직원이 배치되도록 자동으로 조정됩니다.
+                </p>
+              </div>
+            </div>
+
+            {/* Add new career group form */}
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                <Plus className="w-5 h-5" />
+                새 경력 그룹 추가
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    코드
+                  </label>
+                  <input
+                    type="text"
+                    value={newCareerGroup.code}
+                    onChange={(e) => setNewCareerGroup({ ...newCareerGroup, code: e.target.value })}
+                    placeholder="예: Y1-2"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    이름
+                  </label>
+                  <input
+                    type="text"
+                    value={newCareerGroup.name}
+                    onChange={(e) => setNewCareerGroup({ ...newCareerGroup, name: e.target.value })}
+                    placeholder="예: 1-2년차"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    최소 년수
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={newCareerGroup.minYears}
+                    onChange={(e) => setNewCareerGroup({ ...newCareerGroup, minYears: parseInt(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    최대 년수
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={newCareerGroup.maxYears}
+                    onChange={(e) => setNewCareerGroup({ ...newCareerGroup, maxYears: parseInt(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    경력 수준
+                  </label>
+                  <select
+                    value={newCareerGroup.experienceLevel}
+                    onChange={(e) => setNewCareerGroup({ ...newCareerGroup, experienceLevel: e.target.value as any })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
+                  >
+                    <option value="junior">초급 (Junior)</option>
+                    <option value="intermediate">중급 (Intermediate)</option>
+                    <option value="senior">고급 (Senior)</option>
+                    <option value="expert">전문가 (Expert)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    색상
+                  </label>
+                  <select
+                    value={newCareerGroup.color}
+                    onChange={(e) => setNewCareerGroup({ ...newCareerGroup, color: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
+                  >
+                    <option value="green">녹색</option>
+                    <option value="blue">파랑</option>
+                    <option value="purple">보라</option>
+                    <option value="orange">주황</option>
+                    <option value="red">빨강</option>
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    설명
+                  </label>
+                  <input
+                    type="text"
+                    value={newCareerGroup.description}
+                    onChange={(e) => setNewCareerGroup({ ...newCareerGroup, description: e.target.value })}
+                    placeholder="예: 신입 간호사"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  if (newCareerGroup.code && newCareerGroup.name) {
+                    setCareerGroups([...careerGroups, { ...newCareerGroup }]);
+                    setNewCareerGroup({
+                      code: '',
+                      name: '',
+                      minYears: 0,
+                      maxYears: 2,
+                      experienceLevel: 'junior',
+                      description: '',
+                      color: 'green',
+                    });
+                  }
+                }}
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                추가
+              </button>
+            </div>
+
+            {/* Career groups list */}
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">등록된 경력 그룹</h3>
+              <div className="space-y-3">
+                {careerGroups.map((group) => (
+                  <div
+                    key={group.code}
+                    className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <span className={`px-2 py-1 rounded text-xs font-medium bg-${group.color}-100 text-${group.color}-700 dark:bg-${group.color}-900 dark:text-${group.color}-100`}>
+                          {group.code}
+                        </span>
+                        <span className="font-medium text-gray-900 dark:text-gray-100">{group.name}</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          ({group.minYears}-{group.maxYears}년)
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {group.experienceLevel === 'junior' ? '초급' :
+                           group.experienceLevel === 'intermediate' ? '중급' :
+                           group.experienceLevel === 'senior' ? '고급' : '전문가'}
+                        </span>
+                      </div>
+                      {group.description && (
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          {group.description}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setCareerGroups(careerGroups.filter(g => g.code !== group.code))}
+                      className="ml-4 p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                {careerGroups.length === 0 && (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    아직 등록된 경력 그룹이 없습니다.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Departments Tab */}
