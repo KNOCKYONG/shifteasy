@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { ShiftTypesTab } from "./ShiftTypesTab";
+import { HandoffTemplatesTab } from "./HandoffTemplatesTab";
 import { api as trpc } from "@/lib/trpc/client";
 import { LoadingButton } from "@/components/ui/LoadingButton";
 
@@ -35,8 +36,8 @@ function ConfigPageContent() {
   const setConfigMutation = trpc.configs.set.useMutation();
 
   // URL 파라미터에서 tab 읽기
-  const tabFromUrl = searchParams.get('tab') as "preferences" | "positions" | "shifts" | "careers" | "secretCode" | null;
-  const [activeTab, setActiveTab] = useState<"preferences" | "positions" | "shifts" | "careers" | "secretCode">(tabFromUrl || "preferences");
+  const tabFromUrl = searchParams.get('tab') as "preferences" | "positions" | "shifts" | "careers" | "handoffTemplates" | "secretCode" | null;
+  const [activeTab, setActiveTab] = useState<"preferences" | "positions" | "shifts" | "careers" | "handoffTemplates" | "secretCode">(tabFromUrl || "preferences");
   const [positions, setPositions] = useState<{value: string; label: string; level: number}[]>([]);
   const [newPosition, setNewPosition] = useState({ value: '', label: '', level: 1 });
   const [editingPosition, setEditingPosition] = useState<string | null>(null);
@@ -255,6 +256,16 @@ function ConfigPageContent() {
               }`}
             >
               {t('tabs.careers', { ns: 'config', defaultValue: '경력 그룹' })}
+            </button>
+            <button
+              onClick={() => setActiveTab("handoffTemplates")}
+              className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === "handoffTemplates"
+                  ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"
+                  : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-300"
+              }`}
+            >
+              인수인계 템플릿
             </button>
           </nav>
         </div>
@@ -625,6 +636,9 @@ function ConfigPageContent() {
             </div>
           </div>
         )}
+
+        {/* Handoff Templates Tab */}
+        {activeTab === "handoffTemplates" && <HandoffTemplatesTab />}
 
         {/* Departments Tab */}
 

@@ -529,4 +529,268 @@ export const handoffRouter = createTRPCRouter({
         criticalPatients,
       };
     }),
+
+  // 인수인계 템플릿 목록 조회
+  listTemplates: protectedProcedure
+    .input(z.object({
+      departmentId: z.string().optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+
+      const conditions = [eq(handoffTemplates.tenantId, tenantId)];
+
+      if (input.departmentId) {
+        conditions.push(
+          or(
+            eq(handoffTemplates.departmentId, input.departmentId),
+            isNull(handoffTemplates.departmentId)
+          ) as any
+        );
+      }
+
+      const results = await db
+        .select()
+        .from(handoffTemplates)
+        .where(and(...conditions))
+        .orderBy(desc(handoffTemplates.isDefault), desc(handoffTemplates.createdAt));
+
+      return results;
+    }),
+
+  // 템플릿 상세 조회
+  getTemplate: protectedProcedure
+    .input(z.object({
+      id: z.string(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+
+      const [template] = await db
+        .select()
+        .from(handoffTemplates)
+        .where(and(
+          eq(handoffTemplates.id, input.id),
+          eq(handoffTemplates.tenantId, tenantId)
+        ));
+
+      if (!template) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: '템플릿을 찾을 수 없습니다.',
+        });
+      }
+
+      return template;
+    }),
+
+  // 템플릿 생성
+  createTemplate: protectedProcedure
+    .input(z.object({
+      name: z.string(),
+      description: z.string().optional(),
+      departmentId: z.string().optional(),
+      isDefault: z.boolean().default(false),
+      category: z.string().optional(),
+      config: z.object({
+        fields: z.object({
+          sbar: z.object({
+            situation: z.object({ required: z.boolean(), enabled: z.boolean() }),
+            background: z.object({ required: z.boolean(), enabled: z.boolean() }),
+            assessment: z.object({ required: z.boolean(), enabled: z.boolean() }),
+            recommendation: z.object({ required: z.boolean(), enabled: z.boolean() }),
+          }),
+          vitalSigns: z.object({
+            enabled: z.boolean(),
+            required: z.boolean(),
+            fields: z.object({
+              bloodPressure: z.object({ enabled: z.boolean() }).optional(),
+              heartRate: z.object({ enabled: z.boolean() }).optional(),
+              temperature: z.object({ enabled: z.boolean() }).optional(),
+              respiratoryRate: z.object({ enabled: z.boolean() }).optional(),
+              oxygenSaturation: z.object({ enabled: z.boolean() }).optional(),
+              consciousness: z.object({ enabled: z.boolean() }).optional(),
+              painScore: z.object({ enabled: z.boolean() }).optional(),
+            }).optional(),
+          }),
+          medications: z.object({ enabled: z.boolean(), required: z.boolean() }),
+          scheduledProcedures: z.object({ enabled: z.boolean(), required: z.boolean() }),
+          alerts: z.object({ enabled: z.boolean(), required: z.boolean() }),
+        }),
+      }),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const userId = ctx.user?.id || 'dev-user-id';
+
+      // If setting as default, unset other defaults for this department/tenant
+      if (input.isDefault) {
+        await db
+          .update(handoffTemplates)
+          .set({ isDefault: 'false' })
+          .where(and(
+            eq(handoffTemplates.tenantId, tenantId),
+            input.departmentId
+              ? eq(handoffTemplates.departmentId, input.departmentId)
+              : isNull(handoffTemplates.departmentId)
+          ));
+      }
+
+      const [template] = await db
+        .insert(handoffTemplates)
+        .values({
+          tenantId,
+          departmentId: input.departmentId,
+          name: input.name,
+          description: input.description,
+          isDefault: input.isDefault ? 'true' : 'false',
+          category: input.category,
+          config: input.config as any,
+        })
+        .returning();
+
+      await createAuditLog({
+        tenantId,
+        actorId: userId,
+        action: 'handoff_template.created',
+        entityType: 'handoff_template',
+        entityId: template.id,
+        after: template,
+      });
+
+      return template;
+    }),
+
+  // 템플릿 수정
+  updateTemplate: protectedProcedure
+    .input(z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      description: z.string().optional(),
+      isDefault: z.boolean().optional(),
+      category: z.string().optional(),
+      config: z.object({
+        fields: z.object({
+          sbar: z.object({
+            situation: z.object({ required: z.boolean(), enabled: z.boolean() }),
+            background: z.object({ required: z.boolean(), enabled: z.boolean() }),
+            assessment: z.object({ required: z.boolean(), enabled: z.boolean() }),
+            recommendation: z.object({ required: z.boolean(), enabled: z.boolean() }),
+          }),
+          vitalSigns: z.object({
+            enabled: z.boolean(),
+            required: z.boolean(),
+            fields: z.object({
+              bloodPressure: z.object({ enabled: z.boolean() }).optional(),
+              heartRate: z.object({ enabled: z.boolean() }).optional(),
+              temperature: z.object({ enabled: z.boolean() }).optional(),
+              respiratoryRate: z.object({ enabled: z.boolean() }).optional(),
+              oxygenSaturation: z.object({ enabled: z.boolean() }).optional(),
+              consciousness: z.object({ enabled: z.boolean() }).optional(),
+              painScore: z.object({ enabled: z.boolean() }).optional(),
+            }).optional(),
+          }),
+          medications: z.object({ enabled: z.boolean(), required: z.boolean() }),
+          scheduledProcedures: z.object({ enabled: z.boolean(), required: z.boolean() }),
+          alerts: z.object({ enabled: z.boolean(), required: z.boolean() }),
+        }),
+      }).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const userId = ctx.user?.id || 'dev-user-id';
+
+      const [existing] = await db
+        .select()
+        .from(handoffTemplates)
+        .where(and(
+          eq(handoffTemplates.id, input.id),
+          eq(handoffTemplates.tenantId, tenantId)
+        ));
+
+      if (!existing) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: '템플릿을 찾을 수 없습니다.',
+        });
+      }
+
+      // If setting as default, unset other defaults
+      if (input.isDefault) {
+        await db
+          .update(handoffTemplates)
+          .set({ isDefault: 'false' })
+          .where(and(
+            eq(handoffTemplates.tenantId, tenantId),
+            existing.departmentId
+              ? eq(handoffTemplates.departmentId, existing.departmentId)
+              : isNull(handoffTemplates.departmentId)
+          ));
+      }
+
+      const [updated] = await db
+        .update(handoffTemplates)
+        .set({
+          name: input.name,
+          description: input.description,
+          isDefault: input.isDefault !== undefined ? (input.isDefault ? 'true' : 'false') : undefined,
+          category: input.category,
+          config: input.config as any,
+          updatedAt: new Date(),
+        })
+        .where(eq(handoffTemplates.id, input.id))
+        .returning();
+
+      await createAuditLog({
+        tenantId,
+        actorId: userId,
+        action: 'handoff_template.updated',
+        entityType: 'handoff_template',
+        entityId: input.id,
+        before: existing,
+        after: updated,
+      });
+
+      return updated;
+    }),
+
+  // 템플릿 삭제
+  deleteTemplate: protectedProcedure
+    .input(z.object({
+      id: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const userId = ctx.user?.id || 'dev-user-id';
+
+      const [existing] = await db
+        .select()
+        .from(handoffTemplates)
+        .where(and(
+          eq(handoffTemplates.id, input.id),
+          eq(handoffTemplates.tenantId, tenantId)
+        ));
+
+      if (!existing) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: '템플릿을 찾을 수 없습니다.',
+        });
+      }
+
+      await db
+        .delete(handoffTemplates)
+        .where(eq(handoffTemplates.id, input.id));
+
+      await createAuditLog({
+        tenantId,
+        actorId: userId,
+        action: 'handoff_template.deleted',
+        entityType: 'handoff_template',
+        entityId: input.id,
+        before: existing,
+      });
+
+      return { success: true };
+    }),
 });
