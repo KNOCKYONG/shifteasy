@@ -98,6 +98,16 @@ const DEFAULT_CONSTRAINTS: Constraint[] = [
   },
 ];
 
+const STANDARD_AI_SHIFT_CODES = ['D', 'E', 'N', 'O'] as const;
+type StandardShiftCode = typeof STANDARD_AI_SHIFT_CODES[number];
+
+const DEFAULT_STANDARD_SHIFT_TYPES: Record<StandardShiftCode, ShiftType> = {
+  D: { code: 'D', name: '주간', startTime: '08:00', endTime: '16:00', color: '#EAB308', allowOvertime: false },
+  E: { code: 'E', name: '저녁', startTime: '16:00', endTime: '24:00', color: '#F59E0B', allowOvertime: false },
+  N: { code: 'N', name: '야간', startTime: '00:00', endTime: '08:00', color: '#6366F1', allowOvertime: false },
+  O: { code: 'O', name: '휴무', startTime: '00:00', endTime: '00:00', color: '#9CA3AF', allowOvertime: false },
+};
+
 /**
  * 나이트 집중 근무 후 유급 휴가 추가
  * @param schedule 생성된 스케줄 배열
@@ -1371,6 +1381,8 @@ function SchedulePageContent() {
         }
       }
 
+      activeCustomShiftTypes = activeCustomShiftTypes ?? [];
+
       const preferencesResponse = await fetch('/api/preferences');
       const preferencesData = await preferencesResponse.json();
       const preferencesMap = new Map<string, SimplifiedPreferences>();
@@ -1508,7 +1520,42 @@ function SchedulePageContent() {
         N: teamPattern.requiredStaffNight || 3,
       } : undefined;
 
-      const generationShifts = convertShiftTypesToShifts(activeCustomShiftTypes);
+      const configShiftOverrides = new Map<string, ShiftType>();
+      if (shiftTypesConfig?.configValue && Array.isArray(shiftTypesConfig.configValue)) {
+        shiftTypesConfig.configValue.forEach((st: any) => {
+          const normalizedCode = typeof st.code === 'string' ? st.code.toUpperCase() : '';
+          if (!normalizedCode) return;
+          configShiftOverrides.set(normalizedCode, {
+            code: normalizedCode,
+            name: st.name,
+            startTime: st.startTime,
+            endTime: st.endTime,
+            color: st.color,
+            allowOvertime: st.allowOvertime ?? false,
+          });
+        });
+      }
+
+      const generationShiftTypes: ShiftType[] = [];
+      STANDARD_AI_SHIFT_CODES.forEach(code => {
+        if (configShiftOverrides.has(code)) {
+          generationShiftTypes.push(configShiftOverrides.get(code)!);
+          return;
+        }
+        const fallbackShift = activeCustomShiftTypes?.find(
+          shift => typeof shift.code === 'string' && shift.code.toUpperCase() === code
+        );
+        if (fallbackShift) {
+          generationShiftTypes.push({ ...fallbackShift, code });
+          return;
+        }
+        generationShiftTypes.push(DEFAULT_STANDARD_SHIFT_TYPES[code]);
+      });
+
+      let generationShifts = convertShiftTypesToShifts(generationShiftTypes);
+      if (generationShifts.length === 0) {
+        generationShifts = convertShiftTypesToShifts(STANDARD_AI_SHIFT_CODES.map(code => DEFAULT_STANDARD_SHIFT_TYPES[code]));
+      }
 
       const payload = {
         name: `AI 스케줄 - ${format(monthStart, 'yyyy-MM')}`,

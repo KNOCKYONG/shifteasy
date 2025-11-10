@@ -71,6 +71,10 @@ interface EmployeeState {
   consecutiveNights: number;
   lastAssignedDate: Date | null;
   lastShiftCode: string | null;
+  shiftCounts: Record<string, number>;
+  distinctShifts: Set<string>;
+  rotationLock: string | null;
+  workPatternType: WorkPatternType;
 }
 
 const SHIFT_CODE_MAP: Record<string, string> = {
@@ -94,6 +98,8 @@ const DEFAULT_MAX_CONSECUTIVE_NIGHT = {
   'night-intensive': 4,
   'weekday-only': 1,
 };
+
+const THREE_SHIFT_ROTATION_LOCK_THRESHOLD = 5;
 
 function extractShiftCode(shift: Shift & { code?: string }): string {
   if (shift.code) {
@@ -132,6 +138,10 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       consecutiveNights: 0,
       lastAssignedDate: null,
       lastShiftCode: null,
+      shiftCounts: {},
+      distinctShifts: new Set(),
+      rotationLock: null,
+      workPatternType: emp.workPatternType ?? 'three-shift',
     });
   });
 
@@ -219,6 +229,7 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
           dayIndex,
           avoidPatterns,
           holidays,
+          totalDays: dateRange.length,
         });
 
         if (!candidate) {
@@ -329,13 +340,34 @@ interface CandidateSelectionParams {
   dayIndex: number;
   avoidPatterns: string[][];
   holidays: Set<string>;
+  totalDays: number;
+}
+
+interface CandidateEvaluation {
+  employee: AiEmployee;
+  score: number;
+  preferenceScore: number;
 }
 
 function selectCandidate(params: CandidateSelectionParams) {
+  const normalizedShiftCode = params.shiftCode.toUpperCase();
+
   const candidates = params.employees
     .filter((emp) => !params.assignedToday.has(emp.id))
-    .map((employee) => {
-      const state = params.employeeStates.get(employee.id)!;
+    .map<CandidateEvaluation | null>((employee) => {
+      const state = params.employeeStates.get(employee.id);
+      if (!state) {
+        return null;
+      }
+
+      if (
+        state.workPatternType === 'three-shift' &&
+        state.rotationLock &&
+        state.rotationLock === normalizedShiftCode
+      ) {
+        return null;
+      }
+
       const baseScore = calculateCandidateScore({
         employee,
         state,
@@ -346,6 +378,7 @@ function selectCandidate(params: CandidateSelectionParams) {
         dayIndex: params.dayIndex,
         avoidPatterns: params.avoidPatterns,
         holidays: params.holidays,
+        totalDays: params.totalDays,
       });
       return {
         employee,
@@ -353,7 +386,12 @@ function selectCandidate(params: CandidateSelectionParams) {
         preferenceScore: baseScore.preferenceScore,
       };
     })
-    .filter((candidate) => candidate.score > Number.NEGATIVE_INFINITY)
+    .filter((candidate): candidate is CandidateEvaluation => {
+      if (!candidate) {
+        return false;
+      }
+      return candidate.score > Number.NEGATIVE_INFINITY;
+    })
     .sort((a, b) => b.score - a.score);
 
   return candidates[0] ?? null;
@@ -369,12 +407,25 @@ interface CandidateScoreParams {
   dayIndex: number;
   avoidPatterns: string[][];
   holidays: Set<string>;
+  totalDays: number;
 }
 
 function calculateCandidateScore(params: CandidateScoreParams) {
-  const { employee, state, date, shift, shiftCode, pattern, dayIndex, avoidPatterns, holidays } = params;
+  const {
+    employee,
+    state,
+    date,
+    shift,
+    shiftCode,
+    pattern,
+    dayIndex,
+    avoidPatterns,
+    holidays,
+    totalDays,
+  } = params;
 
   let score = 100;
+  const normalizedShiftCode = shiftCode.toUpperCase();
 
   const workPattern = employee.workPatternType ?? 'three-shift';
   const maxConsecutive =
@@ -410,7 +461,7 @@ function calculateCandidateScore(params: CandidateScoreParams) {
   // Pattern alignment bonus
   if (pattern && pattern.length > 0) {
     const expectedShift = pattern[dayIndex % pattern.length];
-    if (expectedShift.toUpperCase() === shiftCode.toUpperCase()) {
+    if (expectedShift.toUpperCase() === normalizedShiftCode) {
       score += 10;
     }
   }
@@ -418,7 +469,7 @@ function calculateCandidateScore(params: CandidateScoreParams) {
   // Avoid pattern penalty
   avoidPatterns.forEach((avoidPattern) => {
     if (!state.lastShiftCode) return;
-    const recentHistory = [state.lastShiftCode, shiftCode];
+    const recentHistory = [state.lastShiftCode, normalizedShiftCode];
     if (avoidPattern.join('-') === recentHistory.join('-')) {
       score -= 40;
     }
@@ -431,6 +482,19 @@ function calculateCandidateScore(params: CandidateScoreParams) {
   const preferenceWeight = employee.preferredShiftTypes?.[shiftCode] ?? 0;
   score += preferenceWeight * 5;
 
+  if (state.workPatternType === 'three-shift' && state.distinctShifts.size < 2) {
+    const isNewShift = !state.distinctShifts.has(normalizedShiftCode);
+    if (isNewShift) {
+      score += 20;
+    } else {
+      score -= 40;
+      const daysRemaining = totalDays - dayIndex - 1;
+      if (daysRemaining <= 3) {
+        score -= 40;
+      }
+    }
+  }
+
   return { score, preferenceScore: preferenceWeight };
 }
 
@@ -439,6 +503,7 @@ function updateEmployeeState(
   params: { date: Date; shiftCode: string; countedAsWork: boolean; isNightShift?: boolean }
 ) {
   const { date, shiftCode, countedAsWork, isNightShift } = params;
+  const normalizedShiftCode = shiftCode.toUpperCase();
 
   if (countedAsWork) {
     if (state.lastAssignedDate) {
@@ -450,13 +515,27 @@ function updateEmployeeState(
       state.consecutiveNights = isNightShift ? 1 : 0;
     }
     state.totalAssignments += 1;
+
+    state.shiftCounts[normalizedShiftCode] = (state.shiftCounts[normalizedShiftCode] ?? 0) + 1;
+    state.distinctShifts.add(normalizedShiftCode);
+
+    if (state.workPatternType === 'three-shift') {
+      if (state.distinctShifts.size >= 2) {
+        state.rotationLock = null;
+      } else {
+        const currentCount = state.shiftCounts[normalizedShiftCode] ?? 0;
+        if (currentCount >= THREE_SHIFT_ROTATION_LOCK_THRESHOLD) {
+          state.rotationLock = normalizedShiftCode;
+        }
+      }
+    }
   } else {
     state.consecutiveDays = 0;
     state.consecutiveNights = 0;
   }
 
   state.lastAssignedDate = date;
-  state.lastShiftCode = shiftCode;
+  state.lastShiftCode = normalizedShiftCode;
 }
 
 function calculateFairnessIndex(workloads: number[]): number {
