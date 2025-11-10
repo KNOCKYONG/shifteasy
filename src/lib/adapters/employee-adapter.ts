@@ -21,6 +21,7 @@ interface TeamMember {
   joinedAt?: string;
   avatar?: string;
   workSchedule?: Record<string, unknown>;
+  teamId?: string | null;
 }
 
 /**
@@ -51,6 +52,7 @@ export class EmployeeAdapter {
       simplifiedPreferences: simplifiedPrefs,
       statistics,
       specialRequests: [],
+      teamId: member.teamId || null,
     };
   }
 
@@ -71,6 +73,7 @@ export class EmployeeAdapter {
       name: unified.name,
       departmentId: unified.departmentId,
       role: unified.position,
+      teamId: unified.teamId || null,
       workPatternType,
     };
   }

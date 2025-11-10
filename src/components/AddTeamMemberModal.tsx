@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { X, User, Mail, Phone, Building, Briefcase, Loader2 } from "lucide-react";
 
 // Type definition for team member - 간소화된 버전
-export interface TeamMember {
+interface ModalTeamMember {
   id: string;
   name: string;
   email: string;
@@ -15,7 +15,7 @@ export interface TeamMember {
   avatar?: string;
 }
 
-export type AddTeamMemberInput = Omit<TeamMember, "id">;
+export type AddTeamMemberInput = Omit<ModalTeamMember, "id">;
 
 interface AddTeamMemberModalProps {
   isOpen: boolean;

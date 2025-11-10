@@ -144,6 +144,7 @@ export const scheduleRouter = createTRPCRouter({
         name: z.string(),
         role: z.string(),
         departmentId: z.string().optional(),
+        teamId: z.string().nullable().optional(),
         workPatternType: z.enum(['three-shift', 'night-intensive', 'weekday-only']).optional(),
         preferredShiftTypes: z.record(z.string(), z.number()).optional(),
         maxConsecutiveDaysPreferred: z.number().optional(),

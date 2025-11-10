@@ -38,6 +38,7 @@ export interface Employee {
   name: string;
   departmentId: string;
   role: string;
+  teamId?: string | null;
   workPatternType?: 'three-shift' | 'night-intensive' | 'weekday-only';
   preferredShiftTypes?: {
     D?: number;
