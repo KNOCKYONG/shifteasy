@@ -55,6 +55,8 @@ interface AiScheduleRequest {
 interface OffAccrualRecord {
   employeeId: string;
   extraOffDays: number;
+  guaranteedOffDays: number;
+  actualOffDays: number;
 }
 
 export interface AiScheduleGenerationResult {
@@ -85,6 +87,7 @@ interface EmployeeState {
   offDays: number;
   maxOffDays: number;
   extraOffDays: number;
+  lastShiftRunCount: number;
 }
 
 const SHIFT_CODE_MAP: Record<string, string> = {
@@ -164,6 +167,7 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       offDays: 0,
       maxOffDays: maxOffDaysPerEmployee,
       extraOffDays: 0,
+      lastShiftRunCount: 0,
     });
     employeeMap.set(emp.id, emp);
   });
@@ -506,7 +510,12 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
   const offAccruals: OffAccrualRecord[] = [];
   employeeStates.forEach((state, employeeId) => {
     if (state.extraOffDays > 0) {
-      offAccruals.push({ employeeId, extraOffDays: state.extraOffDays });
+      offAccruals.push({
+        employeeId,
+        extraOffDays: state.extraOffDays,
+        guaranteedOffDays: state.maxOffDays,
+        actualOffDays: state.offDays,
+      });
     }
   });
 
@@ -632,6 +641,7 @@ function calculateCandidateScore(params: CandidateScoreParams) {
 
   let score = 100;
   const normalizedShiftCode = shiftCode.toUpperCase();
+  const hasPreferenceWeights = !!employee.preferredShiftTypes && Object.keys(employee.preferredShiftTypes).length > 0;
 
   const workPattern = employee.workPatternType ?? 'three-shift';
   const maxConsecutive =
@@ -701,6 +711,31 @@ function calculateCandidateScore(params: CandidateScoreParams) {
     }
   }
 
+  if (!hasPreferenceWeights) {
+    if (state.lastShiftCode === normalizedShiftCode) {
+      if (state.lastShiftRunCount > 0 && state.lastShiftRunCount < 3) {
+        score += 15;
+      }
+      if (state.lastShiftRunCount >= 3) {
+        score -= 35;
+      }
+    } else if (state.lastShiftRunCount > 0 && state.lastShiftRunCount < 3) {
+      score -= 10;
+    }
+
+    const totalAssignments = state.totalAssignments;
+    if (totalAssignments > 0) {
+      const counts = Object.values(state.shiftCounts);
+      if (counts.length > 0) {
+        const maxCount = Math.max(...counts);
+        const avg = counts.reduce((a, b) => a + b, 0) / counts.length;
+        if (maxCount > avg + 4) {
+          score -= 10;
+        }
+      }
+    }
+  }
+
   if (employee.teamId) {
     if (!teamCoverage.has(employee.teamId)) {
       score += 15;
@@ -734,6 +769,11 @@ function updateEmployeeState(
       state.consecutiveDays = 1;
       state.consecutiveNights = isNightShift ? 1 : 0;
     }
+    if (state.lastShiftCode === normalizedShiftCode) {
+      state.lastShiftRunCount = state.lastShiftRunCount + 1;
+    } else {
+      state.lastShiftRunCount = 1;
+    }
     state.totalAssignments += 1;
 
     if (countTowardsRotation) {
@@ -754,6 +794,7 @@ function updateEmployeeState(
   } else {
     state.consecutiveDays = 0;
     state.consecutiveNights = 0;
+    state.lastShiftRunCount = 0;
   }
 
   state.lastAssignedDate = date;
