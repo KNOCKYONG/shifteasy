@@ -255,6 +255,7 @@ export const scheduleRouter = createTRPCRouter({
           stats: aiResult.stats,
           score: aiResult.score,
           violations: aiResult.violations,
+          offAccruals: aiResult.offAccruals,
         },
       });
 
@@ -278,6 +279,7 @@ export const scheduleRouter = createTRPCRouter({
           computationTime: aiResult.computationTime,
           score: aiResult.score,
           violations: aiResult.violations,
+          offAccruals: aiResult.offAccruals,
         },
       };
     }),

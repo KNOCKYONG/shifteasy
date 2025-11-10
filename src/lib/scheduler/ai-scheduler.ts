@@ -51,6 +51,11 @@ interface AiScheduleRequest {
   requiredStaffPerShift?: Record<string, number>;
 }
 
+interface OffAccrualRecord {
+  employeeId: string;
+  extraOffDays: number;
+}
+
 export interface AiScheduleGenerationResult {
   assignments: ScheduleAssignment[];
   violations: ConstraintViolation[];
@@ -62,6 +67,7 @@ export interface AiScheduleGenerationResult {
     coverageRate: number;
     preferenceScore: number;
   };
+  offAccruals: OffAccrualRecord[];
 }
 
 interface EmployeeState {
@@ -75,6 +81,9 @@ interface EmployeeState {
   distinctShifts: Set<string>;
   rotationLock: string | null;
   workPatternType: WorkPatternType;
+  offDays: number;
+  maxOffDays: number;
+  extraOffDays: number;
 }
 
 const SHIFT_CODE_MAP: Record<string, string> = {
@@ -120,6 +129,14 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
   const dateRange = eachDayOfInterval({ start: request.startDate, end: request.endDate });
   const holidays = new Set((request.holidays ?? []).map((h) => h.date));
   const specialRequestsMap = new Map<string, AiSpecialRequest[]>();
+  const restDayKeys = new Set<string>();
+  dateRange.forEach((date) => {
+    const key = toDateKey(date);
+    if (isWeekend(date) || holidays.has(key)) {
+      restDayKeys.add(key);
+    }
+  });
+  const maxOffDaysPerEmployee = Math.max(restDayKeys.size, Math.max(4, Math.floor(dateRange.length / 7)));
 
   (request.specialRequests ?? []).forEach((req) => {
     const key = req.date;
@@ -142,10 +159,24 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       distinctShifts: new Set(),
       rotationLock: null,
       workPatternType: emp.workPatternType ?? 'three-shift',
+      offDays: 0,
+      maxOffDays: maxOffDaysPerEmployee,
+      extraOffDays: 0,
     });
   });
 
-  const activeShifts = request.shifts.filter((shift) => shift.type !== 'off' && shift.type !== 'leave');
+  const activeShifts = request.shifts.filter((shift) => {
+    const code = extractShiftCode(shift);
+    if (code === 'A') {
+      return false;
+    }
+    return shift.type !== 'off' && shift.type !== 'leave';
+  });
+  const adminShiftTemplate = request.shifts.find((shift) => extractShiftCode(shift) === 'A') ?? null;
+  const adminShiftCode = adminShiftTemplate ? extractShiftCode(adminShiftTemplate) : null;
+  const adminShiftId = adminShiftTemplate
+    ? adminShiftTemplate.id ?? `shift-${adminShiftCode?.toLowerCase() ?? 'a'}`
+    : null;
   const totalRequiredSlots =
     dateRange.length *
     activeShifts.reduce((sum, shift) => {
@@ -204,6 +235,84 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       });
       if (countedAsWork) {
         filledSlots += 1;
+      }
+    });
+
+    const isWeekendDay = isWeekend(date);
+    const isHoliday = holidays.has(dateKey);
+    const isSpecialDay = isWeekendDay || isHoliday;
+
+    const assignSupportShift = (employee: AiEmployee): boolean => {
+      if (!adminShiftId) {
+        return false;
+      }
+
+      assignments.push({
+        employeeId: employee.id,
+        shiftId: adminShiftId,
+        date,
+        isLocked: false,
+        isSwapRequested: false,
+      });
+      assignedToday.add(employee.id);
+      const state = employeeStates.get(employee.id)!;
+      updateEmployeeState(state, {
+        date,
+        shiftCode: 'A',
+        countedAsWork: true,
+        countTowardsRotation: false,
+      });
+      return true;
+    };
+
+    const assignOffShift = (employee: AiEmployee, options?: { force?: boolean }) => {
+      const state = employeeStates.get(employee.id);
+      if (!state) {
+        return;
+      }
+
+      const force = options?.force ?? false;
+      if (!force && state.offDays >= state.maxOffDays) {
+        if (assignSupportShift(employee)) {
+          return;
+        }
+        state.extraOffDays += 1;
+      } else {
+        if (state.offDays < state.maxOffDays) {
+          state.offDays += 1;
+        } else {
+          state.extraOffDays += 1;
+        }
+      }
+
+      assignments.push({
+        employeeId: employee.id,
+        shiftId: OFF_SHIFT_ID,
+        date,
+        isLocked: false,
+        isSwapRequested: false,
+      });
+
+      assignedToday.add(employee.id);
+      updateEmployeeState(state, {
+        date,
+        shiftCode: 'O',
+        countedAsWork: false,
+      });
+    };
+
+    // Step 1.5: Ensure weekday-only staff are assigned admin shifts on working days
+    request.employees.forEach((employee) => {
+      if (employee.workPatternType !== 'weekday-only' || assignedToday.has(employee.id)) {
+        return;
+      }
+
+      if (!isSpecialDay) {
+        if (!assignSupportShift(employee)) {
+          assignOffShift(employee);
+        }
+      } else {
+        assignOffShift(employee, { force: true });
       }
     });
 
@@ -269,26 +378,12 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       }
     });
 
-    // Step 3: Assign OFF to remaining employees
+    // Step 3: Assign OFF/support shifts to remaining employees
     request.employees.forEach((employee) => {
       if (assignedToday.has(employee.id)) {
         return;
       }
-
-      assignments.push({
-        employeeId: employee.id,
-        shiftId: OFF_SHIFT_ID,
-        date,
-        isLocked: false,
-        isSwapRequested: false,
-      });
-
-      const state = employeeStates.get(employee.id)!;
-      updateEmployeeState(state, {
-        date,
-        shiftCode: 'O',
-        countedAsWork: false,
-      });
+      assignOffShift(employee);
     });
   });
 
@@ -315,6 +410,13 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
     ],
   };
 
+  const offAccruals: OffAccrualRecord[] = [];
+  employeeStates.forEach((state, employeeId) => {
+    if (state.extraOffDays > 0) {
+      offAccruals.push({ employeeId, extraOffDays: state.extraOffDays });
+    }
+  });
+
   return {
     assignments,
     violations,
@@ -326,6 +428,7 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       coverageRate,
       preferenceScore,
     },
+    offAccruals,
   };
 }
 
@@ -355,6 +458,9 @@ function selectCandidate(params: CandidateSelectionParams) {
   const candidates = params.employees
     .filter((emp) => !params.assignedToday.has(emp.id))
     .map<CandidateEvaluation | null>((employee) => {
+      if (employee.workPatternType === 'weekday-only') {
+        return null;
+      }
       const state = params.employeeStates.get(employee.id);
       if (!state) {
         return null;
@@ -500,9 +606,15 @@ function calculateCandidateScore(params: CandidateScoreParams) {
 
 function updateEmployeeState(
   state: EmployeeState,
-  params: { date: Date; shiftCode: string; countedAsWork: boolean; isNightShift?: boolean }
+  params: {
+    date: Date;
+    shiftCode: string;
+    countedAsWork: boolean;
+    isNightShift?: boolean;
+    countTowardsRotation?: boolean;
+  }
 ) {
-  const { date, shiftCode, countedAsWork, isNightShift } = params;
+  const { date, shiftCode, countedAsWork, isNightShift, countTowardsRotation = true } = params;
   const normalizedShiftCode = shiftCode.toUpperCase();
 
   if (countedAsWork) {
@@ -516,10 +628,12 @@ function updateEmployeeState(
     }
     state.totalAssignments += 1;
 
-    state.shiftCounts[normalizedShiftCode] = (state.shiftCounts[normalizedShiftCode] ?? 0) + 1;
-    state.distinctShifts.add(normalizedShiftCode);
+    if (countTowardsRotation) {
+      state.shiftCounts[normalizedShiftCode] = (state.shiftCounts[normalizedShiftCode] ?? 0) + 1;
+      state.distinctShifts.add(normalizedShiftCode);
+    }
 
-    if (state.workPatternType === 'three-shift') {
+    if (countTowardsRotation && state.workPatternType === 'three-shift') {
       if (state.distinctShifts.size >= 2) {
         state.rotationLock = null;
       } else {
