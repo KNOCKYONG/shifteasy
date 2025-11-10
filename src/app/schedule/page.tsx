@@ -274,8 +274,64 @@ function SchedulePageContent() {
     return new Set(holidays?.map(h => h.date) || []);
   }, [holidays]);
 
-  // ✅ Load full month schedule for all views except preferences (오늘의 근무도 한번에 로드)
-  const needsFullSchedule = filters.activeView !== 'preferences';
+  // Fetch users from database
+  const { data: usersData } = api.tenant.users.list.useQuery(
+    {
+      limit: 100,
+      offset: 0,
+      status: 'active',
+      includeDetails: false,
+      // member와 manager는 백엔드에서 자동으로 자신의 department로 필터링됨
+      // admin/owner만 departmentId를 명시적으로 전달
+      departmentId:
+        !isMember && userRole !== 'manager' && selectedDepartment !== 'all' && selectedDepartment !== 'no-department'
+          ? selectedDepartment
+          : undefined,
+    },
+    {
+      enabled: true,
+      staleTime: 3 * 60 * 1000, // 3분 동안 fresh 유지 (사용자 정보는 가끔 변경됨)
+      refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
+    }
+  );
+
+  const [shouldPrefetchFullData, setShouldPrefetchFullData] = useState(false);
+  const isScheduleViewActive = deferredActiveView === 'schedule';
+
+  useEffect(() => {
+    if (shouldPrefetchFullData || !usersData?.items) {
+      return;
+    }
+
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const triggerPrefetch = () => setShouldPrefetchFullData(true);
+
+    if ('requestIdleCallback' in window) {
+      const idleId = (window as any).requestIdleCallback(triggerPrefetch, { timeout: 1500 });
+      return () => {
+        if ('cancelIdleCallback' in window) {
+          (window as any).cancelIdleCallback(idleId);
+        }
+      };
+    }
+
+    const timeoutId = setTimeout(triggerPrefetch, 500);
+    return () => clearTimeout(timeoutId);
+  }, [shouldPrefetchFullData, usersData]);
+
+  useEffect(() => {
+    if (isScheduleViewActive && !shouldPrefetchFullData) {
+      setShouldPrefetchFullData(true);
+    }
+  }, [isScheduleViewActive, shouldPrefetchFullData]);
+
+  const shouldLoadFullScheduleData = shouldPrefetchFullData || isScheduleViewActive;
+
+  // ✅ Load full month schedule only when 필요 또는 백그라운드 프리패치
+  const needsFullSchedule = shouldLoadFullScheduleData;
   const { data: savedSchedules } = api.schedule.list.useQuery({
     departmentId: (isManager || isMember) && memberDepartmentId ? memberDepartmentId :
                   selectedDepartment !== 'all' && selectedDepartment !== 'no-department' ? selectedDepartment : undefined,
@@ -283,7 +339,7 @@ function SchedulePageContent() {
     startDate: monthStart,
     endDate: monthEnd,
   }, {
-    enabled: needsFullSchedule, // preferences 뷰가 아닐 때만 로드
+    enabled: needsFullSchedule, // 필요한 경우에만 로드
     staleTime: 5 * 60 * 1000, // 5분 동안 fresh 유지
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
@@ -535,30 +591,8 @@ function SchedulePageContent() {
     return [];
   }, [customShiftTypes]);
 
-  // Fetch users from database
-  const { data: usersData } = api.tenant.users.list.useQuery(
-    {
-      limit: 100,
-      offset: 0,
-      status: 'active',
-      includeDetails: false,
-      // member와 manager는 백엔드에서 자동으로 자신의 department로 필터링됨
-      // admin/owner만 departmentId를 명시적으로 전달
-      departmentId:
-        !isMember && userRole !== 'manager' && selectedDepartment !== 'all' && selectedDepartment !== 'no-department'
-          ? selectedDepartment
-          : undefined,
-    },
-    {
-      enabled: true,
-      staleTime: 3 * 60 * 1000, // 3분 동안 fresh 유지 (사용자 정보는 가끔 변경됨)
-      refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
-    }
-  );
-
   // Load special requests for the current month
-  const isScheduleViewActive = deferredActiveView === 'schedule';
-  const shouldLoadSpecialRequests = isScheduleViewActive || modals.isPreferencesModalOpen;
+  const shouldLoadSpecialRequests = shouldLoadFullScheduleData || modals.isPreferencesModalOpen;
 
   const { data: specialRequestsData } = api.specialRequests.getByDateRange.useQuery({
     startDate: format(monthStart, 'yyyy-MM-dd'),
@@ -980,7 +1014,10 @@ function SchedulePageContent() {
   );
 
   // Fetch off-balance data for all displayed employees
-  const shouldLoadOffBalance = (isScheduleViewActive && displayMemberIds.length > 0) || modals.isPreferencesModalOpen;
+  const shouldLoadOffBalance = (
+    (shouldLoadFullScheduleData && displayMemberIds.length > 0) ||
+    modals.isPreferencesModalOpen
+  );
 
   const { data: offBalanceData } = api.offBalance.getBulkCurrentBalance.useQuery({
     employeeIds: displayMemberIds,
