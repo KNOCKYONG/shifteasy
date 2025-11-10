@@ -191,6 +191,7 @@ export const scheduleRouter = createTRPCRouter({
       }).nullable().optional(),
       requiredStaffPerShift: z.record(z.string(), z.number()).optional(),
       optimizationGoal: z.enum(['fairness', 'preference', 'coverage', 'cost', 'balanced']).default('balanced'),
+      nightIntensivePaidLeaveDays: z.number().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
@@ -235,6 +236,7 @@ export const scheduleRouter = createTRPCRouter({
         holidays: input.holidays,
         teamPattern: input.teamPattern ?? null,
         requiredStaffPerShift: input.requiredStaffPerShift,
+        nightIntensivePaidLeaveDays: input.nightIntensivePaidLeaveDays,
       });
 
       const serializedAssignments = aiResult.assignments.map((assignment) => ({

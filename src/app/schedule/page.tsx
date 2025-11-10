@@ -1002,7 +1002,6 @@ function SchedulePageContent() {
           allocatedToAllowance: 0,
         };
         entry.pendingExtraOffDays = (entry.pendingExtraOffDays || 0) + record.extraOffDays;
-        entry.accumulatedOffDays = Math.max(entry.accumulatedOffDays, record.extraOffDays);
         map.set(record.employeeId, entry);
       });
     }
@@ -1635,6 +1634,15 @@ function SchedulePageContent() {
         generationShifts = convertShiftTypesToShifts(STANDARD_AI_SHIFT_CODES.map(code => DEFAULT_STANDARD_SHIFT_TYPES[code]));
       }
 
+      const shiftConfigValue = (shiftConfigData?.configValue ?? {}) as {
+        preferences?: { nightIntensivePaidLeaveDays?: number };
+        nightIntensivePaidLeaveDays?: number;
+      };
+      const nightLeaveSetting =
+        shiftConfigValue.preferences?.nightIntensivePaidLeaveDays ??
+        shiftConfigValue.nightIntensivePaidLeaveDays ??
+        0;
+
       const payload = {
         name: `AI 스케줄 - ${format(monthStart, 'yyyy-MM')}`,
         departmentId: inferredDepartmentId,
@@ -1648,6 +1656,7 @@ function SchedulePageContent() {
         teamPattern: teamPatternPayload,
         requiredStaffPerShift,
         optimizationGoal: 'balanced' as const,
+        nightIntensivePaidLeaveDays: nightLeaveSetting,
       };
 
       const result = await generateScheduleMutation.mutateAsync(payload);
@@ -1668,6 +1677,7 @@ function SchedulePageContent() {
           score: result.generationResult.score,
           iterations: 0,
           computationTime: result.generationResult.computationTime,
+          offAccruals: result.generationResult.offAccruals,
         });
       } else {
         setGenerationResult(null);
