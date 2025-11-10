@@ -58,3 +58,4 @@ This repo contains a Next.js app in the repository root (the legacy `web/` note 
 - `getAssignmentsForCell` already exposes per-cell data; reuse it instead of re-filtering the entire schedule array inside components.
 - When loading schedules from `savedSchedules`, respect the `lastLoadedRef` guard and only mutate state if the schedule `id`/`updatedAt` actually changed.
 - For “스케줄 보기” defaults, load into the lightweight “오늘의 근무” tab first, then let the heavy schedule view load in the background.
+- **Documentation rule:** Any time you change scheduling logic (AI 엔진, 단순 스케줄러, 관련 API), update `docs/ai-schedule-generation-plan.md` with the new behavior before finishing the task.
