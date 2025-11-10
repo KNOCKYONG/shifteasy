@@ -238,7 +238,7 @@ export function ShiftTypesTab({
                     <button
                       onClick={() => handleDeleteShiftType(shift.code)}
                       className="p-2 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors"
-                      disabled={['D', 'E', 'N', 'A', 'O'].includes(shift.code)}
+                      disabled={['D', 'E', 'N', 'A', 'O', 'V'].includes(shift.code)}
                     >
                       <Trash2 className="w-4 h-4 text-red-500 dark:text-red-400" />
                     </button>
