@@ -9,9 +9,11 @@ import Link from 'next/link';
 export default function SignUpPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [secretCode, setSecretCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'code' | 'signup'>('code');
@@ -19,9 +21,11 @@ export default function SignUpPage() {
   const [showGuestForm, setShowGuestForm] = useState(false);
   const [guestEmail, setGuestEmail] = useState('');
   const [guestPassword, setGuestPassword] = useState('');
+  const [guestConfirmPassword, setGuestConfirmPassword] = useState('');
   const [guestName, setGuestName] = useState('');
   const [guestLoading, setGuestLoading] = useState(false);
   const [showGuestPassword, setShowGuestPassword] = useState(false);
+  const [showGuestConfirmPassword, setShowGuestConfirmPassword] = useState(false);
   const [hireDate, setHireDate] = useState('');
   const [yearsOfService, setYearsOfService] = useState(0);
 
@@ -70,6 +74,13 @@ export default function SignUpPage() {
       return;
     }
 
+    // 비밀번호 확인 검증
+    if (password !== confirmPassword) {
+      setError('비밀번호가 일치하지 않습니다.');
+      setLoading(false);
+      return;
+    }
+
     try {
       // 먼저 백엔드 API로 회원가입 처리 (데이터베이스 등록)
       const signupResponse = await fetch('/api/auth/signup', {
@@ -110,6 +121,13 @@ export default function SignUpPage() {
     e.preventDefault();
     setError('');
     setGuestLoading(true);
+
+    // 비밀번호 확인 검증
+    if (guestPassword !== guestConfirmPassword) {
+      setError('비밀번호가 일치하지 않습니다.');
+      setGuestLoading(false);
+      return;
+    }
 
     try {
       const response = await fetch('/api/auth/guest-signup', {
@@ -281,6 +299,41 @@ export default function SignUpPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <Lock className="w-4 h-4 inline mr-1" />
+                    비밀번호 확인
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="비밀번호를 다시 입력하세요"
+                      required
+                      minLength={8}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="w-5 h-5" />
+                      ) : (
+                        <Eye className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
+                  {confirmPassword && password !== confirmPassword && (
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                      비밀번호가 일치하지 않습니다
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     <Calendar className="w-4 h-4 inline mr-1" />
                     입사일 (선택사항)
                   </label>
@@ -370,6 +423,7 @@ export default function SignUpPage() {
                   setError('');
                   setGuestEmail('');
                   setGuestPassword('');
+                  setGuestConfirmPassword('');
                   setGuestName('');
                 }}
                 className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
@@ -448,6 +502,41 @@ export default function SignUpPage() {
                 </p>
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <Lock className="w-4 h-4 inline mr-1" />
+                  비밀번호 확인
+                </label>
+                <div className="relative">
+                  <input
+                    type={showGuestConfirmPassword ? 'text' : 'password'}
+                    value={guestConfirmPassword}
+                    onChange={(e) => setGuestConfirmPassword(e.target.value)}
+                    placeholder="비밀번호를 다시 입력하세요"
+                    required
+                    minLength={8}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowGuestConfirmPassword(!showGuestConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                  >
+                    {showGuestConfirmPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+                {guestConfirmPassword && guestPassword !== guestConfirmPassword && (
+                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                    비밀번호가 일치하지 않습니다
+                  </p>
+                )}
+              </div>
+
               {error && (
                 <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-2">
                   <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />
@@ -463,6 +552,7 @@ export default function SignUpPage() {
                     setError('');
                     setGuestEmail('');
                     setGuestPassword('');
+                    setGuestConfirmPassword('');
                     setGuestName('');
                   }}
                   className="flex-1 py-2 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
