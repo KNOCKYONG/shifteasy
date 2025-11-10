@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentUser } from '@/lib/auth';
 import { db } from '@/db';
-import { departmentPatterns, configs, departments } from '@/db/schema';
+import { departmentPatterns, departments } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { validateTeamPattern } from '@/lib/types/team-pattern';
 import { getShiftTypes } from '@/lib/config/shiftTypes';
@@ -65,6 +65,32 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // 부서 정보 및 테넌트 확인
+    const departmentInfo = await db
+      .select({
+        id: departments.id,
+        tenantId: departments.tenantId,
+      })
+      .from(departments)
+      .where(eq(departments.id, departmentId))
+      .limit(1);
+
+    if (departmentInfo.length === 0) {
+      return NextResponse.json(
+        { error: 'Department not found' },
+        { status: 404 }
+      );
+    }
+
+    if (departmentInfo[0].tenantId !== user.tenantId) {
+      return NextResponse.json(
+        { error: '해당 부서에 접근할 수 없습니다.' },
+        { status: 403 }
+      );
+    }
+
+    const tenantId = departmentInfo[0].tenantId;
+
     // 부서의 Department Pattern 조회
     console.log('[GET] Querying department patterns for departmentId:', departmentId);
 
@@ -74,20 +100,12 @@ export async function GET(request: NextRequest) {
       .where(
         and(
           eq(departmentPatterns.departmentId, departmentId),
+          eq(departmentPatterns.tenantId, tenantId),
           eq(departmentPatterns.isActive, 'true')
         )
       );
 
     console.log('[GET] Found patterns:', patterns.length);
-
-    // 부서 정보를 통해 tenantId 가져오기
-    const departmentInfo = await db
-      .select()
-      .from(departments)
-      .where(eq(departments.id, departmentId))
-      .limit(1);
-
-    const tenantId = departmentInfo[0]?.tenantId || user.tenantId;
 
     // shift_types 가져오기 (department별로 자동 생성)
     const shiftTypes = await getShiftTypes(tenantId, departmentId);
@@ -175,12 +193,29 @@ export async function POST(request: NextRequest) {
 
     // 부서의 tenantId 가져오기
     const departmentInfo = await db
-      .select()
+      .select({
+        id: departments.id,
+        tenantId: departments.tenantId,
+      })
       .from(departments)
       .where(eq(departments.id, data.departmentId))
       .limit(1);
 
-    const tenantId = departmentInfo[0]?.tenantId || user.tenantId;
+    if (departmentInfo.length === 0) {
+      return NextResponse.json(
+        { error: 'Department not found' },
+        { status: 404 }
+      );
+    }
+
+    if (departmentInfo[0].tenantId !== user.tenantId) {
+      return NextResponse.json(
+        { error: '해당 부서에 패턴을 생성할 수 없습니다.' },
+        { status: 403 }
+      );
+    }
+
+    const tenantId = departmentInfo[0].tenantId;
 
     console.log('[POST] Fetching shift_types with tenantId:', tenantId, 'departmentId:', data.departmentId);
 
@@ -211,7 +246,12 @@ export async function POST(request: NextRequest) {
     const existing = await db
       .select()
       .from(departmentPatterns)
-      .where(eq(departmentPatterns.departmentId, data.departmentId));
+      .where(
+        and(
+          eq(departmentPatterns.departmentId, data.departmentId),
+          eq(departmentPatterns.tenantId, tenantId)
+        )
+      );
 
     console.log('[POST] Found existing patterns:', existing.length);
 
@@ -221,7 +261,12 @@ export async function POST(request: NextRequest) {
       await db
         .update(departmentPatterns)
         .set({ isActive: 'false', updatedAt: new Date() })
-        .where(eq(departmentPatterns.departmentId, data.departmentId));
+        .where(
+          and(
+            eq(departmentPatterns.departmentId, data.departmentId),
+            eq(departmentPatterns.tenantId, tenantId)
+          )
+        );
     }
 
     // 새 패턴 생성
@@ -230,6 +275,7 @@ export async function POST(request: NextRequest) {
       .insert(departmentPatterns)
       .values({
         ...data,
+        tenantId,
         isActive: 'true',
       })
       .returning();
@@ -294,7 +340,12 @@ export async function PUT(request: NextRequest) {
     const patterns = await db
       .select()
       .from(departmentPatterns)
-      .where(eq(departmentPatterns.id, patternId));
+      .where(
+        and(
+          eq(departmentPatterns.id, patternId),
+          eq(departmentPatterns.tenantId, user.tenantId)
+        )
+      );
 
     if (patterns.length === 0) {
       return NextResponse.json(
@@ -321,17 +372,8 @@ export async function PUT(request: NextRequest) {
       avoidPatterns: (data.avoidPatterns ?? pattern.avoidPatterns) || undefined,
     };
 
-    // 부서의 tenantId 가져오기
-    const departmentInfo = await db
-      .select()
-      .from(departments)
-      .where(eq(departments.id, pattern.departmentId))
-      .limit(1);
-
-    const tenantId = departmentInfo[0]?.tenantId || user.tenantId;
-
     // shift_types 가져오기 (department별로 자동 생성)
-    const shiftTypes = await getShiftTypes(tenantId, pattern.departmentId);
+    const shiftTypes = await getShiftTypes(pattern.tenantId, pattern.departmentId);
     const validShiftCodes = shiftTypes.map((st) => st.code);
 
     // 'O' 코드가 있으면 'OFF' 별칭도 허용
@@ -355,7 +397,12 @@ export async function PUT(request: NextRequest) {
         ...data,
         updatedAt: new Date(),
       })
-      .where(eq(departmentPatterns.id, patternId))
+      .where(
+        and(
+          eq(departmentPatterns.id, patternId),
+          eq(departmentPatterns.tenantId, user.tenantId)
+        )
+      )
       .returning();
 
     return NextResponse.json({ pattern: updated[0] });
@@ -394,11 +441,34 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    const pattern = await db
+      .select()
+      .from(departmentPatterns)
+      .where(
+        and(
+          eq(departmentPatterns.id, patternId),
+          eq(departmentPatterns.tenantId, user.tenantId)
+        )
+      )
+      .limit(1);
+
+    if (pattern.length === 0) {
+      return NextResponse.json(
+        { error: 'Pattern not found' },
+        { status: 404 }
+      );
+    }
+
     // 소프트 삭제 (비활성화)
     await db
       .update(departmentPatterns)
       .set({ isActive: 'false', updatedAt: new Date() })
-      .where(eq(departmentPatterns.id, patternId));
+      .where(
+        and(
+          eq(departmentPatterns.id, patternId),
+          eq(departmentPatterns.tenantId, user.tenantId)
+        )
+      );
 
     return NextResponse.json({ success: true });
   } catch (error) {
