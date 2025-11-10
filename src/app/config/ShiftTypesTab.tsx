@@ -72,13 +72,7 @@ export function ShiftTypesTab({
     setShiftTypes(updatedShiftTypes);
   };
 
-  const PROTECTED_CODES = new Set(['D', 'E', 'N', 'A', 'O', 'V']);
-
   const handleDeleteShiftType = (code: string) => {
-    if (PROTECTED_CODES.has(code)) {
-      alert('기본 근무 타입은 삭제할 수 없습니다.');
-      return;
-    }
     if (confirm(`"${shiftTypes.find(s => s.code === code)?.name}" 근무 타입을 삭제하시겠습니까?`)) {
       const updatedShiftTypes = shiftTypes.filter(s => s.code !== code);
       setShiftTypes(updatedShiftTypes);
@@ -243,12 +237,8 @@ export function ShiftTypesTab({
                     </button>
                     <button
                       onClick={() => handleDeleteShiftType(shift.code)}
-                      className={`p-2 rounded-lg transition-colors ${
-                        PROTECTED_CODES.has(shift.code)
-                          ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                          : 'hover:bg-red-50 dark:hover:bg-red-950/30'
-                      }`}
-                      disabled={PROTECTED_CODES.has(shift.code)}
+                      className="p-2 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors"
+                      disabled={['D', 'E', 'N', 'A', 'O'].includes(shift.code)}
                     >
                       <Trash2 className="w-4 h-4 text-red-500 dark:text-red-400" />
                     </button>

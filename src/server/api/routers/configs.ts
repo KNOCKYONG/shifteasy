@@ -11,7 +11,6 @@ const DEFAULT_SHIFT_TYPES = [
   { code: 'N', name: '야간 근무', startTime: '23:00', endTime: '07:00', color: 'indigo', allowOvertime: true },
   { code: 'A', name: '행정 근무', startTime: '09:00', endTime: '18:00', color: 'green', allowOvertime: false },
   { code: 'O', name: '휴무', startTime: '00:00', endTime: '00:00', color: 'gray', allowOvertime: false },
-  { code: 'V', name: '휴가/요청', startTime: '00:00', endTime: '00:00', color: 'pink', allowOvertime: false },
 ];
 
 const DEFAULT_CONTRACT_TYPES = [
