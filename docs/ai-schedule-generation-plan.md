@@ -6,17 +6,23 @@
 - 모든 소스 데이터를 메모리에 캐시하거나 Map/Set 구조로 정규화해 빠르게 조회할 수 있도록 준비한다.
 
 ## 2. 우선순위 기반 배정 엔진
-우선순위는 “특별 요청 → 개인 선호 → 부서 패턴” 순서로 적용하며, 앞선 단계의 결정은 뒤 단계에서 덮어쓰지 않는다.
+우선순위는 “특별 요청 → 행정/지원 배정 → 개인 선호 → 부서 패턴” 순서로 적용하며, 앞선 단계의 결정은 뒤 단계에서 덮어쓰지 않는다.
 
 ### 2.1 특별 요청(`special_requests`)
 - 요청 유형(오프/특정 시프트)을 확인해 해당 날짜의 슬롯을 먼저 채운다.
 - 충돌(인력 부족 등)로 수용 불가할 경우 `{employeeId, date, rule: 'special_request', reason}` 형태로 `violations`에 기록하고 나중에 보고한다.
 
-### 2.2 개인 선호(`nurse_preferences`)
+### 2.2 행정/지원 배정
+- `workPatternType === 'weekday-only'`(행정 근무자)는 평일/비공휴일에는 `A` 시프트에 자동 배정하고, 주말·공휴일에는 강제 OFF로 처리한다.
+- 3교대 인원 D/E/N 충족 이후에도 잔여 OFF가 한도를 초과하면, 남은 인원을 D/E/N 중 부족한 시프트에 “지원 근무”로 배정한다.
+- 시프트별 `requiredStaffPerShift`를 기준으로 **필요 대비 배정 비율**을 계산해 가장 부족한 시프트에 우선 투입하며, 같은 날 동일 시프트 내에서 가능한 한 서로 다른 `teamId`가 최소 1명 이상 포함되도록 팀 커버리지 가중치를 사용한다.
+- 지원 근무로도 배치할 수 없으면 잉여 OFF 일수를 `extraOffDays`로 축적해 나중에 잔여 휴무로 표시한다.
+
+### 2.3 개인 선호(`nurse_preferences`)
 - `preferred_patterns`를 기준으로 남은 슬롯에 우선 배정하고, `avoid_patterns`에 해당하는 시프트는 피한다.
 - 선호를 지킬 수 없으면 같은 형식의 violation을 남긴다.
 
-### 2.3 부서 패턴(`department_patterns`)
+### 2.4 부서 패턴(`department_patterns`)
 - `required` 규칙(예: 특정 시프트 필수 인원)과 `patterns`(근무 순환 규칙 등)를 적용해 남은 빈 슬롯을 채운다.
 - 충돌 시 fallback 전략(대체 시프트, 스왑 등)을 정의하고, 최종적으로 불가하면 violation으로 남긴다.
 
@@ -24,6 +30,7 @@
 - 해당 월의 토/일/공휴일에 대해 직원별로 보장해야 하는 오프 일수를 계산한다.
 - 배정 완료 후 실제 오프 일수와 비교해 부족분은 `off_balance_ledger`에 `remainingOffDays`로 적립한다.  
   - 저장 필드 예시: `tenantId`, `nurseId`, `year`, `month`, `periodStart`, `periodEnd`, `guaranteedOffDays`, `actualOffDays`, `remainingOffDays`, `scheduleId`.
+- 동시에, 이번 스케줄에서 발생한 잔여 휴무(`extraOffDays`)를 `generationResult.offAccruals` 및 `schedules.metadata.offAccruals`에 기록해 UI/리포트에서 바로 확인할 수 있게 한다.
 
 ## 4. 위반 사유 기록 체계
 - 각 단계에서 위반이 발생하면 `{employeeId, date, ruleType, reason, priority}` 구조로 `metadata.violations`에 누적한다.
