@@ -14,6 +14,7 @@ interface ManageSchedulesModalProps {
 
 export function ManageSchedulesModal({ isOpen, onClose, onScheduleDeleted, onScheduleLoad }: ManageSchedulesModalProps) {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const utils = api.useUtils();
 
   // Fetch schedules from database
   const { data: schedules = [], isLoading, refetch } = api.schedule.list.useQuery(
@@ -23,8 +24,10 @@ export function ManageSchedulesModal({ isOpen, onClose, onScheduleDeleted, onSch
 
   // Delete mutation
   const deleteMutation = api.schedule.delete.useMutation({
-    onSuccess: () => {
-      refetch();
+    onSuccess: async () => {
+      // Invalidate all schedule-related queries to refresh UI everywhere
+      await utils.schedule.invalidate();
+
       setDeleteConfirmId(null);
       if (onScheduleDeleted) {
         onScheduleDeleted();
@@ -103,8 +106,18 @@ export function ManageSchedulesModal({ isOpen, onClose, onScheduleDeleted, onSch
                 return (
                   <div
                     key={schedule.id}
-                    className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-md transition-all"
+                    className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-md transition-all relative"
                   >
+                    {/* Loading overlay when deleting this schedule */}
+                    {deleteMutation.isPending && deleteConfirmId === schedule.id && (
+                      <div className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl flex items-center justify-center z-10">
+                        <div className="flex flex-col items-center gap-2">
+                          <Loader2 className="w-8 h-8 text-red-600 animate-spin" />
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">삭제 중...</p>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex items-start justify-between">
                       <div
                         className="flex-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/30 rounded-lg p-2 -m-2 transition-colors"
