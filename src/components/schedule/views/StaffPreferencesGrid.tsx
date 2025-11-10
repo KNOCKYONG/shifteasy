@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ListChecks, AlertCircle, Users } from 'lucide-react';
+import { ListChecks, Users } from 'lucide-react';
 import { api } from '@/lib/trpc/client';
 
 interface Member {
@@ -57,30 +57,19 @@ export function StaffPreferencesGrid({ allMembers, onEmployeeClick }: StaffPrefe
                 팀 미배정 ({groupedMembers.unassigned.length}명)
               </h4>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {groupedMembers.unassigned.map(member => (
-            <div
-              key={member.id}
-              className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              onClick={() => onEmployeeClick(member)}
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <h4 className="font-medium text-gray-900 dark:text-gray-100">{member.name}</h4>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{member.position}</p>
-                </div>
-              </div>
-
-              <div className="space-y-2 text-sm">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="w-3.5 h-3.5 text-blue-400 mt-0.5" />
-                  <div className="text-gray-600 dark:text-gray-400">
-                    세부 선호 정보가 아직 입력되지 않았습니다.
+                <div
+                  key={member.id}
+                  className="bg-gray-50 dark:bg-gray-800 rounded-md p-3 border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  onClick={() => onEmployeeClick(member)}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">{member.name}</h4>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">{member.position}</p>
                   </div>
                 </div>
-              </div>
-            </div>
-          ))}
+              ))}
             </div>
           </div>
         )}
@@ -97,27 +86,16 @@ export function StaffPreferencesGrid({ allMembers, onEmployeeClick }: StaffPrefe
                 {team.name} ({members.length}명)
               </h4>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {members.map(member => (
                 <div
                   key={member.id}
-                  className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="bg-gray-50 dark:bg-gray-800 rounded-md p-3 border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                   onClick={() => onEmployeeClick(member)}
                 >
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <h4 className="font-medium text-gray-900 dark:text-gray-100">{member.name}</h4>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{member.position}</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-start gap-2">
-                      <AlertCircle className="w-3.5 h-3.5 text-blue-400 mt-0.5" />
-                      <div className="text-gray-600 dark:text-gray-400">
-                        세부 선호 정보가 아직 입력되지 않았습니다.
-                      </div>
-                    </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">{member.name}</h4>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400">{member.position}</p>
                   </div>
                 </div>
               ))}
