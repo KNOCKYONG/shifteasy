@@ -432,6 +432,7 @@ async function sendScheduleNotifications(
 }
 
 const OFF_SHIFT_CODES = new Set(['O', 'OFF']);
+const VACATION_REQUEST_CODES = new Set(['V']);
 
 function deriveShiftTypeCode(shiftId: string, provided?: string) {
   if (provided && provided.trim().length > 0) {
@@ -497,12 +498,20 @@ async function updateOffBalanceAfterConfirmation({
 
   for (const employeeId of employeeIds) {
     const employeeAssignments = assignments.filter(a => a.employeeId === employeeId);
-    const actualOffDays = employeeAssignments.filter(a => {
-      const code = deriveShiftTypeCode(a.shiftId, a.shiftType);
-      return OFF_SHIFT_CODES.has(code);
-    }).length;
+    const guaranteedOffDays = 8; // TODO
+    let actualOffDays = 0;
 
-    const guaranteedOffDays = 8; // TODO: derive from pattern/preferences
+    for (const assignment of employeeAssignments) {
+      const code = deriveShiftTypeCode(assignment.shiftId, assignment.shiftType);
+      if (VACATION_REQUEST_CODES.has(code)) {
+        continue; // 요청(V)은 휴무 일수 계산에서 제외
+      }
+      if (OFF_SHIFT_CODES.has(code)) {
+        actualOffDays += 1;
+      }
+    }
+
+    actualOffDays = Math.min(actualOffDays, guaranteedOffDays);
     const remainingOffDays = guaranteedOffDays - actualOffDays;
 
     if (remainingOffDays > 0 && preferenceMap.has(employeeId)) {

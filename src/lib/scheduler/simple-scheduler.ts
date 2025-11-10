@@ -61,10 +61,12 @@ export interface TeamPattern {
   avoidPatterns?: string[][]; // 기피 근무 패턴 (예: [['N', 'N', 'D']])
 }
 
+type AssignedShift = 'D' | 'E' | 'N' | 'A' | 'OFF' | 'V';
+
 export interface ScheduleAssignment {
   date: string; // YYYY-MM-DD
   employeeId: string;
-  shift: 'D' | 'E' | 'N' | 'A' | 'OFF'; // A = 행정 근무 (평일 행정 업무, 주말/공휴일 휴무)
+  shift: AssignedShift; // V = 휴무 요청
 }
 
 export interface SimpleSchedulerConfig {
@@ -87,11 +89,11 @@ export interface SimpleSchedulerConfig {
 export class SimpleScheduler {
   private config: SimpleSchedulerConfig;
   private workDays: Date[];
-  private schedule: Map<string, Map<string, 'D' | 'E' | 'N' | 'A' | 'OFF'>>; // date -> employeeId -> shift
+  private schedule: Map<string, Map<string, AssignedShift>>; // date -> employeeId -> shift
   private roleRatios: Map<string, number>; // role -> count
   private workCounts: Map<string, number>; // employeeId -> work day count
   private offCounts: Map<string, number>; // employeeId -> OFF day count
-  private lastShift: Map<string, 'D' | 'E' | 'N' | 'A' | 'OFF' | null>; // employeeId -> last assigned shift
+  private lastShift: Map<string, AssignedShift | null>; // employeeId -> last assigned shift
   private consecutiveShiftCounts: Map<string, number>; // employeeId -> consecutive days of same shift
   private minOffDaysPerMonth: number; // 월별 최소 휴무일 (주말/공휴일 개수 기반)
   private weekendAndHolidayCount: number; // 해당 월의 주말/공휴일 개수
@@ -260,11 +262,12 @@ export class SimpleScheduler {
           const mappedShift = this.mapShiftCode(request.shiftTypeCode);
           daySchedule.set(request.employeeId, mappedShift);
           console.log(`   📝 ${empName}: ${dateStr} → ${mappedShift} (shift_request)`);
-          // Update work count if not OFF
-          if (mappedShift !== 'OFF') {
-            this.workCounts.set(request.employeeId, (this.workCounts.get(request.employeeId) || 0) + 1);
-          } else {
+          if (mappedShift === 'OFF') {
             this.offCounts.set(request.employeeId, (this.offCounts.get(request.employeeId) || 0) + 1);
+          } else if (mappedShift === 'V') {
+            // 휴무 요청(V)은 근무/휴무 카운트에 포함하지 않음 (별도 처리)
+          } else {
+            this.workCounts.set(request.employeeId, (this.workCounts.get(request.employeeId) || 0) + 1);
           }
           requestCount++;
         }
@@ -281,7 +284,7 @@ export class SimpleScheduler {
   /**
    * Map custom shift type code to standard shift type (D, E, N, OFF)
    */
-  private mapShiftCode(code: string): 'D' | 'E' | 'N' | 'OFF' {
+  private mapShiftCode(code: string): AssignedShift {
     // Remove "^" suffix if present (indicates shift request)
     const cleanCode = code.replace('^', '').toUpperCase();
 
@@ -292,6 +295,8 @@ export class SimpleScheduler {
         return 'E';
       case 'N':
         return 'N';
+      case 'V':
+        return 'V';
       case 'O': // 휴무
       case 'OFF':
         return 'OFF';
@@ -821,7 +826,7 @@ export class SimpleScheduler {
    */
   private assignShiftWithExperienceBalance(
     employees: Employee[],
-    daySchedule: Map<string, 'D' | 'E' | 'N' | 'OFF' | 'A'>,
+    daySchedule: Map<string, AssignedShift>,
     shift: 'D' | 'E' | 'N',
     requiredCount: number,
     isSpecialDay: boolean,
