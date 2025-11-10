@@ -578,6 +578,8 @@ function SchedulePageContent() {
       avatar: '',
       phone: item.profile?.phone || '',
       teamId: item.teamId || null,
+      hireDate: item.hireDate || null,
+      yearsOfService: item.yearsOfService ?? null,
     }));
   }, [usersData]);
 
