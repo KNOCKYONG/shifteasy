@@ -18,6 +18,7 @@ const SaveDraftSchema = z.object({
       shiftId: z.string(),
       date: z.string(),
       isLocked: z.boolean(),
+      shiftType: z.string().optional(),
     })),
   }),
   name: z.string().optional(),

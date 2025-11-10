@@ -152,10 +152,21 @@ function SchedulePageContent() {
 
   // Custom hooks for state management
   const filters = useScheduleFilters(initialActiveView);
+  const setActiveView = filters.setActiveView;
   const deferredActiveView = useDeferredValue(filters.activeView);
   const modals = useScheduleModals();
   const generateScheduleMutation = api.schedule.generate.useMutation();
   const deleteMutation = api.schedule.delete.useMutation();
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof performance === 'undefined' || typeof performance.getEntriesByType !== 'function') {
+      return;
+    }
+    const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+    if (navEntries?.[0]?.type === 'reload') {
+      setActiveView('today');
+    }
+  }, [setActiveView]);
 
   // Initialize dates from URL parameters
   const getInitialMonth = () => {
@@ -422,6 +433,22 @@ function SchedulePageContent() {
     }
   }, [savedSchedules, monthStart, canManageSchedules]);
 
+  const deriveShiftTypeFromId = (shiftId: string) => {
+    if (!shiftId) {
+      return 'CUSTOM';
+    }
+
+    const trimmed = shiftId.trim();
+    const withoutPrefix = trimmed.startsWith('shift-') ? trimmed.slice(6) : trimmed;
+    const upper = withoutPrefix.toUpperCase();
+
+    if (upper === 'OFF') {
+      return 'O';
+    }
+
+    return upper || 'CUSTOM';
+  };
+
   const currentWeek = monthStart;
   const buildSchedulePayload = () => {
     // ✅ Manager/Member는 항상 실제 departmentId 사용
@@ -448,6 +475,7 @@ function SchedulePageContent() {
         shiftId: assignment.shiftId,
         date: normalizeDate(assignment.date).toISOString(),
         isLocked: (assignment as any).isLocked ?? false,
+        shiftType: deriveShiftTypeFromId(assignment.shiftId),
       })),
       status: 'draft' as const,
     };
@@ -1363,8 +1391,12 @@ function SchedulePageContent() {
         modals.setShowConfirmDialog(false);
         setScheduleName(''); // 스케줄 명 초기화
 
-        // ✅ Invalidate all schedule-related queries to refresh UI immediately
-        await utils.schedule.invalidate();
+        // ✅ Invalidate related queries to refresh UI immediately
+        await Promise.all([
+          utils.schedule.invalidate(),
+          utils.offBalance.getBulkCurrentBalance.invalidate(),
+          utils.offBalance.getByEmployee.invalidate(),
+        ]);
 
         alert('스케줄이 확정되었습니다!\n직원들에게 알림이 발송되었습니다.');
       } else {

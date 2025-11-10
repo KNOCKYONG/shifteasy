@@ -85,6 +85,7 @@ export interface ScheduleAssignment {
   shiftId: string;
   date: Date;
   isLocked: boolean;  // 수동으로 고정된 배정
+  shiftType?: string; // 휴무 계산 등을 위한 시프트 코드
   isSwapRequested?: boolean;
   swapRequestId?: string;
 }

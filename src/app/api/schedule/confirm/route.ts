@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentUser } from '@/lib/auth';
 import { db } from '@/db';
-import { schedules } from '@/db/schema';
+import { schedules, nursePreferences, offBalanceLedger } from '@/db/schema';
 import { notificationService } from '@/lib/notifications/notification-service';
+import { and, eq, inArray } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,7 @@ const ConfirmScheduleSchema = z.object({
       shiftId: z.string(),
       date: z.string(),
       isLocked: z.boolean(),
+      shiftType: z.string().optional(),
     })),
     status: z.enum(['draft', 'published', 'archived']).optional(),
   }),
@@ -149,6 +151,16 @@ export async function POST(request: NextRequest) {
       assignments: schedule.assignments,  // Include assignments from request
     };
     confirmedSchedules.set(`${tenantId}:${scheduleId}`, confirmedSchedule);
+
+    try {
+      await updateOffBalanceAfterConfirmation({
+        tenantId,
+        scheduleRecord: confirmedSchedule,
+        assignments: schedule.assignments,
+      });
+    } catch (error) {
+      console.error('[Confirm] Failed to update off-balance ledger', error);
+    }
 
     // Send notifications if requested
     if (notifyEmployees) {
@@ -417,6 +429,118 @@ async function sendScheduleNotifications(
   console.log(`Successfully sent ${successCount}/${uniqueEmployees.size} notifications for schedule ${schedule.id}`);
 
   return results;
+}
+
+const OFF_SHIFT_CODES = new Set(['O', 'OFF']);
+
+function deriveShiftTypeCode(shiftId: string, provided?: string) {
+  if (provided && provided.trim().length > 0) {
+    const upperProvided = provided.trim().toUpperCase();
+    return upperProvided === 'OFF' ? 'O' : upperProvided;
+  }
+
+  if (!shiftId) {
+    return 'CUSTOM';
+  }
+
+  const trimmed = shiftId.trim();
+  const withoutPrefix = trimmed.startsWith('shift-') ? trimmed.slice(6) : trimmed;
+  const upper = withoutPrefix.toUpperCase();
+
+  if (upper === 'OFF') {
+    return 'O';
+  }
+
+  return upper || 'CUSTOM';
+}
+
+async function updateOffBalanceAfterConfirmation({
+  tenantId,
+  scheduleRecord,
+  assignments,
+}: {
+  tenantId: string;
+  scheduleRecord: ConfirmedScheduleRecord;
+  assignments: ScheduleAssignmentPayload[];
+}) {
+  if (!assignments.length) {
+    return;
+  }
+
+  const employeeIds = [...new Set(assignments.map(a => a.employeeId))];
+  if (employeeIds.length === 0) {
+    return;
+  }
+
+  const preferences = await db
+    .select({
+      nurseId: nursePreferences.nurseId,
+      accumulatedOffDays: nursePreferences.accumulatedOffDays,
+    })
+    .from(nursePreferences)
+    .where(
+      and(
+        eq(nursePreferences.tenantId, tenantId),
+        inArray(nursePreferences.nurseId, employeeIds)
+      )
+    );
+
+  const preferenceMap = new Map(
+    preferences.map(pref => [pref.nurseId, pref.accumulatedOffDays || 0])
+  );
+
+  const ledgerRecords: typeof offBalanceLedger.$inferInsert[] = [];
+  const periodStart = new Date(scheduleRecord.startDate);
+  const periodEnd = new Date(scheduleRecord.endDate);
+  const year = periodStart.getFullYear();
+  const month = periodStart.getMonth() + 1;
+
+  for (const employeeId of employeeIds) {
+    const employeeAssignments = assignments.filter(a => a.employeeId === employeeId);
+    const actualOffDays = employeeAssignments.filter(a => {
+      const code = deriveShiftTypeCode(a.shiftId, a.shiftType);
+      return OFF_SHIFT_CODES.has(code);
+    }).length;
+
+    const guaranteedOffDays = 8; // TODO: derive from pattern/preferences
+    const remainingOffDays = guaranteedOffDays - actualOffDays;
+
+    if (remainingOffDays > 0 && preferenceMap.has(employeeId)) {
+      const currentBalance = preferenceMap.get(employeeId) || 0;
+
+      await db
+        .update(nursePreferences)
+        .set({
+          accumulatedOffDays: currentBalance + remainingOffDays,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(nursePreferences.nurseId, employeeId),
+            eq(nursePreferences.tenantId, tenantId)
+          )
+        );
+
+      ledgerRecords.push({
+        tenantId,
+        nurseId: employeeId,
+        year,
+        month,
+        periodStart,
+        periodEnd,
+        guaranteedOffDays,
+        actualOffDays,
+        remainingOffDays,
+        compensationType: null,
+        status: 'pending',
+        scheduleId: scheduleRecord.id,
+      });
+    }
+  }
+
+  if (ledgerRecords.length > 0) {
+    await db.insert(offBalanceLedger).values(ledgerRecords);
+  }
 }
 
 // Helper function to generate confirmation report
