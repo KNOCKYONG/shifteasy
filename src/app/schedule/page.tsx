@@ -98,7 +98,7 @@ const DEFAULT_CONSTRAINTS: Constraint[] = [
   },
 ];
 
-const STANDARD_AI_SHIFT_CODES = ['D', 'E', 'N', 'O'] as const;
+const STANDARD_AI_SHIFT_CODES = ['D', 'E', 'N', 'O', 'A'] as const;
 type StandardShiftCode = typeof STANDARD_AI_SHIFT_CODES[number];
 
 const DEFAULT_STANDARD_SHIFT_TYPES: Record<StandardShiftCode, ShiftType> = {
@@ -106,6 +106,7 @@ const DEFAULT_STANDARD_SHIFT_TYPES: Record<StandardShiftCode, ShiftType> = {
   E: { code: 'E', name: '저녁', startTime: '16:00', endTime: '24:00', color: '#F59E0B', allowOvertime: false },
   N: { code: 'N', name: '야간', startTime: '00:00', endTime: '08:00', color: '#6366F1', allowOvertime: false },
   O: { code: 'O', name: '휴무', startTime: '00:00', endTime: '00:00', color: '#9CA3AF', allowOvertime: false },
+  A: { code: 'A', name: '행정', startTime: '09:00', endTime: '18:00', color: '#10B981', allowOvertime: false },
 };
 
 /**
