@@ -178,6 +178,7 @@ export interface SchedulingResult {
   iterations: number;
   computationTime: number;  // ms
   suggestions?: ScheduleSuggestion[];
+  offAccruals?: OffAccrualSummary[];
 }
 
 // 스케줄 점수
@@ -257,4 +258,10 @@ export interface ValidationWarning {
   message: string;
   severity: 'warning' | 'info';
   context?: any;
+}
+export interface OffAccrualSummary {
+  employeeId: string;
+  extraOffDays: number;
+  guaranteedOffDays: number;
+  actualOffDays: number;
 }

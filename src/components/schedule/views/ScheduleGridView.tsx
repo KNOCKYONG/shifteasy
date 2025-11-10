@@ -19,6 +19,7 @@ interface OffBalanceInfo {
   accumulatedOffDays: number;
   allocatedToAccumulation: number;
   allocatedToAllowance: number;
+  pendingExtraOffDays?: number;
 }
 
 interface ScheduleGridViewProps {
@@ -191,6 +192,11 @@ export const ScheduleGridView = React.memo(function ScheduleGridView({
                       <span className="text-blue-600 dark:text-blue-400">
                         {offBalanceData.get(member.id)!.allocatedToAllowance}일 수당
                       </span>
+                      {offBalanceData.get(member.id)!.pendingExtraOffDays ? (
+                        <div className="text-amber-600 dark:text-amber-400 mt-0.5">
+                          +{offBalanceData.get(member.id)!.pendingExtraOffDays}일 예정
+                        </div>
+                      ) : null}
                     </div>
                   ) : (
                     <div className="text-[10px] text-gray-400 dark:text-gray-500">-</div>

@@ -976,12 +976,15 @@ function SchedulePageContent() {
   });
 
   // Convert off-balance data to Map for easy lookup
+  type OffBalanceEntry = {
+    accumulatedOffDays: number;
+    allocatedToAccumulation: number;
+    allocatedToAllowance: number;
+    pendingExtraOffDays?: number;
+  };
+
   const offBalanceMap = React.useMemo(() => {
-    const map = new Map<string, {
-      accumulatedOffDays: number;
-      allocatedToAccumulation: number;
-      allocatedToAllowance: number;
-    }>();
+    const map = new Map<string, OffBalanceEntry>();
     if (offBalanceData) {
       offBalanceData.forEach(item => {
         map.set(item.nurseId, {
@@ -991,8 +994,20 @@ function SchedulePageContent() {
         });
       });
     }
+    if (generationResult?.offAccruals) {
+      generationResult.offAccruals.forEach(record => {
+        const entry = map.get(record.employeeId) || {
+          accumulatedOffDays: 0,
+          allocatedToAccumulation: 0,
+          allocatedToAllowance: 0,
+        };
+        entry.pendingExtraOffDays = (entry.pendingExtraOffDays || 0) + record.extraOffDays;
+        entry.accumulatedOffDays = Math.max(entry.accumulatedOffDays, record.extraOffDays);
+        map.set(record.employeeId, entry);
+      });
+    }
     return map;
-  }, [offBalanceData]);
+  }, [offBalanceData, generationResult]);
 
   // Validate current schedule
   const handleValidateSchedule = async () => {

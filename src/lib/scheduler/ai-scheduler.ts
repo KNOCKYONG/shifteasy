@@ -6,6 +6,7 @@ import type {
   ScheduleAssignment,
   ScheduleScore,
   Shift,
+  OffAccrualSummary,
 } from './types';
 
 export type WorkPatternType = 'three-shift' | 'night-intensive' | 'weekday-only';
@@ -52,13 +53,6 @@ interface AiScheduleRequest {
   requiredStaffPerShift?: Record<string, number>;
 }
 
-interface OffAccrualRecord {
-  employeeId: string;
-  extraOffDays: number;
-  guaranteedOffDays: number;
-  actualOffDays: number;
-}
-
 export interface AiScheduleGenerationResult {
   assignments: ScheduleAssignment[];
   violations: ConstraintViolation[];
@@ -70,7 +64,7 @@ export interface AiScheduleGenerationResult {
     coverageRate: number;
     preferenceScore: number;
   };
-  offAccruals: OffAccrualRecord[];
+  offAccruals: OffAccrualSummary[];
 }
 
 interface EmployeeState {
@@ -507,7 +501,7 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
     ],
   };
 
-  const offAccruals: OffAccrualRecord[] = [];
+  const offAccruals: OffAccrualSummary[] = [];
   employeeStates.forEach((state, employeeId) => {
     if (state.extraOffDays > 0) {
       offAccruals.push({
@@ -577,6 +571,10 @@ function selectCandidate(params: CandidateSelectionParams) {
         state.rotationLock &&
         state.rotationLock === normalizedShiftCode
       ) {
+        return null;
+      }
+
+      if (state.lastShiftCode === 'N' && (normalizedShiftCode === 'D' || normalizedShiftCode === 'E')) {
         return null;
       }
 
