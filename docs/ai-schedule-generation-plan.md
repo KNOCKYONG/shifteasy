@@ -14,9 +14,10 @@
 
 ### 2.2 행정/지원 배정
 - `workPatternType === 'weekday-only'`(행정 근무자)는 평일·비공휴일에는 행정 시프트(`A`)로 자동 배정하고, 주말·공휴일에는 강제 OFF로 처리해 3교대 요구 인원에서 제외한다.
-- 일반 3교대 인원의 OFF가 월별 보장 한도를 초과하면, D/E/N 중 **필요 대비 배정 비율**이 가장 낮은 시프트를 골라 “지원 근무”로 투입한다.  
+- 일반 3교대 인원의 OFF가 월별 보장 한도를 초과하거나 해당 날짜까지의 목표 OFF 일수를 이미 채웠다면, D/E/N 중 **필요 대비 배정 비율**이 가장 낮은 시프트를 골라 “지원 근무”로 투입한다.  
   - 시프트별 필요 인원은 `requiredStaffPerShift`(없으면 시프트 템플릿의 `requiredStaff`)를 사용한다.  
   - 같은 날 동일 시프트 안에서 가능한 한 서로 다른 `teamId`가 최소 1명 이상 포함되도록 팀 커버리지 가중치를 부여해 편향을 줄인다.
+- `workPatternType === 'night-intensive'` 직원은 가능한 한 야간(`N`) 시프트에만 배정되며, 지원 근무가 필요할 때도 야간 슬롯이 없으면 OFF로 유지한다.
 - 지원 근무로도 배치할 수 없는 잉여 OFF는 `extraOffDays`로 축적해 나중에 잔여 휴무로 표기한다.
 
 ### 2.3 개인 선호(`nurse_preferences`)
@@ -31,7 +32,7 @@
 - 해당 월의 토/일/공휴일에 대해 직원별로 보장해야 하는 오프 일수를 계산한다.
 - 배정 완료 후 실제 오프 일수와 비교해 부족분은 `off_balance_ledger`에 `remainingOffDays`로 적립한다.  
   - 저장 필드 예시: `tenantId`, `nurseId`, `year`, `month`, `periodStart`, `periodEnd`, `guaranteedOffDays`, `actualOffDays`, `remainingOffDays`, `scheduleId`.
-- 동시에, 이번 스케줄에서 발생한 잔여 휴무(`extraOffDays`)를 `generationResult.offAccruals` 및 `schedules.metadata.offAccruals`에 기록해 UI/리포트에서 잔여 휴무 적립을 바로 확인할 수 있게 한다.
+- 동시에, 이번 스케줄에서 발생한 잔여 휴무(`extraOffDays`)를 `generationResult.offAccruals` 및 `schedules.metadata.offAccruals`에 기록해 UI/리포트에서 잔여 휴무 적립을 바로 확인할 수 있게 한다. 잔여 휴무는 월 내내 목표 대비 부족한 직원에게 우선 배정해 월말에 몰리지 않도록 목표치를 일 단위로 분산 관리한다.
 
 ## 4. 위반 사유 기록 체계
 - 각 단계에서 위반이 발생하면 `{employeeId, date, ruleType, reason, priority}` 구조로 `metadata.violations`에 누적한다.

@@ -219,11 +219,11 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       }
     };
 
-    const selectSupportShiftCode = (): string | null => {
-      const candidateCodes = ['D', 'E', 'N'].filter((code) => shiftTemplateMap.has(code));
+    const selectSupportShiftCode = (allowedCodes?: string[]): string | null => {
+      const candidateCodes = (allowedCodes && allowedCodes.length ? allowedCodes : ['D', 'E', 'N']).filter((code) => shiftTemplateMap.has(code));
       if (candidateCodes.length === 0) {
-        return null;
-      }
+    return null;
+  }
       let bestCode = candidateCodes[0];
       let bestLoad = Number.POSITIVE_INFINITY;
       candidateCodes.forEach((code) => {
@@ -282,7 +282,7 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
 
     const assignSupportShift = (
       employee: AiEmployee,
-      options?: { mode?: 'admin' | 'clinical'; countTowardsRotation?: boolean }
+      options?: { mode?: 'admin' | 'clinical'; countTowardsRotation?: boolean; allowedCodes?: string[] }
     ): boolean => {
       const mode = options?.mode ?? 'clinical';
       if (mode === 'admin') {
@@ -309,7 +309,8 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
         return true;
       }
 
-      const supportCode = selectSupportShiftCode();
+      const allowedCodes = options?.allowedCodes;
+      const supportCode = selectSupportShiftCode(allowedCodes);
       if (!supportCode) {
         return false;
       }
@@ -339,20 +340,25 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       return true;
     };
 
-    const assignOffShift = (employee: AiEmployee, options?: { force?: boolean }) => {
+    const assignOffShift = (employee: AiEmployee, options?: { force?: boolean; dayIndex: number }) => {
       const state = employeeStates.get(employee.id);
       if (!state) {
         return;
       }
 
       const force = options?.force ?? false;
-      if (!force && state.offDays >= state.maxOffDays) {
+      const daysElapsed = options?.dayIndex ?? 0;
+      const expectedOffByToday = Math.ceil(((daysElapsed + 1) / dateRange.length) * state.maxOffDays);
+      if (!force && state.offDays >= expectedOffByToday) {
         const supportMode: 'admin' | 'clinical' =
           employee.workPatternType === 'weekday-only' ? 'admin' : 'clinical';
+        const preferredCodes =
+          employee.workPatternType === 'night-intensive' ? ['N'] : undefined;
         if (
           assignSupportShift(employee, {
             mode: supportMode,
             countTowardsRotation: employee.workPatternType !== 'weekday-only',
+            allowedCodes: preferredCodes,
           })
         ) {
           return;
@@ -394,10 +400,10 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
 
       if (!isSpecialDay) {
         if (!assignSupportShift(employee, { mode: 'admin', countTowardsRotation: false })) {
-          assignOffShift(employee);
+          assignOffShift(employee, { dayIndex });
         }
       } else {
-        assignOffShift(employee, { force: true });
+        assignOffShift(employee, { force: true, dayIndex });
       }
     });
 
@@ -470,7 +476,7 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       if (assignedToday.has(employee.id)) {
         return;
       }
-      assignOffShift(employee);
+      assignOffShift(employee, { dayIndex });
     });
   });
 
@@ -547,6 +553,9 @@ function selectCandidate(params: CandidateSelectionParams) {
     .filter((emp) => !params.assignedToday.has(emp.id))
     .map<CandidateEvaluation | null>((employee) => {
       if (employee.workPatternType === 'weekday-only') {
+        return null;
+      }
+      if (employee.workPatternType === 'night-intensive' && normalizedShiftCode !== 'N') {
         return null;
       }
       const state = params.employeeStates.get(employee.id);
