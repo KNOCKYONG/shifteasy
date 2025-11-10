@@ -155,6 +155,7 @@ function SchedulePageContent() {
   const deferredActiveView = useDeferredValue(filters.activeView);
   const modals = useScheduleModals();
   const generateScheduleMutation = api.schedule.generate.useMutation();
+  const deleteMutation = api.schedule.delete.useMutation();
 
   // Initialize dates from URL parameters
   const getInitialMonth = () => {
@@ -1160,11 +1161,72 @@ function SchedulePageContent() {
     setEditingCell(null);
   };
 
-  const handleConfirmToggle = () => {
+  const handleConfirmToggle = async () => {
     if (isConfirmed) {
       setIsConfirmed(false);
       setScheduleStatus('draft');
-    } else {
+      return;
+    }
+
+    // Check for existing published schedules before confirming
+    let validDepartmentId: string | null = selectedDepartment;
+
+    if (selectedDepartment === 'all' || selectedDepartment === 'no-department') {
+      if (isMember || isManager) {
+        validDepartmentId = currentUser.dbUser?.departmentId || null;
+      } else {
+        alert('스케줄을 확정하려면 부서를 선택해주세요.');
+        return;
+      }
+    }
+
+    if (!validDepartmentId) {
+      alert('부서 정보가 없습니다.');
+      return;
+    }
+
+    try {
+      // Check for existing published schedules in the same period
+      const existingCheck = await utils.schedule.checkExisting.fetch({
+        departmentId: validDepartmentId,
+        startDate: monthStart,
+        endDate: endOfMonth(monthStart),
+      });
+
+      if (existingCheck.hasExisting && existingCheck.schedules.length > 0) {
+        const existingSchedule = existingCheck.schedules[0];
+        const existingPeriod = `${format(new Date(existingSchedule.startDate), 'yyyy-MM-dd')} ~ ${format(new Date(existingSchedule.endDate), 'yyyy-MM-dd')}`;
+
+        const confirmDelete = confirm(
+          `⚠️ 같은 기간에 이미 확정된 스케줄이 있습니다.\n\n` +
+          `기간: ${existingPeriod}\n` +
+          `확정일: ${existingSchedule.publishedAt ? format(new Date(existingSchedule.publishedAt), 'yyyy-MM-dd HH:mm') : '알 수 없음'}\n\n` +
+          `기존 스케줄을 삭제하고 새 스케줄을 확정하시겠습니까?\n\n` +
+          `※ 이 작업은 되돌릴 수 없으며, 기존 스케줄이 영구 삭제됩니다.`
+        );
+
+        if (!confirmDelete) {
+          return;
+        }
+
+        // Delete existing schedules
+        for (const schedule of existingCheck.schedules) {
+          try {
+            await deleteMutation.mutateAsync({ id: schedule.id });
+            console.log(`✅ Deleted existing schedule: ${schedule.id}`);
+          } catch (deleteError) {
+            console.error(`❌ Failed to delete schedule ${schedule.id}:`, deleteError);
+            alert(`기존 스케줄 삭제 실패: ${deleteError instanceof Error ? deleteError.message : '알 수 없는 오류'}`);
+            return;
+          }
+        }
+      }
+
+      // Show confirmation dialog
+      modals.setShowConfirmDialog(true);
+    } catch (error) {
+      console.error('Error checking existing schedules:', error);
+      // Continue to confirmation even if check fails
       modals.setShowConfirmDialog(true);
     }
   };
@@ -1237,8 +1299,8 @@ function SchedulePageContent() {
         modals.setShowConfirmDialog(false);
         setScheduleName(''); // 스케줄 명 초기화
 
-        // ✅ Invalidate schedule cache to reload from DB
-        await utils.schedule.list.invalidate();
+        // ✅ Invalidate all schedule-related queries to refresh UI immediately
+        await utils.schedule.invalidate();
 
         alert('스케줄이 확정되었습니다!\n직원들에게 알림이 발송되었습니다.');
       } else {
@@ -2090,7 +2152,7 @@ function SchedulePageContent() {
                       )}
 
                       <button
-                        onClick={() => modals.setShowConfirmDialog(true)}
+                        onClick={handleConfirmToggle}
                         disabled={scheduleStatus === 'confirmed'}
                         className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
                         title="스케줄 확정"
