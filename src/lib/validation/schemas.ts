@@ -8,56 +8,23 @@ import { z } from 'zod';
 
 export const ShiftTypeSchema = z.enum(['day', 'evening', 'night', 'off', 'leave', 'custom']);
 
-export const ContractTypeSchema = z.enum(['full-time', 'part-time', 'contract']);
-
 export const EmployeeStatusSchema = z.enum(['active', 'on-leave', 'inactive']);
 
 export const OptimizationGoalSchema = z.enum(['fairness', 'preference', 'coverage', 'cost', 'balanced']);
 
 // ==================== Employee 관련 스키마 ====================
 
-export const EmployeePreferencesSchema = z.object({
-  preferredShifts: z.array(ShiftTypeSchema),
-  avoidShifts: z.array(ShiftTypeSchema),
-  preferredDaysOff: z.array(z.number().min(0).max(6)),
-  maxConsecutiveDays: z.number().min(1).max(7),
-  preferNightShift: z.boolean(),
-  minRestHours: z.number().min(8).max(24).optional(),
-});
-
-export const EmployeeAvailabilitySchema = z.object({
-  availableDays: z.array(z.boolean()).length(7),
-  unavailableDates: z.array(z.date()),
-  timeOffRequests: z.array(z.object({
-    id: z.string(),
-    employeeId: z.string(),
-    startDate: z.date(),
-    endDate: z.date(),
-    type: z.enum(['vacation', 'sick', 'personal', 'other']),
-    status: z.enum(['pending', 'approved', 'rejected']),
-    reason: z.string().optional(),
-  })),
-});
-
 export const EmployeeSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   email: z.string().email().optional(),
   phone: z.string().optional(),
-  departmentId: z.string(),
-  role: z.string(),
+  departmentId: z.string().optional(),
+  role: z.string().optional(),
   position: z.string().optional(),
-  contractType: ContractTypeSchema,
+  workPatternType: z.enum(['three-shift', 'night-intensive', 'weekday-only']).optional(),
   status: EmployeeStatusSchema.optional(),
-  maxHoursPerWeek: z.number().min(0).max(60),
-  minHoursPerWeek: z.number().min(0).max(60),
-  skills: z.array(z.string()),
-  preferences: EmployeePreferencesSchema,
-  availability: EmployeeAvailabilitySchema,
   avatar: z.string().url().optional(),
-}).refine(data => data.maxHoursPerWeek >= data.minHoursPerWeek, {
-  message: "최대 근무시간은 최소 근무시간보다 커야 합니다",
-  path: ["maxHoursPerWeek"],
 });
 
 // ==================== ComprehensivePreferences 스키마 ====================

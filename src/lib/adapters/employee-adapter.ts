@@ -20,13 +20,7 @@ interface TeamMember {
   skills?: string[];
   joinedAt?: string;
   avatar?: string;
-  workSchedule?: {
-    preferredShifts?: string[];
-    maxHoursPerWeek?: number;
-    minHoursPerWeek?: number;
-    availableDays?: number[];
-    unavailableDates?: string[];
-  };
+  workSchedule?: Record<string, unknown>;
 }
 
 /**

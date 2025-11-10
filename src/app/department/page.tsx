@@ -286,15 +286,6 @@ const departments =
     }
   };
 
-  const getContractTypeBadge = (type: string) => {
-    switch (type) {
-      case 'full-time': return '정규직';
-      case 'part-time': return '파트타임';
-      case 'contract': return '계약직';
-      default: return type;
-    }
-  };
-
   return (
     <RoleGuard>
       <MainLayout>
