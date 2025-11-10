@@ -80,7 +80,7 @@ export function StaffPreferencesGrid({ allMembers, onEmployeeClick }: StaffPrefe
                 팀 미배정 ({groupedMembers.unassigned.length}명)
               </h4>
             </div>
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
               {groupedMembers.unassigned.map(member => renderMemberCard(member))}
             </div>
           </div>
@@ -98,7 +98,7 @@ export function StaffPreferencesGrid({ allMembers, onEmployeeClick }: StaffPrefe
                 {team.name} ({members.length}명)
               </h4>
             </div>
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
               {members.map(member => renderMemberCard(member))}
             </div>
           </div>
