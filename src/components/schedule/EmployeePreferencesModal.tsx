@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { User, Heart, Calendar, Clock, Users, Shield, X, Save, AlertCircle, Star, UserCheck, UserMinus, ChevronLeft, ChevronRight, Info, CheckCircle, Edit2, Trash2, Wallet, Briefcase } from "lucide-react";
+import { User, Heart, Calendar, Clock, Users, Shield, X, Save, AlertCircle, Star, UserCheck, UserMinus, ChevronLeft, ChevronRight, Info, CheckCircle, Wallet } from "lucide-react";
 import { type Employee, type EmployeePreferences, type ShiftType } from "@/lib/scheduler/types";
 import { validatePattern as validatePatternUtil, describePattern, EXAMPLE_PATTERNS, KEYWORD_DESCRIPTIONS, type ShiftToken } from "@/lib/utils/pattern-validator";
 import { api } from "@/lib/trpc/client";
@@ -12,7 +12,6 @@ interface EmployeePreferencesModalProps {
   onSave: (preferences: ExtendedEmployeePreferences) => void;
   onClose: () => void;
   teamMembers: Employee[];
-  canManageTeams?: boolean; // manager 이상 권한
   initialPreferences?: SimplifiedPreferences;
 }
 
@@ -67,7 +66,6 @@ export function EmployeePreferencesModal({
   onSave,
   onClose,
   teamMembers,
-  canManageTeams = false,
   initialPreferences,
 }: EmployeePreferencesModalProps) {
   const buildInitialPreferences = (source?: SimplifiedPreferences): ExtendedEmployeePreferences => {
@@ -133,13 +131,7 @@ export function EmployeePreferencesModal({
     setHasHydratedFromInitial(true);
   }, [initialPreferences, hasHydratedFromInitial]);
 
-  const [activeTab, setActiveTab] = useState<'basic' | 'personal' | 'career' | 'request' | 'off-balance'>('basic');
-  const [selectedTeam, setSelectedTeam] = useState<string>((employee as any).teamId || '');
-
-  // employee가 변경될 때 selectedTeam 업데이트
-  useEffect(() => {
-    setSelectedTeam((employee as any).teamId || '');
-  }, [employee.id, (employee as any).teamId]);
+  const [activeTab, setActiveTab] = useState<'basic' | 'request' | 'off-balance'>('basic');
   const [customPatternInput, setCustomPatternInput] = useState('');
   const [patternValidation, setPatternValidation] = useState<ReturnType<typeof validatePatternUtil> | null>(null);
   const [showPatternHelp, setShowPatternHelp] = useState(false);
@@ -224,11 +216,6 @@ export function EmployeePreferencesModal({
       allocatedToAllowance: allocToAllowance,
     });
   };
-  const [showEditTeamModal, setShowEditTeamModal] = useState(false);
-  const [editingTeam, setEditingTeam] = useState<any>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deletingTeam, setDeletingTeam] = useState<any>(null);
-
   // Request 탭을 위한 state
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [shiftRequests, setShiftRequests] = useState<Record<string, string>>({});
@@ -253,14 +240,6 @@ export function EmployeePreferencesModal({
     },
   });
 
-  const updateStaffProfile = api.staff.update.useMutation({
-    onSuccess: async () => {
-      // 캐시 무효화로 UI 자동 업데이트
-      await utils.staff.list.invalidate();
-      await utils.tenant.users.list.invalidate(); // schedule 페이지에서 사용하는 쿼리
-    },
-  });
-
   const deleteShiftRequests = api.specialRequests.deleteByEmployeeAndDateRange.useMutation({
     onSuccess: async () => {
       // 캐시 무효화로 UI 자동 업데이트
@@ -270,37 +249,6 @@ export function EmployeePreferencesModal({
 
   // Load shift types from shift_types table
   const { data: shiftTypesFromDB } = api.shiftTypes.getAll.useQuery();
-
-  // Teams query and mutations
-  const { data: teams = [], refetch: refetchTeams } = api.teams.getAll.useQuery();
-
-  const updateTeam = api.teams.update.useMutation({
-    onSuccess: async () => {
-      await refetchTeams();
-      setShowEditTeamModal(false);
-      setEditingTeam(null);
-      alert('팀이 수정되었습니다');
-    },
-    onError: (error) => {
-      alert('팀 수정 실패: ' + error.message);
-    },
-  });
-
-  const deleteTeam = api.teams.delete.useMutation({
-    onSuccess: async () => {
-      await refetchTeams();
-      setShowDeleteConfirm(false);
-      setDeletingTeam(null);
-      // If the deleted team was selected, clear selection
-      if (selectedTeam === deletingTeam?.id) {
-        setSelectedTeam('');
-      }
-      alert('팀이 삭제되었습니다');
-    },
-    onError: (error) => {
-      alert('팀 삭제 실패: ' + error.message);
-    },
-  });
 
   // Query to fetch existing special requests for the selected month
   const { data: existingRequests } = api.specialRequests.getByDateRange.useQuery({
@@ -384,20 +332,6 @@ export function EmployeePreferencesModal({
   ];
 
   const handleSave = async () => {
-    // Save team assignment
-    try {
-      await updateStaffProfile.mutateAsync({
-        id: employee.id,
-        teamId: selectedTeam || null,
-      });
-      console.log('✅ Team assignment saved:', selectedTeam);
-    } catch (error) {
-      console.error('❌ Failed to save team assignment:', error);
-      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
-      alert(`⚠️ 팀 배정 저장 실패:\n\n${errorMessage}`);
-      // Continue to save preferences even if team assignment fails
-    }
-
     // Save preferences to database
     try {
       const response = await fetch('/api/preferences', {
@@ -542,25 +476,6 @@ export function EmployeePreferencesModal({
     }
   };
 
-  const togglePatternPreference = (pattern: string) => {
-    const current = preferences.preferredPatterns || [];
-
-    // 이미 선택된 경우 제거
-    if (current.includes(pattern)) {
-      setPreferences({
-        ...preferences,
-        preferredPatterns: current.filter(p => p !== pattern),
-      });
-      return;
-    }
-
-    // 패턴 추가
-    setPreferences({
-      ...preferences,
-      preferredPatterns: [...current, pattern],
-    });
-  };
-
   // 패턴 입력 핸들러 (실시간 검증)
   const handlePatternInputChange = (value: string) => {
     setCustomPatternInput(value);
@@ -685,7 +600,6 @@ export function EmployeePreferencesModal({
           <nav className="flex space-x-4 px-6" aria-label="Tabs">
             {[
               { id: 'basic', label: '기본 선호도', icon: Clock },
-              { id: 'career', label: '경력 관리', icon: Briefcase },
               { id: 'off-balance', label: '잔여 OFF', icon: Wallet },
               { id: 'request', label: 'Request', icon: Star },
             ].map((tab) => (
@@ -743,41 +657,6 @@ export function EmployeePreferencesModal({
                     <span className="ml-2 text-sm text-gray-500 font-normal">(3교대 근무 선택 시 활성화)</span>
                   )}
                 </h3>
-
-                {/* 기본 패턴 선택 */}
-                <div className="mb-4">
-                  <label className="block text-sm text-gray-600 dark:text-gray-400 mb-2">
-                    일반 패턴 (다중 선택 가능)
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { value: 'D-D-E-E-N-N-OFF', label: '교대 근무', description: '주간 → 저녁 → 야간 순환' },
-                      { value: 'D-D-D-D-D-OFF-OFF', label: '5일 근무', description: '주간 5일 연속 근무' },
-                      { value: 'D-OFF-D-OFF-D-OFF-D', label: '격일 근무', description: '1일 근무, 1일 휴무' },
-                      { value: 'N-N-N-OFF-OFF-OFF-OFF', label: '야간 집중', description: '야간 3일, 4일 휴무' },
-                    ].map(option => {
-                      const isDisabled = preferences.workPatternType !== 'three-shift';
-                      return (
-                        <button
-                          key={option.value}
-                          onClick={() => !isDisabled && togglePatternPreference(option.value)}
-                          disabled={isDisabled}
-                          className={`p-3 rounded-lg border-2 transition-all text-left ${
-                            (preferences.preferredPatterns || []).includes(option.value)
-                              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                              : isDisabled
-                              ? 'border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700/50 cursor-not-allowed opacity-50'
-                              : 'border-gray-200 dark:border-slate-600 hover:border-gray-300 dark:hover:border-slate-500'
-                          }`}
-                        >
-                          <div className="font-medium text-gray-900 dark:text-white">{option.label}</div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{option.description}</div>
-                          <div className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-mono">{option.value}</div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
 
                 {/* 직접 입력 */}
                 <div className="mb-3">
@@ -1110,106 +989,6 @@ export function EmployeePreferencesModal({
                       <p className="mt-2 text-amber-700 dark:text-amber-300">
                         * 스케줄 생성 시 이 패턴들이 발생하지 않도록 조정됩니다.
                       </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'career' && (
-            <div className="space-y-6">
-              {/* 경력 정보 */}
-              <div>
-                <h3 className="font-semibold mb-3 text-gray-900 dark:text-white flex items-center gap-2">
-                  <Briefcase className="w-5 h-5 text-blue-500" />
-                  경력 정보
-                </h3>
-                <div className="space-y-4">
-                  {/* 입사연도 */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      입사연도
-                    </label>
-                    <input
-                      type="number"
-                      min="1970"
-                      max={new Date().getFullYear()}
-                      value={(() => {
-                        const hireDate = (employee as any).hireDate;
-                        return hireDate ? new Date(hireDate).getFullYear() : '';
-                      })()}
-                      onChange={(e) => {
-                        const hireYear = parseInt(e.target.value);
-                        if (hireYear && hireYear >= 1970 && hireYear <= new Date().getFullYear()) {
-                          const currentYear = new Date().getFullYear();
-                          const calculatedYearsOfService = currentYear - hireYear + 1;
-
-                          // Update both hireDate and yearsOfService
-                          updateStaffProfile.mutate({
-                            id: employee.id,
-                            hireDate: new Date(`${hireYear}-01-01`),
-                            yearsOfService: calculatedYearsOfService,
-                          });
-                        }
-                      }}
-                      placeholder="예: 2025"
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
-                    />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      입사연도를 입력하면 근속 년수를 자동으로 계산합니다
-                    </p>
-                  </div>
-
-                  {/* 근속 년수 (경력) */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      근속 년수 (경력)
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="50"
-                      value={(employee as any).yearsOfService || 0}
-                      onChange={(e) => {
-                        const yearsOfService = parseInt(e.target.value) || 0;
-                        if (yearsOfService >= 0 && yearsOfService <= 50) {
-                          const currentYear = new Date().getFullYear();
-                          const calculatedHireYear = currentYear - yearsOfService + 1;
-
-                          // Update both yearsOfService and hireDate
-                          updateStaffProfile.mutate({
-                            id: employee.id,
-                            yearsOfService: yearsOfService,
-                            hireDate: new Date(`${calculatedHireYear}-01-01`),
-                          });
-                        }
-                      }}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
-                    />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      근속 년수를 입력하면 입사연도를 자동으로 계산합니다
-                    </p>
-                  </div>
-
-
-                  {/* 경력 정보 안내 */}
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                    <div className="flex items-start gap-3">
-                      <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-1">
-                          경력 정보 활용
-                        </h4>
-                        <p className="text-sm text-blue-800 dark:text-blue-200">
-                          입력한 경력 정보는 스케줄 작성 시 자동으로 고려됩니다:
-                        </p>
-                        <ul className="text-sm text-blue-800 dark:text-blue-200 mt-2 space-y-1 list-disc list-inside">
-                          <li>각 근무조에 다양한 경력 수준의 직원이 배치되도록 조정</li>
-                          <li>경력 그룹별 밸런스를 고려한 스케줄링</li>
-                          <li>신규(Junior) 직원과 숙련(Senior) 직원의 균형 배분</li>
-                        </ul>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -1579,171 +1358,6 @@ export function EmployeePreferencesModal({
         </div>
       </div>
 
-      {/* Edit Team Modal */}
-      {showEditTeamModal && editingTeam && (
-        <EditTeamModal
-          team={editingTeam}
-          onSave={(updatedTeam) => {
-            if (!updatedTeam.name.trim() || !updatedTeam.code.trim()) {
-              alert('팀 이름과 코드를 입력해주세요');
-              return;
-            }
-            updateTeam.mutate({
-              id: editingTeam.id,
-              name: updatedTeam.name,
-              code: updatedTeam.code,
-              color: updatedTeam.color,
-            });
-          }}
-          onClose={() => {
-            setShowEditTeamModal(false);
-            setEditingTeam(null);
-          }}
-        />
-      )}
-
-      {/* Delete Confirmation Dialog */}
-      {showDeleteConfirm && deletingTeam && (
-        <DeleteConfirmDialog
-          teamName={deletingTeam.name}
-          onConfirm={() => {
-            deleteTeam.mutate({ id: deletingTeam.id });
-          }}
-          onCancel={() => {
-            setShowDeleteConfirm(false);
-            setDeletingTeam(null);
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-// Edit Team Modal Component
-function EditTeamModal({
-  team,
-  onSave,
-  onClose
-}: {
-  team: { id: string; name: string; code: string; color: string };
-  onSave: (team: { name: string; code: string; color: string }) => void;
-  onClose: () => void;
-}) {
-  const [editedTeam, setEditedTeam] = useState({
-    name: team.name,
-    code: team.code,
-    color: team.color,
-  });
-
-  const DEFAULT_COLORS = [
-    '#3B82F6', // blue
-    '#10B981', // green
-    '#F59E0B', // yellow
-    '#EF4444', // red
-    '#8B5CF6', // purple
-    '#EC4899', // pink
-    '#14B8A6', // teal
-    '#F97316', // orange
-  ];
-
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 p-6 z-10">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white">팀 수정</h3>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
-              <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-            </button>
-          </div>
-        </div>
-        <div className="p-6">
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">팀 이름</label>
-              <input
-                type="text"
-                value={editedTeam.name}
-                onChange={(e) => setEditedTeam({ ...editedTeam, name: e.target.value })}
-                placeholder="A팀"
-                className="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">팀 코드</label>
-              <input
-                type="text"
-                value={editedTeam.code}
-                onChange={(e) => setEditedTeam({ ...editedTeam, code: e.target.value.toUpperCase() })}
-                placeholder="A"
-                maxLength={10}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">팀 색상</label>
-              <div className="flex flex-wrap gap-3">
-                {DEFAULT_COLORS.map((color) => (
-                  <button
-                    key={color}
-                    onClick={() => setEditedTeam({ ...editedTeam, color })}
-                    className={`w-12 h-12 rounded-full border-2 transition-all ${
-                      editedTeam.color === color
-                        ? 'border-gray-900 dark:border-white scale-110 shadow-lg'
-                        : 'border-gray-300 dark:border-slate-600 hover:scale-105'
-                    }`}
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-slate-700">
-          <button onClick={onClose} className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-600">취소</button>
-          <button onClick={() => onSave(editedTeam)} disabled={!editedTeam.name.trim() || !editedTeam.code.trim()} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"><Save className="w-4 h-4" />저장</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Delete Confirmation Dialog Component
-function DeleteConfirmDialog({
-  teamName,
-  onConfirm,
-  onCancel
-}: {
-  teamName: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md">
-        <div className="p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
-              <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">팀 삭제</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">이 작업은 되돌릴 수 없습니다</p>
-            </div>
-          </div>
-          <p className="text-gray-700 dark:text-gray-300 mb-6">
-            <span className="font-semibold text-red-600 dark:text-red-400">{teamName}</span> 팀을 삭제하시겠습니까?
-            이 팀에 배정된 직원들의 팀 정보도 함께 제거됩니다.
-          </p>
-          <div className="flex justify-end gap-3">
-            <button onClick={onCancel} className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-600">취소</button>
-            <button onClick={onConfirm} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2">
-              <Trash2 className="w-4 h-4" />
-              삭제
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

@@ -2601,7 +2601,6 @@ function SchedulePageContent() {
           teamMembers={filteredMembers.map(toEmployee)}
           onSave={handlePreferencesSave}
           onClose={handleModalClose}
-          canManageTeams={canManageSchedules}
           initialPreferences={selectedPreferences || undefined}
         />
       )}
