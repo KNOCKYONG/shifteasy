@@ -1380,15 +1380,18 @@ function SchedulePageContent() {
         });
       }
 
-      const inferredDepartmentId = selectedDepartment === 'all'
-        ? (filteredMembers[0]?.departmentId || memberDepartmentId || currentUser.dbUser?.departmentId || '')
-        : selectedDepartment;
+    const inferredDepartmentId =
+      currentUser.dbUser?.departmentId ||
+      memberDepartmentId ||
+      (filteredMembers[0]?.departmentId ?? '') ||
+      selectedDepartment ||
+      '';
 
-      if (!inferredDepartmentId || inferredDepartmentId === 'no-department' || inferredDepartmentId === 'all') {
-        alert('스케줄을 생성할 부서를 선택해주세요.');
-        setIsGenerating(false);
-        return;
-      }
+    if (!inferredDepartmentId) {
+      alert('해당 계정에 부서가 연결되어 있지 않아 스케줄을 생성할 수 없습니다. 관리자에게 문의하세요.');
+      setIsGenerating(false);
+      return;
+    }
 
       let teamPattern: any = null;
       try {
