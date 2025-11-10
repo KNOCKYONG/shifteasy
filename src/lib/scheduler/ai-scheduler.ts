@@ -244,6 +244,14 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       return bestCode;
     };
 
+    const incrementOffCounter = (state: EmployeeState) => {
+      if (state.offDays < state.maxOffDays) {
+        state.offDays += 1;
+      } else {
+        state.extraOffDays += 1;
+      }
+    };
+
     // Step 1: Apply special requests first
     todaysRequests.forEach((req) => {
       const state = employeeStates.get(req.employeeId);
@@ -279,6 +287,9 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
         shiftCode,
         countedAsWork,
       });
+      if (!countedAsWork && shiftCode === 'O') {
+        incrementOffCounter(state);
+      }
       if (countedAsWork) {
         const employee = employeeMap.get(req.employeeId);
         recordShiftAssignment(employee, shiftCode);
@@ -384,11 +395,7 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
         }
         state.extraOffDays += 1;
       } else {
-        if (state.offDays < state.maxOffDays) {
-          state.offDays += 1;
-        } else {
-          state.extraOffDays += 1;
-        }
+        incrementOffCounter(state);
       }
 
       assignments.push({
