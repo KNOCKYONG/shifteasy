@@ -575,22 +575,12 @@ export function EmployeePreferencesModal({
                   {showPatternHelp && (
                     <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
                       <div className="space-y-2 text-xs">
-                        <div>
-                          <span className="font-semibold text-blue-900 dark:text-blue-300">사용 가능한 키워드:</span>
-                          <div className="mt-1 space-y-1 text-gray-700 dark:text-gray-300">
-                            {Object.entries(KEYWORD_DESCRIPTIONS).map(([token, desc]) => (
-                              <div key={token}>• {desc}</div>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="border-t border-blue-200 dark:border-blue-800 pt-2">
                           <span className="font-semibold text-blue-900 dark:text-blue-300">예시:</span>
                           <div className="mt-1 space-y-1 text-gray-700 dark:text-gray-300">
                             {EXAMPLE_PATTERNS.map((ex, idx) => (
                               <div key={idx}>• {ex.pattern} - {ex.description}</div>
                             ))}
                           </div>
-                        </div>
                       </div>
                     </div>
                   )}
@@ -744,24 +734,7 @@ export function EmployeePreferencesModal({
                         <div className="mb-3 p-3 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded-md">
                           <div className="text-xs text-red-900 dark:text-red-200 space-y-2">
                             <div>
-                              <p className="font-medium mb-1">✅ 유효한 키워드 (OFF 제외):</p>
-                              <div className="grid grid-cols-2 gap-1 ml-2">
-                                <div className="flex items-center gap-1">
-                                  <span className="font-mono font-bold">D:</span>
-                                  <span className="text-gray-700 dark:text-gray-300">주간 근무</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <span className="font-mono font-bold">E:</span>
-                                  <span className="text-gray-700 dark:text-gray-300">저녁 근무</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <span className="font-mono font-bold">N:</span>
-                                  <span className="text-gray-700 dark:text-gray-300">야간 근무</span>
-                                </div>
-                              </div>
-                            </div>
-                            <div>
-                              <p className="font-medium mb-1">📝 예시:</p>
+                              <p className="font-medium mb-1">예시:</p>
                               <div className="ml-2 space-y-1 text-gray-700 dark:text-gray-300">
                                 <div>• N-D: 야간 직후 주간 금지</div>
                                 <div>• N-N-D: 야간 2일 후 주간 금지</div>
@@ -877,16 +850,13 @@ export function EmployeePreferencesModal({
                   <div className="flex items-start gap-2">
                     <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
                     <div className="text-xs text-amber-800 dark:text-amber-200">
-                      <p className="font-medium mb-1">기피 패턴 우선순위:</p>
+                      <p className="font-medium mb-1">패턴 우선순위:</p>
                       <ul className="list-disc list-inside space-y-1 ml-2">
                         <li>개인 선호 패턴 (최우선)</li>
                         <li>개인 기피 패턴</li>
                         <li>팀 선호 패턴</li>
                         <li>팀 기피 패턴</li>
                       </ul>
-                      <p className="mt-2 text-amber-700 dark:text-amber-300">
-                        * 스케줄 생성 시 이 패턴들이 발생하지 않도록 조정됩니다.
-                      </p>
                     </div>
                   </div>
                 </div>
