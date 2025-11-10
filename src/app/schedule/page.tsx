@@ -450,10 +450,11 @@ function SchedulePageContent() {
     configKey: 'shift_types',
     departmentId: configDepartmentId, // Use department-specific config
   }, {
-    staleTime: 30 * 60 * 1000, // 서버 캐시 TTL(30분)과 맞춰 과도한 refetch 방지
-    gcTime: 35 * 60 * 1000, // 캐시도 비슷한 기간 유지
+    staleTime: 2 * 60 * 60 * 1000, // 2시간 동안 캐시
+    gcTime: 2.5 * 60 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   // Load shift config (나이트 집중 근무 유급 휴가 설정 등)
@@ -461,14 +462,18 @@ function SchedulePageContent() {
     configKey: 'shiftConfig',
     departmentId: configDepartmentId, // Use department-specific config
   }, {
-    staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지
+    staleTime: 60 * 60 * 1000, // 1시간 동안 fresh 유지
+    gcTime: 65 * 60 * 1000,
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
+    refetchOnReconnect: false,
+    refetchOnMount: false,
   });
 
   // Fetch teams from database
   const { data: dbTeams = [] } = api.teams.getAll.useQuery(undefined, {
-    staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지
+    staleTime: 60 * 60 * 1000, // 1시간 동안 fresh 유지
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
+    refetchOnReconnect: false,
   });
 
   useEffect(() => {
@@ -536,6 +541,7 @@ function SchedulePageContent() {
       limit: 100,
       offset: 0,
       status: 'active',
+      includeDetails: false,
       // member와 manager는 백엔드에서 자동으로 자신의 department로 필터링됨
       // admin/owner만 departmentId를 명시적으로 전달
       departmentId:
@@ -551,10 +557,14 @@ function SchedulePageContent() {
   );
 
   // Load special requests for the current month
+  const isScheduleViewActive = deferredActiveView === 'schedule';
+  const shouldLoadSpecialRequests = isScheduleViewActive || modals.isPreferencesModalOpen;
+
   const { data: specialRequestsData } = api.specialRequests.getByDateRange.useQuery({
     startDate: format(monthStart, 'yyyy-MM-dd'),
     endDate: format(monthEnd, 'yyyy-MM-dd'),
   }, {
+    enabled: shouldLoadSpecialRequests,
     staleTime: 2 * 60 * 1000, // 2분 동안 fresh 유지 (요청은 자주 변경될 수 있음)
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
@@ -730,6 +740,7 @@ function SchedulePageContent() {
           !isMember && userRole !== 'manager' && selectedDepartment !== 'all' && selectedDepartment !== 'no-department'
             ? selectedDepartment
             : undefined,
+        includeDetails: true,
       }).then(freshUsersData => {
         const latest = freshUsersData?.items?.find((item: any) => item.id === member.id);
         return latest ? mapUserToMember(latest) : null;
@@ -969,10 +980,12 @@ function SchedulePageContent() {
   );
 
   // Fetch off-balance data for all displayed employees
+  const shouldLoadOffBalance = (isScheduleViewActive && displayMemberIds.length > 0) || modals.isPreferencesModalOpen;
+
   const { data: offBalanceData } = api.offBalance.getBulkCurrentBalance.useQuery({
     employeeIds: displayMemberIds,
   }, {
-    enabled: displayMemberIds.length > 0,
+    enabled: shouldLoadOffBalance,
   });
 
   // Convert off-balance data to Map for easy lookup

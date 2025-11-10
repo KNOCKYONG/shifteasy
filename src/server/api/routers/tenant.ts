@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { users, departments, nursePreferences } from '@/db/schema';
-import { eq, and, or, like } from 'drizzle-orm';
+import { eq, and, or, like, sql } from 'drizzle-orm';
 
 export const tenantRouter = createTRPCRouter({
   users: createTRPCRouter({
@@ -21,6 +21,7 @@ export const tenantRouter = createTRPCRouter({
         search: z.string().optional(),
         limit: z.number().min(1).max(100).default(50),
         offset: z.number().min(0).default(0),
+        includeDetails: z.boolean().optional(),
       }).optional())
       .query(async ({ ctx, input }) => {
         const tenantId = ctx.tenantId;
@@ -67,32 +68,42 @@ export const tenantRouter = createTRPCRouter({
           );
         }
 
+        const includeDetails = input?.includeDetails ?? true;
+
+        const baseSelection = {
+          id: users.id,
+          tenantId: users.tenantId,
+          departmentId: users.departmentId,
+          teamId: users.teamId,
+          clerkUserId: users.clerkUserId,
+          email: users.email,
+          name: users.name,
+          role: users.role,
+          employeeId: users.employeeId,
+          position: users.position,
+          status: users.status,
+          hireDate: users.hireDate,
+          yearsOfService: users.yearsOfService,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt,
+          deletedAt: users.deletedAt,
+          department: {
+            id: departments.id,
+            name: departments.name,
+            code: departments.code,
+          },
+          profile: sql`NULL`.as('profile'),
+          workPatternType: sql`NULL`.as('workPatternType'),
+        };
+
+        const detailedSelection = {
+          ...baseSelection,
+          profile: users.profile,
+          workPatternType: nursePreferences.workPatternType,
+        };
+
         const result = await ctx.db
-          .select({
-            id: users.id,
-            tenantId: users.tenantId,
-            departmentId: users.departmentId,
-            teamId: users.teamId,
-            clerkUserId: users.clerkUserId,
-            email: users.email,
-            name: users.name,
-            role: users.role,
-            employeeId: users.employeeId,
-            position: users.position,
-            profile: users.profile,
-            status: users.status,
-            hireDate: users.hireDate,
-            yearsOfService: users.yearsOfService,
-            createdAt: users.createdAt,
-            updatedAt: users.updatedAt,
-            deletedAt: users.deletedAt,
-            department: {
-              id: departments.id,
-              name: departments.name,
-              code: departments.code,
-            },
-            workPatternType: nursePreferences.workPatternType,
-          })
+          .select(includeDetails ? detailedSelection : baseSelection)
           .from(users)
           .leftJoin(departments, eq(users.departmentId, departments.id))
           .leftJoin(nursePreferences, eq(users.id, nursePreferences.nurseId))
