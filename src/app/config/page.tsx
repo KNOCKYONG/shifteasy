@@ -31,6 +31,7 @@ function ConfigPageContent() {
 
   // tRPC queries for fetching configs
   const { data: allConfigs, refetch: refetchConfigs } = trpc.configs.getAll.useQuery();
+  const utils = trpc.useUtils();
   const setConfigMutation = trpc.configs.set.useMutation();
 
   // URL 파라미터에서 tab 읽기
@@ -181,7 +182,12 @@ function ConfigPageContent() {
       ]);
 
       // Refetch configs to update UI
-      await refetchConfigs();
+      await Promise.all([
+        refetchConfigs(),
+        utils.shiftTypes.getAll.invalidate(),
+        utils.configs.getAll.invalidate(),
+        utils.configs.getByKey.invalidate({ configKey: 'shift_types' }),
+      ]);
 
       alert(t('alerts.saved', { ns: 'config' }));
     } catch (error) {
