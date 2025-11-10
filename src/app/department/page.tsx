@@ -140,12 +140,13 @@ const departments =
     ? '전체'
     : (departmentsData?.items as any[] || []).find((dept: any) => dept.id === selectedDepartment)?.name || '선택된 부서';
 
-  // Update status filter effect
+  // 현재 로그인한 사용자의 부서로 자동 고정
   useEffect(() => {
-    if (currentUserRole === 'manager' && managerDepartmentId) {
-      setSelectedDepartment(managerDepartmentId);
+    const userDepartmentId = currentUser.dbUser?.departmentId;
+    if (userDepartmentId && selectedDepartment !== userDepartmentId) {
+      setSelectedDepartment(userDepartmentId);
     }
-  }, [currentUserRole, managerDepartmentId]);
+  }, [currentUser.dbUser?.departmentId, selectedDepartment]);
 
   useEffect(() => {
     if (statusFilter === 'active') {
