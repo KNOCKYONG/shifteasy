@@ -11,7 +11,19 @@ const DEFAULT_SHIFT_TYPES = [
   { code: 'N', name: '야간 근무', startTime: '23:00', endTime: '07:00', color: 'indigo', allowOvertime: true },
   { code: 'A', name: '행정 근무', startTime: '09:00', endTime: '18:00', color: 'green', allowOvertime: false },
   { code: 'O', name: '휴무', startTime: '00:00', endTime: '00:00', color: 'gray', allowOvertime: false },
+  { code: 'V', name: '휴가', startTime: '00:00', endTime: '00:00', color: 'purple', allowOvertime: false },
 ];
+
+const ensureDefaultShiftTypes = (shiftTypes?: typeof DEFAULT_SHIFT_TYPES) => {
+  if (!shiftTypes || shiftTypes.length === 0) {
+    return [...DEFAULT_SHIFT_TYPES];
+  }
+
+  const existingCodes = new Set(shiftTypes.map((st) => st.code));
+  const missingDefaults = DEFAULT_SHIFT_TYPES.filter((defaultType) => !existingCodes.has(defaultType.code));
+
+  return missingDefaults.length > 0 ? [...shiftTypes, ...missingDefaults] : shiftTypes;
+};
 
 const DEFAULT_CONTRACT_TYPES = [
   { code: 'FT', name: '정규직', description: '정규 고용 계약', isPrimary: true },
@@ -120,6 +132,10 @@ export const configsRouter = createTRPCRouter({
           configMap[config.configKey] = config.configValue;
         });
 
+        if (configMap.shift_types) {
+          configMap.shift_types = ensureDefaultShiftTypes(configMap.shift_types);
+        }
+
         // If no department configs exist, create defaults
         if (deptConfigs.length === 0) {
           console.log(`Creating default configs for department ${departmentId}`);
@@ -158,6 +174,10 @@ export const configsRouter = createTRPCRouter({
         result.forEach(config => {
           configMap[config.configKey] = config.configValue;
         });
+
+        if (configMap.shift_types) {
+          configMap.shift_types = ensureDefaultShiftTypes(configMap.shift_types);
+        }
 
         // If no tenant-level configs exist, create defaults (for backward compatibility)
         if (result.length === 0) {

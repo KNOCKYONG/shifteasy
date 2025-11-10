@@ -294,6 +294,7 @@ export function EmployeePreferencesModal({
         { code: 'E', name: '저녁', startTime: '16:00', endTime: '24:00', color: 'amber', allowOvertime: false },
         { code: 'N', name: '야간', startTime: '00:00', endTime: '08:00', color: 'purple', allowOvertime: false },
         { code: 'O', name: '휴무', startTime: '00:00', endTime: '00:00', color: 'gray', allowOvertime: false },
+        { code: 'V', name: '휴가', startTime: '00:00', endTime: '00:00', color: 'purple', allowOvertime: false },
         { code: 'A', name: '행정', startTime: '09:00', endTime: '18:00', color: 'green', allowOvertime: false },
       ];
     }

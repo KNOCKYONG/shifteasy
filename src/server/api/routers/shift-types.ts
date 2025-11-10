@@ -3,6 +3,7 @@ import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { db } from '@/db';
 import { configs } from '@/db/schema/configs';
 import { eq, and, isNull } from 'drizzle-orm';
+import { DEFAULT_SHIFT_TYPES } from '@/lib/config/shiftTypes';
 
 // ShiftType interface matching the config structure
 interface ShiftType {
@@ -16,7 +17,33 @@ interface ShiftType {
   breakMinutes?: number;
   sortOrder?: number;
   departmentId?: string | null;
+  allowOvertime?: boolean;
 }
+
+const mergeWithDefaultShiftTypes = (shiftTypes: ShiftType[] = []): ShiftType[] => {
+  const existingCodes = new Set(shiftTypes.map((st) => st.code));
+  const missingDefaults = DEFAULT_SHIFT_TYPES
+    .filter((defaultType) => !existingCodes.has(defaultType.code))
+    .map((defaultType, index) => ({
+      id: `default-${defaultType.code}`,
+      code: defaultType.code,
+      name: defaultType.name,
+      startTime: defaultType.startTime,
+      endTime: defaultType.endTime,
+      duration: undefined,
+      color: defaultType.color,
+      breakMinutes: 0,
+      sortOrder: (shiftTypes.length || 0) + index,
+      departmentId: null,
+      allowOvertime: defaultType.allowOvertime,
+    }));
+
+  if (missingDefaults.length === 0) {
+    return shiftTypes;
+  }
+
+  return [...shiftTypes, ...missingDefaults];
+};
 
 export const shiftTypesRouter = createTRPCRouter({
   // Get all shift types for a department
@@ -37,10 +64,18 @@ export const shiftTypesRouter = createTRPCRouter({
         .limit(1);
 
       if (!configResult[0]) {
-        return [];
+        const defaultShiftTypes = mergeWithDefaultShiftTypes([]);
+
+        if (input.departmentId) {
+          return defaultShiftTypes.filter(st =>
+            !st.departmentId || st.departmentId === input.departmentId
+          );
+        }
+
+        return defaultShiftTypes.filter(st => !st.departmentId);
       }
 
-      const shiftTypes = configResult[0].configValue as ShiftType[];
+      const shiftTypes = mergeWithDefaultShiftTypes(configResult[0].configValue as ShiftType[]);
 
       // Filter by department if specified
       if (input.departmentId) {
@@ -74,7 +109,7 @@ export const shiftTypesRouter = createTRPCRouter({
           .limit(1);
 
         if (deptResult.length > 0 && deptResult[0].configValue) {
-          return deptResult[0].configValue as ShiftType[];
+          return mergeWithDefaultShiftTypes(deptResult[0].configValue as ShiftType[]);
         }
       }
 
@@ -89,10 +124,10 @@ export const shiftTypesRouter = createTRPCRouter({
         .limit(1);
 
       if (!configResult[0]) {
-        return [];
+        return [...mergeWithDefaultShiftTypes([])];
       }
 
-      return configResult[0].configValue as ShiftType[];
+      return mergeWithDefaultShiftTypes(configResult[0].configValue as ShiftType[]);
     }),
 
   // Create or update shift type (upsert based on department_id + code)
