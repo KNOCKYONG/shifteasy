@@ -765,52 +765,50 @@ function SchedulePageContent() {
   };
 
   // Handle preferences save
-  const handlePreferencesSave = async (preferences: ExtendedEmployeePreferences) => {
+  const handlePreferencesSave = (preferences: ExtendedEmployeePreferences) => {
     if (!selectedEmployee) return;
 
-    try {
-      // Convert ExtendedEmployeePreferences to SimplifiedPreferences
-      const simplifiedPrefs: SimplifiedPreferences = {
-        workPatternType: preferences.workPatternType || 'three-shift',
-        preferredPatterns: (preferences.preferredPatterns || []).map(p =>
-          typeof p === 'string' ? { pattern: p, preference: 5 } : p
-        ),
-        avoidPatterns: preferences.avoidPatterns || [],
-      };
+    const employeeSnapshot = selectedEmployee;
 
-      console.log('Saving preferences for', selectedEmployee.name, ':', simplifiedPrefs);
+    // Convert ExtendedEmployeePreferences to SimplifiedPreferences
+    const simplifiedPrefs: SimplifiedPreferences = {
+      workPatternType: preferences.workPatternType || 'three-shift',
+      preferredPatterns: (preferences.preferredPatterns || []).map(p =>
+        typeof p === 'string' ? { pattern: p, preference: 5 } : p
+      ),
+      avoidPatterns: preferences.avoidPatterns || [],
+    };
 
-      // Save via REST API
-      const response = await fetch('/api/preferences', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          employeeId: selectedEmployee.id,
-          preferences: simplifiedPrefs,
-        }),
-      });
+    console.log('Saving preferences for', employeeSnapshot.name, ':', simplifiedPrefs);
 
-      if (!response.ok) {
-        throw new Error('Failed to save preferences');
+    // Close modal immediately for snappier UX
+    handleModalClose();
+
+    // Persist asynchronously
+    void (async () => {
+      try {
+        const response = await fetch('/api/preferences', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            employeeId: employeeSnapshot.id,
+            preferences: simplifiedPrefs,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to save preferences');
+        }
+
+        const result = await response.json();
+        console.log('Preferences saved:', result);
+      } catch (error) {
+        console.error('Error saving preferences:', error);
+        alert('선호도 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
       }
-
-      const result = await response.json();
-      console.log('Preferences saved:', result);
-
-      // Show success message
-      alert('선호도가 성공적으로 저장되었습니다!');
-
-      // Close modal
-      modals.setIsPreferencesModalOpen(false);
-      setSelectedEmployee(null);
-      setSelectedPreferences(null);
-      void utils.tenant.users.list.invalidate();
-    } catch (error) {
-      console.error('Error saving preferences:', error);
-      alert('선호도 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
-    }
+    })();
   };
 
   // Handle modal close
@@ -2598,7 +2596,6 @@ function SchedulePageContent() {
       {modals.isPreferencesModalOpen && selectedEmployee && (
         <EmployeePreferencesModal
           employee={selectedEmployee}
-          teamMembers={filteredMembers.map(toEmployee)}
           onSave={handlePreferencesSave}
           onClose={handleModalClose}
           initialPreferences={selectedPreferences || undefined}

@@ -11,7 +11,6 @@ interface EmployeePreferencesModalProps {
   employee: Employee;
   onSave: (preferences: ExtendedEmployeePreferences) => void;
   onClose: () => void;
-  teamMembers: Employee[];
   initialPreferences?: SimplifiedPreferences;
 }
 
@@ -65,7 +64,6 @@ export function EmployeePreferencesModal({
   employee,
   onSave,
   onClose,
-  teamMembers,
   initialPreferences,
 }: EmployeePreferencesModalProps) {
   const buildInitialPreferences = (source?: SimplifiedPreferences): ExtendedEmployeePreferences => {
@@ -331,112 +329,7 @@ export function EmployeePreferencesModal({
     { value: 'off', label: '휴무', color: 'bg-gray-100 text-gray-800 dark:text-gray-200' },
   ];
 
-  const handleSave = async () => {
-    // Save preferences to database
-    try {
-      const response = await fetch('/api/preferences', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          employeeId: employee.id,
-          preferences: {
-            workPreferences: {
-              workPatternType: preferences.workPatternType,
-              avoidShifts: preferences.avoidShifts || [],
-              preferredPatterns: preferences.preferredPatterns || [], // 개인 선호 패턴
-              avoidPatterns: preferences.avoidPatterns || [], // 개인 기피 패턴
-              maxConsecutiveDays: preferences.maxConsecutiveDays || 5,
-              minRestDays: 2,
-              preferredWorkload: preferences.workLoadPreference === 'light' ? 'light' : preferences.workLoadPreference === 'heavy' ? 'heavy' : 'moderate',
-              weekendPreference: 'neutral',
-              holidayPreference: 'neutral',
-              overtimeWillingness: 'sometimes',
-              offDayPattern: 'flexible',
-            },
-            personalCircumstances: {
-              hasYoungChildren: false,
-              isSingleParent: false,
-              hasCaregivingResponsibilities: false,
-              isStudying: false,
-            },
-            healthConsiderations: {
-              hasChronicCondition: false,
-              needsFrequentBreaks: false,
-              mobilityRestrictions: false,
-              visualImpairment: false,
-              hearingImpairment: false,
-              mentalHealthSupport: false,
-            },
-            commutePreferences: {
-              commuteTime: 30,
-              transportMode: 'car',
-              parkingRequired: false,
-              nightTransportDifficulty: false,
-              weatherSensitive: false,
-              needsTransportAssistance: false,
-              carpoolInterested: false,
-            },
-            teamPreferences: {
-              preferredPartners: preferences.preferredPartners || [],
-              avoidPartners: preferences.avoidPartners || [],
-              mentorshipRole: 'none',
-              languagePreferences: ['korean'],
-              communicationStyle: 'direct',
-              conflictResolution: 'immediate',
-            },
-            professionalDevelopment: {
-              specializations: [],
-              certifications: [],
-              trainingInterests: [],
-              careerGoals: '',
-              preferredDepartments: [],
-              avoidDepartments: [],
-              teachingInterest: false,
-              researchInterest: false,
-              administrativeInterest: false,
-            },
-            specialRequests: {
-              religiousObservances: { needed: false },
-              culturalConsiderations: '',
-              emergencyContact: { name: '', relationship: '', phone: '' },
-              temporaryRequests: [],
-            },
-            priorities: {
-              workLifeBalance: 7,
-              careerGrowth: 5,
-              teamHarmony: 6,
-              incomeMaximization: 4,
-              healthWellbeing: 8,
-              familyTime: 7,
-            },
-          },
-        }),
-      });
-
-      // Check response status
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      // Parse response
-      const result = await response.json();
-      if (!result.success) {
-        throw new Error(result.error || '선호도 저장에 실패했습니다.');
-      }
-
-      console.log('✅ Preferences saved to database for employee:', employee.id);
-      console.log('✅ API Response:', result);
-    } catch (error) {
-      console.error('❌ Failed to save preferences:', error);
-      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
-      alert(`❌ 선호도 저장 실패:\n\n${errorMessage}\n\n콘솔을 확인하여 자세한 정보를 확인하세요.`);
-      return; // Don't proceed if preferences save failed
-    }
-
-    // Save preferences to parent component
-    onSave(preferences);
-
+  const persistShiftRequests = async () => {
     // Save shift requests to database
     try {
       // 1. First, delete all existing shift_request type requests for this employee in the current month
@@ -474,6 +367,11 @@ export function EmployeePreferencesModal({
       const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
       alert(`⚠️ 시프트 요청 저장 실패:\n\n${errorMessage}\n\n선호도는 저장되었지만 시프트 요청은 저장되지 않았습니다.`);
     }
+  };
+  
+  const handleSave = () => {
+    void persistShiftRequests();
+    onSave(preferences);
   };
 
   // 패턴 입력 핸들러 (실시간 검증)
