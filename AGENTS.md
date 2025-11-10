@@ -40,6 +40,11 @@ This repo contains a Next.js app in the repository root (the legacy `web/` note 
 - PRs: include a clear summary, linked issues, and screenshots/GIFs for UI changes. Note breaking changes and update docs as needed.
 - Ensure `npm run lint` and build succeed before requesting review.
 
+## Database & Drizzle Playbook
+- `npm run db:push`는 내부적으로 `scripts/prepare-*.ts` 전처리 스크립트를 실행해 컬럼 백필 → 제약 추가 순으로 정리한 뒤 `drizzle-kit push`를 호출한다. 추가적인 수작업 입력은 금지.
+- 신규 컬럼을 추가할 때는 “nullable 컬럼 추가 → 데이터 채우기 → NOT NULL/FK/인덱스 적용”의 3단계를 전처리 스크립트에 캡슐화하고, 이 스크립트를 `db:push`에 연결해 둔다.
+- 데이터 손실이나 TRUNCATE가 필요한 변경은 전처리 스크립트에서 안전하게 처리하고, Drizzle push 단계에는 순수 DDL만 남겨서 대화형 프롬프트가 뜨지 않도록 유지한다.
+
 ## Security & Configuration Tips
 - Use environment files in `web/` (`.env.local`) for secrets; never commit them. Client-exposed vars must be prefixed `NEXT_PUBLIC_`.
 - Avoid storing real data in `testdata.ts`; use anonymized examples.
