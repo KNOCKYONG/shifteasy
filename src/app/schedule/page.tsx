@@ -565,13 +565,7 @@ function SchedulePageContent() {
       joinedAt: item.createdAt?.toISOString() || new Date().toISOString(),
       avatar: '',
       phone: item.profile?.phone || '',
-      skills: item.profile?.skills || [],
       teamId: item.teamId || null,
-      workSchedule: item.profile?.preferences || {
-        preferredShifts: [],
-        availableDays: [1, 2, 3, 4, 5],
-        unavailableDates: []
-      }
     }));
   }, [usersData]);
 
@@ -705,13 +699,7 @@ function SchedulePageContent() {
       joinedAt: userData.createdAt?.toISOString() || new Date().toISOString(),
       avatar: '',
       phone: userData.profile?.phone || '',
-      skills: userData.profile?.skills || [],
       teamId: userData.teamId || null,
-      workSchedule: userData.profile?.preferences || {
-        preferredShifts: [],
-        availableDays: [1, 2, 3, 4, 5],
-        unavailableDates: []
-      }
     });
 
     // 1️⃣ 우선 현재 화면의 데이터를 즉시 사용해 모달을 연다

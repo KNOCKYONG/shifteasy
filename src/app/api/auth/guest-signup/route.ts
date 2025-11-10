@@ -116,8 +116,6 @@ export async function POST(request: NextRequest) {
         profile: {
           phone: '',
           avatar: '',
-          skills: [],
-          certifications: [],
         },
       })
       .returning();

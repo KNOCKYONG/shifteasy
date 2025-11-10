@@ -121,24 +121,6 @@ export function StaffCard({ staff, compact = false, onClick, workPatternType, pr
         </span>
       </div>
 
-      {/* Skills */}
-      {staff.skills && staff.skills.length > 0 && (
-        <div className="mb-3">
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t('staffCard.skills', { ns: 'components' })}</p>
-          <div className="flex flex-wrap gap-1">
-            {staff.skills.map((skill, index) => (
-              <span
-                key={index}
-                className="inline-flex px-2 py-0.5 text-xs bg-gray-50 dark:bg-slate-700 text-gray-600 dark:text-gray-300 rounded-md"
-              >
-                {skill}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-
       {/* Skill Meters */}
       <div className="mt-3 space-y-2">
         {[

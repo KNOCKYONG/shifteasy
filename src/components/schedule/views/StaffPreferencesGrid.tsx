@@ -2,17 +2,11 @@ import React, { useMemo } from 'react';
 import { ListChecks, AlertCircle, Users } from 'lucide-react';
 import { api } from '@/lib/trpc/client';
 
-interface WorkSchedule {
-  preferredShifts?: ('day' | 'evening' | 'night')[];
-}
-
 interface Member {
   id: string;
   name: string;
   position?: string;
   status: string;
-  workSchedule?: WorkSchedule;
-  skills?: string[];
   teamId?: string | null;
 }
 
@@ -78,45 +72,12 @@ export function StaffPreferencesGrid({ allMembers, onEmployeeClick }: StaffPrefe
               </div>
 
               <div className="space-y-2 text-sm">
-                {/* 선호 시프트 */}
-                {member.workSchedule?.preferredShifts && member.workSchedule.preferredShifts.length > 0 && (
-                  <div className="flex items-start gap-2">
-                    <span className="text-green-500 dark:text-green-400">✓</span>
-                    <div>
-                      <span className="text-gray-600 dark:text-gray-400">선호:</span>
-                      <span className="ml-1 text-gray-900 dark:text-gray-100">
-                        {member.workSchedule.preferredShifts.map((shift: string) =>
-                          shift === 'day' ? '주간' : shift === 'evening' ? '저녁' : shift === 'night' ? '야간' : shift
-                        ).join(', ')}
-                      </span>
-                    </div>
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-3.5 h-3.5 text-blue-400 mt-0.5" />
+                  <div className="text-gray-600 dark:text-gray-400">
+                    세부 선호 정보가 아직 입력되지 않았습니다.
                   </div>
-                )}
-
-                {/* 회피 시프트 */}
-                {(member as any).avoidShifts && (member as any).avoidShifts.length > 0 && (
-                  <div className="flex items-start gap-2">
-                    <span className="text-red-500 dark:text-red-400">✗</span>
-                    <div>
-                      <span className="text-gray-600 dark:text-gray-400">회피:</span>
-                      <span className="ml-1 text-gray-900 dark:text-gray-100">
-                        {(member as any).avoidShifts.map((shift: string) =>
-                          shift === 'day' ? '주간' : shift === 'evening' ? '저녁' : shift === 'night' ? '야간' : shift
-                        ).join(', ')}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* 특별 요구사항 */}
-                {member.skills?.includes('신입') && (
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="w-3.5 h-3.5 text-amber-500 mt-0.5" />
-                    <div>
-                      <span className="text-amber-600 dark:text-amber-400">신입 교육 중</span>
-                    </div>
-                  </div>
-                )}
+                </div>
               </div>
             </div>
           ))}
@@ -151,45 +112,12 @@ export function StaffPreferencesGrid({ allMembers, onEmployeeClick }: StaffPrefe
                   </div>
 
                   <div className="space-y-2 text-sm">
-                    {/* 선호 시프트 */}
-                    {member.workSchedule?.preferredShifts && member.workSchedule.preferredShifts.length > 0 && (
-                      <div className="flex items-start gap-2">
-                        <span className="text-green-500 dark:text-green-400">✓</span>
-                        <div>
-                          <span className="text-gray-600 dark:text-gray-400">선호:</span>
-                          <span className="ml-1 text-gray-900 dark:text-gray-100">
-                            {member.workSchedule.preferredShifts.map((shift: string) =>
-                              shift === 'day' ? '주간' : shift === 'evening' ? '저녁' : shift === 'night' ? '야간' : shift
-                            ).join(', ')}
-                          </span>
-                        </div>
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="w-3.5 h-3.5 text-blue-400 mt-0.5" />
+                      <div className="text-gray-600 dark:text-gray-400">
+                        세부 선호 정보가 아직 입력되지 않았습니다.
                       </div>
-                    )}
-
-                    {/* 회피 시프트 */}
-                    {(member as any).avoidShifts && (member as any).avoidShifts.length > 0 && (
-                      <div className="flex items-start gap-2">
-                        <span className="text-red-500 dark:text-red-400">✗</span>
-                        <div>
-                          <span className="text-gray-600 dark:text-gray-400">회피:</span>
-                          <span className="ml-1 text-gray-900 dark:text-gray-100">
-                            {(member as any).avoidShifts.map((shift: string) =>
-                              shift === 'day' ? '주간' : shift === 'evening' ? '저녁' : shift === 'night' ? '야간' : shift
-                            ).join(', ')}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 특별 요구사항 */}
-                    {member.skills?.includes('신입') && (
-                      <div className="flex items-start gap-2">
-                        <AlertCircle className="w-3.5 h-3.5 text-amber-500 mt-0.5" />
-                        <div>
-                          <span className="text-amber-600 dark:text-amber-400">신입 교육 중</span>
-                        </div>
-                      </div>
-                    )}
+                    </div>
                   </div>
                 </div>
               ))}

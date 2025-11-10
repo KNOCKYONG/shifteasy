@@ -20,6 +20,7 @@
 		"db:check:summary": "tsx src/db/utils.ts summary",
 		"db:seed": "tsx scripts/seed-test-data.ts",
 		"db:update-staff": "tsx src/db/seed/update-staff-data.ts",
+		"db:cleanup-profile": "tsx scripts/cleanup-user-profile.ts",
 		"import:users": "tsx scripts/import-users-from-roster.ts --dir ./roster_src --tenant dev-org-id --department \"테스트부서\" --deptCode TEST",
 		"fix:missing-user": "tsx scripts/fix-missing-user.ts"
 	},

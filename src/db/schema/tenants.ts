@@ -70,14 +70,6 @@ export const users = pgTable('users', {
   profile: jsonb('profile').$type<{
     phone?: string;
     avatar?: string;
-    skills?: string[];
-    certifications?: string[];
-    preferences?: {
-      preferredShifts?: string[];
-      unavailableDates?: string[];
-      maxHoursPerWeek?: number;
-      minHoursPerWeek?: number;
-    };
   }>(),
   status: text('status').notNull().default('active'), // active, inactive, on_leave
   // Career/Experience fields

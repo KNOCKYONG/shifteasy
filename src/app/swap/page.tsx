@@ -230,14 +230,6 @@ export default function SwapPage() {
       joinedAt: item.createdAt?.toISOString() || new Date().toISOString(),
       avatar: '',
       phone: item.profile?.phone || '',
-      skills: item.profile?.skills || [],
-      workSchedule: item.profile?.preferences || {
-        preferredShifts: [],
-        maxHoursPerWeek: 40,
-        minHoursPerWeek: 30,
-        availableDays: [1, 2, 3, 4, 5],
-        unavailableDates: []
-      }
     };
   }, [usersData]);
 

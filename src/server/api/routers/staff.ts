@@ -108,14 +108,6 @@ export const staffRouter = createTRPCRouter({
       profile: z.object({
         phone: z.string().optional(),
         avatar: z.string().optional(),
-        skills: z.array(z.string()).optional(),
-        certifications: z.array(z.string()).optional(),
-        preferences: z.object({
-          preferredShifts: z.array(z.string()).optional(),
-          unavailableDates: z.array(z.string()).optional(),
-          maxHoursPerWeek: z.number().optional(),
-          minHoursPerWeek: z.number().optional(),
-        }).optional(),
       }).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
