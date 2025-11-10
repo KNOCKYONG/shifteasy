@@ -9,7 +9,6 @@ import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterv
 import { ko } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCcw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings, FolderOpen, ArrowLeftRight, Save } from "lucide-react";
 import { MainLayout } from "../../components/layout/MainLayout";
-import { SimpleScheduler, type Employee as SimpleEmployee, type Holiday, type SpecialRequest as SimpleSpecialRequest, type ScheduleAssignment as SimpleAssignment } from "../../lib/scheduler/simple-scheduler";
 import { api } from "../../lib/trpc/client";
 import { type Employee, type Shift, type Constraint, type ScheduleAssignment, type SchedulingResult } from "../../lib/scheduler/types";
 import { EmployeeAdapter } from "../../lib/adapters/employee-adapter";
@@ -47,11 +46,6 @@ import { useScheduleFilters, type ScheduleView } from "@/hooks/useScheduleFilter
 import { ScheduleSkeleton } from "@/components/schedule/ScheduleSkeleton";
 
 // 스케줄 페이지에서 사용하는 확장된 ScheduleAssignment 타입
-interface ExtendedScheduleAssignment extends ScheduleAssignment {
-  shiftType?: 'day' | 'evening' | 'night' | 'off' | 'leave' | 'custom';
-  isRequested?: boolean; // 직원이 요청한 근무인지 표시
-}
-
 // 기본 제약조건
 const DEFAULT_CONSTRAINTS: Constraint[] = [
   {
@@ -141,6 +135,7 @@ function SchedulePageContent() {
   const filters = useScheduleFilters(initialActiveView);
   const deferredActiveView = useDeferredValue(filters.activeView);
   const modals = useScheduleModals();
+  const generateScheduleMutation = api.schedule.generate.useMutation();
 
   // Initialize dates from URL parameters
   const getInitialMonth = () => {
@@ -1283,13 +1278,9 @@ function SchedulePageContent() {
     setGenerationResult(null);
 
     try {
-      // 0. customShiftTypes 확인 (비어있으면 다시 로드)
       let activeCustomShiftTypes = customShiftTypes;
       if (!activeCustomShiftTypes || activeCustomShiftTypes.length === 0) {
-        console.warn('⚠️ customShiftTypes가 비어있음, DB/localStorage에서 재로드 시도');
-        // Try to reload from tenant_configs
         if (shiftTypesConfig?.configValue && Array.isArray(shiftTypesConfig.configValue) && shiftTypesConfig.configValue.length > 0) {
-          // Transform from tenant_configs format
           activeCustomShiftTypes = shiftTypesConfig.configValue.map((st: any) => ({
             code: st.code,
             name: st.name,
@@ -1298,23 +1289,18 @@ function SchedulePageContent() {
             color: st.color,
             allowOvertime: st.allowOvertime ?? false,
           }));
-          console.log('✅ tenant_configs에서 재로드:', activeCustomShiftTypes);
         } else {
-          // Try localStorage
-          const savedShiftTypes = localStorage.getItem('customShiftTypes');
+          const savedShiftTypes = typeof window !== 'undefined' ? window.localStorage.getItem('customShiftTypes') : null;
           if (savedShiftTypes) {
             try {
               activeCustomShiftTypes = JSON.parse(savedShiftTypes);
-              console.log('✅ localStorage에서 재로드:', activeCustomShiftTypes);
             } catch (error) {
-              console.error('❌ localStorage 파싱 실패:', error);
+              console.error('Failed to parse cached shift types:', error);
             }
           }
         }
 
-        // If still empty, use default shift types
         if (!activeCustomShiftTypes || activeCustomShiftTypes.length === 0) {
-          console.warn('⚠️ customShiftTypes를 로드할 수 없음, 기본값 사용');
           activeCustomShiftTypes = [
             { code: 'D', name: '주간', startTime: '08:00', endTime: '16:00', color: '#EAB308', allowOvertime: false },
             { code: 'E', name: '저녁', startTime: '16:00', endTime: '24:00', color: '#F59E0B', allowOvertime: false },
@@ -1324,78 +1310,35 @@ function SchedulePageContent() {
           ];
         }
       }
-      console.log('📋 활성 customShiftTypes:', activeCustomShiftTypes.map((st: any) => ({ code: st.code, name: st.name })));
 
-      // 0.1. Config 설정 불러오기 (나이트 집중 근무 유급 휴가 설정 포함)
-      let nightIntensivePaidLeaveDays = 0;
-      try {
-        if (shiftConfigData) {
-          const config = shiftConfigData.configValue as any;
-          nightIntensivePaidLeaveDays = config.preferences?.nightIntensivePaidLeaveDays || 0;
-        } else {
-          const savedConfig = localStorage.getItem('shiftConfig');
-          if (savedConfig) {
-            const config = JSON.parse(savedConfig);
-            nightIntensivePaidLeaveDays = config.preferences?.nightIntensivePaidLeaveDays || 0;
-          }
-        }
-        if (nightIntensivePaidLeaveDays > 0) {
-          console.log(`⚙️ 나이트 집중 근무 유급 휴가: ${nightIntensivePaidLeaveDays}일/월`);
-        }
-      } catch (error) {
-        console.warn('⚠️ Failed to load config, using default values:', error);
-      }
-
-      // 1. 모든 직원의 선호도 가져오기
       const preferencesResponse = await fetch('/api/preferences');
       const preferencesData = await preferencesResponse.json();
       const preferencesMap = new Map<string, SimplifiedPreferences>();
-
       if (preferencesData.success && preferencesData.data) {
         Object.entries(preferencesData.data).forEach(([employeeId, prefs]) => {
           preferencesMap.set(employeeId, prefs as SimplifiedPreferences);
         });
       }
 
-      console.log(`✅ ${preferencesMap.size}명의 선호도 로드 완료`);
+      const inferredDepartmentId = selectedDepartment === 'all'
+        ? (filteredMembers[0]?.departmentId || memberDepartmentId || currentUser.dbUser?.departmentId || '')
+        : selectedDepartment;
 
-      // 1.5. 부서별 team pattern 가져오기 (fallback용)
-      let teamPattern: any = null;
-      try {
-        // 선택된 부서 또는 첫 번째 직원의 부서로 team pattern 조회
-        const targetDepartmentId = selectedDepartment === 'all'
-          ? filteredMembers[0]?.departmentId
-          : selectedDepartment;
-
-        console.log(`🔍 부서 패턴 조회 시작: departmentId=${targetDepartmentId}`);
-
-        if (targetDepartmentId) {
-          const teamPatternResponse = await fetch(`/api/department-patterns?departmentId=${targetDepartmentId}`);
-          const teamPatternData = await teamPatternResponse.json();
-          console.log(`📦 부서 패턴 API 응답:`, teamPatternData);
-
-          teamPattern = teamPatternData.pattern || teamPatternData.defaultPattern || teamPatternData;
-          console.log(`📊 최종 teamPattern:`, {
-            requiredStaffDay: teamPattern?.requiredStaffDay,
-            requiredStaffEvening: teamPattern?.requiredStaffEvening,
-            requiredStaffNight: teamPattern?.requiredStaffNight,
-            defaultPatterns: teamPattern?.defaultPatterns,
-            avoidPatterns: teamPattern?.avoidPatterns,
-          });
-
-          if (teamPatternData.pattern) {
-            console.log(`✅ 부서 패턴 로드: D=${teamPattern.requiredStaffDay}, E=${teamPattern.requiredStaffEvening}, N=${teamPattern.requiredStaffNight} (부서: ${targetDepartmentId})`);
-          } else {
-            console.warn(`⚠️ 부서 패턴 없음 - 기본값 사용 (부서: ${targetDepartmentId})`);
-          }
-        } else {
-          console.warn(`⚠️ targetDepartmentId가 없음`);
-        }
-      } catch (error) {
-        console.warn('⚠️ Failed to load team pattern, will use default preferences:', error);
+      if (!inferredDepartmentId || inferredDepartmentId === 'no-department' || inferredDepartmentId === 'all') {
+        alert('스케줄을 생성할 부서를 선택해주세요.');
+        setIsGenerating(false);
+        return;
       }
 
-      // 1.8. Special requests 가져오기 (Request 탭에서 저장한 shift requests)
+      let teamPattern: any = null;
+      try {
+        const teamPatternResponse = await fetch(`/api/department-patterns?departmentId=${inferredDepartmentId}`);
+        const teamPatternData = await teamPatternResponse.json();
+        teamPattern = teamPatternData.pattern || teamPatternData.defaultPattern || teamPatternData;
+      } catch (error) {
+        console.warn('Failed to load department pattern:', error);
+      }
+
       let simpleSpecialRequests: Array<{
         employeeId: string;
         requestType: string;
@@ -1403,7 +1346,6 @@ function SchedulePageContent() {
         shiftTypeCode?: string | null;
       }> = [];
       try {
-        // tRPC endpoint를 직접 호출
         const specialRequestsResponse = await fetch(
           `/api/trpc/specialRequests.getApprovedForScheduling?batch=1&input=${encodeURIComponent(JSON.stringify({
             "0": {
@@ -1415,58 +1357,28 @@ function SchedulePageContent() {
           }))}`
         );
         const specialRequestsData = await specialRequestsResponse.json();
-
         if (specialRequestsData && specialRequestsData[0]?.result?.data?.json) {
-          const approvedRequests = specialRequestsData[0].result.data.json;
-          console.log(`✅ Loaded ${approvedRequests.length} approved shift requests`);
-
-          // SimpleScheduler의 SpecialRequest 형식으로 변환 (date 필드 사용)
-          simpleSpecialRequests = approvedRequests.map((req: any) => ({
+          simpleSpecialRequests = specialRequestsData[0].result.data.json.map((req: any) => ({
             employeeId: req.employeeId,
             requestType: req.requestType,
-            date: req.date, // 단일 date 필드 사용
+            date: req.date,
             shiftTypeCode: req.shiftTypeCode || null,
           }));
-
-          console.log(`✅ ${simpleSpecialRequests.length}개의 특별 요청 로드 완료`);
         }
       } catch (error) {
-        console.warn('⚠️ Failed to load special requests:', error);
+        console.warn('Failed to load special requests:', error);
       }
 
-      // 2. MockTeamMember를 UnifiedEmployee로 변환
-      let prefsFoundCount = 0;
-      let teamPatternUsedCount = 0;
-      let defaultUsedCount = 0;
-
       const unifiedEmployees: UnifiedEmployee[] = filteredMembers.map(member => {
-        let comprehensivePrefs = preferencesMap.get(member.id);
-
-        // preferencesMap에 값이 있는지 확인
-        if (comprehensivePrefs) {
-          prefsFoundCount++;
-        } else if (teamPattern) {
-          // team pattern을 기반으로 기본 선호도 생성
-          comprehensivePrefs = undefined;
-          teamPatternUsedCount++;
-        } else {
-          // team pattern도 없으면 완전 기본값 사용
-          defaultUsedCount++;
-        }
-
+        const comprehensivePrefs = preferencesMap.get(member.id);
         return EmployeeAdapter.fromMockToUnified(member, comprehensivePrefs);
       });
 
-      console.log(`📊 선호도 출처: 개인설정 ${prefsFoundCount}명, 팀패턴 ${teamPatternUsedCount}명, 기본값 ${defaultUsedCount}명`);
-
-      // 3. UnifiedEmployee를 스케줄러용 Employee로 변환 및 검증
       const employees: Employee[] = [];
       const validationErrors: string[] = [];
-
       for (const unified of unifiedEmployees) {
         const employee = EmployeeAdapter.toSchedulerEmployee(unified);
         const validation = validateEmployee(employee);
-
         if (validation.success) {
           employees.push(employee);
         } else {
@@ -1475,14 +1387,13 @@ function SchedulePageContent() {
       }
 
       if (validationErrors.length > 0) {
-        console.error('Employee validation errors:', validationErrors);
-        alert(`일부 직원 데이터에 문제가 있습니다:\n${validationErrors.slice(0, 3).join('\n')}`);
+        alert(`일부 직원 데이터에 문제가 있습니다:
+${validationErrors.slice(0, 3).join('
+')}`);
       }
 
-      // 4. Holidays 가져오기 + 주말 자동 추가
       let holidays: Array<{ date: string; name: string }> = [];
       try {
-        // DB에서 공휴일 로드
         const holidaysResponse = await fetch(
           `/api/trpc/holidays.getByDateRange?batch=1&input=${encodeURIComponent(JSON.stringify({
             "0": {
@@ -1497,313 +1408,79 @@ function SchedulePageContent() {
         if (holidaysData && holidaysData[0]?.result?.data?.json) {
           holidays = holidaysData[0].result.data.json.map((h: any) => ({
             date: h.date,
-            name: h.name
+            name: h.name,
           }));
         }
       } catch (error) {
-        console.warn('⚠️ Failed to load holidays from DB:', error);
+        console.warn('Failed to load holidays from DB:', error);
       }
 
-      // 주말을 holiday로 자동 추가 (주말 = 최소 인원만 배치)
       const allDaysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
-      const weekendDays = allDaysInMonth.filter(day => isWeekend(day));
-      weekendDays.forEach(day => {
-        const dateStr = format(day, 'yyyy-MM-dd');
-        if (!holidays.find(h => h.date === dateStr)) {
-          holidays.push({
-            date: dateStr,
-            name: day.getDay() === 0 ? '일요일' : '토요일'
-          });
+      allDaysInMonth.forEach(day => {
+        if (isWeekend(day)) {
+          const dateStr = format(day, 'yyyy-MM-dd');
+          if (!holidays.find(h => h.date === dateStr)) {
+            holidays.push({
+              date: dateStr,
+              name: day.getDay() === 0 ? '일요일' : '토요일',
+            });
+          }
         }
       });
 
-      console.log(`✅ 휴일 ${holidays.length}개 (공휴일 ${holidays.length - weekendDays.length}개 + 주말 ${weekendDays.length}개)`);
+      let teamPatternPayload: { pattern: string[]; avoidPatterns?: string[][] } | null = null;
+      if (teamPattern?.defaultPatterns?.length) {
+        teamPatternPayload = {
+          pattern: teamPattern.defaultPatterns[0] || ['D', 'D', 'E', 'E', 'N', 'N', 'OFF', 'OFF'],
+          avoidPatterns: teamPattern?.avoidPatterns || [],
+        };
+      } else if (Array.isArray(teamPattern?.pattern)) {
+        teamPatternPayload = {
+          pattern: teamPattern.pattern,
+          avoidPatterns: teamPattern?.avoidPatterns || [],
+        };
+      }
 
-      // 5. SimpleScheduler용 Employee 변환
-      const simpleEmployees = employees.map(emp => ({
-        id: emp.id,
-        name: emp.name,
-        role: emp.role as 'RN' | 'CN' | 'SN' | 'NA',
-        workPatternType: emp.workPatternType,
-        preferredShiftTypes: emp.preferredShiftTypes,
-        maxConsecutiveDaysPreferred: emp.maxConsecutiveDaysPreferred,
-        maxConsecutiveNightsPreferred: emp.maxConsecutiveNightsPreferred,
+      const requiredStaffPerShift = teamPattern ? {
+        D: teamPattern.requiredStaffDay || 5,
+        E: teamPattern.requiredStaffEvening || 4,
+        N: teamPattern.requiredStaffNight || 3,
+      } : undefined;
+
+      const generationShifts = convertShiftTypesToShifts(activeCustomShiftTypes);
+
+      const payload = {
+        name: `AI 스케줄 - ${format(monthStart, 'yyyy-MM')}`,
+        departmentId: inferredDepartmentId,
+        startDate: monthStart,
+        endDate: monthEnd,
+        employees,
+        shifts: generationShifts,
+        constraints: DEFAULT_CONSTRAINTS,
+        specialRequests: simpleSpecialRequests,
+        holidays,
+        teamPattern: teamPatternPayload,
+        requiredStaffPerShift,
+        optimizationGoal: 'balanced' as const,
+      };
+
+      const result = await generateScheduleMutation.mutateAsync(payload);
+      const normalizedAssignments: ScheduleAssignment[] = result.assignments.map((assignment: any) => ({
+        ...assignment,
+        date: new Date(assignment.date),
       }));
 
-      // 🔍 디버깅: 직원 workPatternType 분포 확인
-      const empPatternDistribution: Record<string, string[]> = {
-        'weekday-only': [],
-        'three-shift': [],
-        'night-intensive': [],
-        'undefined': [],
-      };
-      simpleEmployees.forEach(emp => {
-        const pattern = emp.workPatternType || 'undefined';
-        if (!empPatternDistribution[pattern]) {
-          empPatternDistribution[pattern] = [];
-        }
-        empPatternDistribution[pattern].push(emp.name);
-      });
-      console.log('📋 직원 근무 패턴 분류:');
-      Object.entries(empPatternDistribution).forEach(([pattern, names]) => {
-        if (names.length > 0) {
-          console.log(`   ${pattern} (${names.length}명): ${names.slice(0, 5).join(', ')}${names.length > 5 ? ` 외 ${names.length - 5}명` : ''}`);
-        }
-      });
-
-      // 6. SimpleSchedulerConfig 생성
-      const schedulerConfig = {
-        year: currentMonth.getFullYear(),
-        month: currentMonth.getMonth() + 1, // 1-12
-        employees: simpleEmployees,
-        holidays: holidays,
-        specialRequests: simpleSpecialRequests,
-        teamPattern: teamPattern?.defaultPatterns ? {
-          pattern: teamPattern.defaultPatterns[0] || ['D', 'D', 'E', 'E', 'N', 'N', 'OFF', 'OFF']
-        } : undefined,
-        requiredStaffPerShift: teamPattern ? {
-          D: teamPattern.requiredStaffDay || 5,
-          E: teamPattern.requiredStaffEvening || 4,
-          N: teamPattern.requiredStaffNight || 3,
-        } : { D: 5, E: 4, N: 3 },
-        avoidPatterns: teamPattern?.avoidPatterns || [], // 기피 근무 패턴
-      };
-
-      console.log(`📋 스케줄러 설정: ${schedulerConfig.employees.length}명, 필요인원 D${schedulerConfig.requiredStaffPerShift.D}/E${schedulerConfig.requiredStaffPerShift.E}/N${schedulerConfig.requiredStaffPerShift.N}`);
-      console.log(`🚫 기피 패턴 설정:`, schedulerConfig.avoidPatterns?.length || 0, '개', schedulerConfig.avoidPatterns);
-
-      // 7. 스케줄 생성
-      const scheduler = new SimpleScheduler(schedulerConfig);
-      const scheduleAssignments = await scheduler.generate();
-
-      console.log(`✅ Generated ${scheduleAssignments.length} schedule assignments`);
-
-      // 8. SimpleScheduler 결과를 기존 형식으로 변환
-      console.log(`🔍 activeCustomShiftTypes:`, activeCustomShiftTypes.map((st: any) => ({ code: st.code, name: st.name })));
-
-      // 먼저 special requests Map 생성 (빠른 조회용)
-      const specialRequestsLookup = new Map<string, string>();
-      simpleSpecialRequests.forEach(req => {
-        if (req.requestType === 'shift_request' && req.shiftTypeCode) {
-          const key = `${req.employeeId}-${req.date}`;
-          // shiftTypeCode에서 ^ 제거하고 대문자로 (예: 'd^' -> 'D')
-          const cleanCode = req.shiftTypeCode.replace('^', '').toUpperCase();
-          specialRequestsLookup.set(key, cleanCode);
-        }
-      });
-
-      // 변환 전 시프트 분포 확인
-      const preConversionDistribution = scheduleAssignments.reduce((acc, a) => {
-        acc[a.shift] = (acc[a.shift] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-      console.log(`📊 변환 전 시프트 분포 (SimpleScheduler 출력):`, preConversionDistribution);
-
-      const convertedAssignments: ExtendedScheduleAssignment[] = scheduleAssignments.map(assignment => {
-        // activeCustomShiftTypes에서 shift code로 shiftId 찾기
-        let shiftId = 'O'; // Default to OFF code
-        let shiftType: ExtendedScheduleAssignment['shiftType'] = 'off';
-
-        if (assignment.shift === 'OFF') {
-          // OFF: activeCustomShiftTypes에서 "O" 코드를 찾거나 기본 'O' 사용
-          const offShiftType = activeCustomShiftTypes.find((st: any) =>
-            st.code.toUpperCase() === 'O' || st.code.toUpperCase() === 'OFF'
-          );
-          if (offShiftType) {
-            shiftId = offShiftType.code.toUpperCase();
-          } else {
-            shiftId = 'O'; // Fallback to OFF code
-          }
-          shiftType = 'off';
-        } else if (assignment.shift === 'A') {
-          // 행정 근무 (평일 행정 업무) - 대소문자 구분 없이
-          const adminShiftType = activeCustomShiftTypes.find((st: any) => st.code.toUpperCase() === 'A');
-          if (adminShiftType) {
-            shiftId = adminShiftType.code.toUpperCase();
-            shiftType = 'custom';
-          } else {
-            // A 타입이 없으면 shift-a로 (D와 구분 필요)
-            shiftId = 'A';
-            shiftType = 'custom';
-          }
-        } else {
-          // D, E, N 시프트 - 대소문자 구분 없이 매칭
-          const matchingShiftType = activeCustomShiftTypes.find((st: any) =>
-            st.code.toUpperCase() === assignment.shift.toUpperCase()
-          );
-          if (matchingShiftType) {
-            shiftId = matchingShiftType.code.toUpperCase();
-          } else {
-            // activeCustomShiftTypes에 없으면 기본 shiftId 생성
-            shiftId = assignment.shift.toUpperCase();
-          }
-          shiftType = ((): ExtendedScheduleAssignment['shiftType'] => {
-            switch (assignment.shift) {
-              case 'D':
-                return 'day';
-              case 'E':
-                return 'evening';
-              case 'N':
-                return 'night';
-              default:
-                return 'custom';
-            }
-          })();
-        }
-
-        // Check if this assignment matches a special request
-        const requestKey = `${assignment.employeeId}-${assignment.date}`;
-        const requestedShift = specialRequestsLookup.get(requestKey);
-        const isRequested = requestedShift === assignment.shift;
-
-        return {
-          id: `${assignment.employeeId}-${assignment.date}`,
-          employeeId: assignment.employeeId,
-          shiftId,
-          date: new Date(assignment.date),
-          isLocked: false,
-          shiftType,
-          isRequested, // 직원이 요청한 근무인지 표시
-        };
-      });
-
-      // 요청 반영 통계 로그
-      const requestedCount = convertedAssignments.filter(a => a.isRequested).length;
-      if (requestedCount > 0) {
-        console.log(`✨ ${requestedCount}개의 직원 요청이 스케줄에 반영되었습니다!`);
-      }
-
-      // 변환 후 시프트 분포 확인
-      try {
-        const convertedDistribution = convertedAssignments.reduce((acc, a) => {
-          const key = a.shiftId;
-          acc[key] = (acc[key] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>);
-        console.log(`📊 변환 후 시프트 분포:`, convertedDistribution);
-      } catch (error) {
-        console.error('❌ 변환 후 분포 계산 에러:', error);
-      }
-
-      setSchedule(convertedAssignments);
-      setOriginalSchedule(convertedAssignments); // 원본 저장
-      setGenerationResult(null); // SimpleScheduler는 result 객체를 반환하지 않음
-      setLoadedScheduleId(null); // ✅ Clear loaded ID since this is a newly generated schedule
-      filters.setActiveView('schedule'); // 스케줄 생성 후 스케줄 뷰로 전환
-
-      console.log('✅ Schedule generated successfully:', {
-        assignments: convertedAssignments.length,
-        employees: simpleEmployees.length,
-        specialRequests: simpleSpecialRequests.length,
-      });
+      setSchedule(normalizedAssignments);
+      setOriginalSchedule(normalizedAssignments);
+      setIsConfirmed(false);
+      setLoadedScheduleId(result.scheduleId);
+      setGenerationResult(result.generationResult);
     } catch (error) {
-      console.error('Schedule generation error:', error);
-      alert('스케줄 생성 중 오류가 발생했습니다.');
+      console.error('AI schedule generation failed:', error);
+      alert('AI 스케줄 생성 중 오류가 발생했습니다. 다시 시도해주세요.');
     } finally {
       setIsGenerating(false);
     }
-  };
-
-  const handleConfirmToggle = () => {
-    if (!canManageSchedules) {
-      alert('스케줄 잠금 상태를 변경할 권한이 없습니다.');
-      return;
-    }
-
-    if (!isConfirmed && schedule.length === 0) {
-      alert('확정할 스케줄이 없습니다.');
-      return;
-    }
-    setIsConfirmed(!isConfirmed);
-  };
-
-  // Additional local state not covered by hooks
-  const [scheduleStatus, setScheduleStatus] = useState<'draft' | 'confirmed'>('draft');
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const [scheduleName, setScheduleName] = useState<string>(''); // 스케줄 명 상태 추가
-
-  // Memoize schedule name change handler to prevent unnecessary re-renders
-  const handleScheduleNameChange = useCallback((name: string) => {
-    setScheduleName(name);
-  }, []);
-
-  // Manager 셀 편집 관련 상태
-  const [showEditShiftModal, setShowEditShiftModal] = useState(false);
-  const [editingCell, setEditingCell] = useState<{ date: Date; employeeId: string; currentShift: any } | null>(null);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handleClickOutside = () => setShowMoreMenu(false);
-    if (showMoreMenu) {
-      document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
-    }
-  }, [showMoreMenu]);
-
-  useEffect(() => {
-    if (!canManageSchedules && showMoreMenu) {
-      setShowMoreMenu(false);
-    }
-  }, [canManageSchedules, showMoreMenu]);
-
-  // Swap 관련 핸들러
-  const handleSwapRequest = React.useCallback((
-    myShift: { date: string; employeeId: string; shiftId: string; employeeName: string },
-    targetShift: { date: string; employeeId: string; shiftId: string; employeeName: string }
-  ) => {
-    setSwapRequestData({ myShift, targetShift });
-    setShowScheduleSwapModal(false);
-    setShowSwapRequestModal(true);
-  }, []);
-
-  const handleSwapSubmit = (reason: string) => {
-    if (!swapRequestData) return;
-
-    createSwapRequest.mutate({
-      date: swapRequestData.myShift.date,
-      requesterShiftId: swapRequestData.myShift.shiftId,
-      targetUserId: swapRequestData.targetShift.employeeId,
-      targetShiftId: swapRequestData.targetShift.shiftId,
-      reason,
-    });
-  };
-
-  // Manager 셀 편집 핸들러
-  const handleManagerCellClick = React.useCallback((date: Date, employeeId: string, assignment: any) => {
-    if (!isManager) return; // manager 권한 확인
-
-    setEditingCell({ date, employeeId, currentShift: assignment });
-    setShowEditShiftModal(true);
-  }, [isManager]);
-
-  // 근무 변경 처리
-  const handleShiftChange = (newShiftId: string) => {
-    if (!editingCell) return;
-
-    const { date, employeeId, currentShift } = editingCell;
-
-    // 기존 근무 제거 또는 변경
-    setSchedule(prevSchedule => {
-      const updatedSchedule = prevSchedule.filter(
-        a => !(format(a.date, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd') && a.employeeId === employeeId)
-      );
-
-      // OFF가 아닌 경우에만 새 근무 추가
-      if (newShiftId !== 'off') {
-        const newAssignment: ScheduleAssignment = {
-          employeeId,
-          shiftId: newShiftId,
-          date: date,
-          isLocked: false,
-        };
-        updatedSchedule.push(newAssignment);
-      }
-
-      return updatedSchedule;
-    });
-
-    setShowEditShiftModal(false);
-    setEditingCell(null);
   };
 
 

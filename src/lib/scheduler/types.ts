@@ -22,6 +22,7 @@ export interface ShiftTime {
 // 시프트 정의
 export interface Shift {
   id: string;
+  code?: string;
   type: ShiftType;
   name: string;
   time: ShiftTime;

@@ -70,6 +70,7 @@ export function convertShiftTypesToShifts(customShiftTypes: ShiftType[]): Shift[
 
     return {
       id: `shift-${shiftType.code.toLowerCase()}`,
+      code: shiftType.code.toUpperCase(),
       type,
       name: shiftType.name,
       time: { start: shiftType.startTime, end: shiftType.endTime, hours },

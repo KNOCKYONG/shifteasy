@@ -5,6 +5,7 @@ import { scopedDb, createAuditLog } from '@/lib/db-helpers';
 import { schedules, users, departments, nursePreferences, offBalanceLedger, holidays, specialRequests, teams } from '@/db/schema';
 import { eq, and, gte, lte, desc, inArray, isNull, ne, or } from 'drizzle-orm';
 import { db } from '@/db';
+import { generateAiSchedule } from '@/lib/scheduler/ai-scheduler';
 
 export const scheduleRouter = createTRPCRouter({
   list: protectedProcedure
@@ -134,22 +135,74 @@ export const scheduleRouter = createTRPCRouter({
 
   generate: protectedProcedure
     .input(z.object({
-      name: z.string(),
-      departmentId: z.string().optional(),
-      patternId: z.string().optional(),
+      name: z.string().default('AI Generated Schedule'),
+      departmentId: z.string().min(1),
       startDate: z.date(),
       endDate: z.date(),
-      constraints: z.object({
-        minStaffPerShift: z.number().optional(),
-        maxConsecutiveDays: z.number().optional(),
-        minRestBetweenShifts: z.number().optional(),
-        fairnessWeight: z.number().optional(),
-      }).optional(),
+      employees: z.array(z.object({
+        id: z.string(),
+        name: z.string(),
+        role: z.string(),
+        departmentId: z.string().optional(),
+        workPatternType: z.enum(['three-shift', 'night-intensive', 'weekday-only']).optional(),
+        preferredShiftTypes: z.record(z.number()).optional(),
+        maxConsecutiveDaysPreferred: z.number().optional(),
+        maxConsecutiveNightsPreferred: z.number().optional(),
+      })),
+      shifts: z.array(z.object({
+        id: z.string(),
+        code: z.string().optional(),
+        type: z.enum(['day', 'evening', 'night', 'off', 'leave', 'custom']),
+        name: z.string(),
+        time: z.object({
+          start: z.string(),
+          end: z.string(),
+          hours: z.number(),
+          breakMinutes: z.number().optional(),
+        }),
+        color: z.string(),
+        requiredStaff: z.number().min(0).default(1),
+        minStaff: z.number().optional(),
+        maxStaff: z.number().optional(),
+      })),
+      constraints: z.array(z.object({
+        id: z.string(),
+        name: z.string(),
+        type: z.enum(['hard', 'soft']),
+        category: z.enum(['legal', 'contractual', 'operational', 'preference', 'fairness']),
+        weight: z.number(),
+        active: z.boolean(),
+        config: z.record(z.any()).optional(),
+      })).default([]),
+      specialRequests: z.array(z.object({
+        employeeId: z.string(),
+        date: z.string(),
+        requestType: z.string(),
+        shiftTypeCode: z.string().optional(),
+      })).default([]),
+      holidays: z.array(z.object({
+        date: z.string(),
+        name: z.string(),
+      })).default([]),
+      teamPattern: z.object({
+        pattern: z.array(z.string()),
+        avoidPatterns: z.array(z.array(z.string())).optional(),
+      }).nullable().optional(),
+      requiredStaffPerShift: z.record(z.number()).optional(),
+      optimizationGoal: z.enum(['fairness', 'preference', 'coverage', 'cost', 'balanced']).default('balanced'),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const db = scopedDb(tenantId);
 
-      // Check permissions: manager can only generate schedules for their department
+      if (!input.employees.length) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: '스케줄을 생성할 직원이 없습니다.',
+        });
+      }
+
+      // Permission checks
       if (ctx.user?.role === 'manager') {
         if (!ctx.user.departmentId) {
           throw new TRPCError({
@@ -157,14 +210,12 @@ export const scheduleRouter = createTRPCRouter({
             message: '부서 정보가 없습니다.',
           });
         }
-        if (input.departmentId && input.departmentId !== ctx.user.departmentId) {
+        if (input.departmentId !== ctx.user.departmentId) {
           throw new TRPCError({
             code: 'FORBIDDEN',
             message: '담당 부서의 스케줄만 생성할 수 있습니다.',
           });
         }
-        // Force departmentId to be the manager's department
-        input.departmentId = ctx.user.departmentId;
       } else if (ctx.user?.role === 'member') {
         throw new TRPCError({
           code: 'FORBIDDEN',
@@ -172,32 +223,63 @@ export const scheduleRouter = createTRPCRouter({
         });
       }
 
-      // TODO: Implement scheduling algorithm
-      // For now, create a draft schedule
+      const aiResult = await generateAiSchedule({
+        departmentId: input.departmentId,
+        startDate: input.startDate,
+        endDate: input.endDate,
+        employees: input.employees,
+        shifts: input.shifts,
+        constraints: input.constraints,
+        specialRequests: input.specialRequests,
+        holidays: input.holidays,
+        teamPattern: input.teamPattern ?? null,
+        requiredStaffPerShift: input.requiredStaffPerShift,
+      });
+
+      const serializedAssignments = aiResult.assignments.map((assignment) => ({
+        ...assignment,
+        date: assignment.date instanceof Date ? assignment.date.toISOString() : assignment.date,
+      }));
+
       const [schedule] = await db.insert(schedules, {
         name: input.name,
         departmentId: input.departmentId,
-        patternId: input.patternId,
         startDate: input.startDate,
         endDate: input.endDate,
         status: 'draft',
         metadata: {
-          generatedBy: (ctx.user?.id || 'dev-user-id'),
-          generationMethod: 'manual',
+          generatedBy: ctx.user?.id || 'system',
+          generationMethod: 'ai-engine',
           constraints: input.constraints,
+          assignments: serializedAssignments,
+          stats: aiResult.stats,
+          score: aiResult.score,
+          violations: aiResult.violations,
         },
       });
 
       await createAuditLog({
-        tenantId: (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'),
-        actorId: (ctx.user?.id || 'dev-user-id'),
+        tenantId,
+        actorId: ctx.user?.id || 'system',
         action: 'schedule.generated',
         entityType: 'schedule',
         entityId: schedule.id,
         after: schedule,
+        metadata: {
+          computationTime: aiResult.computationTime,
+          iterations: aiResult.iterations,
+        },
       });
 
-      return schedule;
+      return {
+        scheduleId: schedule.id,
+        assignments: serializedAssignments,
+        generationResult: {
+          computationTime: aiResult.computationTime,
+          score: aiResult.score,
+          violations: aiResult.violations,
+        },
+      };
     }),
 
   publish: protectedProcedure
