@@ -46,6 +46,14 @@ import { useScheduleFilters, type ScheduleView } from "@/hooks/useScheduleFilter
 import { ScheduleSkeleton } from "@/components/schedule/ScheduleSkeleton";
 
 // 스케줄 페이지에서 사용하는 확장된 ScheduleAssignment 타입
+type SwapShift = {
+  date: string;
+  employeeId: string;
+  employeeName: string;
+  shiftId: string;
+  shiftName: string;
+};
+
 // 기본 제약조건
 const DEFAULT_CONSTRAINTS: Constraint[] = [
   {
@@ -161,9 +169,11 @@ function SchedulePageContent() {
   const [schedule, setSchedule] = useState<ScheduleAssignment[]>([]);
   const [originalSchedule, setOriginalSchedule] = useState<ScheduleAssignment[]>([]); // 원본 스케줄 저장
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const [scheduleStatus, setScheduleStatus] = useState<'draft' | 'confirmed'>('draft');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationResult, setGenerationResult] = useState<SchedulingResult | null>(null);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
+  const [scheduleName, setScheduleName] = useState('');
   const [customShiftTypes, setCustomShiftTypes] = useState<ShiftType[]>(() => {
     if (typeof window === 'undefined') {
       return [];
@@ -193,8 +203,15 @@ function SchedulePageContent() {
   const [showScheduleSwapModal, setShowScheduleSwapModal] = useState(false);
   const [showSwapRequestModal, setShowSwapRequestModal] = useState(false);
   const [swapRequestData, setSwapRequestData] = useState<{
-    myShift: { date: string; employeeId: string; shiftId: string; employeeName: string };
-    targetShift: { date: string; employeeId: string; shiftId: string; employeeName: string };
+    myShift: SwapShift;
+    targetShift: SwapShift;
+  } | null>(null);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showEditShiftModal, setShowEditShiftModal] = useState(false);
+  const [editingCell, setEditingCell] = useState<{
+    date: Date;
+    employeeId: string;
+    currentShift?: ScheduleAssignment | null;
   } | null>(null);
 
   // Handle URL parameter changes for view
@@ -628,6 +645,22 @@ function SchedulePageContent() {
   const handleCloseGenerationResult = React.useCallback(() => {
     setGenerationResult(null);
   }, []);
+
+  const handleScheduleNameChange = (value: string) => {
+    setScheduleName(value);
+  };
+
+  const handleSwapRequest = (myShift: SwapShift, targetShift: SwapShift) => {
+    setSwapRequestData({ myShift, targetShift });
+    setShowSwapRequestModal(true);
+  };
+
+  const handleSwapSubmit = (reason: string) => {
+    console.log('Swap request submitted:', reason, swapRequestData);
+    setShowSwapRequestModal(false);
+    setSwapRequestData(null);
+    alert('교환 요청이 제출되었습니다. 승인 대기 상태입니다.');
+  };
 
   // TRPC mutation for saving preferences
   const savePreferences = api.preferences.upsert.useMutation({
@@ -1098,6 +1131,45 @@ function SchedulePageContent() {
     }
   };
 
+  const handleManagerCellClick = useCallback((
+    date: Date,
+    employeeId: string,
+    assignment: any
+  ) => {
+    if (!canManageSchedules) {
+      return;
+    }
+    setEditingCell({
+      date,
+      employeeId,
+      currentShift: assignment ?? undefined,
+    });
+    setShowEditShiftModal(true);
+  }, [canManageSchedules]);
+
+  const handleShiftChange = (newShiftId: string) => {
+    if (!editingCell) return;
+    const targetDate = format(editingCell.date, 'yyyy-MM-dd');
+    setSchedule(prev => prev.map((assignment) => {
+      const assignmentDate = format(new Date(assignment.date), 'yyyy-MM-dd');
+      if (assignment.employeeId === editingCell.employeeId && assignmentDate === targetDate) {
+        return { ...assignment, shiftId: newShiftId };
+      }
+      return assignment;
+    }));
+    setShowEditShiftModal(false);
+    setEditingCell(null);
+  };
+
+  const handleConfirmToggle = () => {
+    if (isConfirmed) {
+      setIsConfirmed(false);
+      setScheduleStatus('draft');
+    } else {
+      modals.setShowConfirmDialog(true);
+    }
+  };
+
   // Confirm and publish schedule
   const handleConfirmSchedule = async () => {
     if (!canManageSchedules) {
@@ -1343,7 +1415,7 @@ function SchedulePageContent() {
         employeeId: string;
         requestType: string;
         date: string;
-        shiftTypeCode?: string | null;
+        shiftTypeCode?: string;
       }> = [];
       try {
         const specialRequestsResponse = await fetch(
@@ -1362,7 +1434,7 @@ function SchedulePageContent() {
             employeeId: req.employeeId,
             requestType: req.requestType,
             date: req.date,
-            shiftTypeCode: req.shiftTypeCode || null,
+            shiftTypeCode: req.shiftTypeCode ?? undefined,
           }));
         }
       } catch (error) {
@@ -1387,9 +1459,7 @@ function SchedulePageContent() {
       }
 
       if (validationErrors.length > 0) {
-        alert(`일부 직원 데이터에 문제가 있습니다:
-${validationErrors.slice(0, 3).join('
-')}`);
+        alert(`일부 직원 데이터에 문제가 있습니다:\n${validationErrors.slice(0, 3).join('\n')}`);
       }
 
       let holidays: Array<{ date: string; name: string }> = [];
@@ -1474,7 +1544,18 @@ ${validationErrors.slice(0, 3).join('
       setOriginalSchedule(normalizedAssignments);
       setIsConfirmed(false);
       setLoadedScheduleId(result.scheduleId);
-      setGenerationResult(result.generationResult);
+      if (result.generationResult) {
+        setGenerationResult({
+          success: true,
+          schedule: undefined,
+          violations: result.generationResult.violations,
+          score: result.generationResult.score,
+          iterations: 0,
+          computationTime: result.generationResult.computationTime,
+        });
+      } else {
+        setGenerationResult(null);
+      }
     } catch (error) {
       console.error('AI schedule generation failed:', error);
       alert('AI 스케줄 생성 중 오류가 발생했습니다. 다시 시도해주세요.');

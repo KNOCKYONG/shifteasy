@@ -145,7 +145,7 @@ export const scheduleRouter = createTRPCRouter({
         role: z.string(),
         departmentId: z.string().optional(),
         workPatternType: z.enum(['three-shift', 'night-intensive', 'weekday-only']).optional(),
-        preferredShiftTypes: z.record(z.number()).optional(),
+        preferredShiftTypes: z.record(z.string(), z.number()).optional(),
         maxConsecutiveDaysPreferred: z.number().optional(),
         maxConsecutiveNightsPreferred: z.number().optional(),
       })),
@@ -172,7 +172,7 @@ export const scheduleRouter = createTRPCRouter({
         category: z.enum(['legal', 'contractual', 'operational', 'preference', 'fairness']),
         weight: z.number(),
         active: z.boolean(),
-        config: z.record(z.any()).optional(),
+        config: z.record(z.string(), z.any()).optional(),
       })).default([]),
       specialRequests: z.array(z.object({
         employeeId: z.string(),
@@ -188,7 +188,7 @@ export const scheduleRouter = createTRPCRouter({
         pattern: z.array(z.string()),
         avoidPatterns: z.array(z.array(z.string())).optional(),
       }).nullable().optional(),
-      requiredStaffPerShift: z.record(z.number()).optional(),
+      requiredStaffPerShift: z.record(z.string(), z.number()).optional(),
       optimizationGoal: z.enum(['fairness', 'preference', 'coverage', 'cost', 'balanced']).default('balanced'),
     }))
     .mutation(async ({ ctx, input }) => {
