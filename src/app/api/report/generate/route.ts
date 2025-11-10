@@ -2,10 +2,40 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
+type ScheduleAssignment = {
+  date: string;
+  employeeId: string;
+  shiftId: string;
+};
+
+type ScheduleStaff = {
+  id: string;
+  name: string;
+};
+
+type ScheduleShift = {
+  id: string;
+  name: string;
+  time: {
+    start: string;
+    end: string;
+  };
+};
+
+type ScheduleExportPayload = {
+  assignments: ScheduleAssignment[];
+  staff?: ScheduleStaff[];
+  shifts?: ScheduleShift[];
+};
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { reportType, format, period, options } = body;
+    const { format, period, options } = body as {
+      format: 'excel' | 'pdf' | 'both';
+      period?: { start?: string; end?: string };
+      options?: { scheduleData?: ScheduleExportPayload };
+    };
 
     // 간단한 CSV 데이터 생성
     if (format === 'excel' || format === 'both') {
@@ -20,9 +50,9 @@ export async function POST(request: NextRequest) {
 
       // CSV 데이터 생성
       const headers = ['날짜', '직원', '시프트', '시간'];
-      const rows = scheduleData.assignments.map((assignment: any) => {
-        const employee = scheduleData.staff?.find((m: any) => m.id === assignment.employeeId);
-        const shift = scheduleData.shifts?.find((s: any) => s.id === assignment.shiftId);
+      const rows = scheduleData.assignments.map((assignment: ScheduleAssignment) => {
+        const employee = scheduleData.staff?.find((member: ScheduleStaff) => member.id === assignment.employeeId);
+        const shift = scheduleData.shifts?.find((s: ScheduleShift) => s.id === assignment.shiftId);
         return [
           assignment.date,
           employee?.name || 'Unknown',
@@ -65,7 +95,7 @@ export async function POST(request: NextRequest) {
       error: '지원하지 않는 형식입니다.'
     }, { status: 400 });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Report generation error:', error);
     return NextResponse.json({
       success: false,

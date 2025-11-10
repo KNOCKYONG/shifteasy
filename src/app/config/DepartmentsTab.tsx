@@ -1,5 +1,4 @@
 import { Building, Plus, Edit2, Trash2 } from "lucide-react";
-import { useState } from "react";
 
 interface Department {
   id: string;

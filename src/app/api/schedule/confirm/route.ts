@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { getCurrentUser } from '@/lib/auth';
 import { db } from '@/db';
 import { schedules } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
 import { notificationService } from '@/lib/notifications/notification-service';
 
 export const dynamic = 'force-dynamic';
@@ -30,7 +29,19 @@ const ConfirmScheduleSchema = z.object({
 });
 
 // Mock database storage (in production, this would be Supabase)
-const confirmedSchedules = new Map<string, any>();
+type ConfirmScheduleInput = z.infer<typeof ConfirmScheduleSchema>;
+type ScheduleAssignmentPayload = ConfirmScheduleInput['schedule']['assignments'][number];
+type ScheduleRow = typeof schedules.$inferSelect;
+type ScheduleInsert = typeof schedules.$inferInsert;
+type ConfirmedScheduleRecord = ScheduleRow & {
+  assignments: ScheduleAssignmentPayload[];
+  metadata?: Record<string, unknown> | null;
+  revokedAt?: string;
+  revokedBy?: string;
+};
+type NotificationResult = Awaited<ReturnType<typeof notificationService.sendToUser>>;
+
+const confirmedSchedules = new Map<string, ConfirmedScheduleRecord>();
 
 export async function POST(request: NextRequest) {
   try {
@@ -70,7 +81,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Invalid request data',
-          details: (validationResult.error as any).errors
+          details: validationResult.error.format()
         },
         { status: 400 }
       );
@@ -133,10 +144,11 @@ export async function POST(request: NextRequest) {
     console.log(`[Confirm] Successfully created and published schedule ${createdSchedule.id} for department ${requestDepartmentId}`);
 
     // Prepare response data
-    const confirmedSchedule = {
+    const confirmedSchedule: ConfirmedScheduleRecord = {
       ...createdSchedule,
       assignments: schedule.assignments,  // Include assignments from request
     };
+    confirmedSchedules.set(`${tenantId}:${scheduleId}`, confirmedSchedule);
 
     // Send notifications if requested
     if (notifyEmployees) {
@@ -155,7 +167,7 @@ export async function POST(request: NextRequest) {
       confirmationReport,
       notifications: {
         sent: notifyEmployees || false,
-        employeeCount: new Set(schedule.assignments.map((a: any) => a.employeeId)).size,
+        employeeCount: new Set(schedule.assignments.map((assignment) => assignment.employeeId)).size,
       },
       metadata: {
         confirmedAt: new Date().toISOString(),
@@ -320,7 +332,10 @@ export async function DELETE(request: NextRequest) {
 }
 
 // Helper function to send notifications
-async function sendScheduleNotifications(schedule: any, assignments: any[]) {
+async function sendScheduleNotifications(
+  schedule: ConfirmedScheduleRecord,
+  assignments: ScheduleAssignmentPayload[]
+) {
   const uniqueEmployees = new Set(assignments.map(a => a.employeeId));
 
   console.log(`Sending notifications to ${uniqueEmployees.size} employees for schedule ${schedule.id}`);
@@ -338,7 +353,7 @@ async function sendScheduleNotifications(schedule: any, assignments: any[]) {
   });
 
   // Send notification to each employee using notificationService directly
-  const notificationPromises = Array.from(uniqueEmployees).map(async (employeeId) => {
+  const notificationPromises = Array.from(uniqueEmployees).map(async (employeeId): Promise<{ employeeId: string; success: boolean }> => {
     const notifStartTime = Date.now();
     console.log(`[Schedule Confirm] Sending notification to employee ${employeeId}`, {
       scheduleId: schedule.id,
@@ -346,7 +361,7 @@ async function sendScheduleNotifications(schedule: any, assignments: any[]) {
     });
 
     try {
-      const result = await notificationService.sendToUser(
+      const result: NotificationResult = await notificationService.sendToUser(
         schedule.tenantId,
         employeeId,
         {
@@ -379,7 +394,7 @@ async function sendScheduleNotifications(schedule: any, assignments: any[]) {
       console.log(`[Schedule Confirm] Notification sent successfully`, {
         employeeId,
         scheduleId: schedule.id,
-        notificationId: result.id,
+        notificationId: result?.id,
         duration: `${duration}ms`,
       });
 
@@ -405,9 +420,17 @@ async function sendScheduleNotifications(schedule: any, assignments: any[]) {
 }
 
 // Helper function to generate confirmation report
-function generateConfirmationReport(schedule: any, assignments: any[]) {
+function generateConfirmationReport(
+  schedule: ConfirmedScheduleRecord,
+  assignments: ScheduleAssignmentPayload[]
+) {
   const employeeStats = new Map<string, number>();
   const shiftStats = new Map<string, number>();
+  const metadata = (schedule.metadata ?? {}) as {
+    validationScore?: number | string;
+    approverNotes?: string;
+    approvedBy?: string;
+  };
 
   // Calculate statistics
   assignments.forEach(assignment => {
@@ -422,7 +445,6 @@ function generateConfirmationReport(schedule: any, assignments: any[]) {
 
   // Calculate coverage
   const totalDays = 7; // Assuming weekly schedule
-  const totalShifts = shiftStats.size;
   const totalAssignments = assignments.length;
   const averageAssignmentsPerEmployee = totalAssignments / employeeStats.size;
 
@@ -445,9 +467,9 @@ function generateConfirmationReport(schedule: any, assignments: any[]) {
       averagePerDay: (count / totalDays).toFixed(1),
     })),
     validation: {
-      score: schedule.validationScore || 'N/A',
-      approvedBy: schedule.approvedBy,
-      approverNotes: schedule.approverNotes,
+      score: metadata.validationScore ?? 'N/A',
+      approvedBy: metadata.approvedBy ?? schedule.publishedBy ?? 'unknown',
+      approverNotes: metadata.approverNotes,
     },
   };
 }

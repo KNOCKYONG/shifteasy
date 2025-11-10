@@ -1,9 +1,10 @@
 "use client";
 import { useState, useEffect, useMemo, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, Trash2, Save, Upload, Download, Users, ChevronRight, Edit2, Mail, Phone, Calendar, Shield, Clock, Star, AlertCircle } from "lucide-react";
+import Image from "next/image";
+import { useSearchParams } from "next/navigation";
+import { Plus, Trash2, Save, Users, Edit2, Mail, Phone, Calendar, Shield, Clock, ChevronRight } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { AddTeamMemberModal } from "@/components/AddTeamMemberModal";
+import { AddTeamMemberModal, type AddTeamMemberInput } from "@/components/AddTeamMemberModal";
 import { EditTeamMemberModal } from "@/components/EditTeamMemberModal";
 import { TeamPatternTab } from "@/components/department/TeamPatternTab";
 import { DepartmentSelectModal } from "@/components/department/DepartmentSelectModal";
@@ -12,20 +13,58 @@ import { api } from "@/lib/trpc/client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 
+type DepartmentSummary = {
+  id: string;
+  name: string;
+};
+
+type TeamMember = {
+  id: string;
+  name: string;
+  email: string;
+  role: 'owner' | 'admin' | 'manager' | 'member' | 'staff' | 'employee' | string;
+  status: 'active' | 'inactive' | 'on_leave' | string;
+  departmentId?: string | null;
+  position?: string | null;
+  workPatternType?: string | null;
+  createdAt?: string;
+  joinDate?: string;
+  profile?: {
+    avatar?: string | null;
+    phone?: string | null;
+  } | null;
+};
+
+type NewMemberInput = {
+  email: string;
+  name: string;
+  role?: 'admin' | 'manager' | 'member';
+  departmentId: string;
+  employeeId?: string;
+  position?: string;
+};
+
+const mapModalMemberToNewMember = (member: AddTeamMemberInput): NewMemberInput => ({
+  email: member.email ?? '',
+  name: member.name,
+  role: member.role === 'admin' ? 'admin' : member.role === 'manager' ? 'manager' : 'member',
+  departmentId: member.departmentId || 'all',
+  position: member.position || undefined,
+});
+
 function TeamManagementPageContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const currentUser = useCurrentUser();
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<any | null>(null);
+  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [showDepartmentModal, setShowDepartmentModal] = useState(false);
   const currentUserRole = currentUser.role || "member";
   const managerDepartmentId = currentUser.dbUser?.departmentId ?? null;
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'on-leave' | 'manager' | 'part-time'>('all');
-  const [roleFilter, setRoleFilter] = useState<string | undefined>();
+  const [roleFilter, setRoleFilter] = useState<'admin' | 'manager' | 'member' | undefined>();
   const [statusFilterForApi, setStatusFilterForApi] = useState<'active' | 'on_leave' | undefined>();
   const [editingPositionId, setEditingPositionId] = useState<string | null>(null);
   const [editingPositionValue, setEditingPositionValue] = useState<string>("");
@@ -52,18 +91,15 @@ function TeamManagementPageContent() {
         : selectedDepartment !== 'all'
           ? selectedDepartment
           : undefined,
-    role: roleFilter as any,
+    role: roleFilter,
     status: statusFilterForApi,
   });
 
   // Fetch departments from TRPC
-  const { data: departmentsData, isLoading: isLoadingDepartments } = api.tenant.departments.list.useQuery({
+  const { data: departmentsData } = api.tenant.departments.list.useQuery({
     limit: 50,
     offset: 0,
   });
-
-  // Fetch tenant stats
-  const { data: statsData } = api.tenant.stats.summary.useQuery();
 
   // Fetch shift types from configs table (department-specific with fallback)
   const { data: shiftTypesData } = api.shiftTypes.getAll.useQuery(
@@ -107,11 +143,13 @@ function TeamManagementPageContent() {
     },
   });
 
+  const departmentItems: DepartmentSummary[] = Array.isArray(departmentsData?.items)
+    ? (departmentsData.items as DepartmentSummary[])
+    : [];
+
   // Process departments for UI
 const managerDepartmentName =
-  (departmentsData?.items as any[] || []).find(
-    (dept: any) => dept.id === managerDepartmentId
-  )?.name;
+  departmentItems.find((dept) => dept.id === managerDepartmentId)?.name;
 
 const departments =
   currentUserRole === 'manager'
@@ -125,10 +163,10 @@ const departments =
       : []
     : [
         { id: 'all', name: '전체' },
-        ...((departmentsData?.items as any[] || []).map((dept: any) => ({
+        ...departmentItems.map((dept) => ({
           id: dept.id,
           name: dept.name,
-        })) || []),
+        })),
       ];
 
   // 실제 부서 개수 계산 ('all' 제외)
@@ -138,7 +176,7 @@ const departments =
   // 선택된 부서 이름 가져오기 - departmentsData에서 직접 찾기
   const selectedDepartmentName = selectedDepartment === 'all'
     ? '전체'
-    : (departmentsData?.items as any[] || []).find((dept: any) => dept.id === selectedDepartment)?.name || '선택된 부서';
+    : departmentItems.find((dept) => dept.id === selectedDepartment)?.name || '선택된 부서';
 
   // 현재 로그인한 사용자의 부서로 자동 고정
   useEffect(() => {
@@ -165,9 +203,19 @@ const departments =
   }, [statusFilter]);
 
   // Process users data
-  const rawTeamMembers = (usersData?.items || []) as any[];
+  const rawTeamMembers = useMemo<TeamMember[]>(() => {
+    if (!Array.isArray(usersData?.items)) {
+      return [];
+    }
+    return usersData.items.map((item) => ({
+      ...item,
+      email: item.email ?? '',
+      createdAt: item.createdAt ? new Date(item.createdAt).toISOString() : undefined,
+      profile: item.profile || null,
+    })) as TeamMember[];
+  }, [usersData?.items]);
 
-  const teamMembers = useMemo(() => {
+  const teamMembers = useMemo<TeamMember[]>(() => {
     // Show ALL users including inactive in department management
     // (Inactive users will be filtered out only from schedule views)
     if (currentUserRole === 'admin') {
@@ -176,7 +224,7 @@ const departments =
     } else if (currentUserRole === 'manager') {
       // Managers can only see themselves and members in their department
       const myUserId = currentUser.dbUser?.id;
-      return rawTeamMembers.filter((member: any) => {
+      return rawTeamMembers.filter((member) => {
         if (member.id === myUserId) {
           return true;
         }
@@ -187,23 +235,23 @@ const departments =
   }, [rawTeamMembers, currentUserRole, currentUser.dbUser?.id]);
 
   // 통계 계산 (비활성 인원 제외)
-  const activeMembers = teamMembers.filter((m: any) => m.status !== 'inactive');
+  const activeMembers = teamMembers.filter((member) => member.status !== 'inactive');
   const stats = {
     total: activeMembers.length,
-    active: activeMembers.filter((m: any) => m.status === 'active').length,
-    onLeave: activeMembers.filter((m: any) => m.status === 'on_leave').length,
-    managers: activeMembers.filter((m: any) => ['manager', 'admin'].includes(m.role)).length,
+    active: activeMembers.filter((member) => member.status === 'active').length,
+    onLeave: activeMembers.filter((member) => member.status === 'on_leave').length,
+    managers: activeMembers.filter((member) => ['manager', 'admin'].includes(member.role)).length,
     partTime: 0, // TODO: Add contract type to schema
   };
 
   // Department Pattern용 필터링된 전체 인원 (비활성 및 근무 패턴이 '행정 근무'인 사람 제외)
-  const filteredTotalMembers = teamMembers.filter((m: any) => {
+  const filteredTotalMembers = teamMembers.filter((member) => {
     // 비활성 인원 제외
-    if (m.status === 'inactive') {
+    if (member.status === 'inactive') {
       return false;
     }
     // 근무 패턴이 'weekday-only' (행정 근무)인 경우만 제외
-    if (m.workPatternType === 'weekday-only') {
+    if (member.workPatternType === 'weekday-only') {
       return false;
     }
     return true;
@@ -247,18 +295,25 @@ const departments =
     return ['owner', 'admin', 'manager'].includes(currentUserRole);
   };
 
-  const handleAddMember = async (newMember: any) => {
-    await inviteUserMutation.mutateAsync({
+  const handleAddMember = async (newMember: NewMemberInput) => {
+    const payload = {
       email: newMember.email,
       name: newMember.name,
       role: newMember.role || 'member',
       departmentId: newMember.departmentId !== 'all' ? newMember.departmentId : undefined,
-      employeeId: newMember.employeeId,
-      position: newMember.position,
-    });
+    } as Parameters<typeof inviteUserMutation.mutateAsync>[0];
+
+    if (newMember.employeeId) {
+      (payload as { employeeId?: string }).employeeId = newMember.employeeId;
+    }
+    if (newMember.position) {
+      (payload as { position?: string }).position = newMember.position;
+    }
+
+    await inviteUserMutation.mutateAsync(payload);
   };
 
-  const handleMemberClick = (member: any) => {
+  const handleMemberClick = (member: TeamMember) => {
     console.log('Member clicked:', member.name, 'Current role:', currentUserRole);
     // Only allow managers and admins to edit member info
     if (currentUserRole === 'manager' || currentUserRole === 'admin' || currentUserRole === 'owner') {
@@ -274,14 +329,6 @@ const departments =
     switch (role) {
       case 'admin': return 'bg-purple-100 dark:bg-purple-950/30 text-purple-700 dark:text-purple-400';
       case 'manager': return 'bg-blue-100 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400';
-      default: return 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300';
-    }
-  };
-
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400';
-      case 'on-leave': return 'bg-yellow-100 dark:bg-yellow-950/30 text-yellow-700 dark:text-yellow-400';
       default: return 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300';
     }
   };
@@ -451,29 +498,35 @@ const departments =
         {/* Team Members Grid - 모바일 최적화 */}
         {!isLoadingUsers && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-          {teamMembers.map((member) => (
-            <div
-              key={member.id}
-              onClick={() => handleMemberClick(member)}
-              className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6 hover:shadow-md dark:hover:shadow-gray-900/50 transition-shadow cursor-pointer"
-            >
+          {teamMembers.map((member) => {
+            const avatarUrl = member.profile?.avatar ?? null;
+            const phoneNumber = member.profile?.phone ?? null;
+            const joinedAtLabel = member.createdAt
+              ? new Date(member.createdAt).toLocaleDateString('ko-KR')
+              : '날짜 정보 없음';
+
+            return (
+              <div
+                key={member.id}
+                onClick={() => handleMemberClick(member)}
+                className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6 hover:shadow-md dark:hover:shadow-gray-900/50 transition-shadow cursor-pointer"
+              >
               <div className="flex items-start justify-between mb-3 sm:mb-4">
                 <div className="flex items-center gap-2 sm:gap-3">
-                  {(member.profile as any)?.avatar ? (
-                    <img
-                      src={(member.profile as any)?.avatar}
+                  {avatarUrl ? (
+                    <Image
+                      src={avatarUrl}
                       alt={member.name}
+                      width={48}
+                      height={48}
+                      unoptimized
                       className="w-12 h-12 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700"
-                      onError={(e) => {
-                        // 이미지 로드 실패시 기본 아바타로 대체
-                        e.currentTarget.style.display = 'none';
-                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                      }}
                     />
-                  ) : null}
-                  <div className={`w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center ${(member.profile as any)?.avatar ? 'hidden' : ''}`}>
-                    <Users className="w-6 h-6 text-gray-400 dark:text-gray-600" />
-                  </div>
+                  ) : (
+                    <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
+                      <Users className="w-6 h-6 text-gray-400 dark:text-gray-600" />
+                    </div>
+                  )}
                   <div>
                     <h3 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100">{member.name}</h3>
                     {editingPositionId === member.id ? (
@@ -557,15 +610,15 @@ const departments =
                   <Mail className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-gray-400 dark:text-gray-500" />
                   <span className="truncate">{member.email}</span>
                 </div>
-                {(member.profile as any)?.phone && (
+                {phoneNumber && (
                   <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                     <Phone className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-gray-400 dark:text-gray-500" />
-                    <span>{(member.profile as any).phone}</span>
+                    <span>{phoneNumber}</span>
                   </div>
                 )}
                 <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   <Calendar className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-gray-400 dark:text-gray-500" />
-                  <span>가입일: {new Date(member.createdAt).toLocaleDateString('ko-KR')}</span>
+                  <span>가입일: {joinedAtLabel}</span>
                 </div>
               </div>
 
@@ -577,7 +630,8 @@ const departments =
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
 
           {teamMembers.length === 0 && (
             <div className="col-span-full text-center py-12">
@@ -595,7 +649,7 @@ const departments =
       <AddTeamMemberModal
         isOpen={showAddForm}
         onClose={() => setShowAddForm(false)}
-        onAdd={handleAddMember}
+        onAdd={(member) => handleAddMember(mapModalMemberToNewMember(member))}
         departments={departments}
         currentUserRole={currentUserRole}
         managerDepartmentId={currentUserRole === 'manager' ? managerDepartmentId : undefined}
@@ -609,7 +663,7 @@ const departments =
           setShowEditForm(false);
           setSelectedMember(null);
         }}
-        member={selectedMember}
+        member={selectedMember as any}
         departments={departments}
         onUpdate={() => {
           refetchUsers();

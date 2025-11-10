@@ -62,11 +62,13 @@ export async function POST(req: NextRequest) {
         success: true,
         message: '비밀번호가 성공적으로 변경되었습니다.'
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating password:', error);
+      const clerkError = error as { errors?: Array<{ code?: string }> };
+      const errorCode = clerkError.errors?.[0]?.code;
 
       // Check if error is due to incorrect current password
-      if ((error as any).errors && (error as any).errors[0]?.code === 'form_password_incorrect') {
+      if (errorCode === 'form_password_incorrect') {
         return NextResponse.json(
           { error: '현재 비밀번호가 올바르지 않습니다.' },
           { status: 400 }
@@ -74,7 +76,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Check if error is due to common password
-      if ((error as any).errors && (error as any).errors[0]?.code === 'form_password_pwned') {
+      if (errorCode === 'form_password_pwned') {
         return NextResponse.json(
           { error: '너무 흔한 비밀번호입니다. 다른 비밀번호를 사용해주세요.' },
           { status: 400 }

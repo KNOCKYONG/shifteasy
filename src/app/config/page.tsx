@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Settings, Save, AlertCircle, Clock, Users, ChevronRight, Database, Trash2, Activity, Plus, Edit2, Briefcase, Building, FileText, UserCheck } from "lucide-react";
+import { Settings, Save, Trash2, Activity, Plus, Edit2, Briefcase } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { RoleGuard } from "@/components/auth/RoleGuard";
@@ -15,19 +15,27 @@ interface ConfigData {
   };
 }
 
+type ShiftConfig = {
+  code: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  color: string;
+  allowOvertime: boolean;
+};
+
 function ConfigPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { t, ready } = useTranslation(['config', 'common']);
+  const { t } = useTranslation(['config', 'common']);
 
   // tRPC queries for fetching configs
-  const { data: allConfigs, isLoading: configsLoading, refetch: refetchConfigs } = trpc.configs.getAll.useQuery();
+  const { data: allConfigs, refetch: refetchConfigs } = trpc.configs.getAll.useQuery();
   const setConfigMutation = trpc.configs.set.useMutation();
 
   // URL 파라미터에서 tab 읽기
   const tabFromUrl = searchParams.get('tab') as "preferences" | "positions" | "shifts" | "careers" | "secretCode" | null;
   const [activeTab, setActiveTab] = useState<"preferences" | "positions" | "shifts" | "careers" | "secretCode">(tabFromUrl || "preferences");
-  const [currentUser, setCurrentUser] = useState<{ role: string } | null>(null);
   const [positions, setPositions] = useState<{value: string; label: string; level: number}[]>([]);
   const [newPosition, setNewPosition] = useState({ value: '', label: '', level: 1 });
   const [editingPosition, setEditingPosition] = useState<string | null>(null);
@@ -58,15 +66,6 @@ function ConfigPageContent() {
     code: string;
     requiresSpecialSkills: boolean;
   }[]>([]);
-  const [newDepartment, setNewDepartment] = useState({
-    id: '',
-    name: '',
-    code: '',
-    requiresSpecialSkills: false
-  });
-  const [editingDepartment, setEditingDepartment] = useState<string | null>(null);
-
-
   // Employee status state
   const [employeeStatuses, setEmployeeStatuses] = useState<{
     code: string;
@@ -76,16 +75,6 @@ function ConfigPageContent() {
     allowScheduling: boolean;
     color: string;
   }[]>([]);
-  const [newEmployeeStatus, setNewEmployeeStatus] = useState({
-    code: '',
-    name: '',
-    description: '',
-    isActive: true,
-    allowScheduling: true,
-    color: 'green',
-  });
-  const [editingEmployeeStatus, setEditingEmployeeStatus] = useState<string | null>(null);
-
   // Career groups state
   const [careerGroups, setCareerGroups] = useState<{
     code: string;
@@ -101,17 +90,6 @@ function ConfigPageContent() {
     maxYears: 2,
     description: '',
   });
-  const [editingCareerGroup, setEditingCareerGroup] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Fetch current user role
-    fetch('/api/users/me')
-      .then(res => res.json())
-      .then(data => {
-        setCurrentUser({ role: data.role });
-      })
-      .catch(err => console.error('Error fetching user:', err));
-  }, []);
 
   // URL 파라미터 변경 시 activeTab 업데이트
   useEffect(() => {
@@ -132,7 +110,7 @@ function ConfigPageContent() {
       { value: 'NA', label: '간호조무사', level: 1 },
     ];
 
-    const defaultShiftTypes = [
+    const defaultShiftTypes: ShiftConfig[] = [
       { code: 'D', name: '주간 근무', startTime: '07:00', endTime: '15:00', color: 'blue', allowOvertime: false },
       { code: 'E', name: '저녁 근무', startTime: '15:00', endTime: '23:00', color: 'amber', allowOvertime: false },
       { code: 'N', name: '야간 근무', startTime: '23:00', endTime: '07:00', color: 'indigo', allowOvertime: true },
@@ -159,9 +137,10 @@ function ConfigPageContent() {
 
     // Merge saved shift types with defaults (add missing defaults)
     if (allConfigs.shift_types) {
-      const savedCodes = new Set(allConfigs.shift_types.map((st: any) => st.code));
+      const savedShiftTypes = allConfigs.shift_types as ShiftConfig[];
+      const savedCodes = new Set(savedShiftTypes.map((st) => st.code));
       const missingDefaults = defaultShiftTypes.filter(dst => !savedCodes.has(dst.code));
-      setShiftTypes([...allConfigs.shift_types, ...missingDefaults]);
+      setShiftTypes([...savedShiftTypes, ...missingDefaults]);
     } else {
       setShiftTypes(defaultShiftTypes);
     }

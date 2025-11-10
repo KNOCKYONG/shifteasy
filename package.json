@@ -76,11 +76,11 @@
 		"zod": "^4.1.8"
 	},
 	"devDependencies": {
-		"@eslint/eslintrc": "^3",
+		"@eslint/eslintrc": "^2.1.4",
 		"@types/node": "^20.19.17",
 		"@types/react": "^18.3.24",
 		"@types/react-dom": "^18.3.7",
-		"eslint": "^9",
+		"eslint": "^8.57.1",
 		"eslint-config-next": "^14.2.18",
 		"typescript": "^5"
 	}

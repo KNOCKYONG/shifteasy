@@ -5,16 +5,12 @@ import { createTRPCContext } from '@/server/trpc-context';
 
 export const dynamic = 'force-dynamic';
 
-const createContext = async (req: NextRequest) => {
-  return createTRPCContext();
-};
-
 const handler = (req: NextRequest) =>
   fetchRequestHandler({
     endpoint: '/api/trpc',
     req,
     router: appRouter,
-    createContext: () => createContext(req),
+    createContext: () => createTRPCContext(),
     onError:
       process.env.NODE_ENV === 'development'
         ? ({ path, error }) => {

@@ -21,8 +21,14 @@ const ValidateScheduleSchema = z.object({
     })),
     status: z.enum(['draft', 'published', 'archived']).optional(),
   }),
-  employees: z.array(z.any()),
-  shifts: z.array(z.any()),
+  employees: z.array(z.object({
+    id: z.string(),
+    name: z.string().optional(),
+  })),
+  shifts: z.array(z.object({
+    id: z.string(),
+    name: z.string().optional(),
+  })),
   constraints: z.array(z.object({
     id: z.string(),
     name: z.string(),
@@ -30,9 +36,34 @@ const ValidateScheduleSchema = z.object({
     category: z.enum(['legal', 'contractual', 'operational', 'preference', 'fairness']),
     weight: z.number(),
     active: z.boolean(),
-    config: z.record(z.string(), z.any()).optional(),
+    config: z.record(z.string(), z.unknown()).optional(),
   })),
 });
+
+type ValidateScheduleInput = z.infer<typeof ValidateScheduleSchema>;
+type ValidationAssignment = ValidateScheduleInput['schedule']['assignments'][number];
+type AssignmentWithDate = Omit<ValidationAssignment, 'date'> & { date: Date };
+type ValidationEmployee = ValidateScheduleInput['employees'][number];
+type ValidationShift = ValidateScheduleInput['shifts'][number];
+type ValidationConstraint = ValidateScheduleInput['constraints'][number];
+type ValidationViolation = {
+  constraintId: string;
+  constraintName: string;
+  type: ValidationConstraint['type'];
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  message: string;
+  affectedEmployees: string[];
+  affectedDates: Date[];
+  cost: number;
+};
+type ValidationSuggestion = {
+  type: 'adjustment' | 'pattern';
+  priority: 'high' | 'medium' | 'low';
+  description: string;
+  impact: string;
+  proposedChange: string;
+  affectedEmployees?: string[];
+};
 
 export async function POST(request: NextRequest) {
   try {
@@ -60,7 +91,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Invalid request data',
-          details: (validationResult.error as any).errors
+          details: validationResult.error.format()
         },
         { status: 400 }
       );
@@ -84,17 +115,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Convert data to maps for easy lookup
-    const employeeMap = new Map(employees.map((e: any) => [e.id, e]));
-    const shiftMap = new Map(shifts.map((s: any) => [s.id, s]));
+    const employeeMap = new Map(employees.map((employee: ValidationEmployee) => [employee.id, employee]));
+    const shiftMap = new Map(shifts.map((shift: ValidationShift) => [shift.id, shift]));
 
     // Convert assignments with date conversion
-    const convertedAssignments = schedule.assignments.map(assignment => ({
+    const convertedAssignments: AssignmentWithDate[] = schedule.assignments.map(assignment => ({
       ...assignment,
       date: new Date(assignment.date),
     }));
 
     // Basic validation checks
-    const violations: any[] = [];
+    const violations: ValidationViolation[] = [];
 
     // Check 1: All employees exist
     for (const assignment of convertedAssignments) {
@@ -129,11 +160,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Check 3: No duplicate assignments (same employee, same date)
-    const assignmentKeys = new Map<string, any>();
+    const assignmentKeys = new Map<string, AssignmentWithDate>();
     for (const assignment of convertedAssignments) {
       const key = `${assignment.employeeId}-${assignment.date.toDateString()}`;
       if (assignmentKeys.has(key)) {
-        const existing = assignmentKeys.get(key);
         violations.push({
           constraintId: 'no-duplicates',
           constraintName: 'No Duplicate Assignments',
@@ -238,8 +268,11 @@ function getWeekNumber(date: Date): number {
 }
 
 // Generate simple improvement suggestions
-function generateSimpleSuggestions(violations: any[], employeeMap: Map<string, any>) {
-  const suggestions = [];
+function generateSimpleSuggestions(
+  violations: ValidationViolation[],
+  employeeMap: Map<string, ValidationEmployee>
+): ValidationSuggestion[] {
+  const suggestions: ValidationSuggestion[] = [];
 
   if (violations.some(v => v.constraintId === 'employee-exists' || v.constraintId === 'shift-exists')) {
     suggestions.push({

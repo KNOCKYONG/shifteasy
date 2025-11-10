@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { users, tenants } from '@/db/schema/tenants';
+import { users } from '@/db/schema/tenants';
 import { eq, and } from 'drizzle-orm';
 import { validateSecretCode } from '@/lib/auth/secret-code';
 import { createClerkClient } from '@clerk/nextjs/server';
@@ -82,12 +82,13 @@ export async function POST(req: NextRequest) {
             lastName: name.split(' ').slice(1).join(' ') || '',
           });
           clerkUserId = clerkUser.id;
-        } catch (clerkError: any) {
+        } catch (clerkError: unknown) {
+          const typedError = clerkError as { errors?: Array<{ code?: string; message?: string }> };
           console.log('Clerk user creation error:', clerkError);
-          console.log('Clerk error details:', JSON.stringify(clerkError?.errors, null, 2));
+          console.log('Clerk error details:', JSON.stringify(typedError?.errors, null, 2));
 
           // Clerk 사용자가 이미 존재하는 경우
-          if (clerkError?.errors?.[0]?.code === 'form_identifier_exists') {
+          if (typedError?.errors?.[0]?.code === 'form_identifier_exists') {
             // 기존 사용자 정보로 로그인하도록 안내
             return NextResponse.json({
               success: true,
@@ -102,7 +103,7 @@ export async function POST(req: NextRequest) {
           }
 
           // 비밀번호가 데이터 유출에서 발견된 경우
-          if (clerkError?.errors?.[0]?.code === 'form_password_pwned') {
+          if (typedError?.errors?.[0]?.code === 'form_password_pwned') {
             return NextResponse.json(
               { error: '이 비밀번호는 온라인 데이터 유출에서 발견되었습니다. 보안을 위해 다른 비밀번호를 사용해주세요.' },
               { status: 400 }
@@ -110,7 +111,7 @@ export async function POST(req: NextRequest) {
           }
 
           return NextResponse.json(
-            { error: clerkError?.errors?.[0]?.message || '인증 계정 생성에 실패했습니다. 더 복잡한 비밀번호를 사용해주세요.' },
+            { error: typedError?.errors?.[0]?.message || '인증 계정 생성에 실패했습니다. 더 복잡한 비밀번호를 사용해주세요.' },
             { status: 400 }
           );
         }
@@ -152,12 +153,13 @@ export async function POST(req: NextRequest) {
           lastName: name.split(' ').slice(1).join(' ') || '',
         });
         clerkUserId = clerkUser.id;
-      } catch (clerkError: any) {
+      } catch (clerkError: unknown) {
+        const typedError = clerkError as { errors?: Array<{ code?: string; message?: string }> };
         console.log('Clerk user creation error:', clerkError);
-        console.log('Clerk error details:', JSON.stringify(clerkError?.errors, null, 2));
+        console.log('Clerk error details:', JSON.stringify(typedError?.errors, null, 2));
 
         // Clerk 사용자가 이미 존재하는 경우
-        if (clerkError?.errors?.[0]?.code === 'form_identifier_exists') {
+        if (typedError?.errors?.[0]?.code === 'form_identifier_exists') {
           return NextResponse.json(
             { error: '이미 등록된 이메일입니다. 로그인해주세요.' },
             { status: 400 }
@@ -165,7 +167,7 @@ export async function POST(req: NextRequest) {
         }
 
         // 비밀번호가 데이터 유출에서 발견된 경우
-        if (clerkError?.errors?.[0]?.code === 'form_password_pwned') {
+        if (typedError?.errors?.[0]?.code === 'form_password_pwned') {
           return NextResponse.json(
             { error: '이 비밀번호는 온라인 데이터 유출에서 발견되었습니다. 보안을 위해 다른 비밀번호를 사용해주세요.' },
             { status: 400 }
@@ -173,7 +175,7 @@ export async function POST(req: NextRequest) {
         }
 
         // 비밀번호가 너무 짧은 경우
-        if (clerkError?.errors?.[0]?.code === 'form_password_length_too_short') {
+        if (typedError?.errors?.[0]?.code === 'form_password_length_too_short') {
           return NextResponse.json(
             { error: '비밀번호는 최소 8자 이상이어야 합니다.' },
             { status: 400 }
@@ -183,7 +185,7 @@ export async function POST(req: NextRequest) {
         // 다른 오류의 경우 - 회원가입 실패
         console.error('Clerk 사용자 생성 실패');
         return NextResponse.json(
-          { error: clerkError?.errors?.[0]?.message || '회원가입에 실패했습니다. 더 복잡한 비밀번호를 사용해주세요.' },
+          { error: typedError?.errors?.[0]?.message || '회원가입에 실패했습니다. 더 복잡한 비밀번호를 사용해주세요.' },
           { status: 400 }
         );
       }
@@ -238,25 +240,11 @@ export async function POST(req: NextRequest) {
       },
       message: '회원가입이 완료되었습니다. 로그인해주세요.',
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Signup error:', error);
     return NextResponse.json(
       { error: '회원가입 중 오류가 발생했습니다.' },
       { status: 500 }
     );
   }
-}
-
-// 임시 비밀번호 생성 (더 안전한 버전)
-function generateTempPassword(): string {
-  const timestamp = Date.now().toString();
-  const randomStr = Math.random().toString(36).substring(2, 15);
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
-  let password = 'Shift_' + timestamp.slice(-4) + '_';
-
-  for (let i = 0; i < 8; i++) {
-    password += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-
-  return password + randomStr.slice(0, 3);
 }

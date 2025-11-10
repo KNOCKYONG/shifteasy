@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { X, User, Mail, Phone, Building, Briefcase, Loader2 } from "lucide-react";
 
 // Type definition for team member - 간소화된 버전
-interface TeamMember {
+export interface TeamMember {
   id: string;
   name: string;
   email: string;
@@ -15,10 +15,12 @@ interface TeamMember {
   avatar?: string;
 }
 
+export type AddTeamMemberInput = Omit<TeamMember, "id">;
+
 interface AddTeamMemberModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (member: Omit<TeamMember, "id">) => void;
+  onAdd: (member: AddTeamMemberInput) => void;
   departments: Array<{ id: string; name: string }>;
   currentUserRole?: string;
   managerDepartmentId?: string | null;
@@ -84,7 +86,7 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments, curren
     const selectedPosition = customPositions.find(p => p.value === formData.position);
 
     // Create new member object
-    const newMember: Omit<TeamMember, "id"> = {
+    const newMember: AddTeamMemberInput = {
       name: formData.name,
       email: formData.email,
       phone: formData.phone,

@@ -6,22 +6,68 @@ import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import {
   ArrowLeft,
-  Clock,
-  User,
   AlertCircle,
-  Heart,
   Activity,
   Pill,
   Calendar as CalendarIcon,
   MessageCircle,
   CheckCircle,
   Send,
-  Plus,
   Loader2,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { api } from "@/lib/trpc/client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+
+type VitalSigns = {
+  bloodPressure?: string;
+  heartRate?: number;
+  temperature?: number;
+  oxygenSaturation?: number;
+  painScore?: number;
+};
+
+type MedicationSchedule = {
+  name: string;
+  dose?: string;
+  route?: string;
+  time?: string;
+};
+
+type ScheduledProcedure = {
+  procedure: string;
+  scheduledTime?: string;
+  preparation?: string;
+};
+
+type AlertItem = {
+  type: string;
+  description: string;
+};
+
+type QuestionItem = {
+  question: string;
+  askedAt: string;
+  answer?: string;
+  answeredAt?: string;
+};
+
+type HandoffItem = {
+  id: string;
+  priority: keyof typeof PRIORITY_STYLES;
+  roomNumber: string;
+  bedNumber?: string | null;
+  patientIdentifier: string;
+  situation: string;
+  background: string;
+  assessment: string;
+  recommendation: string;
+  vitalSigns?: VitalSigns;
+  medications?: MedicationSchedule[];
+  scheduledProcedures?: ScheduledProcedure[];
+  alerts?: AlertItem[];
+  questions?: QuestionItem[];
+};
 
 // Priority styles
 const PRIORITY_STYLES = {
@@ -126,7 +172,7 @@ export default function HandoffDetailPage() {
   }
 
   const handoff = handoffData;
-  const items = handoffData.items || [];
+  const items: HandoffItem[] = Array.isArray(handoffData.items) ? (handoffData.items as HandoffItem[]) : [];
   const isHandover = handoff.handoverUserId === userId;
   const isReceiver = handoff.receiverUserId === userId;
   const canSubmit = isHandover && handoff.status === "draft";
@@ -135,8 +181,8 @@ export default function HandoffDetailPage() {
   // Sort items by priority
   const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
   const sortedItems = [...items].sort((a, b) => {
-    const aPriority = priorityOrder[a.priority as keyof typeof priorityOrder];
-    const bPriority = priorityOrder[b.priority as keyof typeof priorityOrder];
+    const aPriority = priorityOrder[a.priority] ?? priorityOrder.low;
+    const bPriority = priorityOrder[b.priority] ?? priorityOrder.low;
     return aPriority - bPriority;
   });
 
@@ -252,15 +298,15 @@ export default function HandoffDetailPage() {
               <p className="text-gray-500">등록된 환자가 없습니다</p>
             </div>
           ) : (
-            sortedItems.map((item: any) => {
-              const priority = item.priority as keyof typeof PRIORITY_STYLES;
+            sortedItems.map((item) => {
+              const priority = item.priority ?? 'low';
               const styles = PRIORITY_STYLES[priority];
               const isExpanded = expandedPatient === item.id;
-              const vitalSigns = item.vitalSigns as any;
-              const medications = (item.medications as any[]) || [];
-              const scheduledProcedures = (item.scheduledProcedures as any[]) || [];
-              const alerts = (item.alerts as any[]) || [];
-              const questions = (item.questions as any[]) || [];
+              const vitalSigns = item.vitalSigns;
+              const medications = item.medications ?? [];
+              const scheduledProcedures = item.scheduledProcedures ?? [];
+              const alerts = item.alerts ?? [];
+              const questions = item.questions ?? [];
 
               return (
                 <div
@@ -450,7 +496,7 @@ export default function HandoffDetailPage() {
                             질문 및 답변
                           </h4>
                           <div className="space-y-3">
-                            {questions.map((q: any, idx: number) => (
+                            {questions.map((q, idx) => (
                               <div key={idx} className="bg-gray-50 p-3 rounded space-y-2">
                                 <div>
                                   <p className="text-sm font-medium text-gray-900">Q: {q.question}</p>
@@ -458,7 +504,7 @@ export default function HandoffDetailPage() {
                                     {format(new Date(q.askedAt), "yyyy-MM-dd HH:mm")}
                                   </p>
                                 </div>
-                                {q.answer && (
+                                {q.answer && q.answeredAt && (
                                   <div className="pl-4 border-l-2 border-blue-300">
                                     <p className="text-sm text-gray-800">A: {q.answer}</p>
                                     <p className="text-xs text-gray-500">

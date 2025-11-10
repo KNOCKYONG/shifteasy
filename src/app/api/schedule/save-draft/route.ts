@@ -21,7 +21,7 @@ const SaveDraftSchema = z.object({
     })),
   }),
   name: z.string().optional(),
-  metadata: z.any().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Invalid request data',
-          details: (validationResult.error as any).errors
+          details: validationResult.error.format()
         },
         { status: 400 }
       );
@@ -92,23 +92,26 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create new draft schedule in DB
-    const [savedSchedule] = await db
-      .insert(schedules)
-      .values({
-        tenantId,
-        departmentId: requestDepartmentId,
-        startDate: new Date(schedule.startDate),
-        endDate: new Date(schedule.endDate),
-        status: 'draft',
-        metadata: {
-          name: name || `Draft - ${new Date().toLocaleDateString('ko-KR')}`,
-          savedAt: new Date().toISOString(),
-          savedBy: user.id,
-          assignments: schedule.assignments,
-          ...metadata,
-        },
-      })
+  const metadataPayload = {
+    name: name || `Draft - ${new Date().toLocaleDateString('ko-KR')}`,
+    savedAt: new Date().toISOString(),
+    savedBy: user.id,
+    assignments: schedule.assignments,
+    originalScheduleId: scheduleId,
+    ...(metadata ?? {}),
+  };
+
+  // Create new draft schedule in DB
+  const [savedSchedule] = await db
+    .insert(schedules)
+    .values({
+      tenantId,
+      departmentId: requestDepartmentId,
+      startDate: new Date(schedule.startDate),
+      endDate: new Date(schedule.endDate),
+      status: 'draft',
+      metadata: metadataPayload as typeof schedules.$inferInsert['metadata'],
+    })
       .returning();
 
     if (!savedSchedule) {

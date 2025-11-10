@@ -96,29 +96,32 @@ export async function POST(request: NextRequest) {
 
     const validatedData = sendNotificationSchema.parse(body);
 
-    let result: any;
-    if (validatedData.userId) {
-      // Send to specific user
-      const { userId, ...notificationData } = validatedData;
-      console.log('[API /notifications] POST - Sending to user', { userId, type: validatedData.type });
-      result = await notificationService.sendToUser(
-        tenantId,
-        userId,
-        notificationData
-      );
-    } else if (validatedData.topic) {
-      // Send to topic
-      console.log('[API /notifications] POST - Sending to topic', { topic: validatedData.topic, type: validatedData.type });
-      result = await notificationService.sendToTopic(
-        tenantId,
-        validatedData.topic,
-        validatedData
-      );
-    } else {
+    const result = await (async () => {
+      if (validatedData.userId) {
+        // Send to specific user
+        const { userId, ...notificationData } = validatedData;
+        console.log('[API /notifications] POST - Sending to user', { userId, type: validatedData.type });
+        return notificationService.sendToUser(
+          tenantId,
+          userId,
+          notificationData
+        );
+      }
+
+      if (validatedData.topic) {
+        // Send to topic
+        console.log('[API /notifications] POST - Sending to topic', { topic: validatedData.topic, type: validatedData.type });
+        return notificationService.sendToTopic(
+          tenantId,
+          validatedData.topic,
+          validatedData
+        );
+      }
+
       // Broadcast to all
       console.log('[API /notifications] POST - Broadcasting', { type: validatedData.type });
-      result = await notificationService.broadcast(tenantId, validatedData);
-    }
+      return notificationService.broadcast(tenantId, validatedData);
+    })();
 
     const duration = Date.now() - startTime;
     console.log('[API /notifications] POST - Success', {

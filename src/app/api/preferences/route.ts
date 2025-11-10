@@ -23,6 +23,16 @@ const PreferencesSchema = z.object({
   }),
 });
 
+type SimplifiedPreference = {
+  workPatternType: 'three-shift' | 'night-intensive' | 'weekday-only' | null;
+  preferredPatterns: Array<{ pattern: string; preference: number }>;
+  avoidPatterns: string[][];
+};
+
+const isWorkPatternType = (value: unknown): value is SimplifiedPreference['workPatternType'] => {
+  return value === 'three-shift' || value === 'night-intensive' || value === 'weekday-only' || value === null;
+};
+
 // GET: 직원의 선호도 조회
 export async function GET(request: NextRequest) {
   try {
@@ -36,12 +46,12 @@ export async function GET(request: NextRequest) {
         .from(nursePreferences)
         .where(eq(nursePreferences.tenantId, tenantId));
 
-      const allPreferences: Record<string, any> = {};
+      const allPreferences: Record<string, SimplifiedPreference> = {};
 
       allNursePrefs.forEach(pref => {
         // Convert nurse_preferences to simplified format
         allPreferences[pref.nurseId] = {
-          workPatternType: pref.workPatternType,
+          workPatternType: isWorkPatternType(pref.workPatternType) ? pref.workPatternType : null,
           preferredPatterns: pref.preferredPatterns || [],
           avoidPatterns: pref.avoidPatterns || [],
         };
@@ -73,8 +83,8 @@ export async function GET(request: NextRequest) {
     const pref = result[0];
 
     // Convert nurse_preferences to simplified format
-    const simplifiedPrefs = {
-      workPatternType: pref.workPatternType,
+    const simplifiedPrefs: SimplifiedPreference = {
+      workPatternType: isWorkPatternType(pref.workPatternType) ? pref.workPatternType : null,
       preferredPatterns: pref.preferredPatterns || [],
       avoidPatterns: pref.avoidPatterns || [],
     };

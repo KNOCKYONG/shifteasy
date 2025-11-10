@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { tenants, departments, users } from '@/db/schema/tenants';
 import { clerkClient } from '@clerk/nextjs/server';
-import { eq, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -142,25 +142,27 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Guest signup error:', error);
+    const clerkError = error as { errors?: Array<{ code?: string }>; message?: string };
+    const firstErrorCode = clerkError.errors?.[0]?.code;
 
     // Clerk 에러 처리
-    if (error.errors?.[0]?.code === 'form_identifier_exists') {
+    if (firstErrorCode === 'form_identifier_exists') {
       return NextResponse.json(
         { error: '이미 사용 중인 이메일입니다.' },
         { status: 400 }
       );
     }
 
-    if (error.errors?.[0]?.code === 'form_password_pwned') {
+    if (firstErrorCode === 'form_password_pwned') {
       return NextResponse.json(
         { error: '너무 흔한 비밀번호입니다. 다른 비밀번호를 사용해주세요.' },
         { status: 400 }
       );
     }
 
-    if (error.errors?.[0]?.code === 'form_param_format_invalid') {
+    if (firstErrorCode === 'form_param_format_invalid') {
       return NextResponse.json(
         { error: '비밀번호는 8자 이상이어야 합니다.' },
         { status: 400 }
@@ -170,7 +172,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: '게스트 계정 생성에 실패했습니다.',
-        details: error.message,
+        details: clerkError.message ?? 'Unknown error',
       },
       { status: 500 }
     );
