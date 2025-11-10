@@ -8,6 +8,7 @@ interface Member {
   position?: string;
   status: string;
   teamId?: string | null;
+  yearsOfService?: number | null;
 }
 
 interface StaffPreferencesGridProps {
@@ -40,6 +41,28 @@ export function StaffPreferencesGrid({ allMembers, onEmployeeClick }: StaffPrefe
     return { unassigned, byTeam };
   }, [allMembers, teams]);
 
+  const renderMemberCard = (member: Member) => {
+    const careerYears = (member as any).yearsOfService ?? member.yearsOfService;
+    const careerLabel = typeof careerYears === 'number' && careerYears > 0
+      ? `${careerYears}년 차`
+      : '경력 정보 없음';
+    const positionLabel = member.position || '직급 정보 없음';
+
+    return (
+      <div
+        key={member.id}
+        className="bg-gray-50 dark:bg-gray-800 rounded-md p-3 border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+        onClick={() => onEmployeeClick(member)}
+      >
+        <div className="flex flex-col gap-1 text-xs text-gray-600 dark:text-gray-400">
+          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{member.name}</span>
+          <span>{careerLabel}</span>
+          <span>{positionLabel}</span>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mb-6">
       <div className="p-6">
@@ -57,19 +80,8 @@ export function StaffPreferencesGrid({ allMembers, onEmployeeClick }: StaffPrefe
                 팀 미배정 ({groupedMembers.unassigned.length}명)
               </h4>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {groupedMembers.unassigned.map(member => (
-                <div
-                  key={member.id}
-                  className="bg-gray-50 dark:bg-gray-800 rounded-md p-3 border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                  onClick={() => onEmployeeClick(member)}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <h4 className="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">{member.name}</h4>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400">{member.position}</p>
-                  </div>
-                </div>
-              ))}
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
+              {groupedMembers.unassigned.map(member => renderMemberCard(member))}
             </div>
           </div>
         )}
@@ -86,19 +98,8 @@ export function StaffPreferencesGrid({ allMembers, onEmployeeClick }: StaffPrefe
                 {team.name} ({members.length}명)
               </h4>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {members.map(member => (
-                <div
-                  key={member.id}
-                  className="bg-gray-50 dark:bg-gray-800 rounded-md p-3 border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                  onClick={() => onEmployeeClick(member)}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <h4 className="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">{member.name}</h4>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400">{member.position}</p>
-                  </div>
-                </div>
-              ))}
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
+              {members.map(member => renderMemberCard(member))}
             </div>
           </div>
         ))}
