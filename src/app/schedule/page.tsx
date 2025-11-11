@@ -119,13 +119,48 @@ const DEFAULT_STANDARD_SHIFT_TYPES: Record<StandardShiftCode, ShiftType> = {
 function SchedulePageContent() {
   const utils = api.useUtils();
   const currentUser = useCurrentUser();
+  const currentUserId = currentUser.dbUser?.id || currentUser.userId || "user-1";
   const userRole = (currentUser.dbUser?.role ?? currentUser.role) as string | undefined;
   const isMember = userRole === 'member';
   const isManager = userRole === 'manager';
   const memberDepartmentId = currentUser.dbUser?.departmentId ?? null;
+  const defaultTenantId = process.env.NEXT_PUBLIC_DEFAULT_TENANT_ID ?? 'default-tenant';
+  const effectiveTenantId = currentUser.dbUser?.tenantId ?? currentUser.orgId ?? defaultTenantId;
+  const effectiveUserRole = currentUser.dbUser?.role ?? currentUser.role ?? 'admin';
+  const headerDepartmentId = memberDepartmentId ?? undefined;
+
+  const authHeaders = React.useMemo<Record<string, string>>(() => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (currentUserId) {
+      headers['x-user-id'] = currentUserId;
+    }
+    if (effectiveTenantId) {
+      headers['x-tenant-id'] = effectiveTenantId;
+    }
+    if (effectiveUserRole) {
+      headers['x-user-role'] = effectiveUserRole;
+    }
+    if (headerDepartmentId) {
+      headers['x-department-id'] = headerDepartmentId;
+    }
+    return headers;
+  }, [currentUserId, effectiveTenantId, effectiveUserRole, headerDepartmentId]);
+
+  const fetchWithAuth = useCallback((url: RequestInfo | URL, options: RequestInit = {}) => {
+    const mergedHeaders = {
+      ...authHeaders,
+      ...(options.headers as Record<string, string> | undefined),
+    };
+    return fetch(url, {
+      credentials: 'include',
+      ...options,
+      headers: mergedHeaders,
+    });
+  }, [authHeaders]);
   const canManageSchedules = userRole ? ['admin', 'manager', 'owner'].includes(userRole) : false;
   const canViewStaffPreferences = canManageSchedules && !isMember;
-  const currentUserId = currentUser.userId || "user-1";
   const currentUserName = currentUser.name || "사용자";
   const searchParams = useSearchParams();
 
@@ -811,7 +846,7 @@ function SchedulePageContent() {
         return null;
       });
 
-      const fetchPreferences = fetch(`/api/preferences?employeeId=${member.id}`)
+      const fetchPreferences = fetchWithAuth(`/api/preferences?employeeId=${member.id}`)
         .then(async response => {
           if (!response.ok) return null;
           const savedData = await response.json();
@@ -862,11 +897,8 @@ function SchedulePageContent() {
     // Persist asynchronously
     void (async () => {
       try {
-        const response = await fetch('/api/preferences', {
+        const response = await fetchWithAuth('/api/preferences', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
           body: JSON.stringify({
             employeeId: employeeSnapshot.id,
             preferences: simplifiedPrefs,
@@ -898,11 +930,8 @@ function SchedulePageContent() {
   const handleSavePreferences = async (preferences: SimplifiedPreferences) => {
     try {
       // API를 통해 저장
-      const response = await fetch('/api/preferences', {
+      const response = await fetchWithAuth('/api/preferences', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           employeeId: currentUserId,
           preferences,
@@ -1101,7 +1130,7 @@ function SchedulePageContent() {
 
       // Fetch nurse_preferences for all employees
       console.log('🔍 Fetching nurse_preferences for validation...');
-      const preferencesResponse = await fetch('/api/preferences');
+      const preferencesResponse = await fetchWithAuth('/api/preferences');
       const preferencesData = await preferencesResponse.json();
 
       console.log('📦 Preferences data:', preferencesData);
@@ -1123,13 +1152,8 @@ function SchedulePageContent() {
 
       console.log('✅ Employees with preferences:', employeesWithPreferences.length);
 
-      const response = await fetch('/api/schedule/validate', {
+      const response = await fetchWithAuth('/api/schedule/validate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': 'user-1', // 임시 사용자 ID
-          'x-tenant-id': 'default-tenant',
-        },
         body: JSON.stringify({
           schedule: schedulePayload,
           employees: employeesWithPreferences,
@@ -1361,13 +1385,8 @@ function SchedulePageContent() {
       // 스케줄 명이 입력되지 않은 경우 기본값 설정
       const finalScheduleName = scheduleName.trim() || `${format(monthStart, 'yyyy년 M월')} 스케줄`;
 
-      const response = await fetch('/api/schedule/confirm', {
+      const response = await fetchWithAuth('/api/schedule/confirm', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': 'user-1', // 임시 사용자 ID
-          'x-tenant-id': 'default-tenant',
-        },
         body: JSON.stringify({
           scheduleId: schedulePayload.id,
           schedule: schedulePayload,
@@ -1376,7 +1395,7 @@ function SchedulePageContent() {
           departmentId: validDepartmentId,
           notifyEmployees: true,
           metadata: {
-            createdBy: 'user-1', // 임시 사용자 ID
+            createdBy: currentUserId,
             createdAt: new Date().toISOString(),
             validationScore: modals.validationScore,
           },
@@ -1446,11 +1465,8 @@ function SchedulePageContent() {
     try {
       const schedulePayload = buildSchedulePayload();
 
-      const response = await fetch('/api/schedule/save-draft', {
+      const response = await fetchWithAuth('/api/schedule/save-draft', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           schedule: schedulePayload,
           month: format(monthStart, 'yyyy-MM-dd'),
@@ -1542,7 +1558,7 @@ function SchedulePageContent() {
 
       activeCustomShiftTypes = activeCustomShiftTypes ?? [];
 
-      const preferencesResponse = await fetch('/api/preferences');
+      const preferencesResponse = await fetchWithAuth('/api/preferences');
       const preferencesData = await preferencesResponse.json();
       const preferencesMap = new Map<string, SimplifiedPreferences>();
       if (preferencesData.success && preferencesData.data) {
@@ -1883,13 +1899,8 @@ function SchedulePageContent() {
 
     modals.setIsExporting(true);
     try {
-      const response = await fetch('/api/report/generate', {
+      const response = await fetchWithAuth('/api/report/generate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-tenant-id': 'default-tenant', // 실제 환경에서는 적절한 테넌트 ID 사용
-          'x-user-id': 'user-1', // 임시 사용자 ID
-        },
         body: JSON.stringify({
           reportType: 'schedule',
           format: exportFormat,
