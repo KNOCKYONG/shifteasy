@@ -509,12 +509,18 @@ function SchedulePageContent() {
       actualDepartmentId = selectedDepartment;
     }
 
+    const targetMonthKey = format(monthStart, 'yyyy-MM');
+    const filteredAssignments = schedule.filter((assignment) => {
+      const assignmentDate = normalizeDate(assignment.date);
+      return format(assignmentDate, 'yyyy-MM') === targetMonthKey;
+    });
+
     return {
       id: `schedule-${format(monthStart, 'yyyy-MM')}-${actualDepartmentId}`,
       departmentId: actualDepartmentId,
       startDate: toStableDateISOString(monthStart),
       endDate: toStableDateISOString(monthEnd),
-      assignments: schedule.map(assignment => ({
+      assignments: filteredAssignments.map(assignment => ({
         employeeId: assignment.employeeId,
         shiftId: assignment.shiftId,
         date: toStableDateISOString(assignment.date),
