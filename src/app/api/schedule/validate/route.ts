@@ -90,32 +90,18 @@ export async function POST(request: NextRequest) {
     const headerUserRole = request.headers.get('x-user-role');
     const headerDepartmentId = request.headers.get('x-department-id');
 
-    let user =
-      rawUser && !headerUserId && !headerTenantId
-        ? {
-            id: rawUser.id,
-            role: rawUser.role ?? 'admin',
-            tenantId: rawUser.tenantId,
-            departmentId: rawUser.departmentId ?? null,
-          }
-        : null;
+    const resolvedUser = {
+      id: headerUserId ?? rawUser?.id ?? 'unknown-user',
+      role: headerUserRole ?? rawUser?.role ?? 'admin',
+      tenantId: headerTenantId ?? rawUser?.tenantId,
+      departmentId: headerDepartmentId ?? rawUser?.departmentId ?? null,
+    };
 
-    if (!user) {
-      const resolvedId = headerUserId ?? rawUser?.id;
-      const resolvedTenant = headerTenantId ?? rawUser?.tenantId ?? undefined;
-      if (resolvedId && resolvedTenant) {
-        user = {
-          id: resolvedId,
-          role: headerUserRole ?? rawUser?.role ?? 'admin',
-          tenantId: resolvedTenant,
-          departmentId: headerDepartmentId ?? rawUser?.departmentId ?? null,
-        };
-      }
+    if (!resolvedUser.tenantId) {
+      return NextResponse.json({ success: false, error: '테넌트 정보가 존재하지 않습니다.' }, { status: 400 });
     }
 
-    if (!user) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
+    const user = resolvedUser;
 
     const body = await request.json();
     const parsed = ValidateScheduleSchema.safeParse(body);
@@ -129,10 +115,6 @@ export async function POST(request: NextRequest) {
 
     const data: ValidateScheduleInput = parsed.data;
     const tenantId = user.tenantId;
-
-    if (!tenantId) {
-      return NextResponse.json({ success: false, error: '테넌트 정보가 존재하지 않습니다.' }, { status: 400 });
-    }
 
     if (user.role === 'manager' && user.departmentId && user.departmentId !== data.schedule.departmentId) {
       return NextResponse.json(
