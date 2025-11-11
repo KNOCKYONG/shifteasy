@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { X, Calendar, Users, Clock, ChevronRight, ChevronLeft, Plus, Trash2, AlertCircle } from "lucide-react";
 import { api } from "@/lib/trpc/client";
 import { format } from "date-fns";
-import { ko } from "date-fns/locale";
 import { useRouter } from "next/navigation";
 
 interface CreateHandoffDialogProps {

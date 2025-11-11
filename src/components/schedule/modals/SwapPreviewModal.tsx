@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
 import { X, ArrowRight, Calendar, User, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { format } from 'date-fns';

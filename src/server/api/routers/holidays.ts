@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { db } from '@/db';
 import { holidays } from '@/db/schema/holidays';
-import { eq, and, gte, lte, between, or, isNull } from 'drizzle-orm';
+import { eq, and, between, or, isNull } from 'drizzle-orm';
 
 export const holidaysRouter = createTRPCRouter({
   // Get all holidays for a specific month or date range

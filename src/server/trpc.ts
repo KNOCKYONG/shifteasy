@@ -1,6 +1,6 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import superjson from 'superjson';
-import { auth, currentUser } from '@clerk/nextjs/server';
+import { auth } from '@clerk/nextjs/server';
 import { db } from '@/db';
 import { eq, and, isNull } from 'drizzle-orm';
 import { users } from '@/db/schema';
@@ -115,9 +115,6 @@ const withCache = (ttl: number = 300) => // Default 5 minutes
     if (type !== 'query') {
       return next();
     }
-
-    // Generate cache key from path and input
-    const cacheKey = `trpc:${path}:${JSON.stringify(input)}:${ctx.tenantId}`;
 
     try {
       // Try to get from cache

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 /**
  * RBAC (Role-Based Access Control) 시스템
  * 역할별 권한 관리 및 접근 제어

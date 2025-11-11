@@ -5,7 +5,7 @@
 
 import { createScopedDb, TenantIsolationError } from '@/lib/db/tenant-isolation';
 import { db } from '@/db';
-import { users, departments, schedules } from '@/db/schema/tenants';
+import { departments } from '@/db/schema/tenants';
 import { eq } from 'drizzle-orm';
 
 /**

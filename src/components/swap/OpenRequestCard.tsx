@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { Calendar, Clock, User, Users, ChevronDown, ChevronUp, AlertCircle, Award } from 'lucide-react';
 import { format } from 'date-fns';
-import { ko } from 'date-fns/locale';
 
 interface OpenRequestApplicant {
   employeeId: string;
@@ -202,7 +201,7 @@ export function OpenRequestCard({
                           <span>지원일: {format(new Date(applicant.appliedAt), 'M/d HH:mm')}</span>
                         </div>
                         {applicant.message && (
-                          <p className="text-sm text-gray-600 italic">"{applicant.message}"</p>
+                          <p className="text-sm text-gray-600 italic">&quot;{applicant.message}&quot;</p>
                         )}
                         <div className="flex items-center gap-2 mt-2">
                           <Award className={`w-4 h-4 ${fairnessLabel.color}`} />

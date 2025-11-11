@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { X, User, Mail, Phone, Building, Briefcase, Loader2 } from "lucide-react";
+import { X, User, Briefcase, Loader2 } from "lucide-react";
 
 // Type definition for team member - 간소화된 버전
 interface ModalTeamMember {
@@ -45,6 +45,7 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments, curren
     if (savedPositions) {
       const parsed = JSON.parse(savedPositions);
       // Ensure all positions have levels
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const positionsWithLevels = parsed.map((p: any) => ({
         ...p,
         level: p.level || 1
@@ -83,14 +84,13 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments, curren
       return;
     }
 
-    const selectedPosition = customPositions.find(p => p.value === formData.position);
-
     // Create new member object
     const newMember: AddTeamMemberInput = {
       name: formData.name,
       email: formData.email,
       phone: formData.phone,
       departmentId: formData.departmentId,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       position: formData.position as any,
       role: 'staff', // Always set as staff (member)
       joinDate: formData.joinDate,

@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { Calendar, Clock, Users, ArrowLeftRight, Check, X, AlertCircle, Plus, Filter, Sparkles } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { format, addDays } from 'date-fns';
-import { ko } from 'date-fns/locale';
 import { NewRequestModal, NewRequestData } from '@/components/swap/NewRequestModal';
 import { OpenRequestCard } from '@/components/swap/OpenRequestCard';
 import { api } from '@/lib/trpc/client';
@@ -216,6 +215,7 @@ export default function SwapPage() {
   // Get the first user as current user (temporary - should be from auth)
   const currentUser = React.useMemo(() => {
     if (!usersData?.items?.[0]) return null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const item = usersData.items[0] as any;
     return {
       id: item.id,
@@ -288,21 +288,6 @@ export default function SwapPage() {
     }
   };
 
-  const handleManagerApprove = (requestId: string) => {
-    setSwapRequests(prev =>
-      prev.map(req =>
-        req.id === requestId
-          ? {
-              ...req,
-              status: 'confirmed' as SwapStatus,
-              confirmedAt: new Date(),
-              managerApproval: true,
-              message: '최종 확정되었습니다.'
-            }
-          : req
-      )
-    );
-  };
 
   const handleReject = (requestId: string) => {
     setSwapRequests(prev =>
@@ -623,7 +608,9 @@ export default function SwapPage() {
                       currentUser={currentUser ? {
                         id: currentUser.id,
                         name: currentUser.name,
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         experienceYears: (currentUser as any).experienceYears || 0,
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         seniorityLevel: (currentUser as any).seniorityLevel || 'junior' as const
                       } : undefined}
                       isOwner={request.requesterId === currentUser?.id}
@@ -631,11 +618,13 @@ export default function SwapPage() {
                         // 오픈 요청 지원 로직
                         const updatedRequests = swapRequests.map(r => {
                           if (r.id === requestId) {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const currentUserData = currentUser as any;
                             const newApplication = {
                               employeeId: currentUser?.id || '',
                               employeeName: currentUser?.name || '',
-                              experienceYears: (currentUser as any)?.experienceYears || 0,
-                              seniorityLevel: (currentUser as any)?.seniorityLevel || 'junior' as const,
+                              experienceYears: currentUserData?.experienceYears || 0,
+                              seniorityLevel: currentUserData?.seniorityLevel || 'junior' as const,
                               shift: {
                                 date: confirmedSchedules[0].date,
                                 type: confirmedSchedules[0].shiftType,
@@ -757,13 +746,15 @@ export default function SwapPage() {
           onClose={() => setShowNewRequestModal(false)}
           onSubmit={(requestData: NewRequestData) => {
             // 새 요청 생성 로직
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const currentUserData = currentUser as any;
             const newRequest: SwapRequest = {
               id: `swap-${Date.now()}`,
               type: requestData.type,
               requesterId: currentUser?.id || '',
               requesterName: currentUser?.name || '',
-              requesterExperience: (currentUser as any)?.experienceYears || 0,
-              requesterSeniority: (currentUser as any)?.seniorityLevel || 'junior' as const,
+              requesterExperience: currentUserData?.experienceYears || 0,
+              requesterSeniority: currentUserData?.seniorityLevel || 'junior' as const,
               requesterShift: {
                 date: requestData.selectedDate,
                 type: requestData.shiftType,
@@ -795,6 +786,7 @@ export default function SwapPage() {
             id: currentUser?.id || '',
             name: currentUser?.name || '',
             position: currentUser?.position || '',
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             seniorityLevel: (currentUser as any)?.seniorityLevel || 'junior',
           }}
           confirmedSchedules={confirmedSchedules}

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure, adminProcedure } from '../trpc';
 import { scopedDb, createAuditLog } from '@/lib/db-helpers';
-import { users, departments } from '@/db/schema';
+import { users } from '@/db/schema';
 import { eq, and, or, like } from 'drizzle-orm';
 
 export const staffRouter = createTRPCRouter({
@@ -17,7 +17,7 @@ export const staffRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
 
-      let conditions = [];
+      const conditions = [];
       if (input.departmentId) {
         conditions.push(eq(users.departmentId, input.departmentId));
       }

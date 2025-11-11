@@ -126,16 +126,16 @@ export default function ExistingScheduleCheck({
                 </div>
               )}
 
-              {schedule.metadata && (schedule.metadata as any).stats && (
+              {schedule.metadata && (schedule.metadata as { stats?: { totalShifts?: number; averageHours?: number } }).stats && (
                 <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
                   <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-400">
                     <div>
                       <span className="font-medium">총 근무:</span>{' '}
-                      {(schedule.metadata as any).stats.totalShifts || 0}회
+                      {(schedule.metadata as { stats?: { totalShifts?: number; averageHours?: number } }).stats?.totalShifts || 0}회
                     </div>
                     <div>
                       <span className="font-medium">평균 시간:</span>{' '}
-                      {(schedule.metadata as any).stats.averageHours || 0}h
+                      {(schedule.metadata as { stats?: { totalShifts?: number; averageHours?: number } }).stats?.averageHours || 0}h
                     </div>
                   </div>
                 </div>

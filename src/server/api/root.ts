@@ -4,8 +4,6 @@ import { tenantRouter } from './routers/tenant';
 import { scheduleRouter } from './routers/schedule';
 import { staffRouter } from './routers/staff';
 import { swapRouter } from './routers/swap';
-// import { attendanceRouter } from './routers/attendance'; // DEPRECATED: attendance table removed
-// import { notificationRouter } from './routers/notification'; // DEPRECATED: pushSubscriptions table removed
 import { preferencesRouter } from './routers/preferences';
 import { holidaysRouter } from './routers/holidays';
 import { specialRequestsRouter } from './routers/special-requests';
@@ -21,8 +19,6 @@ export const appRouter = createTRPCRouter({
   schedule: scheduleRouter,
   staff: staffRouter,
   swap: swapRouter,
-  // attendance: attendanceRouter, // DEPRECATED
-  // notification: notificationRouter, // DEPRECATED
   preferences: preferencesRouter,
   holidays: holidaysRouter,
   specialRequests: specialRequestsRouter,

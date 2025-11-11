@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   X, Calendar, Clock, AlertCircle, MessageSquare,
   Heart, Plane, Home,
-  Users, AlertTriangle, CheckCircle, Info
+  Users, Info
 } from "lucide-react";
 
 export interface SpecialRequest {

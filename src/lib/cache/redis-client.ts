@@ -1,18 +1,15 @@
 /**
- * Redis Client for caching with Upstash support
+ * Redis Client for caching
  */
 
 import Redis from 'ioredis';
-import { Redis as UpstashRedis } from '@upstash/redis';
 
 export class RedisClient {
   private static instance: RedisClient;
   private client: Redis | null = null;
-  private upstashClient: UpstashRedis | null = null;
   private isConnected: boolean = false;
   private mockCache: Map<string, { value: string; expiry?: number }> = new Map();
   private useMockCache: boolean = false;
-  private useUpstash: boolean = false;
 
   private constructor() {
     this.initializeClient();
@@ -27,18 +24,6 @@ export class RedisClient {
 
   private async initializeClient() {
     try {
-      // First try Upstash Redis if configured
-      if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-        console.log('Using Upstash Redis');
-        this.upstashClient = new UpstashRedis({
-          url: process.env.UPSTASH_REDIS_REST_URL,
-          token: process.env.UPSTASH_REDIS_REST_TOKEN,
-        });
-        this.useUpstash = true;
-        this.isConnected = true;
-        return;
-      }
-
       // In development, use mock cache if Redis is not available
       if (process.env.NODE_ENV === 'development' && !process.env.REDIS_URL) {
         console.log('Using in-memory cache (Redis not configured)');
@@ -104,16 +89,6 @@ export class RedisClient {
       return null;
     }
 
-    if (this.useUpstash && this.upstashClient) {
-      try {
-        const result = await this.upstashClient.get(key);
-        return result as string | null;
-      } catch (error) {
-        console.error('Upstash get error:', error);
-        return null;
-      }
-    }
-
     if (!this.client || !this.isConnected) return null;
 
     try {
@@ -134,20 +109,6 @@ export class RedisClient {
         expiry: ttl ? Date.now() + (ttl * 1000) : undefined,
       });
       return true;
-    }
-
-    if (this.useUpstash && this.upstashClient) {
-      try {
-        if (ttl) {
-          await this.upstashClient.set(key, value, { ex: ttl });
-        } else {
-          await this.upstashClient.set(key, value);
-        }
-        return true;
-      } catch (error) {
-        console.error('Upstash set error:', error);
-        return false;
-      }
     }
 
     if (!this.client || !this.isConnected) return false;
@@ -178,22 +139,14 @@ export class RedisClient {
       return deleted;
     }
 
-    if (this.useUpstash && this.upstashClient) {
-      try {
-        const keys = Array.isArray(key) ? key : [key];
-        const result = await this.upstashClient.del(...keys);
-        return result;
-      } catch (error) {
-        console.error('Upstash del error:', error);
-        return 0;
-      }
-    }
-
     if (!this.client || !this.isConnected) return 0;
 
     try {
-      const keys = Array.isArray(key) ? key : [key];
-      return await this.client.del(...keys);
+      if (Array.isArray(key)) {
+        return await this.client.del(...key);
+      } else {
+        return await this.client.del(key);
+      }
     } catch (error) {
       console.error('Redis del error:', error);
       return 0;
@@ -214,16 +167,6 @@ export class RedisClient {
         return true;
       }
       return false;
-    }
-
-    if (this.useUpstash && this.upstashClient) {
-      try {
-        const result = await this.upstashClient.exists(key);
-        return result === 1;
-      } catch (error) {
-        console.error('Upstash exists error:', error);
-        return false;
-      }
     }
 
     if (!this.client || !this.isConnected) return false;
@@ -247,23 +190,6 @@ export class RedisClient {
       return keys.filter(key => regex.test(key));
     }
 
-    if (this.useUpstash && this.upstashClient) {
-      try {
-        // Upstash doesn't support KEYS command directly, use SCAN instead
-        const keys: string[] = [];
-        let cursor = 0;
-        do {
-          const result = await this.upstashClient.scan(cursor, { match: pattern, count: 100 });
-          cursor = Number(result[0]);
-          keys.push(...(result[1] as string[]));
-        } while (cursor !== 0);
-        return keys;
-      } catch (error) {
-        console.error('Upstash keys error:', error);
-        return [];
-      }
-    }
-
     if (!this.client || !this.isConnected) return [];
 
     try {
@@ -283,15 +209,6 @@ export class RedisClient {
       const value = current ? parseInt(current.value) + 1 : 1;
       this.mockCache.set(key, { value: value.toString() });
       return value;
-    }
-
-    if (this.useUpstash && this.upstashClient) {
-      try {
-        return await this.upstashClient.incr(key);
-      } catch (error) {
-        console.error('Upstash incr error:', error);
-        return 0;
-      }
     }
 
     if (!this.client || !this.isConnected) return 0;
@@ -314,16 +231,6 @@ export class RedisClient {
       return 1;
     }
 
-    if (this.useUpstash && this.upstashClient) {
-      try {
-        await this.upstashClient.hset(key, { [field]: value });
-        return 1;
-      } catch (error) {
-        console.error('Upstash hset error:', error);
-        return 0;
-      }
-    }
-
     if (!this.client || !this.isConnected) return 0;
 
     try {
@@ -342,16 +249,6 @@ export class RedisClient {
       const hashKey = `${key}:${field}`;
       const cached = this.mockCache.get(hashKey);
       return cached ? cached.value : null;
-    }
-
-    if (this.useUpstash && this.upstashClient) {
-      try {
-        const result = await this.upstashClient.hget(key, field);
-        return result as string | null;
-      } catch (error) {
-        console.error('Upstash hget error:', error);
-        return null;
-      }
     }
 
     if (!this.client || !this.isConnected) return null;
@@ -380,16 +277,6 @@ export class RedisClient {
       return result;
     }
 
-    if (this.useUpstash && this.upstashClient) {
-      try {
-        const result = await this.upstashClient.hgetall(key);
-        return (result as Record<string, string>) || {};
-      } catch (error) {
-        console.error('Upstash hgetall error:', error);
-        return {};
-      }
-    }
-
     if (!this.client || !this.isConnected) return {};
 
     try {
@@ -413,16 +300,6 @@ export class RedisClient {
       return false;
     }
 
-    if (this.useUpstash && this.upstashClient) {
-      try {
-        const result = await this.upstashClient.expire(key, seconds);
-        return result === 1;
-      } catch (error) {
-        console.error('Upstash expire error:', error);
-        return false;
-      }
-    }
-
     if (!this.client || !this.isConnected) return false;
 
     try {
@@ -443,15 +320,6 @@ export class RedisClient {
       return;
     }
 
-    if (this.useUpstash && this.upstashClient) {
-      try {
-        await this.upstashClient.flushdb();
-      } catch (error) {
-        console.error('Upstash flushall error:', error);
-      }
-      return;
-    }
-
     if (!this.client || !this.isConnected) return;
 
     try {
@@ -468,10 +336,6 @@ export class RedisClient {
     if (this.client) {
       await this.client.quit();
       this.client = null;
-      this.isConnected = false;
-    }
-    if (this.upstashClient) {
-      this.upstashClient = null;
       this.isConnected = false;
     }
   }

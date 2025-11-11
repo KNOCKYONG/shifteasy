@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { db } from '@/db';
 import { teams } from '@/db/schema/teams';
-import { eq, and, isNull, asc } from 'drizzle-orm';
+import { eq, and, asc } from 'drizzle-orm';
 
 export const teamsRouter = createTRPCRouter({
   // Get all teams for the current tenant/department
@@ -107,7 +107,13 @@ export const teamsRouter = createTRPCRouter({
         }
       }
 
-      const updateData: any = {
+      const updateData: {
+        updatedAt: Date;
+        name?: string;
+        code?: string;
+        color?: string;
+        displayOrder?: number;
+      } = {
         updatedAt: new Date(),
       };
 

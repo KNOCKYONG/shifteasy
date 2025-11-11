@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 /**
  * SSE Client with automatic reconnection and error handling
  */
@@ -267,6 +268,7 @@ export function useSSE(options: SSEClientOptions) {
     return () => {
       client.disconnect();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return {

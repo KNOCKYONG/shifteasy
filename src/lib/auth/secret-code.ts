@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { db } from '@/db';
 import { tenants, departments } from '@/db/schema/tenants';
 import { eq } from 'drizzle-orm';

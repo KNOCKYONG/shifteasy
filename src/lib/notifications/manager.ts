@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 /**
  * Notification Manager
  * 실시간 알림 및 이메일 알림을 관리하는 시스템

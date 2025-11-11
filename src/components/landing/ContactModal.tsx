@@ -3,7 +3,6 @@
 import { Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { X, Mail, Copy } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 
 interface ContactModalProps {
   isOpen: boolean;
@@ -11,7 +10,6 @@ interface ContactModalProps {
 }
 
 export default function ContactModal({ isOpen, onClose }: ContactModalProps) {
-  const { t } = useTranslation('landing');
   const email = 'knockroom.help@gmail.com';
 
   const copyToClipboard = () => {

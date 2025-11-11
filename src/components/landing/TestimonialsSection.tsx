@@ -111,7 +111,7 @@ export default function TestimonialsSection() {
 
                   {/* Quote */}
                   <blockquote className="text-lg sm:text-xl text-gray-700 leading-relaxed mb-8">
-                    "{t(`testimonials.${testimonials[currentIndex]}.quote`)}"
+                    &quot;{t(`testimonials.${testimonials[currentIndex]}.quote`)}&quot;
                   </blockquote>
 
                   {/* Author info */}

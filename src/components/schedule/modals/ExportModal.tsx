@@ -6,7 +6,7 @@ interface ExportModalProps {
   onClose: () => void;
   onExport: (format: 'excel' | 'pdf' | 'both') => void;
   isExporting: boolean;
-  generationResult: any;
+  generationResult: unknown;
   isConfirmed: boolean;
 }
 
@@ -90,9 +90,9 @@ export function ExportModal({
           <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
             <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3">
               <p className="text-xs text-blue-700 dark:text-blue-400">
-                <strong>포함 내용:</strong> 주간 스케줄, 직원별 근무시간, 시프트 통계,
-                {generationResult && "AI 생성 결과, "}
-                {isConfirmed && "확정 상태"}
+                <strong>포함 내용:</strong> 주간 스케줄, 직원별 근무시간, 시프트 통계
+                {generationResult ? ", AI 생성 결과" : ""}
+                {isConfirmed ? ", 확정 상태" : ""}
               </p>
             </div>
           </div>

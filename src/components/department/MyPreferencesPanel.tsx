@@ -17,7 +17,6 @@ export interface SimplifiedPreferences {
 interface MyPreferencesPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  currentUserId: string;
   onSave: (preferences: SimplifiedPreferences) => void;
   initialPreferences?: Partial<SimplifiedPreferences>;
 }
@@ -25,7 +24,6 @@ interface MyPreferencesPanelProps {
 export function MyPreferencesPanel({
   isOpen,
   onClose,
-  currentUserId,
   onSave,
   initialPreferences
 }: MyPreferencesPanelProps) {

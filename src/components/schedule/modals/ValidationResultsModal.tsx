@@ -26,8 +26,6 @@ export function ValidationResultsModal({
   validationIssues,
   employeeNameMap = {},
 }: ValidationResultsModalProps) {
-  if (!isOpen) return null;
-
   const [selectedSeverity, setSelectedSeverity] = useState<'all' | 'critical' | 'high' | 'medium' | 'low'>('all');
 
   useEffect(() => {
@@ -60,6 +58,8 @@ export function ValidationResultsModal({
     }
     return validationIssues.filter((issue) => issue.severity === selectedSeverity);
   }, [validationIssues, selectedSeverity]);
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-gray-900/50 dark:bg-gray-950/70 flex items-center justify-center z-50 p-4">

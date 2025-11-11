@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createTRPCRouter, publicProcedure, protectedProcedure } from '../trpc';
+import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { scopedDb } from '@/lib/db-helpers';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -15,7 +15,7 @@ export const authRouter = createTRPCRouter({
     .input(z.object({
       organizationId: z.string(),
     }))
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ input }) => {
       // TODO: Validate user has access to organization
       // TODO: Update session with new organization
       return {

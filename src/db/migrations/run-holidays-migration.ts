@@ -1,7 +1,6 @@
 import postgres from 'postgres';
 import { config } from 'dotenv';
 import { join } from 'path';
-import { readFileSync } from 'fs';
 
 config({ path: join(process.cwd(), '.env.local') });
 
@@ -14,7 +13,7 @@ async function runMigration() {
     console.log('🔗 Connecting to database...\n');
 
     const sqlFile = join(process.cwd(), 'src/db/migrations/0002_make_holidays_global.sql');
-    const migrationSql = readFileSync(sqlFile, 'utf8');
+    // const migrationSql = readFileSync(sqlFile, 'utf8');
 
     console.log('📋 Making holidays global...\n');
 

@@ -55,12 +55,13 @@ export default function SignInPage() {
         console.log('Additional auth required:', result);
         setError('추가 인증이 필요합니다.');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Sign in error:', err);
 
       // Clerk 에러 메시지를 한글로 변환
-      if (err.errors?.[0]?.message) {
-        const errorMessage = err.errors[0].message;
+      const error = err as { errors?: { message?: string }[]; message?: string };
+      if (error.errors?.[0]?.message) {
+        const errorMessage = error.errors[0].message;
         if (errorMessage.includes('already signed in')) {
           // 이미 로그인된 경우 대시보드로 리다이렉트
           router.push('/dashboard');
@@ -72,7 +73,7 @@ export default function SignInPage() {
         } else {
           setError('로그인에 실패했습니다. 다시 시도해주세요.');
         }
-      } else if (err.message && err.message.includes('already signed in')) {
+      } else if (error.message && error.message.includes('already signed in')) {
         // 이미 로그인된 경우 대시보드로 리다이렉트
         router.push('/dashboard');
         return;

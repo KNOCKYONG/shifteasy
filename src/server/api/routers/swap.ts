@@ -3,7 +3,7 @@ import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, protectedProcedure, adminProcedure } from '../trpc';
 import { scopedDb, createAuditLog } from '@/lib/db-helpers';
 import { swapRequests, users, schedules } from '@/db/schema';
-import { eq, and, or, gte, lte } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { format } from 'date-fns';
 import { notificationService } from '@/lib/notifications/notification-service';
 
@@ -23,7 +23,7 @@ export const swapRouter = createTRPCRouter({
       // Get current user to check department permissions
       const [currentUser] = await db.query(users, eq(users.id, (ctx.user?.id || 'dev-user-id')));
 
-      let conditions = [];
+      const conditions = [];
       if (input.status) {
         conditions.push(eq(swapRequests.status, input.status));
       }
@@ -74,8 +74,8 @@ export const swapRouter = createTRPCRouter({
         requester: usersMap.get(req.requesterId),
         targetUser: req.targetUserId ? usersMap.get(req.targetUserId) : null,
       })) as Array<typeof results[0] & {
-        requester: any;
-        targetUser: any;
+        requester: { id: string; name: string | null; email: string } | undefined;
+        targetUser: { id: string; name: string | null; email: string } | undefined | null;
       }>;
 
       return {
@@ -323,8 +323,8 @@ export const swapRouter = createTRPCRouter({
         )[0];
 
         // Get assignments from metadata
-        const metadata = schedule.metadata as any;
-        const assignments = metadata?.assignments || [];
+        const metadata = schedule.metadata as Record<string, unknown> | null;
+        const assignments = (metadata?.assignments as Array<{ employeeId: string; date: string; shiftId: string }>) || [];
 
         console.log(`[Swap] Found ${assignments.length} total assignments in schedule`);
 
@@ -377,7 +377,13 @@ export const swapRouter = createTRPCRouter({
 
         // Increment version and add to version history
         const newVersion = (schedule.version || 1) + 1;
-        const versionHistory = metadata?.versionHistory || [];
+        const versionHistory = (metadata?.versionHistory || []) as Array<{
+          version: number;
+          updatedAt: string;
+          updatedBy: string;
+          reason: string;
+          changes?: unknown;
+        }>;
         versionHistory.push({
           version: newVersion,
           updatedAt: new Date().toISOString(),
@@ -417,8 +423,8 @@ export const swapRouter = createTRPCRouter({
 
         // Verify the update by reading back
         const [updatedSchedule] = await db.query(schedules, eq(schedules.id, schedule.id));
-        const updatedMetadata = updatedSchedule.metadata as any;
-        const updatedAssignments = updatedMetadata?.assignments || [];
+        const updatedMetadata = updatedSchedule.metadata as Record<string, unknown> | null;
+        const updatedAssignments = (updatedMetadata?.assignments as Array<{ employeeId: string; date: string; shiftId: string }>) || [];
 
         console.log(`[Swap] Verification - Requester shift in DB: ${updatedAssignments[requesterAssignmentIndex]?.shiftId}`);
         console.log(`[Swap] Verification - Target shift in DB: ${updatedAssignments[targetAssignmentIndex]?.shiftId}`);
@@ -563,8 +569,8 @@ export const swapRouter = createTRPCRouter({
             new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime()
           )[0];
 
-          const metadata = schedule.metadata as any;
-          const assignments = metadata?.assignments || [];
+          const metadata = schedule.metadata as Record<string, unknown> | null;
+          const assignments = (metadata?.assignments as Array<{ employeeId: string; date: string; shiftId: string }>) || [];
 
           if (assignments.length > 0) {
             const swapDateStr = format(swapDate, 'yyyy-MM-dd');

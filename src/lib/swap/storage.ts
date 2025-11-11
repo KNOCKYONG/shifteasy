@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 /**
  * Swap Request Storage
  * 스왑 요청을 메모리에 저장하는 임시 저장소

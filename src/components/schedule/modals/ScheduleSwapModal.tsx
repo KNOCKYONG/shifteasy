@@ -2,9 +2,10 @@
 
 import React, { useState, useMemo } from 'react';
 import { X, Calendar, ArrowRightLeft, Users, Clock, ChevronLeft, RefreshCw } from 'lucide-react';
-import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, getDay } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 interface ScheduleSwapModalProps {
   isOpen: boolean;
   onClose: () => void;

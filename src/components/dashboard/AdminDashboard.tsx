@@ -47,7 +47,9 @@ export function AdminDashboard() {
   const approvedTodayCount = dashboardData?.approvedTodayCount || 0;
 
   // Mock data for pending/approved requests (will be replaced with real data when swap feature is ready)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pendingRequests: any[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const approvedToday: any[] = [];
 
   // Stats widgets
@@ -288,6 +290,7 @@ export function AdminDashboard() {
                 로딩 중...
               </div>
             ) : upcomingShifts && upcomingShifts.length > 0 ? (
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               upcomingShifts.slice(0, 5).map((shift: any, idx: number) => {
                 const shiftDate = new Date(shift.date);
                 const isTodayShift = isToday(shiftDate);
@@ -361,6 +364,7 @@ export function AdminDashboard() {
                 로딩 중...
               </div>
             ) : workmatesData && workmatesData.workmates && workmatesData.workmates.length > 0 ? (
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               workmatesData.workmates.slice(0, 6).map((workmate: any) => (
                 <div
                   key={workmate.id}

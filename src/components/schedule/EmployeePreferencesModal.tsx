@@ -1,10 +1,10 @@
 "use client";
 import { useState, useEffect } from "react";
-import { User, Heart, Calendar, Clock, Users, Shield, X, Save, AlertCircle, Star, UserCheck, UserMinus, ChevronLeft, ChevronRight, Info, CheckCircle, Wallet } from "lucide-react";
+import { User, X, Save, AlertCircle, Star, ChevronLeft, ChevronRight, Info, CheckCircle, Wallet, Clock } from "lucide-react";
 import { type Employee, type EmployeePreferences, type ShiftType } from "@/lib/types/scheduler";
-import { validatePattern as validatePatternUtil, describePattern, EXAMPLE_PATTERNS, KEYWORD_DESCRIPTIONS, type ShiftToken } from "@/lib/utils/pattern-validator";
+import { validatePattern as validatePatternUtil, describePattern, EXAMPLE_PATTERNS } from "@/lib/utils/pattern-validator";
 import { api } from "@/lib/trpc/client";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
+import { format, startOfMonth, endOfMonth } from "date-fns";
 import type { SimplifiedPreferences } from "@/components/department/MyPreferencesPanel";
 
 interface EmployeePreferencesModalProps {
@@ -119,6 +119,7 @@ export function EmployeePreferencesModal({
   useEffect(() => {
     setPreferences(buildInitialPreferences(initialPreferences));
     setHasHydratedFromInitial(!!initialPreferences);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employee.id]);
 
   useEffect(() => {
@@ -127,6 +128,7 @@ export function EmployeePreferencesModal({
     }
     setPreferences(buildInitialPreferences(initialPreferences));
     setHasHydratedFromInitial(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPreferences, hasHydratedFromInitial]);
 
   const [activeTab, setActiveTab] = useState<'basic' | 'request' | 'off-balance'>('basic');
@@ -323,12 +325,6 @@ export function EmployeePreferencesModal({
   }, [existingRequests]);
 
   const daysOfWeek = ['일', '월', '화', '수', '목', '금', '토'];
-  const shiftTypes: { value: ShiftType; label: string; color: string }[] = [
-    { value: 'day', label: '주간', color: 'bg-yellow-100 text-yellow-800' },
-    { value: 'evening', label: '저녁', color: 'bg-purple-100 text-purple-800' },
-    { value: 'night', label: '야간', color: 'bg-indigo-100 text-indigo-800' },
-    { value: 'off', label: '휴무', color: 'bg-gray-100 text-gray-800 dark:text-gray-200' },
-  ];
 
   const persistShiftRequests = async () => {
     // Save shift requests to database
@@ -504,7 +500,7 @@ export function EmployeePreferencesModal({
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => setActiveTab(tab.id as 'basic' | 'request' | 'off-balance')}
                 className={`py-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${
                   activeTab === tab.id
                     ? 'border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400'

@@ -216,7 +216,7 @@ interface TeamCardProps {
   onSave: (team: Team) => void;
   onCancel: () => void;
   onDelete: () => void;
-  t: any;
+  t: (key: string) => string;
 }
 
 function TeamCard({ team, isEditing, onEdit, onSave, onCancel, onDelete, t }: TeamCardProps) {

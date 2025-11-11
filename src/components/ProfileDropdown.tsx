@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useClerk } from '@clerk/nextjs';
-import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { User, LogOut, ChevronDown } from 'lucide-react';
@@ -11,7 +10,6 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 export function ProfileDropdown() {
   const { signOut } = useClerk();
   const currentUser = useCurrentUser();
-  const router = useRouter();
   const queryClient = useQueryClient();
   const dropdownRef = useRef<HTMLDivElement>(null);
 

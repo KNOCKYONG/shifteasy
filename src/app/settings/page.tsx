@@ -2,7 +2,8 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { useAuth, useUser } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
+import Image from "next/image";
 import { User, Shield, Bell, Key, Copy, Save, Loader2, AlertCircle, CheckCircle2, Camera } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { MainLayout } from "@/components/layout/MainLayout";
@@ -48,7 +49,6 @@ function SettingsContent() {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileMessage, setProfileMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
@@ -82,7 +82,6 @@ function SettingsContent() {
     if (user) {
       setFirstName(user.firstName || '');
       setLastName(user.lastName || '');
-      setEmail(user.primaryEmailAddress?.emailAddress || '');
     }
   }, [user]);
 
@@ -142,11 +141,11 @@ function SettingsContent() {
 
       // Reload user data
       await user.reload();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Profile update error:', error);
       setProfileMessage({
         type: 'error',
-        text: error.errors?.[0]?.message || '프로필 업데이트에 실패했습니다.'
+        text: (error as { errors?: { message?: string }[] }).errors?.[0]?.message || '프로필 업데이트에 실패했습니다.'
       });
     } finally {
       setProfileLoading(false);
@@ -165,11 +164,11 @@ function SettingsContent() {
       await user.setProfileImage({ file });
       setProfileMessage({ type: 'success', text: '프로필 이미지가 업데이트되었습니다.' });
       await user.reload();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Image upload error:', error);
       setProfileMessage({
         type: 'error',
-        text: error.errors?.[0]?.message || '이미지 업로드에 실패했습니다.'
+        text: (error as { errors?: { message?: string }[] }).errors?.[0]?.message || '이미지 업로드에 실패했습니다.'
       });
     } finally {
       setUploadingImage(false);
@@ -221,11 +220,11 @@ function SettingsContent() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Password change error:', error);
       setPasswordMessage({
         type: 'error',
-        text: error.message || '비밀번호 변경에 실패했습니다.'
+        text: (error as Error).message || '비밀번호 변경에 실패했습니다.'
       });
     } finally {
       setPasswordLoading(false);
@@ -359,9 +358,16 @@ function SettingsContent() {
                   {/* Profile Picture */}
                   <div className="flex items-center gap-4">
                     <div className="relative">
-                      <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
+                      <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center overflow-hidden">
                         {user?.imageUrl ? (
-                          <img src={user.imageUrl} alt="Profile" className="w-full h-full rounded-full object-cover" />
+                          <Image
+                            src={user.imageUrl}
+                            alt="Profile"
+                            width={80}
+                            height={80}
+                            unoptimized
+                            className="w-full h-full object-cover"
+                          />
                         ) : (
                           <User className="w-10 h-10 text-gray-400 dark:text-gray-600" />
                         )}

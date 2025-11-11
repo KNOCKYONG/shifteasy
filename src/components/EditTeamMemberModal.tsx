@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { X, User, Mail, Phone, Building, Briefcase, Calendar, Info, Loader2, Save } from "lucide-react";
+import { X, User, Briefcase, Info, Loader2 } from "lucide-react";
 import { api } from "@/lib/trpc/client";
 
 interface TeamMember {
@@ -41,6 +41,7 @@ export function EditTeamMemberModal({ isOpen, onClose, member, departments, onUp
     const savedPositions = localStorage.getItem('customPositions');
     if (savedPositions) {
       const parsed = JSON.parse(savedPositions);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const positionsWithLevels = parsed.map((p: any) => ({
         ...p,
         level: p.level || 1
@@ -79,6 +80,7 @@ export function EditTeamMemberModal({ isOpen, onClose, member, departments, onUp
       onUpdate();
       onClose();
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (error: any) => {
       alert(error.message || '정보 수정 중 오류가 발생했습니다.');
     },
@@ -137,6 +139,7 @@ export function EditTeamMemberModal({ isOpen, onClose, member, departments, onUp
               return (
                 <button
                   key={tab.id}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   onClick={() => setActiveTab(tab.id as any)}
                   className={`
                     flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors

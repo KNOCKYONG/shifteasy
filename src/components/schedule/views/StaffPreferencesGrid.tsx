@@ -1,19 +1,11 @@
 import React, { useMemo } from 'react';
 import { ListChecks, Users } from 'lucide-react';
 import { api } from '@/lib/trpc/client';
-
-interface Member {
-  id: string;
-  name: string;
-  position?: string;
-  status: string;
-  teamId?: string | null;
-  yearsOfService?: number | null;
-}
+import type { UnifiedEmployee } from '@/lib/types/unified-employee';
 
 interface StaffPreferencesGridProps {
-  allMembers: Member[];
-  onEmployeeClick: (member: Member) => void;
+  allMembers: UnifiedEmployee[];
+  onEmployeeClick: (member: UnifiedEmployee) => void;
 }
 
 export function StaffPreferencesGrid({ allMembers, onEmployeeClick }: StaffPreferencesGridProps) {
@@ -41,8 +33,9 @@ export function StaffPreferencesGrid({ allMembers, onEmployeeClick }: StaffPrefe
     return { unassigned, byTeam };
   }, [allMembers, teams]);
 
-  const renderMemberCard = (member: Member) => {
-    const careerYears = (member as any).yearsOfService ?? member.yearsOfService;
+  const renderMemberCard = (member: UnifiedEmployee) => {
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const careerYears = (member as any).yearsOfService;
     const careerLabel = typeof careerYears === 'number' && careerYears > 0
       ? `${careerYears}년 차`
       : '경력 정보 없음';

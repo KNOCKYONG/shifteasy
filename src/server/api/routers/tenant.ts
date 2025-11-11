@@ -388,7 +388,18 @@ export const tenantRouter = createTRPCRouter({
         }
 
         // Build update object with only provided fields
-        const updateData: any = {
+        const updateData: {
+          updatedAt: Date;
+          teamId?: string | null;
+          departmentId?: string;
+          position?: string;
+          name?: string;
+          employeeId?: string;
+          status?: 'active' | 'inactive' | 'on_leave';
+          hireDate?: Date;
+          yearsOfService?: number;
+          profile?: Record<string, unknown>;
+        } = {
           updatedAt: new Date()
         };
 

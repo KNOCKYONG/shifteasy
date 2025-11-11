@@ -41,22 +41,11 @@ interface AddPatientModalProps {
 }
 
 const PRIORITY_OPTIONS = [
-  { value: "critical", label: "긴급 (Critical)", color: "red", icon: "🔴" },
-  { value: "high", label: "높음 (High)", color: "orange", icon: "🟠" },
-  { value: "medium", label: "보통 (Medium)", color: "yellow", icon: "🟡" },
-  { value: "low", label: "낮음 (Low)", color: "green", icon: "🟢" },
+  { value: "critical" as const, label: "긴급 (Critical)", color: "red", icon: "🔴" },
+  { value: "high" as const, label: "높음 (High)", color: "orange", icon: "🟠" },
+  { value: "medium" as const, label: "보통 (Medium)", color: "yellow", icon: "🟡" },
+  { value: "low" as const, label: "낮음 (Low)", color: "green", icon: "🟢" },
 ];
-
-const ALERT_TYPES = [
-  { value: "allergy", label: "알러지" },
-  { value: "fall_risk", label: "낙상 위험" },
-  { value: "infection", label: "감염" },
-  { value: "isolation", label: "격리" },
-  { value: "dnr", label: "DNR" },
-  { value: "other", label: "기타" },
-];
-
-const ROUTE_OPTIONS = ["경구", "정맥", "근육", "피하", "흡입", "외용", "기타"];
 
 export function AddPatientModal({ handoffId, onClose, onSuccess }: AddPatientModalProps) {
   // Basic info
@@ -77,14 +66,15 @@ export function AddPatientModal({ handoffId, onClose, onSuccess }: AddPatientMod
 
   // Medications
   const [medications, setMedications] = useState<Medication[]>([]);
+  /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
   const [showMedicationForm, setShowMedicationForm] = useState(false);
 
   // Procedures
-  const [procedures, setProcedures] = useState<ScheduledProcedure[]>([]);
-  const [showProcedureForm, setShowProcedureForm] = useState(false);
+  const [procedures] = useState<ScheduledProcedure[]>([]);
 
   // Alerts
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
   const [showAlertForm, setShowAlertForm] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -129,21 +119,6 @@ export function AddPatientModal({ handoffId, onClose, onSuccess }: AddPatientMod
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const addMedication = (med: Medication) => {
-    setMedications([...medications, med]);
-    setShowMedicationForm(false);
-  };
-
-  const addProcedure = (proc: ScheduledProcedure) => {
-    setProcedures([...procedures, proc]);
-    setShowProcedureForm(false);
-  };
-
-  const addAlert = (alert: Alert) => {
-    setAlerts([...alerts, alert]);
-    setShowAlertForm(false);
   };
 
   return (
@@ -220,7 +195,7 @@ export function AddPatientModal({ handoffId, onClose, onSuccess }: AddPatientMod
                   <button
                     key={option.value}
                     type="button"
-                    onClick={() => setPriority(option.value as any)}
+                    onClick={() => setPriority(option.value)}
                     className={`p-3 border-2 rounded-lg transition-all ${
                       priority === option.value
                         ? `border-${option.color}-500 bg-${option.color}-50`

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { currentUser, auth, clerkClient } from '@clerk/nextjs/server';
 import { db } from '@/db';
 import { users, tenants } from '@/db/schema/tenants';

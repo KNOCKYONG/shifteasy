@@ -30,7 +30,7 @@ export const preferencesRouter = createTRPCRouter({
       staffId: z.string(),
       departmentId: z.string().optional(),
     }))
-    .query(async ({ ctx, input }) => {
+    .query(async ({ input }) => {
       const result = await db.select()
         .from(nursePreferences)
         .where(eq(nursePreferences.nurseId, input.staffId))

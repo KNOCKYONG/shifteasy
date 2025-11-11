@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 /**
  * Employee 데이터 모델 간 변환 어댑터 (간소화됨)
  */

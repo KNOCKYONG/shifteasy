@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, createContext, useContext, useCallback } from 'react';
+import { useState, createContext, useContext, useCallback } from 'react';
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -28,6 +28,10 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const removeToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  }, []);
 
   const addToast = useCallback((toast: Omit<Toast, 'id'>) => {
     const id = Math.random().toString(36).substr(2, 9);
@@ -59,11 +63,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         removeToast(id);
       }, duration);
     }
-  }, []);
-
-  const removeToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id));
-  }, []);
+  }, [removeToast]);
 
   return (
     <ToastContext.Provider value={{ toasts, addToast, removeToast }}>
@@ -172,57 +172,56 @@ function ToastItem({
   );
 }
 
-// Helper functions for common toast types
-export const toast = {
-  success: (title: string, description?: string, options?: Partial<Toast>) => {
-    const { addToast } = useToast();
-    addToast({ type: 'success', title, description, ...options });
-  },
-  error: (title: string, description?: string, options?: Partial<Toast>) => {
-    const { addToast } = useToast();
-    addToast({ type: 'error', title, description, ...options });
-  },
-  warning: (title: string, description?: string, options?: Partial<Toast>) => {
-    const { addToast } = useToast();
-    addToast({ type: 'warning', title, description, ...options });
-  },
-  info: (title: string, description?: string, options?: Partial<Toast>) => {
-    const { addToast } = useToast();
-    addToast({ type: 'info', title, description, ...options });
-  },
-  promise: async <T,>(
-    promise: Promise<T>,
-    messages: {
-      loading: string;
-      success: string | ((data: T) => string);
-      error: string | ((error: any) => string);
-    }
-  ) => {
-    const { addToast } = useToast();
+// Helper hook for easier toast usage in components
+// Usage: const toast = useToastHelper();
+//        toast.success('Success!');
+export function useToastHelper() {
+  const { addToast } = useToast();
 
-    // Show loading toast
-    const loadingId = Math.random().toString(36).substr(2, 9);
-    addToast({
-      type: 'info',
-      title: messages.loading,
-      duration: 0, // Don't auto-dismiss
-    });
+  return {
+    success: (title: string, description?: string, options?: Partial<Toast>) => {
+      addToast({ type: 'success', title, description, ...options });
+    },
+    error: (title: string, description?: string, options?: Partial<Toast>) => {
+      addToast({ type: 'error', title, description, ...options });
+    },
+    warning: (title: string, description?: string, options?: Partial<Toast>) => {
+      addToast({ type: 'warning', title, description, ...options });
+    },
+    info: (title: string, description?: string, options?: Partial<Toast>) => {
+      addToast({ type: 'info', title, description, ...options });
+    },
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    promise: async <T,>(
+      promise: Promise<T>,
+      messages: {
+        loading: string;
+        success: string | ((data: T) => string);
+        error: string | ((error: any) => string);
+      }
+    ) => {
+      // Show loading toast
+      addToast({
+        type: 'info',
+        title: messages.loading,
+        duration: 0,
+      });
 
-    try {
-      const result = await promise;
-      // Show success toast
-      const successMessage = typeof messages.success === 'function'
-        ? messages.success(result)
-        : messages.success;
-      addToast({ type: 'success', title: successMessage });
-      return result;
-    } catch (error) {
-      // Show error toast
-      const errorMessage = typeof messages.error === 'function'
-        ? messages.error(error)
-        : messages.error;
-      addToast({ type: 'error', title: errorMessage });
-      throw error;
-    }
-  },
-};
+      try {
+        const result = await promise;
+        const successMessage = typeof messages.success === 'function'
+          ? messages.success(result)
+          : messages.success;
+        addToast({ type: 'success', title: successMessage });
+        return result;
+      } catch (error) {
+        const errorMessage = typeof messages.error === 'function'
+          ? messages.error(error)
+          : messages.error;
+        addToast({ type: 'error', title: errorMessage });
+        throw error;
+      }
+    },
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+  };
+}

@@ -218,7 +218,7 @@ export function ReportModal({
                   </div>
                 </div>
                 <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
-                  공정성 지수는 Jain's Fairness Index를 기반으로 계산되었으며,
+                  공정성 지수는 Jain&apos;s Fairness Index를 기반으로 계산되었으며,
                   모든 직원의 근무 부담이 얼마나 균등하게 분배되었는지를 나타냅니다.
                 </div>
               </div>

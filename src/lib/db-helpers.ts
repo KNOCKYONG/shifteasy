@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import type { Database } from '@/db';

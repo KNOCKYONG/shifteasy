@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ProfileDropdown } from '@/components/ProfileDropdown';
 import { SettingsMenu } from '@/components/SettingsMenu';

@@ -3,7 +3,7 @@ import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { db } from '@/db';
 import { specialRequests } from '@/db/schema/special-requests';
 import { users } from '@/db/schema/tenants';
-import { eq, and, between, or, lte, gte } from 'drizzle-orm';
+import { eq, and, or, lte, gte } from 'drizzle-orm';
 
 export const specialRequestsRouter = createTRPCRouter({
   // Get special requests for a specific date range

@@ -1,7 +1,7 @@
 'use client';
 
 import { MainLayout } from '@/components/layout/MainLayout';
-import { Bell, Info, AlertTriangle, CheckCircle, Clock, Calendar, UserCheck, AlertCircle } from 'lucide-react';
+import { Bell, Info, AlertTriangle, Clock, Calendar, UserCheck, AlertCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 
@@ -14,7 +14,7 @@ interface Notification {
   actionUrl?: string;
   readAt?: Date | null;
   createdAt: Date;
-  data?: any;
+  data?: Record<string, unknown>;
 }
 
 interface NotificationInbox {
@@ -53,6 +53,7 @@ export default function NotificationsPage() {
     if (userInfo) {
       loadNotifications();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userInfo]);
 
   const loadNotifications = async () => {

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 // 이벤트 타입 정의
 export type SSEEventType =
   | 'schedule.updated'

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Clock, Users, ChevronLeft, ChevronRight, Calendar, X } from 'lucide-react';
+import { Clock, Users, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { format, addDays, subDays, isToday, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, startOfWeek, endOfWeek } from 'date-fns';
 import { ko as koLocale, enUS as enLocale, ja as jaLocale } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
@@ -396,7 +396,7 @@ export function TodayScheduleBoard({
                         {/* Employees */}
                         <div className="space-y-1.5">
                           {shiftEmployees.length > 0 ? (
-                            shiftEmployees.map(({ employee, shift }) => (
+                            shiftEmployees.map(({ employee }) => (
                               <div
                                 key={employee.id}
                                 className="flex items-center p-2 bg-gray-50 dark:bg-gray-700 rounded shadow-sm"

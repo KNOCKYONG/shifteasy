@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 /**
  * Unified Notification Service with Supabase persistence
  * All operations are logged for debugging and monitoring

@@ -91,7 +91,7 @@ export const ConfirmationDialog = memo(function ConfirmationDialog({
                          transition-colors"
               />
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                입력하지 않으면 "{defaultScheduleName}"로 저장됩니다.
+                입력하지 않으면 &quot;{defaultScheduleName}&quot;로 저장됩니다.
               </p>
             </div>
 

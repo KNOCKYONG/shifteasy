@@ -8,37 +8,19 @@ import {
   Plus,
   Clock,
   AlertCircle,
-  CheckCircle,
   Users,
   ArrowRight,
-  Calendar,
   Filter,
-  Search,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { api } from "@/lib/trpc/client";
 import { CreateHandoffDialog } from "@/components/handoff/CreateHandoffDialog";
-
-// Priority color mapping
-const PRIORITY_COLORS = {
-  critical: "bg-red-100 text-red-800 border-red-300",
-  high: "bg-orange-100 text-orange-800 border-orange-300",
-  medium: "bg-yellow-100 text-yellow-800 border-yellow-300",
-  low: "bg-green-100 text-green-800 border-green-300",
-};
 
 const PRIORITY_ICONS = {
   critical: "🔴",
   high: "🟠",
   medium: "🟡",
   low: "🟢",
-};
-
-const PRIORITY_LABELS = {
-  critical: "긴급",
-  high: "높음",
-  medium: "보통",
-  low: "낮음",
 };
 
 const STATUS_LABELS = {
@@ -64,7 +46,7 @@ const SHIFT_TYPE_LABELS = {
 export default function HandoffPage() {
   const [activeTab, setActiveTab] = useState<"to-give" | "to-receive">("to-give");
   const [showNewHandoffDialog, setShowNewHandoffDialog] = useState(false);
-  const [selectedDepartment, setSelectedDepartment] = useState<string>("");
+  const [selectedDepartment] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   // Fetch handoffs I need to give (as handover user)
@@ -234,10 +216,10 @@ export default function HandoffPage() {
             </div>
           ) : filteredHandoffs && filteredHandoffs.length > 0 ? (
             filteredHandoffs.map((handoff) => {
-              const metadata = handoff.metadata as any;
-              const totalPatients = metadata?.totalPatients || 0;
-              const criticalCount = metadata?.criticalCount || 0;
-              const highCount = metadata?.highCount || 0;
+              const metadata = handoff.metadata as Record<string, unknown> | null;
+              const totalPatients = (metadata?.totalPatients as number) || 0;
+              const criticalCount = (metadata?.criticalCount as number) || 0;
+              const highCount = (metadata?.highCount as number) || 0;
 
               return (
                 <div

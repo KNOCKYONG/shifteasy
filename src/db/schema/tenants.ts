@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { pgTable, uuid, text, timestamp, jsonb, integer, index } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 import { teams } from './teams';
@@ -60,6 +61,7 @@ export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
   departmentId: uuid('department_id').references(() => departments.id, { onDelete: 'set null' }),
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   teamId: uuid('team_id').references((): any => (require('./teams').teams).id, { onDelete: 'set null' }),
   clerkUserId: text('clerk_user_id').unique(),
   email: text('email').notNull(),

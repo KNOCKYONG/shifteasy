@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { ClipboardList, Plus, Edit2, Trash2, Save, X, Check } from "lucide-react";
+import { ClipboardList, Plus, Trash2, Save, X, Check } from "lucide-react";
 import { api as trpc } from "@/lib/trpc/client";
 
 interface FieldConfig {
@@ -65,7 +65,6 @@ const DEFAULT_TEMPLATE_CONFIG: TemplateConfig = {
 export function HandoffTemplatesTab() {
   const utils = trpc.useUtils();
   const [isCreating, setIsCreating] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [newTemplate, setNewTemplate] = useState({
     name: '',
     description: '',
@@ -85,13 +84,6 @@ export function HandoffTemplatesTab() {
         description: '',
         config: DEFAULT_TEMPLATE_CONFIG,
       });
-    },
-  });
-
-  const updateMutation = trpc.handoff.updateTemplate.useMutation({
-    onSuccess: async () => {
-      await utils.handoff.listTemplates.invalidate();
-      setEditingId(null);
     },
   });
 

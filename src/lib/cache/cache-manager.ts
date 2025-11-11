@@ -1,6 +1,7 @@
 /**
  * Cache Manager for application-level caching
  */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { redisClient } from './redis-client';
 

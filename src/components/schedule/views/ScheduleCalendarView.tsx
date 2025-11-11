@@ -71,7 +71,7 @@ export const ScheduleCalendarView = React.memo(function ScheduleCalendarView({
           const isCurrentMonth = date >= monthStart && date <= monthEnd;
           const dateStr = format(date, 'yyyy-MM-dd');
           const dayOfWeek = date.getDay();
-          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+          // const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
           const isHoliday = holidayDates.has(dateStr);
           const isWeekendOrHoliday = isHoliday || dayOfWeek === 0 || dayOfWeek === 6;
 

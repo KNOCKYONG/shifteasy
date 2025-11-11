@@ -3,7 +3,6 @@
  * Bypasses Drizzle to run SQL migrations directly
  */
 
-import { readFileSync } from 'fs';
 import postgres from 'postgres';
 import { config } from 'dotenv';
 import { join } from 'path';
@@ -21,7 +20,7 @@ async function runMigration() {
     console.log('✅ Connected successfully\n');
 
     const sqlFile = join(process.cwd(), 'src/db/migrations/0001_add_department_id.sql');
-    const sqlContent = readFileSync(sqlFile, 'utf8');
+    // const sqlContent = readFileSync(sqlFile, 'utf8');
 
     console.log('📋 Executing migration...\n');
 

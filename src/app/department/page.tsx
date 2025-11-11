@@ -30,8 +30,8 @@ type TeamMember = {
   createdAt?: string;
   joinDate?: string;
   profile?: {
-    avatar?: string | null;
-    phone?: string | null;
+    avatar?: string;
+    phone?: string;
   } | null;
 };
 
@@ -663,7 +663,7 @@ const departments =
           setShowEditForm(false);
           setSelectedMember(null);
         }}
-        member={selectedMember as any}
+        member={selectedMember as TeamMember & { departmentName?: string }}
         departments={departments}
         onUpdate={() => {
           refetchUsers();

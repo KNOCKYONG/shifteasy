@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { Globe } from 'lucide-react'
-import { useRouter, usePathname } from 'next/navigation'
 
 const languages = [
   { code: 'ko', name: '한국어', flag: '🇰🇷' },
@@ -11,8 +10,6 @@ const languages = [
 ]
 
 export function LanguageSwitcher() {
-  const router = useRouter()
-  const pathname = usePathname()
   const [currentLang, setCurrentLang] = useState('ko')
   const [isOpen, setIsOpen] = useState(false)
 

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
-import { createTRPCRouter, protectedProcedure, adminProcedure } from '../trpc';
+import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { scopedDb, createAuditLog } from '@/lib/db-helpers';
 import { schedules, users, departments, nursePreferences, offBalanceLedger, holidays, specialRequests, teams } from '@/db/schema';
 import { eq, and, gte, lte, desc, inArray, isNull, ne, or } from 'drizzle-orm';
@@ -339,12 +339,23 @@ export const scheduleRouter = createTRPCRouter({
       try {
         const tenantId = (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d');
 
+        type ScheduleMetadata = {
+          assignments?: Array<{
+            employeeId: string;
+            shiftType?: string;
+            date: string | Date;
+            [key: string]: unknown;
+          }>;
+          [key: string]: unknown;
+        };
+
         // Get schedule assignments from metadata
-        const assignments = (schedule.metadata as any)?.assignments || [];
+        const metadata = schedule.metadata as ScheduleMetadata;
+        const assignments = metadata?.assignments || [];
 
         if (assignments.length > 0) {
           // Get all unique employee IDs from assignments
-          const employeeIds = [...new Set(assignments.map((a: any) => a.employeeId as string))] as string[];
+          const employeeIds = [...new Set(assignments.map((a) => a.employeeId))] as string[];
 
           // Get nurse preferences for all employees
           const employeePreferences = await db.query(
@@ -371,8 +382,8 @@ export const scheduleRouter = createTRPCRouter({
 
           for (const employeeId of employeeIds) {
             // Count actual OFF days assigned to this employee (using shift code instead of ID)
-            const employeeAssignments = assignments.filter((a: any) => a.employeeId === employeeId);
-            const actualOffDays = employeeAssignments.filter((a: any) =>
+            const employeeAssignments = assignments.filter((a) => a.employeeId === employeeId);
+            const actualOffDays = employeeAssignments.filter((a) =>
               a.shiftType === 'O' || a.shiftType === 'OFF'
             ).length;
 
@@ -621,8 +632,20 @@ export const scheduleRouter = createTRPCRouter({
         });
       }
 
+      type VersionMetadata = {
+        versionHistory?: Array<{
+          version: number;
+          updatedAt: string;
+          updatedBy: string;
+          reason: string;
+          changes?: unknown;
+        }>;
+        [key: string]: unknown;
+      };
+
       const newVersion = currentSchedule.version + 1;
-      const versionHistory = (currentSchedule.metadata as any)?.versionHistory || [];
+      const metadata = currentSchedule.metadata as VersionMetadata;
+      const versionHistory = metadata?.versionHistory || [];
 
       // Add to version history
       versionHistory.push({
@@ -639,7 +662,7 @@ export const scheduleRouter = createTRPCRouter({
         .set({
           version: newVersion,
           metadata: {
-            ...currentSchedule.metadata as any,
+            ...metadata,
             versionHistory,
           },
           updatedAt: new Date(),
@@ -816,7 +839,7 @@ export const scheduleRouter = createTRPCRouter({
       today.setHours(0, 0, 0, 0);
 
       // Execute queries in parallel
-      const [todaySchedule, pendingSwaps] = await Promise.all([
+      const [todaySchedule] = await Promise.all([
         // Find schedule that includes today (published only, limit 1)
         db
           .select({
@@ -839,21 +862,30 @@ export const scheduleRouter = createTRPCRouter({
           .orderBy(desc(schedules.publishedAt))
           .limit(1)
           .then(rows => rows[0] || null),
-
-        // Get pending swap requests count (if swap table exists)
-        // For now, return empty array - will be implemented when swap feature is ready
-        Promise.resolve([]),
       ]);
+
+      type AssignmentRecord = {
+        employeeId: string;
+        date: string | Date;
+        shiftId?: string | null;
+        shiftType?: string;
+        [key: string]: unknown;
+      };
+
+      type DashboardMetadata = {
+        assignments?: AssignmentRecord[];
+        [key: string]: unknown;
+      };
 
       // Extract today's working count from schedule metadata
       let workingToday = 0;
       if (todaySchedule && todaySchedule.metadata) {
-        const metadata = todaySchedule.metadata as any;
+        const metadata = todaySchedule.metadata as DashboardMetadata;
         const assignments = metadata?.assignments || [];
         const todayStr = today.toISOString().split('T')[0];
 
         // Helper function to identify non-working shifts
-        const isNonWorkingShift = (assignment: any): boolean => {
+        const isNonWorkingShift = (assignment: AssignmentRecord): boolean => {
           if (!assignment.shiftId && !assignment.shiftType) return true; // 빈 배정
 
           const nonWorkingCodes = [
@@ -869,26 +901,26 @@ export const scheduleRouter = createTRPCRouter({
           const shiftTypeUpper = assignment.shiftType?.toUpperCase();
 
           return (
-            nonWorkingCodes.includes(assignment.shiftId) ||
-            nonWorkingCodes.includes(assignment.shiftType) ||
-            nonWorkingCodes.some(code => code.toUpperCase() === shiftIdUpper) ||
-            nonWorkingCodes.some(code => code.toUpperCase() === shiftTypeUpper)
+            (assignment.shiftId != null && nonWorkingCodes.includes(assignment.shiftId)) ||
+            (assignment.shiftType != null && nonWorkingCodes.includes(assignment.shiftType)) ||
+            (shiftIdUpper != null && nonWorkingCodes.some(code => code.toUpperCase() === shiftIdUpper)) ||
+            (shiftTypeUpper != null && nonWorkingCodes.some(code => code.toUpperCase() === shiftTypeUpper))
           );
         };
 
         // Debug: Log all today's assignments
-        const todayAssignments = assignments.filter((a: any) => {
+        const todayAssignments = assignments.filter((a) => {
           const assignmentDate = new Date(a.date).toISOString().split('T')[0];
           return assignmentDate === todayStr;
         });
 
-        console.log('📊 오늘 전체 배정:', todayAssignments.map((a: any) => ({
+        console.log('📊 오늘 전체 배정:', todayAssignments.map((a) => ({
           employeeId: a.employeeId,
           shiftId: a.shiftId,
           shiftType: a.shiftType,
         })));
 
-        const workingAssignments = todayAssignments.filter((assignment: any) => {
+        const workingAssignments = todayAssignments.filter((assignment) => {
           const isWorking = !isNonWorkingShift(assignment);
           if (!isWorking) {
             console.log('🚫 비근무 제외:', {
@@ -959,11 +991,21 @@ export const scheduleRouter = createTRPCRouter({
         return [];
       }
 
+      type TodayAssignmentRecord = {
+        date: string | Date;
+        [key: string]: unknown;
+      };
+
+      type TodayMetadata = {
+        assignments?: TodayAssignmentRecord[];
+        [key: string]: unknown;
+      };
+
       // Extract only today's assignments from metadata
-      const metadata = schedule.metadata as any;
+      const metadata = schedule.metadata as TodayMetadata;
       const allAssignments = metadata?.assignments || [];
 
-      const todayAssignments = allAssignments.filter((a: any) => {
+      const todayAssignments = allAssignments.filter((a) => {
         const assignmentDate = new Date(a.date).toISOString().split('T')[0];
         return assignmentDate === targetDateStr;
       });
@@ -1006,17 +1048,47 @@ export const scheduleRouter = createTRPCRouter({
         ))
         .orderBy(desc(schedules.publishedAt));
 
+      type ShiftAssignment = {
+        employeeId: string;
+        date: string | Date;
+        shiftId?: string;
+        [key: string]: unknown;
+      };
+
+      type ShiftType = {
+        code?: string;
+        id?: string;
+        name?: string;
+        startTime?: string;
+        endTime?: string;
+        color?: string;
+        [key: string]: unknown;
+      };
+
+      type UpcomingShiftsMetadata = {
+        assignments?: ShiftAssignment[];
+        shiftTypes?: ShiftType[];
+        [key: string]: unknown;
+      };
+
+      type EnrichedAssignment = ShiftAssignment & {
+        shiftName?: string;
+        startTime?: string;
+        endTime?: string;
+        color?: string;
+      };
+
       // Extract my assignments from all schedules
-      const myShifts: any[] = [];
+      const myShifts: EnrichedAssignment[] = [];
       for (const schedule of scheduleList) {
         if (!schedule.metadata) continue;
 
-        const metadata = schedule.metadata as any;
+        const metadata = schedule.metadata as UpcomingShiftsMetadata;
         const assignments = metadata?.assignments || [];
         const shiftTypes = metadata?.shiftTypes || [];
 
         // Filter assignments for current user within the date range
-        const userAssignments = assignments.filter((a: any) => {
+        const userAssignments = assignments.filter((a) => {
           if (a.employeeId !== currentUserId) return false;
 
           const assignmentDate = new Date(a.date);
@@ -1026,10 +1098,10 @@ export const scheduleRouter = createTRPCRouter({
         // Add shift type information to each assignment
         // Add shift type information to each assignment
         // Add shift type information to each assignment
-        const enrichedAssignments = userAssignments.map((assignment: any) => {
+        const enrichedAssignments = userAssignments.map((assignment) => {
           // Convert shiftId to code format: 'shift-o' -> 'O', 'shift-a' -> 'A'
           const shiftCode = assignment.shiftId?.replace('shift-', '').toUpperCase();
-          const shiftType = shiftTypes.find((st: any) =>
+          const shiftType = shiftTypes.find((st) =>
             st.code === shiftCode || st.id === assignment.shiftId || st.code === assignment.shiftId
           );
 
@@ -1104,38 +1176,53 @@ export const scheduleRouter = createTRPCRouter({
       const currentUserId = ctx.user?.id;
       if (!currentUserId) return { workmates: [], myShifts: [] };
 
+      type WorkmateAssignment = {
+        employeeId: string;
+        date: string | Date;
+        shiftId?: string | null;
+        shiftType?: string;
+        [key: string]: unknown;
+      };
+
+      type WorkmateMetadata = {
+        assignments?: WorkmateAssignment[];
+        [key: string]: unknown;
+      };
+
       // Extract assignments from all schedules
-      const myShifts: any[] = [];
-      const allAssignments: any[] = [];
+      const myShifts: WorkmateAssignment[] = [];
+      const allAssignments: WorkmateAssignment[] = [];
 
       for (const schedule of scheduleList) {
         if (!schedule.metadata) continue;
 
-        const metadata = schedule.metadata as any;
+        const metadata = schedule.metadata as WorkmateMetadata;
         const assignments = metadata?.assignments || [];
 
         // Filter assignments within this week
-        const weekAssignments = assignments.filter((a: any) => {
+        const weekAssignments = assignments.filter((a) => {
           const assignmentDate = new Date(a.date);
           return assignmentDate >= startOfWeek && assignmentDate <= endOfWeek;
         });
 
         // Separate my shifts
-        const userAssignments = weekAssignments.filter((a: any) => a.employeeId === currentUserId);
+        const userAssignments = weekAssignments.filter((a) => a.employeeId === currentUserId);
         myShifts.push(...userAssignments);
 
         allAssignments.push(...weekAssignments);
       }
 
       // Helper to check if non-working shift
-      const isNonWorkingShift = (assignment: any): boolean => {
+      const isNonWorkingShift = (assignment: WorkmateAssignment): boolean => {
         if (!assignment.shiftId && !assignment.shiftType) return true;
         const nonWorkingCodes = ['off', 'OFF', 'O', 'LEAVE', 'VAC', '연차'];
+        const shiftIdUpper = assignment.shiftId?.toUpperCase();
+        const shiftTypeUpper = assignment.shiftType?.toUpperCase();
         return (
-          nonWorkingCodes.includes(assignment.shiftId) ||
-          nonWorkingCodes.includes(assignment.shiftType) ||
-          nonWorkingCodes.includes(assignment.shiftId?.toUpperCase()) ||
-          nonWorkingCodes.includes(assignment.shiftType?.toUpperCase())
+          (assignment.shiftId != null && nonWorkingCodes.includes(assignment.shiftId)) ||
+          (assignment.shiftType != null && nonWorkingCodes.includes(assignment.shiftType)) ||
+          (shiftIdUpper != null && nonWorkingCodes.includes(shiftIdUpper)) ||
+          (shiftTypeUpper != null && nonWorkingCodes.includes(shiftTypeUpper))
         );
       };
 
@@ -1148,7 +1235,7 @@ export const scheduleRouter = createTRPCRouter({
         const myDate = new Date(myShift.date).toISOString().split('T')[0];
 
         // Find others working on the same day
-        const sameDayWorkers = allAssignments.filter((a: any) => {
+        const sameDayWorkers = allAssignments.filter((a) => {
           if (a.employeeId === currentUserId) return false;
           if (isNonWorkingShift(a)) return false;
 

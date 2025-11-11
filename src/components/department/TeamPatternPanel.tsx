@@ -17,16 +17,12 @@ import {
 import {
   TeamPattern,
   validateTeamPattern,
-  DEFAULT_PATTERNS,
-  SHIFT_TYPES
 } from '@/lib/types/team-pattern';
 import {
   validatePattern,
-  tokensToString,
   describePattern,
   EXAMPLE_PATTERNS,
   KEYWORD_DESCRIPTIONS,
-  type ShiftToken
 } from '@/lib/utils/pattern-validator';
 
 interface ShiftType {
@@ -270,6 +266,7 @@ export function TeamPatternPanel({
       borderColor: hexColor,
       color: hexColor,
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shiftTypes]);
 
   // 패턴 텍스트 입력 핸들러
@@ -1014,9 +1011,9 @@ export function TeamPatternPanel({
                     const isStyleObject = typeof colorStyle === 'object';
                     // 기피 패턴은 좀 더 진한 색상 사용
                     const avoidColorStyle = isStyleObject ? {
-                      backgroundColor: `${(colorStyle as any).borderColor}30`, // 30% opacity for more emphasis
-                      borderColor: (colorStyle as any).borderColor,
-                      color: (colorStyle as any).color,
+                      backgroundColor: `${(colorStyle as Record<string, string>).borderColor}30`, // 30% opacity for more emphasis
+                      borderColor: (colorStyle as Record<string, string>).borderColor,
+                      color: (colorStyle as Record<string, string>).color,
                     } : colorStyle.replace('50', '100').replace('300', '400').replace('700', '800');
 
                     return (

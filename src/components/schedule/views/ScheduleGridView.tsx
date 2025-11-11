@@ -9,7 +9,7 @@ interface Member {
   position?: string;
 }
 
-interface Assignment {
+interface GridAssignment {
   employeeId: string;
   shiftId: string;
   isSwapRequested?: boolean;
@@ -29,15 +29,15 @@ interface ScheduleGridViewProps {
   scheduleGridTemplate: string;
   holidayDates: Set<string>;
   showCodeFormat?: boolean;
-  getScheduleForDay: (date: Date) => Assignment[];
-  getAssignmentsForCell: (date: Date, employeeId: string) => Assignment[];
+  getScheduleForDay: (date: Date) => GridAssignment[];
+  getAssignmentsForCell: (date: Date, employeeId: string) => GridAssignment[];
   getShiftColor: (shiftId: string) => string;
   getShiftName: (shiftId: string) => string;
-  getShiftCode?: (assignment: Assignment) => string;
+  getShiftCode?: (assignment: GridAssignment) => string;
   enableSwapMode?: boolean;
   currentUserId?: string;
   selectedSwapCell?: { date: string; employeeId: string } | null;
-  onCellClick?: (date: Date, employeeId: string, assignment: Assignment | null) => void;
+  onCellClick?: (date: Date, employeeId: string, assignment: GridAssignment | null) => void;
   offBalanceData?: Map<string, OffBalanceInfo>;
   showOffBalance?: boolean;
   enableManagerEdit?: boolean;
@@ -50,7 +50,7 @@ export const ScheduleGridView = React.memo(function ScheduleGridView({
   scheduleGridTemplate,
   holidayDates,
   showCodeFormat = false,
-  getScheduleForDay,
+  // getScheduleForDay,
   getAssignmentsForCell,
   getShiftColor,
   getShiftName,

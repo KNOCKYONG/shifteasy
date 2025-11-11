@@ -1,7 +1,6 @@
 import postgres from 'postgres';
 import { config } from 'dotenv';
 import { join } from 'path';
-import { readFileSync } from 'fs';
 
 config({ path: join(process.cwd(), '.env.local') });
 

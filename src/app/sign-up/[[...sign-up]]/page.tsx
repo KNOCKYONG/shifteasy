@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSignUp } from '@clerk/nextjs';
 import { Mail, Lock, Eye, EyeOff, AlertCircle, User, Key, Building2, Calendar, FileText } from 'lucide-react';
@@ -17,7 +17,7 @@ export default function SignUpPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'code' | 'signup'>('code');
-  const [tenantInfo, setTenantInfo] = useState<any>(null);
+  const [tenantInfo, setTenantInfo] = useState<{ id?: string; name?: string; department?: { name: string } } | null>(null);
   const [showGuestForm, setShowGuestForm] = useState(false);
   const [guestEmail, setGuestEmail] = useState('');
   const [guestPassword, setGuestPassword] = useState('');
@@ -30,10 +30,10 @@ export default function SignUpPage() {
   const [yearsOfService, setYearsOfService] = useState(0);
 
   const router = useRouter();
-  const { isLoaded, signUp, setActive } = useSignUp();
+  const { isLoaded } = useSignUp();
 
   // 시크릿 코드 검증
-  const handleSecretCodeSubmit = async (e: React.FormEvent) => {
+  const handleSecretCodeSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -56,7 +56,7 @@ export default function SignUpPage() {
       } else {
         setError('유효하지 않은 시크릿 코드입니다.');
       }
-    } catch (err) {
+    } catch {
       setError('시크릿 코드 확인 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
@@ -64,7 +64,7 @@ export default function SignUpPage() {
   };
 
   // 회원가입
-  const handleSignUpSubmit = async (e: React.FormEvent) => {
+  const handleSignUpSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -108,7 +108,7 @@ export default function SignUpPage() {
       // 회원가입 성공 후 바로 로그인
       router.push('/sign-in');
 
-    } catch (err: any) {
+    } catch (err) {
       console.error('Sign up error:', err);
       setError('회원가입 중 오류가 발생했습니다.');
     } finally {
@@ -117,7 +117,7 @@ export default function SignUpPage() {
   };
 
   // 게스트 계정 생성
-  const handleGuestSignup = async (e: React.FormEvent) => {
+  const handleGuestSignup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
     setGuestLoading(true);
@@ -150,7 +150,7 @@ export default function SignUpPage() {
 
       // 게스트 계정 생성 성공 - 로그인 페이지로 이동
       router.push('/sign-in?message=guest-created');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Guest signup error:', err);
       setError('게스트 계정 생성 중 오류가 발생했습니다.');
     } finally {

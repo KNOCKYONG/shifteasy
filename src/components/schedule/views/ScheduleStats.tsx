@@ -18,8 +18,6 @@ interface ScheduleStatsProps {
 }
 
 export const ScheduleStats = React.memo(function ScheduleStats({ schedule, shifts }: ScheduleStatsProps) {
-  if (schedule.length === 0) return null;
-
   const shiftCounts = React.useMemo(() => {
     const counts = new Map<string, number>();
     schedule.forEach((assignment) => {
@@ -27,6 +25,8 @@ export const ScheduleStats = React.memo(function ScheduleStats({ schedule, shift
     });
     return counts;
   }, [schedule]);
+
+  if (schedule.length === 0) return null;
 
   return (
     <div className="mt-6 grid grid-cols-4 gap-4">

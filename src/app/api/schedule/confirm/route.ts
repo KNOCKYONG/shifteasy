@@ -34,7 +34,6 @@ const ConfirmScheduleSchema = z.object({
 type ConfirmScheduleInput = z.infer<typeof ConfirmScheduleSchema>;
 type ScheduleAssignmentPayload = ConfirmScheduleInput['schedule']['assignments'][number];
 type ScheduleRow = typeof schedules.$inferSelect;
-type ScheduleInsert = typeof schedules.$inferInsert;
 type ConfirmedScheduleRecord = ScheduleRow & {
   assignments: ScheduleAssignmentPayload[];
   metadata?: Record<string, unknown> | null;

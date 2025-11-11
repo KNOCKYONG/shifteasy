@@ -2,9 +2,8 @@
 
 import { useState } from 'react';
 import { X, Calendar, Clock, Users, Info, AlertTriangle, ArrowLeftRight, ChevronLeft, ChevronRight } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth, isSameDay, addMonths, subMonths } from 'date-fns';
 import { eachDayOfInterval } from 'date-fns/eachDayOfInterval';
-import { ko } from 'date-fns/locale';
 
 interface NewRequestModalProps {
   isOpen: boolean;
@@ -46,8 +45,10 @@ export function NewRequestModal({
   const [requestType, setRequestType] = useState<'swap' | 'cover' | 'auto-match' | 'open-request'>('swap');
   const [selectedSchedule, setSelectedSchedule] = useState('');
   const [targetDate, setTargetDate] = useState('');
+  /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
   const [targetShift, setTargetShift] = useState('');
   const [reason, setReason] = useState('');
+  /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
   const [showFairnessWarning, setShowFairnessWarning] = useState(false);
 
   // 달력 관련 상태

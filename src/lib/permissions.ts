@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 /**
  * Permission Matrix for ShiftEasy
  * Defines all permissions and role-based access control
