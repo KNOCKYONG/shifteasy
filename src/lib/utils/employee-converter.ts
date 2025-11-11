@@ -3,7 +3,7 @@
  */
 
 import type { UnifiedEmployee } from "@/lib/types/unified-employee";
-import type { Employee, EmployeePreferences, EmployeeAvailability } from "@/lib/scheduler/types";
+import type { Employee, EmployeePreferences, EmployeeAvailability } from "@/lib/types/scheduler";
 
 /**
  * Convert UnifiedEmployee to Employee type for use with EmployeePreferencesModal

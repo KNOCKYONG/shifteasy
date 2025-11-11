@@ -1,4 +1,4 @@
-import { type Shift } from '../scheduler/types';
+import { type Shift } from '@/lib/types/scheduler';
 
 // ShiftType 인터페이스 정의
 export interface ShiftType {

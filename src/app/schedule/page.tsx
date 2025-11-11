@@ -10,7 +10,7 @@ import { ko } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCcw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings, FolderOpen, ArrowLeftRight, Save } from "lucide-react";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { api } from "../../lib/trpc/client";
-import { type Employee, type Shift, type Constraint, type ScheduleAssignment, type SchedulingResult } from "../../lib/scheduler/types";
+import { type Employee, type Shift, type Constraint, type ScheduleAssignment, type SchedulingResult } from "@/lib/types/scheduler";
 import { EmployeeAdapter } from "../../lib/adapters/employee-adapter";
 import type { UnifiedEmployee } from "@/lib/types/unified-employee";
 import { validateSchedulingRequest, validateEmployee } from "@/lib/validation/schemas";

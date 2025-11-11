@@ -7,11 +7,11 @@ import type {
   ScheduleScore,
   Shift,
   OffAccrualSummary,
-} from './types';
+} from '@/lib/types/scheduler';
 
 export type WorkPatternType = 'three-shift' | 'night-intensive' | 'weekday-only';
 
-interface AiEmployee {
+export interface AiEmployee {
   id: string;
   name: string;
   role: string;
@@ -40,7 +40,7 @@ interface Holiday {
   name: string;
 }
 
-interface AiScheduleRequest {
+export interface AiScheduleRequest {
   departmentId: string;
   startDate: Date;
   endDate: Date;
@@ -68,6 +68,21 @@ export interface AiScheduleGenerationResult {
   offAccruals: OffAccrualSummary[];
 }
 
+export interface AiScheduleValidationRequest extends AiScheduleRequest {
+  assignments: ScheduleAssignment[];
+}
+
+export interface AiScheduleValidationResult {
+  violations: ConstraintViolation[];
+  score: ScheduleScore;
+  stats: {
+    fairnessIndex: number;
+    coverageRate: number;
+    preferenceScore: number;
+  };
+  computationTime: number;
+}
+
 interface EmployeeState {
   totalAssignments: number;
   preferenceScore: number;
@@ -86,6 +101,8 @@ interface EmployeeState {
   maxOffDays: number;
   extraOffDays: number;
   lastShiftRunCount: number;
+  nightLeaveRemaining: number;
+  bonusOffCarry: number;
   nightRecoveryDaysNeeded: number;
 }
 
@@ -198,6 +215,8 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       maxOffDays: maxOffDaysPerEmployee + nightLeaveDays,
       extraOffDays: 0,
       lastShiftRunCount: 0,
+      nightLeaveRemaining: nightLeaveDays,
+      bonusOffCarry: 0,
       nightRecoveryDaysNeeded: 0,
     });
     employeeMap.set(emp.id, emp);
@@ -271,15 +290,6 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
         }
       });
       return bestCode;
-    };
-
-    const incrementOffCounter = (state: EmployeeState, source: 'special-request' | 'system') => {
-      state.offDays += 1;
-      if (source === 'special-request') {
-        state.specialRequestOffDays += 1;
-      } else {
-        state.autoOffDays += 1;
-      }
     };
 
     // Step 1: Apply special requests first
@@ -670,6 +680,313 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
   };
 }
 
+export async function validateSchedule(
+  request: AiScheduleValidationRequest
+): Promise<AiScheduleValidationResult> {
+  const start = performance.now();
+  const dateRange = eachDayOfInterval({ start: request.startDate, end: request.endDate });
+  const holidays = new Set((request.holidays ?? []).map((h) => h.date));
+  const restDayKeys = new Set<string>();
+  dateRange.forEach((date) => {
+    const key = toDateKey(date);
+    if (isWeekend(date) || holidays.has(key)) {
+      restDayKeys.add(key);
+    }
+  });
+  const maxOffDaysPerEmployee = Math.max(restDayKeys.size, Math.max(4, Math.floor(dateRange.length / 7)));
+
+  const shiftTemplateMap = new Map<string, Shift & { code?: string }>();
+  const shiftTemplateById = new Map<string, Shift & { code?: string }>();
+  request.shifts.forEach((shift) => {
+    const code = extractShiftCode(shift);
+    shiftTemplateMap.set(code, shift);
+    if (shift.id) {
+      shiftTemplateById.set(shift.id.toLowerCase(), shift);
+    }
+  });
+
+  const activeShifts = request.shifts.filter((shift) => {
+    const code = extractShiftCode(shift);
+    if (code === 'A') {
+      return false;
+    }
+    return shift.type !== 'off' && shift.type !== 'leave';
+  });
+
+  const totalRequiredSlots =
+    dateRange.length *
+    activeShifts.reduce((sum, shift) => {
+      const code = extractShiftCode(shift);
+      const required = request.requiredStaffPerShift?.[code] ?? shift.requiredStaff ?? 1;
+      return sum + required;
+    }, 0);
+
+  const employeeStates = new Map<string, EmployeeState>();
+  const employeeMap = new Map<string, AiEmployee>();
+  request.employees.forEach((emp) => {
+    const nightLeaveDays =
+      emp.workPatternType === 'night-intensive'
+        ? Math.max(0, request.nightIntensivePaidLeaveDays ?? 0)
+        : 0;
+    employeeStates.set(emp.id, {
+      totalAssignments: 0,
+      preferenceScore: 0,
+      consecutiveDays: 0,
+      consecutiveNights: 0,
+      lastAssignedDate: null,
+      lastShiftCode: null,
+      lastWorkShiftCode: null,
+      shiftCounts: {},
+      distinctShifts: new Set(),
+      rotationLock: null,
+      workPatternType: emp.workPatternType ?? 'three-shift',
+      offDays: 0,
+      specialRequestOffDays: 0,
+      autoOffDays: 0,
+      maxOffDays: maxOffDaysPerEmployee + nightLeaveDays,
+      extraOffDays: 0,
+      lastShiftRunCount: 0,
+      nightLeaveRemaining: nightLeaveDays,
+      bonusOffCarry: 0,
+      nightRecoveryDaysNeeded: 0,
+    });
+    employeeMap.set(emp.id, emp);
+  });
+
+  const assignmentMap = new Map<string, ScheduleAssignment[]>();
+  const rangeStart = request.startDate.getTime();
+  const rangeEnd = request.endDate.getTime();
+  const violations: ConstraintViolation[] = [];
+
+  request.assignments.forEach((assignment) => {
+    const dateValue = assignment.date instanceof Date ? assignment.date : new Date(assignment.date);
+    if (Number.isNaN(dateValue.getTime())) {
+      violations.push(
+        createViolation({
+          id: 'invalid_assignment_date',
+          name: '유효하지 않은 날짜',
+          message: `배정 ${assignment.employeeId} 의 날짜 형식이 올바르지 않습니다.`,
+          type: 'hard',
+          severity: 'high',
+          employees: [assignment.employeeId],
+          dates: [],
+          cost: 20,
+        })
+      );
+      return;
+    }
+
+    if (dateValue.getTime() < rangeStart || dateValue.getTime() > rangeEnd) {
+      violations.push(
+        createViolation({
+          id: 'assignment_out_of_range',
+          name: '범위를 벗어난 배정',
+          message: `${assignment.employeeId} 배정이 기간 밖(${format(dateValue, 'yyyy-MM-dd')})에 존재합니다.`,
+          type: 'soft',
+          severity: 'medium',
+          employees: [assignment.employeeId],
+          dates: [dateValue],
+          cost: 5,
+        })
+      );
+    }
+
+    const key = toDateKey(dateValue);
+    if (!assignmentMap.has(key)) {
+      assignmentMap.set(key, []);
+    }
+    assignmentMap.get(key)!.push({
+      ...assignment,
+      date: dateValue,
+    });
+  });
+
+  let filledSlots = 0;
+  let preferencePenalty = 0;
+
+  dateRange.forEach((date, dayIndex) => {
+    const dateKey = toDateKey(date);
+    const todaysAssignments = assignmentMap.get(dateKey) ?? [];
+    const assignedToday = new Set<string>();
+    const dailyShiftCounts: Record<string, number> = {};
+
+    todaysAssignments.forEach((assignment) => {
+      const employee = employeeMap.get(assignment.employeeId);
+      if (!employee) {
+        violations.push(
+          createViolation({
+            id: 'employee_missing',
+            name: '존재하지 않는 직원',
+            message: `배정된 직원 ${assignment.employeeId} 를 찾을 수 없습니다.`,
+            type: 'hard',
+            severity: 'critical',
+            employees: [assignment.employeeId],
+            dates: [assignment.date],
+            cost: 25,
+          })
+        );
+        return;
+      }
+      const state = employeeStates.get(employee.id);
+      if (!state) {
+        return;
+      }
+
+      const resolvedShift = resolveAssignmentShift(assignment, shiftTemplateMap, shiftTemplateById);
+      if (!resolvedShift) {
+        violations.push(
+          createViolation({
+            id: 'shift_missing',
+            name: '존재하지 않는 시프트',
+            message: `배정된 시프트 ${assignment.shiftId} 를 찾을 수 없습니다.`,
+            type: 'hard',
+            severity: 'high',
+            employees: [employee.id],
+            dates: [assignment.date],
+            cost: 20,
+          })
+        );
+        preferencePenalty += 10;
+        return;
+      }
+
+      const { shiftCode, shiftTemplate } = resolvedShift;
+      const normalizedShiftCode = shiftCode.toUpperCase();
+      const countedAsWork = normalizedShiftCode !== 'O' && normalizedShiftCode !== 'L';
+      const isNightShift = normalizedShiftCode === 'N' || shiftTemplate?.type === 'night';
+
+      if (assignedToday.has(employee.id)) {
+        violations.push(
+          createViolation({
+            id: 'duplicate_assignment',
+            name: '중복 배정',
+            message: `${employee.name ?? employee.id}님이 ${dateKey}에 중복 배정되었습니다.`,
+            type: 'hard',
+            severity: 'high',
+            employees: [employee.id],
+            dates: [assignment.date],
+            cost: 30,
+          })
+        );
+        preferencePenalty += 10;
+        return;
+      }
+      assignedToday.add(employee.id);
+
+      const ruleResult = evaluateAssignmentRules({
+        employee,
+        state,
+        shiftCode: normalizedShiftCode,
+        date,
+        dayIndex,
+        countedAsWork,
+        isNightShift,
+        hasPreferences: hasShiftPreferences(employee),
+      });
+      preferencePenalty += ruleResult.penalty;
+      violations.push(...ruleResult.violations);
+
+      updateEmployeeState(state, {
+        date,
+        shiftCode: normalizedShiftCode,
+        countedAsWork,
+        isNightShift,
+      });
+
+      if (!countedAsWork && normalizedShiftCode === 'O') {
+        incrementOffCounter(state, 'system');
+        state.nightRecoveryDaysNeeded = Math.max(0, state.nightRecoveryDaysNeeded - 1);
+      } else if (countedAsWork) {
+        filledSlots += 1;
+        dailyShiftCounts[normalizedShiftCode] = (dailyShiftCounts[normalizedShiftCode] ?? 0) + 1;
+      }
+    });
+
+    activeShifts.forEach((shift) => {
+      const targetCode = extractShiftCode(shift);
+      const required = request.requiredStaffPerShift?.[targetCode] ?? shift.requiredStaff ?? 1;
+      if (required <= 0) {
+        return;
+      }
+      const actual = dailyShiftCounts[targetCode] ?? 0;
+      if (actual < required) {
+        violations.push(
+          createViolation({
+            id: 'coverage',
+            name: '근무 커버리지',
+            message: `${dateKey} ${shift.name} 근무가 ${required - actual}명 부족합니다.`,
+            type: 'hard',
+            severity: 'high',
+            dates: [date],
+            cost: 15,
+          })
+        );
+      }
+    });
+  });
+
+  employeeStates.forEach((state, employeeId) => {
+    if (state.offDays < state.maxOffDays) {
+      violations.push(
+        createViolation({
+          id: 'off_quota_short',
+          name: '휴무 보장 미달',
+          message: `${employeeId}님이 보장 휴무 ${state.maxOffDays}일 대비 ${state.offDays}일만 배정되었습니다.`,
+          type: 'soft',
+          severity: 'medium',
+          employees: [employeeId],
+          cost: 5,
+        })
+      );
+      preferencePenalty += 5;
+    }
+    if (state.nightRecoveryDaysNeeded > 0) {
+      violations.push(
+        createViolation({
+          id: 'night_recovery_missing',
+          name: '야간 회복 휴무 부족',
+          message: `${employeeId}님에게 필요한 회복 휴무 ${state.nightRecoveryDaysNeeded}일이 남아 있습니다.`,
+          type: 'soft',
+          severity: 'medium',
+          employees: [employeeId],
+          cost: 5,
+        })
+      );
+      preferencePenalty += 5;
+    }
+  });
+
+  const fairnessIndex = calculateFairnessIndex(
+    request.employees.map((emp) => employeeStates.get(emp.id)?.totalAssignments ?? 0)
+  );
+  const coverageRate = totalRequiredSlots === 0 ? 1 : Math.min(1, filledSlots / totalRequiredSlots);
+  const preferenceScore = Math.max(0, 100 - preferencePenalty);
+
+  const score: ScheduleScore = {
+    total: Math.round(fairnessIndex * 50 + coverageRate * 40 + preferenceScore * 0.1),
+    fairness: Math.round(fairnessIndex * 100),
+    preference: Math.round(preferenceScore),
+    coverage: Math.round(coverageRate * 100),
+    constraintSatisfaction: Math.max(0, 100 - violations.length * 5),
+    breakdown: [
+      { category: 'fairness', score: Math.round(fairnessIndex * 100), weight: 0.5, details: 'Jain 공정성 지수' },
+      { category: 'coverage', score: Math.round(coverageRate * 100), weight: 0.4, details: '필요 인원 커버리지' },
+      { category: 'preference', score: Math.round(preferenceScore), weight: 0.1, details: '패턴 선호도 준수' },
+    ],
+  };
+
+  return {
+    violations,
+    score,
+    stats: {
+      fairnessIndex,
+      coverageRate,
+      preferenceScore,
+    },
+    computationTime: Math.round(performance.now() - start),
+  };
+}
+
 interface CandidateSelectionParams {
   date: Date;
   shift: Shift & { code?: string };
@@ -1015,6 +1332,219 @@ function updateEmployeeState(
 
   state.lastAssignedDate = date;
   state.lastShiftCode = normalizedShiftCode;
+}
+
+function incrementOffCounter(state: EmployeeState, source: 'special-request' | 'system') {
+  state.offDays += 1;
+  if (source === 'special-request') {
+    state.specialRequestOffDays += 1;
+  } else {
+    state.autoOffDays += 1;
+  }
+}
+
+function resolveAssignmentShift(
+  assignment: ScheduleAssignment,
+  shiftTemplateMap: Map<string, Shift & { code?: string }>,
+  shiftTemplateById: Map<string, Shift & { code?: string }>
+) {
+  const normalizedId = assignment.shiftId?.toLowerCase();
+  if (normalizedId && shiftTemplateById.has(normalizedId)) {
+    const template = shiftTemplateById.get(normalizedId)!;
+    return { shiftCode: extractShiftCode(template), shiftTemplate: template };
+  }
+
+  const derived = deriveShiftCodeFromIdentifier(assignment.shiftType ?? assignment.shiftId);
+  if (!derived) {
+    return null;
+  }
+  const template = shiftTemplateMap.get(derived) ?? null;
+  return { shiftCode: derived, shiftTemplate: template ?? undefined };
+}
+
+function deriveShiftCodeFromIdentifier(value?: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const upper = trimmed.toUpperCase();
+  if (upper === 'OFF') {
+    return 'O';
+  }
+  if (upper.startsWith('SHIFT-')) {
+    return upper.slice(6);
+  }
+  if (upper.length === 1) {
+    return upper;
+  }
+  return upper;
+}
+
+interface AssignmentRuleContext {
+  employee: AiEmployee;
+  state: EmployeeState;
+  shiftCode: string;
+  date: Date;
+  dayIndex: number;
+  countedAsWork: boolean;
+  isNightShift: boolean;
+  hasPreferences: boolean;
+}
+
+function evaluateAssignmentRules(context: AssignmentRuleContext) {
+  const { employee, state, shiftCode, date, countedAsWork, isNightShift, hasPreferences } = context;
+  const violations: ConstraintViolation[] = [];
+  let penalty = 0;
+  const prevConsecutiveNights = state.consecutiveNights;
+  const workPattern = employee.workPatternType ?? 'three-shift';
+  const isNightIntensive = workPattern === 'night-intensive';
+
+  if (isNightIntensive && countedAsWork && shiftCode !== 'N') {
+    const violation = createViolation({
+      id: 'night_intensive_only_night',
+      name: '야간 집중 근무 규칙',
+      message: `${employee.name ?? employee.id}님은 야간 집중 근무자로, ${format(date, 'yyyy-MM-dd')}에 ${shiftCode} 배정을 받을 수 없습니다.`,
+      type: 'hard',
+      severity: 'high',
+      employees: [employee.id],
+      dates: [date],
+      cost: 15,
+    });
+    violations.push(violation);
+    penalty += violation.cost;
+  }
+
+  if (isNightIntensive && prevConsecutiveNights >= NIGHT_INTENSIVE_RECOVERY_MIN_STREAK && !isNightShift) {
+    const extraNights = Math.max(0, prevConsecutiveNights - NIGHT_INTENSIVE_RECOVERY_MIN_STREAK);
+    state.nightRecoveryDaysNeeded = Math.max(
+      state.nightRecoveryDaysNeeded,
+      Math.min(NIGHT_INTENSIVE_MAX_RECOVERY_DAYS, NIGHT_INTENSIVE_MIN_RECOVERY_DAYS + (extraNights > 0 ? 1 : 0))
+    );
+    if (shiftCode !== 'O') {
+      const violation = createViolation({
+        id: 'night_intensive_recovery',
+        name: '야간 회복 휴무',
+        message: `${employee.name ?? employee.id}님은 연속 야간 근무 후 회복 휴무가 필요합니다.`,
+        type: 'soft',
+        severity: 'medium',
+        employees: [employee.id],
+        dates: [date],
+        cost: 6,
+      });
+      violations.push(violation);
+      penalty += violation.cost;
+    }
+  }
+
+  if (!isNightIntensive && !hasPreferences) {
+    if (!isNightShift && prevConsecutiveNights > 0) {
+      if (prevConsecutiveNights < NIGHT_BLOCK_MIN_NON_PREF) {
+        const violation = createViolation({
+          id: 'night_block_too_short',
+          name: '야간 블록 길이',
+          message: `${employee.name ?? employee.id}님의 야간 근무가 ${prevConsecutiveNights}일로 너무 짧습니다.`,
+          type: 'soft',
+          severity: 'medium',
+          employees: [employee.id],
+          dates: [date],
+          cost: 6,
+        });
+        violations.push(violation);
+        penalty += violation.cost;
+      }
+      if (shiftCode !== 'O') {
+        const violation = createViolation({
+          id: 'night_block_requires_off',
+          name: '야간 회복 휴무',
+          message: `${employee.name ?? employee.id}님의 야간 근무 이후에는 OFF가 필요합니다.`,
+          type: 'soft',
+          severity: 'medium',
+          employees: [employee.id],
+          dates: [date],
+          cost: 6,
+        });
+        violations.push(violation);
+        penalty += violation.cost;
+      }
+      const extraNights = Math.max(0, prevConsecutiveNights - NIGHT_BLOCK_MIN_NON_PREF);
+      state.nightRecoveryDaysNeeded = Math.max(
+        state.nightRecoveryDaysNeeded,
+        Math.min(NIGHT_BLOCK_MAX_RECOVERY_DAYS, NIGHT_BLOCK_RECOVERY_DAYS + (extraNights > 0 ? 1 : 0))
+      );
+    }
+
+    if (isNightShift && prevConsecutiveNights >= NIGHT_BLOCK_TARGET_MAX_NON_PREF) {
+      const violation = createViolation({
+        id: 'night_block_too_long',
+        name: '야간 블록 길이',
+        message: `${employee.name ?? employee.id}님의 야간 근무가 너무 길어지고 있습니다.`,
+        type: 'soft',
+        severity: 'medium',
+        employees: [employee.id],
+        dates: [date],
+        cost: 5,
+      });
+      violations.push(violation);
+      penalty += violation.cost;
+    }
+  }
+
+  if (state.nightRecoveryDaysNeeded > 0 && shiftCode !== 'O') {
+    const violation = createViolation({
+      id: 'night_recovery_required',
+      name: '회복 휴무 필요',
+      message: `${employee.name ?? employee.id}님에게 필요한 회복 휴무가 충분히 배정되지 않았습니다.`,
+      type: 'soft',
+      severity: 'medium',
+      employees: [employee.id],
+      dates: [date],
+      cost: 5,
+    });
+    violations.push(violation);
+    penalty += violation.cost;
+  }
+
+  if (!hasPreferences && countedAsWork && state.lastWorkShiftCode && state.lastWorkShiftCode === shiftCode && shiftCode !== 'N') {
+    const violation = createViolation({
+      id: 'rotation_bias',
+      name: '시프트 순환 불균형',
+      message: `${employee.name ?? employee.id}님에게 동일 시프트가 반복 배정되었습니다.`,
+      type: 'soft',
+      severity: 'low',
+      employees: [employee.id],
+      dates: [date],
+      cost: 3,
+    });
+    violations.push(violation);
+    penalty += violation.cost;
+  }
+
+  return { violations, penalty };
+}
+
+function createViolation(options: {
+  id: string;
+  name: string;
+  message: string;
+  type?: 'hard' | 'soft';
+  severity?: 'critical' | 'high' | 'medium' | 'low';
+  employees?: string[];
+  dates?: Date[];
+  cost?: number;
+}): ConstraintViolation {
+  return {
+    constraintId: options.id,
+    constraintName: options.name,
+    type: options.type ?? 'soft',
+    severity: options.severity ?? 'medium',
+    message: options.message,
+    affectedEmployees: options.employees ?? [],
+    affectedDates: options.dates ?? [],
+    cost: options.cost ?? (options.type === 'hard' ? 15 : 5),
+  };
 }
 
 function calculateFairnessIndex(workloads: number[]): number {

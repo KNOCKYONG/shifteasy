@@ -47,6 +47,11 @@
 - 각 날짜마다 `remainingOffNeeded > 남은 날짜 수 - 1`(일반) 또는 `remainingOffNeeded >= 남은 날짜 수`(나이트 집중 근무자)인 직원은 반드시 OFF를 배정해, `special_requests`가 없더라도 최종적으로 `actualOffDays >= guaranteedOffDays` 관계가 유지되도록 한다.
 - 나이트 집중 근무자의 회복 OFF(`nightRecoveryDaysNeeded`)는 월 전 기간에 분산되며, 강제 휴무가 남아있는 동안에는 근무 후보군에서 제외해 월말 몰림을 방지한다.
 - 선호 패턴이 없는 직원은 월 전체에서 D/E/N 비중이 일정 비율 내에서 유지되도록 가중치가 적용돼, 특정 시프트만 과도하게 배정되지 않도록 관리한다.
+
+## 7. 스케줄 검증 흐름
+- `/api/schedule/validate`는 `src/lib/scheduler/ai-scheduler.ts`의 `validateSchedule` 함수를 호출해 실제 배정표를 다시 시뮬레이션한다.
+- 검증은 AI 엔진과 동일한 상태 머신/룰을 사용해 야간 블록, 휴무 한도, 시프트 커버리지, 순환 패턴 등을 평가하며, 위반 항목이 있으면 `ConstraintViolation`으로 반환한다.
+- 프론트엔드에서 검증 버튼을 눌렀을 때 전달되는 직원/시프트/배정 정보만 업데이트하면 AI 로직이 자동 반영되므로, 스케줄 규칙을 바꿀 때는 `ai-scheduler.ts`만 수정하면 된다.
 - 배정 완료 후 실제 오프 일수와 비교해 부족분은 `off_balance_ledger`에 `remainingOffDays`로 적립한다.  
   - 저장 필드 예시: `tenantId`, `nurseId`, `year`, `month`, `periodStart`, `periodEnd`, `guaranteedOffDays`, `actualOffDays`, `remainingOffDays`, `scheduleId`.
 - 동시에, 이번 스케줄에서 발생한 잔여 휴무(`extraOffDays`)를 `generationResult.offAccruals` 및 `schedules.metadata.offAccruals`에 기록해 UI/리포트에서 잔여 휴무 적립을 바로 확인할 수 있게 한다. 잔여 휴무는 월 내내 목표 대비 부족한 직원에게 우선 배정해 월말에 몰리지 않도록 목표치를 일 단위로 분산 관리하며, 화면에서는 “+X일 예정” 라벨로 표시된다.

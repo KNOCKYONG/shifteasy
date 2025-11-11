@@ -4,7 +4,7 @@
  * 프로덕션에서는 Supabase로 대체
  */
 
-import { type SwapRequest } from '@/lib/scheduler/types';
+import { type SwapRequest } from '@/lib/types/scheduler';
 
 class SwapRequestStorage {
   private static instance: SwapRequestStorage;

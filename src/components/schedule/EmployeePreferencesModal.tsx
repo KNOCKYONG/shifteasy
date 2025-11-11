@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { User, Heart, Calendar, Clock, Users, Shield, X, Save, AlertCircle, Star, UserCheck, UserMinus, ChevronLeft, ChevronRight, Info, CheckCircle, Wallet } from "lucide-react";
-import { type Employee, type EmployeePreferences, type ShiftType } from "@/lib/scheduler/types";
+import { type Employee, type EmployeePreferences, type ShiftType } from "@/lib/types/scheduler";
 import { validatePattern as validatePatternUtil, describePattern, EXAMPLE_PATTERNS, KEYWORD_DESCRIPTIONS, type ShiftToken } from "@/lib/utils/pattern-validator";
 import { api } from "@/lib/trpc/client";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";

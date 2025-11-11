@@ -2,7 +2,7 @@
  * Employee 데이터 모델 간 변환 어댑터 (간소화됨)
  */
 
-import type { Employee, EmployeePreferences, EmployeeAvailability } from '@/lib/scheduler/types';
+import type { Employee, EmployeePreferences, EmployeeAvailability } from '@/lib/types/scheduler';
 import type { SimplifiedPreferences } from '@/components/department/MyPreferencesPanel';
 import type { UnifiedEmployee, EmployeeStatistics } from '@/lib/types/unified-employee';
 

@@ -3,7 +3,7 @@
  */
 
 import type { Staff } from "@/lib/types";
-import type { Employee, EmployeePreferences, EmployeeAvailability } from "@/lib/scheduler/types";
+import type { Employee, EmployeePreferences, EmployeeAvailability } from "@/lib/types/scheduler";
 
 /**
  * Convert Staff type to Employee type for use with EmployeePreferencesModal

@@ -2,7 +2,7 @@
  * 통합 직원 데이터 모델
  */
 
-import type { Employee, EmployeePreferences, ShiftType } from '@/lib/scheduler/types';
+import type { Employee, EmployeePreferences, ShiftType } from '@/lib/types/scheduler';
 import type { SimplifiedPreferences } from '@/components/department/MyPreferencesPanel';
 import type { SpecialRequest } from '@/components/department/SpecialRequestModal';
 
