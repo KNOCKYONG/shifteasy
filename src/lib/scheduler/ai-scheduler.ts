@@ -85,8 +85,6 @@ interface EmployeeState {
   maxOffDays: number;
   extraOffDays: number;
   lastShiftRunCount: number;
-  nightLeaveRemaining: number;
-  bonusOffCarry: number;
 }
 
 const SHIFT_CODE_MAP: Record<string, string> = {
@@ -162,9 +160,10 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
   const employeeStates = new Map<string, EmployeeState>();
   const employeeMap = new Map<string, AiEmployee>();
   request.employees.forEach((emp) => {
-    const nightLeaveDays = emp.workPatternType === 'night-intensive'
-      ? Math.max(0, request.nightIntensivePaidLeaveDays ?? 0)
-      : 0;
+    const nightLeaveDays =
+      emp.workPatternType === 'night-intensive'
+        ? Math.max(0, request.nightIntensivePaidLeaveDays ?? 0)
+        : 0;
     employeeStates.set(emp.id, {
       totalAssignments: 0,
       preferenceScore: 0,
@@ -182,8 +181,6 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       maxOffDays: maxOffDaysPerEmployee + nightLeaveDays,
       extraOffDays: 0,
       lastShiftRunCount: 0,
-      nightLeaveRemaining: nightLeaveDays,
-      bonusOffCarry: 0,
     });
     employeeMap.set(emp.id, emp);
   });
@@ -339,15 +336,6 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       }
     });
 
-    // Step 1.1: Enforce pending bonus OFF blocks (e.g., night leave pairs)
-    request.employees.forEach((employee) => {
-      const state = employeeStates.get(employee.id)!;
-      if (state.bonusOffCarry > 0 && !assignedToday.has(employee.id)) {
-        assignOffShift(employee, { force: true, dayIndex, bonus: true });
-        state.bonusOffCarry = Math.max(0, state.bonusOffCarry - 1);
-      }
-    });
-
     const assignSupportShift = (
       employee: AiEmployee,
       options?: { mode?: 'admin' | 'clinical'; countTowardsRotation?: boolean; allowedCodes?: string[] }
@@ -408,17 +396,13 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       return true;
     };
 
-    const assignOffShift = (
-      employee: AiEmployee,
-      options?: { force?: boolean; dayIndex: number; bonus?: boolean }
-    ) => {
+    const assignOffShift = (employee: AiEmployee, options?: { force?: boolean; dayIndex: number }) => {
       const state = employeeStates.get(employee.id);
       if (!state) {
         return;
       }
 
       const force = options?.force ?? false;
-      const isBonus = options?.bonus ?? false;
       const daysElapsed = options?.dayIndex ?? 0;
       const expectedOffByToday = Math.ceil(((daysElapsed + 1) / dateRange.length) * state.maxOffDays);
       const offQuotaReached = state.offDays >= state.maxOffDays;
@@ -455,21 +439,6 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
         countedAsWork: false,
       });
 
-      if (employee.workPatternType === 'night-intensive' && !isBonus) {
-        if (state.bonusOffCarry > 0) {
-          // already owed bonus day, enforcement loop will handle next day
-          return;
-        }
-        if (state.nightLeaveRemaining >= 2) {
-          state.nightLeaveRemaining -= 2;
-          state.bonusOffCarry = 1;
-        } else if (state.nightLeaveRemaining === 1) {
-          state.nightLeaveRemaining = 0;
-        }
-      }
-      if (employee.workPatternType === 'night-intensive' && isBonus) {
-        state.nightLeaveRemaining = Math.max(0, state.nightLeaveRemaining - 1);
-      }
     };
 
     const isWeekendDay = isWeekend(date);
