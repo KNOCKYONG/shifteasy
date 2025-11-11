@@ -29,6 +29,8 @@ type TeamMember = {
   workPatternType?: string | null;
   createdAt?: string;
   joinDate?: string;
+  hireDate?: Date | null;
+  yearsOfService?: number | null;
   profile?: {
     avatar?: string;
     phone?: string;
@@ -620,6 +622,27 @@ const departments =
                   <Calendar className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-gray-400 dark:text-gray-500" />
                   <span>가입일: {joinedAtLabel}</span>
                 </div>
+              </div>
+
+              {/* 경력 정보 표시 */}
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {member.yearsOfService !== undefined && member.yearsOfService !== null && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/30">
+                    <Clock className="w-3 h-3" />
+                    {member.yearsOfService}년차
+                  </span>
+                )}
+                {member.hireDate && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/30">
+                    <Calendar className="w-3 h-3" />
+                    입사: {new Date(member.hireDate).getFullYear()}년
+                  </span>
+                )}
+                {!member.yearsOfService && !member.hireDate && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-400 dark:text-gray-500">
+                    경력 정보 없음
+                  </span>
+                )}
               </div>
 
               <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-3 sm:mb-4">
