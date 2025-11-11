@@ -5,6 +5,16 @@ import { createAuditLog } from '@/lib/db-helpers';
 import { handoffs, handoffItems, handoffTemplates, users } from '@/db/schema';
 import { eq, and, desc, gte, lte, or, isNull } from 'drizzle-orm';
 import { db } from '@/db';
+import { notificationService } from '@/lib/notifications/notification-service';
+import { format } from 'date-fns';
+import { ko } from 'date-fns/locale';
+
+// Shift type labels for notifications
+const SHIFT_TYPE_LABELS: Record<string, string> = {
+  D: '주간',
+  E: '저녁',
+  N: '야간',
+};
 
 // Zod schemas for validation
 const vitalSignsSchema = z.object({
@@ -246,6 +256,38 @@ export const handoffRouter = createTRPCRouter({
         })
         .where(eq(handoffs.id, input.handoffId));
 
+      // Send urgent notification for critical patients
+      if (input.priority === 'critical' && handoff.receiverUserId) {
+        await notificationService.sendToUser(
+          tenantId,
+          handoff.receiverUserId,
+          {
+            type: 'handoff_critical_patient',
+            priority: 'urgent',
+            title: '🚨 긴급 환자가 추가되었습니다',
+            message: `${input.roomNumber}호 환자 - ${input.situation}. 즉시 확인이 필요합니다.`,
+            actionUrl: `/handoff/${input.handoffId}?highlight=${item.id}`,
+            departmentId: handoff.departmentId,
+            data: {
+              handoffId: input.handoffId,
+              itemId: item.id,
+              roomNumber: input.roomNumber,
+              bedNumber: input.bedNumber,
+              priority: input.priority,
+              situation: input.situation,
+            },
+            actions: [
+              {
+                id: 'view',
+                label: '긴급 확인',
+                url: `/handoff/${input.handoffId}?highlight=${item.id}`,
+                style: 'danger',
+              },
+            ],
+          }
+        );
+      }
+
       return item;
     }),
 
@@ -336,6 +378,42 @@ export const handoffRouter = createTRPCRouter({
         after: updated,
       });
 
+      // Send notification to receiver
+      if (updated.receiverUserId) {
+        const metadata = updated.metadata as any;
+        const hasCritical = (metadata?.criticalCount || 0) > 0;
+        const shiftDateStr = format(new Date(updated.shiftDate), 'yyyy년 M월 d일 (E)', { locale: ko });
+        const shiftTypeLabel = SHIFT_TYPE_LABELS[updated.shiftType] || updated.shiftType;
+
+        await notificationService.sendToUser(
+          tenantId,
+          updated.receiverUserId,
+          {
+            type: 'handoff_submitted',
+            priority: hasCritical ? 'urgent' : 'high',
+            title: '새로운 인수인계가 도착했습니다',
+            message: `${shiftDateStr} ${shiftTypeLabel}근무 인수인계를 확인해주세요. 총 ${metadata?.totalPatients || 0}명${hasCritical ? ` (긴급 ${metadata.criticalCount}명)` : ''}`,
+            actionUrl: `/handoff/${updated.id}`,
+            departmentId: updated.departmentId,
+            data: {
+              handoffId: updated.id,
+              shiftDate: updated.shiftDate,
+              shiftType: updated.shiftType,
+              totalPatients: metadata?.totalPatients,
+              criticalCount: metadata?.criticalCount,
+            },
+            actions: [
+              {
+                id: 'view',
+                label: '지금 확인하기',
+                url: `/handoff/${updated.id}`,
+                style: 'primary',
+              },
+            ],
+          }
+        );
+      }
+
       return updated;
     }),
 
@@ -393,6 +471,40 @@ export const handoffRouter = createTRPCRouter({
         before: handoff,
         after: updated,
       });
+
+      // Send notification to handover user
+      if (updated.handoverUserId) {
+        const shiftDateStr = format(new Date(updated.shiftDate), 'yyyy년 M월 d일 (E)', { locale: ko });
+        const shiftTypeLabel = SHIFT_TYPE_LABELS[updated.shiftType] || updated.shiftType;
+
+        await notificationService.sendToUser(
+          tenantId,
+          updated.handoverUserId,
+          {
+            type: 'handoff_completed',
+            priority: 'high',
+            title: '인수인계가 완료되었습니다',
+            message: `${shiftDateStr} ${shiftTypeLabel}근무 인수인계가 완료되었습니다. 소요 시간: ${duration}분`,
+            actionUrl: `/handoff/${updated.id}`,
+            departmentId: updated.departmentId,
+            data: {
+              handoffId: updated.id,
+              duration,
+              completedAt,
+              shiftDate: updated.shiftDate,
+              shiftType: updated.shiftType,
+            },
+            actions: [
+              {
+                id: 'view',
+                label: '결과 보기',
+                url: `/handoff/${updated.id}`,
+                style: 'primary',
+              },
+            ],
+          }
+        );
+      }
 
       return updated;
     }),

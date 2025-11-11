@@ -17,7 +17,13 @@ export type NotificationType =
   | 'swap_rejected'
   | 'emergency_call'
   | 'shift_reminder'
-  | 'general';
+  | 'general'
+  | 'handoff_submitted'
+  | 'handoff_in_review'
+  | 'handoff_completed'
+  | 'handoff_critical_patient'
+  | 'handoff_reminder'
+  | 'handoff_overdue';
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'urgent';
 
