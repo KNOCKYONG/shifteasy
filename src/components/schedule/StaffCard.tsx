@@ -32,6 +32,32 @@ export function StaffCard({ staff, compact = false, onClick, workPatternType, pr
   const roleColor = ROLE_COLORS[staff.role] || ROLE_COLORS.RN;
   const roleName = STAFF_ROLES[staff.role]?.label || staff.role;
 
+  // 경력 정보 계산
+  const getCareerInfo = () => {
+    if (staff.yearsOfService !== undefined && staff.yearsOfService !== null) {
+      return `${staff.yearsOfService}년차`;
+    }
+
+    if (staff.hireDate) {
+      const hireDate = new Date(staff.hireDate);
+      const now = new Date();
+      const years = now.getFullYear() - hireDate.getFullYear();
+      const months = now.getMonth() - hireDate.getMonth();
+
+      if (years > 0) {
+        return `${years}년차`;
+      } else if (months > 0) {
+        return `${months}개월차`;
+      } else {
+        return '신입';
+      }
+    }
+
+    return null;
+  };
+
+  const careerInfo = getCareerInfo();
+
   // 선호도 요약
   const getPreferenceSummary = () => {
     const summary: string[] = [];
@@ -78,6 +104,11 @@ export function StaffCard({ staff, compact = false, onClick, workPatternType, pr
             } ${roleColor.text} ${roleColor.border} border`}>
               {roleName}
             </span>
+            {careerInfo && (
+              <span className="inline-flex px-1.5 py-0.5 text-xs font-medium rounded-md bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/30">
+                {careerInfo}
+              </span>
+            )}
             {preferenceSummary.length > 0 && (
               <span className="inline-flex px-1.5 py-0.5 text-xs font-medium rounded-md bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-900/30">
                 {preferenceSummary[0]}
@@ -103,15 +134,23 @@ export function StaffCard({ staff, compact = false, onClick, workPatternType, pr
           </div>
           <div>
             <h3 className="font-medium text-gray-900 dark:text-white">{staff.name || "미배정"}</h3>
-            {preferenceSummary.length > 0 && (
-              <div className="flex gap-1 mt-1 flex-wrap">
-                {preferenceSummary.map((pref, idx) => (
-                  <span key={idx} className="inline-flex px-2 py-0.5 text-xs font-medium rounded-md bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-900/30">
-                    {pref}
-                  </span>
-                ))}
-              </div>
-            )}
+            <div className="flex gap-1 mt-1 flex-wrap">
+              {careerInfo && (
+                <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-md bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/30">
+                  {careerInfo}
+                </span>
+              )}
+              {preferenceSummary.length > 0 && preferenceSummary.map((pref, idx) => (
+                <span key={idx} className="inline-flex px-2 py-0.5 text-xs font-medium rounded-md bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-900/30">
+                  {pref}
+                </span>
+              ))}
+              {!careerInfo && preferenceSummary.length === 0 && (
+                <span className="inline-flex px-2 py-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  경력 정보 없음
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-lg ${

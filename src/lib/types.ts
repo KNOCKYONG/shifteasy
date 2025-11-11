@@ -15,13 +15,14 @@ export type Staff = {
   name: string
   role: Role
   employeeId?: string
-  hireDate?: string
-  
+  hireDate?: string | Date
+  yearsOfService?: number  // 근속 년수 (경력)
+
   // 기본 정보
   wardId?: string  // 병동 ID 추가
   maxWeeklyHours: number
   skills: string[]
-  
+
   // 역량 평가 (1-5 척도)
   technicalSkill: number
   leadership: number
@@ -30,11 +31,11 @@ export type Staff = {
   reliability: number
 
   active: boolean
-  
+
   // 타임스탬프
   createdAt?: string
   updatedAt?: string
-  
+
   // 관계형 데이터
   preferences?: Preference[]
   assignments?: Assignment[]
