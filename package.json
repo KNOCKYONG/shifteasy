@@ -9,7 +9,7 @@
 		"lint": "next lint",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
-		"db:push": "tsx scripts/prepare-department-patterns.ts && drizzle-kit push",
+		"db:push": "tsx scripts/prepare-department-patterns.ts && drizzle-kit push && tsx scripts/add-performance-indexes.ts",
 		"db:studio": "drizzle-kit studio",
 		"db:init": "tsx src/db/initialize.ts",
 		"db:setup": "npm run db:push && npm run db:init",
