@@ -705,6 +705,18 @@ function SchedulePageContent() {
     }));
   }, [usersData]);
 
+  const employeeNameMap = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    allMembers.forEach((member) => {
+      const displayName = member.name || member.employeeId || '이름 미등록';
+      map[member.id] = displayName;
+      if (member.employeeId) {
+        map[member.employeeId] = displayName;
+      }
+    });
+    return map;
+  }, [allMembers]);
+
   // 필터링된 멤버 리스트 (나의 스케줄만 보기 적용 - 스케줄 보기 탭에서 사용)
   const filteredMembers = React.useMemo(() => {
     let members = [...allMembers];
@@ -2588,6 +2600,7 @@ function SchedulePageContent() {
         onClose={() => modals.setShowValidationResults(false)}
         validationScore={modals.validationScore}
         validationIssues={modals.validationIssues}
+        employeeNameMap={employeeNameMap}
       />
 
       {/* Schedule Confirmation Dialog */}
