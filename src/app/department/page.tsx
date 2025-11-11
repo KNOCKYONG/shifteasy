@@ -12,6 +12,7 @@ import { TeamsTab } from "@/app/config/TeamsTab";
 import { api } from "@/lib/trpc/client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { RoleGuard } from "@/components/auth/RoleGuard";
+import { LottieLoadingOverlay } from "@/components/common/LottieLoadingOverlay";
 
 type DepartmentSummary = {
   id: string;
@@ -491,14 +492,13 @@ const departments =
         </div>
 
         {/* Loading State */}
-        {isLoadingUsers && (
-          <div className="flex justify-center items-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          </div>
-        )}
-
-        {/* Team Members Grid - 모바일 최적화 */}
-        {!isLoadingUsers && (
+        {isLoadingUsers ? (
+          <LottieLoadingOverlay
+            message="부서원 정보를 불러오는 중입니다..."
+            fullScreen
+          />
+        ) : (
+        /* Team Members Grid - 모바일 최적화 */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {teamMembers.map((member) => {
             const avatarUrl = member.profile?.avatar ?? null;

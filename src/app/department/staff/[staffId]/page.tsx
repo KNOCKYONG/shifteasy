@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react'
 import type { ShiftType } from '@/lib/types'
 import { ChartIcon, RefreshIcon, ClockIcon, CalendarIcon, TargetIcon, LightIcon, NoteIcon, SunIcon, MoonIcon, SunsetIcon } from '@/components/Icons'
 import { Loader2 } from 'lucide-react'
+import { LottieLoadingOverlay } from '@/components/common/LottieLoadingOverlay'
 
 const shiftTypes: { id: ShiftType; label: string; description: string; color: string }[] = [
   { id: "D", label: "Day", description: "07:00-15:00", color: "bg-yellow-100 text-yellow-800" },
@@ -37,6 +38,7 @@ export default function StaffPreferencePage() {
   const [preferences, setPreferences] = useState<Record<string, { shiftType: ShiftType; score: number; reason?: string }>>({})
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
   const [loading, setLoading] = useState(false)
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
   
   // 근무 패턴 선호도 상태
   const [workPattern, setWorkPattern] = useState<WorkPatternPreference>({
@@ -175,6 +177,7 @@ export default function StaffPreferencePage() {
   }
 
   const loadPreferences = useCallback(async () => {
+    setIsInitialLoading(true)
     try {
       // Try loading from API first
       const response = await fetch(`/api/preferences?employeeId=${staffId}`)
@@ -241,12 +244,25 @@ export default function StaffPreferencePage() {
       } catch (localError) {
         console.error('Failed to load from localStorage:', localError)
       }
+    } finally {
+      setIsInitialLoading(false)
     }
   }, [staffId])
 
   useEffect(() => {
     loadPreferences()
   }, [loadPreferences])
+
+  if (isInitialLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 px-4 py-8">
+        <LottieLoadingOverlay
+          fullScreen
+          message="직원 선호도를 불러오는 중입니다..."
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen p-6 sm:p-10 font-sans">

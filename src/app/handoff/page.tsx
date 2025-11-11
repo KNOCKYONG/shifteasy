@@ -15,6 +15,7 @@ import {
 import { MainLayout } from "@/components/layout/MainLayout";
 import { api } from "@/lib/trpc/client";
 import { CreateHandoffDialog } from "@/components/handoff/CreateHandoffDialog";
+import { LottieLoadingOverlay } from "@/components/common/LottieLoadingOverlay";
 
 const PRIORITY_ICONS = {
   critical: "🔴",
@@ -210,10 +211,10 @@ export default function HandoffPage() {
         {/* Handoff List */}
         <div className="space-y-4">
           {isLoading ? (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-4 text-gray-500">불러오는 중...</p>
-            </div>
+            <LottieLoadingOverlay
+              message="인수인계 목록을 불러오는 중입니다..."
+              fullScreen
+            />
           ) : filteredHandoffs && filteredHandoffs.length > 0 ? (
             filteredHandoffs.map((handoff) => {
               const metadata = handoff.metadata as Record<string, unknown> | null;

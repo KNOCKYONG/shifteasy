@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { api } from '@/lib/trpc/client';
 import { format, isToday } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { LottieLoadingOverlay } from '@/components/common/LottieLoadingOverlay';
 
 export function AdminDashboard() {
   const today = new Date();
@@ -123,6 +124,19 @@ export function AdminDashboard() {
 
   // Pending requests preview
   const recentPendingRequests = pendingRequests.slice(0, 3);
+
+  const isInitialLoading = (!dashboardData && isLoading) ||
+    (!upcomingShifts && isLoadingShifts) ||
+    (!workmatesData && isLoadingWorkmates);
+
+  if (isInitialLoading) {
+    return (
+      <LottieLoadingOverlay
+        fullScreen
+        message="대시보드 데이터를 불러오는 중입니다..."
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">

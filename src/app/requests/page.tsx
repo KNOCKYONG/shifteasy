@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { SwapPreviewModal } from '@/components/schedule/modals/SwapPreviewModal';
+import { LottieLoadingOverlay } from '@/components/common/LottieLoadingOverlay';
 
 interface SwapRequest {
   id: string;
@@ -61,7 +62,7 @@ function RequestsPageContent() {
   const utils = api.useUtils();
 
   // Fetch swap requests
-  const { data: swapRequestsData, refetch } = api.swap.list.useQuery({
+  const { data: swapRequestsData, refetch, isLoading: isLoadingRequests } = api.swap.list.useQuery({
     limit: 100,
     offset: 0,
   });
@@ -102,12 +103,15 @@ function RequestsPageContent() {
   });
 
   // Loading state
-  if (!isLoaded) {
+  const isInitialLoading = !isLoaded || (isLoadingRequests && !swapRequestsData);
+
+  if (isInitialLoading) {
     return (
       <MainLayout>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-gray-600 dark:text-gray-400">로딩 중...</div>
-        </div>
+        <LottieLoadingOverlay
+          fullScreen
+          message="요청사항 데이터를 불러오는 중입니다..."
+        />
       </MainLayout>
     );
   }

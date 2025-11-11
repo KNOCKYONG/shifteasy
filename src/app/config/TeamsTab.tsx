@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Plus, Edit2, Trash2, Users, Save, ChevronDown, ChevronUp, X, Loader2 } from "lucide-react";
 import { api } from "@/lib/trpc/client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { LottieLoadingOverlay } from "@/components/common/LottieLoadingOverlay";
 
 interface Team {
   id: string;
@@ -56,13 +57,13 @@ export function TeamsTab() {
   });
 
   // Fetch teams
-  const { data: teams = [], refetch: refetchTeams } = api.teams.getAll.useQuery(undefined, {
+  const { data: teams = [], refetch: refetchTeams, isLoading: isLoadingTeams } = api.teams.getAll.useQuery(undefined, {
     staleTime: 3 * 60 * 1000, // 3분 동안 fresh 유지 (팀 정보는 가끔 변경됨)
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
 
   // Fetch all users
-  const { data: usersData, refetch: refetchUsers } = api.tenant.users.list.useQuery({
+  const { data: usersData, refetch: refetchUsers, isLoading: isLoadingUsersData } = api.tenant.users.list.useQuery({
     limit: 100,
     offset: 0,
   }, {
@@ -191,6 +192,18 @@ export function TeamsTab() {
     setShowUnassignConfirm(false);
     setUnassigningMember(null);
   };
+
+  const isInitialLoading = (isLoadingTeams && teams.length === 0) ||
+    (isLoadingUsersData && !usersData);
+
+  if (isInitialLoading) {
+    return (
+      <LottieLoadingOverlay
+        fullScreen
+        message="팀 배정 데이터를 불러오는 중입니다..."
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">

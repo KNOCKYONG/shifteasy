@@ -14,6 +14,7 @@ import {
   Keyboard,
   Loader2
 } from 'lucide-react';
+import { LottieLoadingOverlay } from '@/components/common/LottieLoadingOverlay';
 import {
   TeamPattern,
   validateTeamPattern,
@@ -496,9 +497,7 @@ export function TeamPatternPanel({
   if (loading) {
     return (
       <div className="p-6 bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="text-center py-8 text-gray-500">
-          부서 패턴 불러오는 중...
-        </div>
+        <LottieLoadingOverlay message="부서 패턴을 불러오는 중입니다..." />
       </div>
     );
   }

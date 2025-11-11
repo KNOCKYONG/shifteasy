@@ -18,6 +18,7 @@ import {
 import { MainLayout } from "@/components/layout/MainLayout";
 import { api } from "@/lib/trpc/client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { LottieLoadingOverlay } from "@/components/common/LottieLoadingOverlay";
 
 type VitalSigns = {
   bloodPressure?: string;
@@ -153,9 +154,10 @@ export default function HandoffDetailPage() {
   if (isLoading) {
     return (
       <MainLayout>
-        <div className="flex items-center justify-center h-96">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
+        <LottieLoadingOverlay
+          fullScreen
+          message="인수인계 정보를 불러오는 중입니다..."
+        />
       </MainLayout>
     );
   }
