@@ -9,9 +9,10 @@ interface ViewTabsProps {
   activeView: 'preferences' | 'today' | 'schedule' | 'calendar';
   canViewStaffPreferences: boolean;
   onViewChange: (view: 'preferences' | 'today' | 'schedule' | 'calendar') => void;
+  onViewIntent?: (view: 'preferences' | 'today' | 'schedule' | 'calendar') => void;
 }
 
-export function ViewTabs({ activeView, canViewStaffPreferences, onViewChange }: ViewTabsProps) {
+export function ViewTabs({ activeView, canViewStaffPreferences, onViewChange, onViewIntent }: ViewTabsProps) {
   const { t } = useTranslation('schedule');
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -39,6 +40,10 @@ export function ViewTabs({ activeView, canViewStaffPreferences, onViewChange }: 
       onViewChange(view);
     });
   };
+
+  const emitIntent = React.useCallback((view: ViewTabsProps['activeView']) => {
+    onViewIntent?.(view);
+  }, [onViewIntent]);
 
   return (
     <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
@@ -69,6 +74,9 @@ export function ViewTabs({ activeView, canViewStaffPreferences, onViewChange }: 
         </button>
         <button
           onClick={() => handleViewChange('schedule')}
+          onMouseEnter={() => emitIntent('schedule')}
+          onFocus={() => emitIntent('schedule')}
+          onPointerEnter={() => emitIntent('schedule')}
           className={`pb-3 px-1 text-xs sm:text-sm font-medium border-b-2 transition-colors flex items-center gap-1 sm:gap-2 whitespace-nowrap ${
             displayedView === 'schedule'
               ? "text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400"

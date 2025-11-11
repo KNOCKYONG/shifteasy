@@ -338,99 +338,6 @@ function SchedulePageContent() {
   const [selectedDate, setSelectedDate] = useState<Date>(getInitialDate()); // 오늘의 근무 날짜 선택
   const [careerOverrides, setCareerOverrides] = useState<Record<string, { yearsOfService?: number; hireYear?: number }>>({});
 
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const handleCareerUpdate: EventListener = (event) => {
-      const customEvent = event as CustomEvent<SSEEvent<'staff.career_updated'>>;
-      const payload = customEvent.detail?.data;
-      if (!payload?.careerInfo) {
-        return;
-      }
-
-      const derivedYears =
-        typeof payload.careerInfo.yearsOfService === 'number'
-          ? Math.max(0, payload.careerInfo.yearsOfService)
-          : typeof payload.careerInfo.hireYear === 'number'
-            ? Math.max(0, new Date().getFullYear() - payload.careerInfo.hireYear)
-            : undefined;
-
-      setCareerOverrides(prev => {
-        const previous = prev[payload.userId];
-        if (
-          previous &&
-          previous.yearsOfService === derivedYears &&
-          previous.hireYear === payload.careerInfo.hireYear
-        ) {
-          return prev;
-        }
-        return {
-          ...prev,
-          [payload.userId]: {
-            yearsOfService: derivedYears,
-            hireYear: payload.careerInfo.hireYear,
-          },
-        };
-      });
-
-      utils.tenant.users.list.invalidate();
-    };
-
-    window.addEventListener('sse:staff.career_updated', handleCareerUpdate);
-    return () => {
-      window.removeEventListener('sse:staff.career_updated', handleCareerUpdate);
-    };
-  }, [utils]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const handleStaffUpdated: EventListener = (event) => {
-      const customEvent = event as CustomEvent<SSEEvent<'staff.updated'>>;
-      const payload = customEvent.detail?.data;
-      if (!payload?.changes) {
-        return;
-      }
-
-      const rawHireDate = payload.changes.hireDate;
-      let hireYear: number | undefined;
-      if (rawHireDate instanceof Date) {
-        hireYear = rawHireDate.getFullYear();
-      } else if (typeof rawHireDate === 'string') {
-        const parsed = new Date(rawHireDate);
-        if (!Number.isNaN(parsed.getTime())) {
-          hireYear = parsed.getFullYear();
-        }
-      }
-
-      const years = typeof payload.changes.yearsOfService === 'number'
-        ? Math.max(0, payload.changes.yearsOfService)
-        : undefined;
-
-      if (hireYear === undefined && years === undefined) {
-        return;
-      }
-
-      setCareerOverrides(prev => ({
-        ...prev,
-        [payload.userId]: {
-          yearsOfService: years ?? prev[payload.userId]?.yearsOfService,
-          hireYear: hireYear ?? prev[payload.userId]?.hireYear,
-        },
-      }));
-
-      utils.tenant.users.list.invalidate();
-    };
-
-    window.addEventListener('sse:staff.updated', handleStaffUpdated);
-    return () => {
-      window.removeEventListener('sse:staff.updated', handleStaffUpdated);
-    };
-  }, [utils]);
 
   // 오늘의 근무 탭에서 날짜를 이동하면 해당 월 전체 데이터를 사전 로드
   useEffect(() => {
@@ -501,26 +408,219 @@ function SchedulePageContent() {
     return new Set(holidays?.map(h => h.date) || []);
   }, [holidays]);
 
-  // Fetch users from database
-  const { data: usersData } = api.tenant.users.list.useQuery(
-    {
+  // Fetch users from database (shared between views)
+  const userListInput = React.useMemo(() => {
+    return {
       limit: 100,
       offset: 0,
-      status: 'active',
+      status: 'active' as const,
       includeDetails: false,
-      // member와 manager는 백엔드에서 자동으로 자신의 department로 필터링됨
-      // admin/owner만 departmentId를 명시적으로 전달
       departmentId:
         !isMember && userRole !== 'manager' && selectedDepartment !== 'all' && selectedDepartment !== 'no-department'
           ? selectedDepartment
           : undefined,
-    },
+    };
+  }, [isMember, selectedDepartment, userRole]);
+
+  const cachedUsers = utils.tenant.users.list.getData(userListInput);
+  const shouldEnableUsersQuery = filters.activeView === 'preferences' || !cachedUsers;
+
+  const { data: usersData } = api.tenant.users.list.useQuery(
+    userListInput,
     {
-      enabled: true,
-      staleTime: 3 * 60 * 1000, // 3분 동안 fresh 유지 (사용자 정보는 가끔 변경됨)
-      refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
+      enabled: shouldEnableUsersQuery,
+      staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지 (사용자 정보는 잦은 변동이 아님)
+      refetchOnWindowFocus: false,
     }
   );
+
+  const resolvedUsersData = usersData ?? cachedUsers;
+
+  const updateTenantUsersCache = useCallback((
+    userId: string,
+    updater: (current: UserDataItem | undefined) => Partial<UserDataItem> | null | undefined
+  ) => {
+    utils.tenant.users.list.setData(userListInput, (previous) => {
+      if (!previous?.items) {
+        return previous;
+      }
+
+      let changed = false;
+      const nextItems = previous.items.map((item) => {
+        if (item.id !== userId) {
+          return item;
+        }
+
+        const patch = updater(item as UserDataItem);
+        if (!patch || Object.keys(patch).length === 0) {
+          return item;
+        }
+
+        changed = true;
+        return {
+          ...item,
+          ...patch,
+        } as typeof item;
+      });
+
+      if (!changed) {
+        return previous;
+      }
+
+      return {
+        ...previous,
+        items: nextItems,
+      };
+    });
+  }, [userListInput, utils]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const handleCareerUpdate: EventListener = (event) => {
+      const customEvent = event as CustomEvent<SSEEvent<'staff.career_updated'>>;
+      const payload = customEvent.detail?.data;
+      if (!payload?.careerInfo) {
+        return;
+      }
+
+      const derivedYears =
+        typeof payload.careerInfo.yearsOfService === 'number'
+          ? Math.max(0, payload.careerInfo.yearsOfService)
+          : typeof payload.careerInfo.hireYear === 'number'
+            ? Math.max(0, new Date().getFullYear() - payload.careerInfo.hireYear)
+            : undefined;
+
+      setCareerOverrides(prev => {
+        const previous = prev[payload.userId];
+        if (
+          previous &&
+          previous.yearsOfService === derivedYears &&
+          previous.hireYear === payload.careerInfo.hireYear
+        ) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [payload.userId]: {
+            yearsOfService: derivedYears,
+            hireYear: payload.careerInfo.hireYear,
+          },
+        };
+      });
+
+      updateTenantUsersCache(payload.userId, () => {
+        if (derivedYears === undefined) {
+          return null;
+        }
+        return { yearsOfService: derivedYears };
+      });
+    };
+
+    window.addEventListener('sse:staff.career_updated', handleCareerUpdate);
+    return () => {
+      window.removeEventListener('sse:staff.career_updated', handleCareerUpdate);
+    };
+  }, [updateTenantUsersCache]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const handleStaffUpdated: EventListener = (event) => {
+      const customEvent = event as CustomEvent<SSEEvent<'staff.updated'>>;
+      const payload = customEvent.detail?.data;
+      if (!payload?.changes) {
+        return;
+      }
+
+      const rawHireDate = payload.changes.hireDate;
+      let hireYear: number | undefined;
+      if (rawHireDate instanceof Date) {
+        hireYear = rawHireDate.getFullYear();
+      } else if (typeof rawHireDate === 'string') {
+        const parsed = new Date(rawHireDate);
+        if (!Number.isNaN(parsed.getTime())) {
+          hireYear = parsed.getFullYear();
+        }
+      }
+
+      const years = typeof payload.changes.yearsOfService === 'number'
+        ? Math.max(0, payload.changes.yearsOfService)
+        : undefined;
+
+      if (hireYear === undefined && years === undefined) {
+        return;
+      }
+
+      setCareerOverrides(prev => ({
+        ...prev,
+        [payload.userId]: {
+          yearsOfService: years ?? prev[payload.userId]?.yearsOfService,
+          hireYear: hireYear ?? prev[payload.userId]?.hireYear,
+        },
+      }));
+
+      updateTenantUsersCache(payload.userId, (current) => {
+        if (!payload.changes) {
+          return null;
+        }
+
+        const changes = payload.changes as Record<string, unknown>;
+        const patch: Partial<UserDataItem> = {};
+
+        if (typeof changes.name === 'string') {
+          patch.name = changes.name;
+        }
+        if (typeof changes.email === 'string') {
+          patch.email = changes.email;
+        }
+        if (typeof changes.role === 'string') {
+          patch.role = changes.role;
+        }
+        if (typeof changes.status === 'string') {
+          patch.status = changes.status;
+        }
+        if (typeof changes.position === 'string' || changes.position === null) {
+          patch.position = changes.position as string | null | undefined;
+        }
+        if (typeof changes.teamId === 'string' || changes.teamId === null) {
+          patch.teamId = changes.teamId as string | null | undefined;
+        }
+        if (changes.departmentId === null || typeof changes.departmentId === 'string') {
+          patch.departmentId = changes.departmentId as string | null | undefined;
+        }
+        if (typeof changes.hireDate === 'string' || changes.hireDate instanceof Date) {
+          patch.hireDate = changes.hireDate as string | Date | undefined;
+        }
+        if (typeof changes.yearsOfService === 'number') {
+          patch.yearsOfService = Math.max(0, changes.yearsOfService);
+        }
+        if (changes.department && typeof changes.department === 'object') {
+          patch.department = {
+            name: (changes.department as { name?: string })?.name ?? current?.department?.name ?? '',
+          };
+        }
+
+        if (changes.profile && typeof changes.profile === 'object') {
+          patch.profile = {
+            ...current?.profile,
+            ...(changes.profile as { phone?: string | null }),
+          };
+        }
+
+        return Object.keys(patch).length > 0 ? patch : null;
+      });
+    };
+
+    window.addEventListener('sse:staff.updated', handleStaffUpdated);
+    return () => {
+      window.removeEventListener('sse:staff.updated', handleStaffUpdated);
+    };
+  }, [updateTenantUsersCache]);
 
   // ✅ Prefetch all staff preferences (모든 직원의 선호도 미리 불러오기)
   const { data: allPreferencesMap } = api.preferences.listAll.useQuery(
@@ -535,37 +635,21 @@ function SchedulePageContent() {
   const [shouldPrefetchFullData, setShouldPrefetchFullData] = useState(false);
   const isScheduleViewActive = deferredActiveView === 'schedule';
 
-  useEffect(() => {
-    if (shouldPrefetchFullData || !usersData?.items) {
-      return;
+  const requestFullDataPrefetch = useCallback(() => {
+    setShouldPrefetchFullData((prev) => (prev ? prev : true));
+  }, []);
+
+  const handleViewIntent = useCallback((view: ScheduleView) => {
+    if (view === 'schedule') {
+      requestFullDataPrefetch();
     }
-
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const triggerPrefetch = () => setShouldPrefetchFullData(true);
-
-    if ('requestIdleCallback' in window) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const idleId = (window as any).requestIdleCallback(triggerPrefetch, { timeout: 1500 });
-      return () => {
-        if ('cancelIdleCallback' in window) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (window as any).cancelIdleCallback(idleId);
-        }
-      };
-    }
-
-    const timeoutId = setTimeout(triggerPrefetch, 500);
-    return () => clearTimeout(timeoutId);
-  }, [shouldPrefetchFullData, usersData]);
+  }, [requestFullDataPrefetch]);
 
   useEffect(() => {
-    if (isScheduleViewActive && !shouldPrefetchFullData) {
-      setShouldPrefetchFullData(true);
+    if (isScheduleViewActive) {
+      requestFullDataPrefetch();
     }
-  }, [isScheduleViewActive, shouldPrefetchFullData]);
+  }, [isScheduleViewActive, requestFullDataPrefetch]);
 
   const shouldLoadFullScheduleData = shouldPrefetchFullData || isScheduleViewActive;
 
@@ -858,9 +942,9 @@ function SchedulePageContent() {
   // Transform users data to match expected format
   // 전체 멤버 리스트 (필터링 없음 - 직원 선호사항 탭에서 사용)
   const allMembers = React.useMemo((): UnifiedEmployee[] => {
-    if (!usersData?.items) return [];
+    if (!resolvedUsersData?.items) return [];
 
-    return (usersData.items as UserDataItem[]).map((item: UserDataItem): UnifiedEmployee => {
+    return (resolvedUsersData.items as UserDataItem[]).map((item: UserDataItem): UnifiedEmployee => {
       const override = careerOverrides[item.id];
       const yearsOfService = override?.yearsOfService ?? calculateYearsOfService(item);
       const joinDateSource = item.hireDate ?? item.createdAt;
@@ -882,7 +966,7 @@ function SchedulePageContent() {
         teamId: item.teamId || null,
       };
     });
-  }, [usersData, careerOverrides]);
+  }, [resolvedUsersData, careerOverrides]);
 
   const employeeNameMap = React.useMemo(() => {
     const map: Record<string, string> = {};
@@ -2483,6 +2567,7 @@ function SchedulePageContent() {
           activeView={filters.activeView}
           canViewStaffPreferences={canViewStaffPreferences}
           onViewChange={filters.setActiveView}
+          onViewIntent={handleViewIntent}
         />
 
         {/* Preferences View */}
