@@ -117,6 +117,10 @@ const THREE_SHIFT_ROTATION_LOCK_THRESHOLD = 5;
 const NIGHT_INTENSIVE_RECOVERY_MIN_STREAK = 3;
 const NIGHT_INTENSIVE_MIN_RECOVERY_DAYS = 2;
 const NIGHT_INTENSIVE_MAX_RECOVERY_DAYS = 3;
+const NIGHT_BLOCK_MIN_NON_PREF = 2;
+const NIGHT_BLOCK_TARGET_MAX_NON_PREF = 3;
+const NIGHT_BLOCK_RECOVERY_DAYS = 2;
+const NIGHT_BLOCK_MAX_RECOVERY_DAYS = 3;
 
 function extractShiftCode(shift: Shift & { code?: string }): string {
   if (shift.code) {
@@ -465,61 +469,47 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
 
     };
 
-    // Step 1.1: Enforce recovery OFF blocks for night-intensive staff without explicit preferences
+    // Step 1.1: Enforce recovery OFF blocks for night-intensive staff and non-preference night workers
     request.employees.forEach((employee) => {
       if (assignedToday.has(employee.id)) {
-        return;
-      }
-      if (employee.workPatternType !== 'night-intensive' || hasShiftPreferences(employee)) {
         return;
       }
       const state = employeeStates.get(employee.id);
       if (!state) {
         return;
       }
-      const configuredMaxNights =
-        employee.maxConsecutiveNightsPreferred ?? DEFAULT_MAX_CONSECUTIVE_NIGHT['night-intensive'];
-      const recoveryTrigger = Math.min(configuredMaxNights, NIGHT_INTENSIVE_RECOVERY_MIN_STREAK);
-      const exceededTrigger = state.lastShiftCode === 'N' && state.consecutiveNights >= recoveryTrigger;
-      if (state.nightRecoveryDaysNeeded <= 0 && exceededTrigger) {
-        const extraNights = state.consecutiveNights - recoveryTrigger;
-        const targetRecoveryDays = Math.min(
-          NIGHT_INTENSIVE_MAX_RECOVERY_DAYS,
-          NIGHT_INTENSIVE_MIN_RECOVERY_DAYS + (extraNights > 0 ? 1 : 0)
-        );
-        state.nightRecoveryDaysNeeded = targetRecoveryDays;
+      const hasPreferences = hasShiftPreferences(employee);
+      const isNightIntensive = employee.workPatternType === 'night-intensive';
+      const participatesInNightBlock =
+        isNightIntensive || (!hasPreferences && employee.workPatternType !== 'weekday-only');
+      if (!participatesInNightBlock) {
+        return;
+      }
+      const lastShiftWasNight = state.lastShiftCode === 'N';
+      if (state.nightRecoveryDaysNeeded <= 0 && lastShiftWasNight) {
+        if (isNightIntensive) {
+          const configuredMaxNights =
+            employee.maxConsecutiveNightsPreferred ?? DEFAULT_MAX_CONSECUTIVE_NIGHT['night-intensive'];
+          const recoveryTrigger = Math.min(configuredMaxNights, NIGHT_INTENSIVE_RECOVERY_MIN_STREAK);
+          if (state.consecutiveNights >= recoveryTrigger) {
+            const extraNights = state.consecutiveNights - recoveryTrigger;
+            const targetRecoveryDays = Math.min(
+              NIGHT_INTENSIVE_MAX_RECOVERY_DAYS,
+              NIGHT_INTENSIVE_MIN_RECOVERY_DAYS + (extraNights > 0 ? 1 : 0)
+            );
+            state.nightRecoveryDaysNeeded = Math.max(state.nightRecoveryDaysNeeded, targetRecoveryDays);
+          }
+        } else if (state.consecutiveNights >= NIGHT_BLOCK_MIN_NON_PREF) {
+          const extraNights = Math.max(0, state.consecutiveNights - NIGHT_BLOCK_MIN_NON_PREF);
+          const targetRecoveryDays = Math.min(
+            NIGHT_BLOCK_MAX_RECOVERY_DAYS,
+            NIGHT_BLOCK_RECOVERY_DAYS + (extraNights > 0 ? 1 : 0)
+          );
+          state.nightRecoveryDaysNeeded = Math.max(state.nightRecoveryDaysNeeded, targetRecoveryDays);
+        }
       }
       if (state.nightRecoveryDaysNeeded > 0) {
         assignOffShift(employee, { force: true, dayIndex, mustPreserveOffQuota: true });
-      }
-    });
-
-    // Step 1.2: After any night shift (non night-intensive), try to schedule immediate rest (OFF preferred, else E)
-    request.employees.forEach((employee) => {
-      if (assignedToday.has(employee.id)) {
-        return;
-      }
-      const state = employeeStates.get(employee.id);
-      if (!state) {
-        return;
-      }
-      if (state.lastShiftCode !== 'N') {
-        return;
-      }
-      if (employee.workPatternType === 'night-intensive') {
-        return;
-      }
-      const canTakeOff = state.offDays < state.maxOffDays;
-      if (canTakeOff) {
-        assignOffShift(employee, { force: true, dayIndex, mustPreserveOffQuota: true });
-      } else {
-        const assigned = assignSupportShift(employee, {
-          countTowardsRotation: true,
-          allowedCodes: ['E'],
-        });
-        if (!assigned) {
-          assignOffShift(employee, { dayIndex, mustPreserveOffQuota: true });
-        }
       }
     });
 
@@ -811,7 +801,7 @@ function calculateCandidateScore(params: CandidateScoreParams) {
 
   const workPattern = employee.workPatternType ?? 'three-shift';
   const lastWorkShift = state.lastWorkShiftCode;
-  if (lastWorkShift) {
+  if (!hasPreferenceWeights && lastWorkShift) {
     if (lastWorkShift === 'D') {
       if (normalizedShiftCode === 'E') {
         score += 20;
@@ -840,7 +830,7 @@ function calculateCandidateScore(params: CandidateScoreParams) {
   }
 
   const workedShifts = Object.values(state.shiftCounts).reduce((sum, value) => sum + value, 0);
-  if (workedShifts > 0) {
+  if (!hasPreferenceWeights && workedShifts > 0) {
     const dRatio = (state.shiftCounts['D'] ?? 0) / workedShifts;
     if (normalizedShiftCode === 'D') {
       score -= 15 + dRatio * 40;
@@ -852,6 +842,20 @@ function calculateCandidateScore(params: CandidateScoreParams) {
     }
     if (normalizedShiftCode === 'N' && nRatio < 0.2) {
       score += 5;
+    }
+  }
+  if (!hasPreferenceWeights) {
+    const consecutiveNights = state.consecutiveNights;
+    if (consecutiveNights > 0 && consecutiveNights < NIGHT_BLOCK_MIN_NON_PREF && normalizedShiftCode !== 'N') {
+      score -= 30;
+    }
+    if (normalizedShiftCode === 'N') {
+      if (consecutiveNights > 0 && consecutiveNights < NIGHT_BLOCK_TARGET_MAX_NON_PREF) {
+        score += 15;
+      }
+      if (consecutiveNights >= NIGHT_BLOCK_TARGET_MAX_NON_PREF) {
+        score -= 35;
+      }
     }
   }
 
