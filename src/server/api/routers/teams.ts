@@ -3,6 +3,7 @@ import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { db } from '@/db';
 import { teams } from '@/db/schema/teams';
 import { eq, and, asc } from 'drizzle-orm';
+import { sse } from '@/lib/sse/broadcaster';
 
 export const teamsRouter = createTRPCRouter({
   // Get all teams for the current tenant/department
@@ -76,6 +77,13 @@ export const teamsRouter = createTRPCRouter({
         })
         .returning();
 
+      // ✅ SSE: 팀 생성 이벤트 브로드캐스트
+      sse.team.created(result[0].id, {
+        departmentId: input.departmentId,
+        name: input.name,
+        tenantId,
+      });
+
       return result[0];
     }),
 
@@ -134,6 +142,13 @@ export const teamsRouter = createTRPCRouter({
         throw new Error('팀을 찾을 수 없습니다');
       }
 
+      // ✅ SSE: 팀 업데이트 이벤트 브로드캐스트
+      sse.team.updated(input.id, {
+        departmentId: result[0].departmentId,
+        changes: updateData,
+        tenantId,
+      });
+
       return result[0];
     }),
 
@@ -159,6 +174,12 @@ export const teamsRouter = createTRPCRouter({
       if (result.length === 0) {
         throw new Error('팀을 찾을 수 없습니다');
       }
+
+      // ✅ SSE: 팀 삭제 이벤트 브로드캐스트
+      sse.team.deleted(input.id, {
+        departmentId: result[0].departmentId,
+        tenantId,
+      });
 
       return result[0];
     }),

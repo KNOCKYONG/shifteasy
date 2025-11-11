@@ -6,6 +6,9 @@ import { schedules, users, departments, nursePreferences, offBalanceLedger, holi
 import { eq, and, gte, lte, desc, inArray, isNull, ne, or } from 'drizzle-orm';
 import { db } from '@/db';
 import { generateAiSchedule } from '@/lib/scheduler/ai-scheduler';
+import { sse } from '@/lib/sse/broadcaster';
+import { notificationService } from '@/lib/notifications/notification-service';
+import { format } from 'date-fns';
 
 export const scheduleRouter = createTRPCRouter({
   list: protectedProcedure
@@ -275,6 +278,13 @@ export const scheduleRouter = createTRPCRouter({
         },
       });
 
+      // ✅ SSE: 스케줄 생성 이벤트 브로드캐스트
+      sse.schedule.generated(schedule.id, {
+        departmentId: input.departmentId,
+        generatedBy: ctx.user?.id || 'system',
+        tenantId,
+      });
+
       return {
         scheduleId: schedule.id,
         assignments: serializedAssignments,
@@ -441,7 +451,33 @@ export const scheduleRouter = createTRPCRouter({
         // Don't fail the publish if off-balance calculation fails
       }
 
-      // TODO: Send notifications to affected users
+      // ✅ SSE: 스케줄 확정 이벤트 브로드캐스트
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+
+      sse.schedule.published(schedule.id, {
+        departmentId: schedule.departmentId,
+        startDate: schedule.startDate,
+        endDate: schedule.endDate,
+        publishedBy: ctx.user?.id || 'dev-user-id',
+        tenantId,
+      });
+
+      // ✅ 알림: 해당 부서의 모든 사용자에게 알림 전송
+      if (schedule.departmentId) {
+        await notificationService.sendToTopic(
+          tenantId,
+          `department:${schedule.departmentId}`,
+          {
+            type: 'schedule_published',
+            priority: 'high',
+            title: '새로운 스케줄이 확정되었습니다',
+            message: `${format(schedule.startDate, 'yyyy년 M월')} 스케줄이 확정되었습니다.`,
+            actionUrl: '/schedule',
+            departmentId: schedule.departmentId,
+            data: { scheduleId: schedule.id },
+          }
+        );
+      }
 
       return updated;
     }),
@@ -493,6 +529,12 @@ export const scheduleRouter = createTRPCRouter({
         entityType: 'schedule',
         entityId: input.id,
         after: updated,
+      });
+
+      // ✅ SSE: 스케줄 아카이브 이벤트 브로드캐스트
+      sse.schedule.archived(input.id, {
+        departmentId: schedule.departmentId,
+        tenantId: ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d',
       });
 
       return updated;
@@ -555,6 +597,12 @@ export const scheduleRouter = createTRPCRouter({
         entityType: 'schedule',
         entityId: input.id,
         before: schedule,
+      });
+
+      // ✅ SSE: 스케줄 삭제 이벤트 브로드캐스트
+      sse.schedule.deleted(input.id, {
+        departmentId: schedule.departmentId,
+        tenantId,
       });
 
       return { success: true };
@@ -681,6 +729,14 @@ export const scheduleRouter = createTRPCRouter({
         entityId: input.scheduleId,
         before: currentSchedule,
         after: updated,
+      });
+
+      // ✅ SSE: 스케줄 버전 업데이트 이벤트 브로드캐스트
+      sse.schedule.versionUpdated(input.scheduleId, {
+        version: newVersion,
+        reason: input.reason,
+        changes: input.changes,
+        tenantId,
       });
 
       return updated;

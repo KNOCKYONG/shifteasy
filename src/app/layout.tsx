@@ -5,6 +5,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { I18nProvider } from "@/components/providers/I18nProvider";
 import { TRPCProvider } from "@/components/providers/trpc-provider";
+import { SSEProvider } from "@/providers/SSEProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { NavigationHeader } from "@/components/layout/NavigationHeader";
 
@@ -34,15 +35,17 @@ export default function RootLayout({
           <ErrorBoundary>
             <TRPCProvider>
               <I18nProvider>
-                <ThemeProvider
-                  attribute="class"
-                  defaultTheme="system"
-                  enableSystem
-                  disableTransitionOnChange={false}
-                >
-                  <NavigationHeader />
-                  {children}
-                </ThemeProvider>
+                <SSEProvider>
+                  <ThemeProvider
+                    attribute="class"
+                    defaultTheme="system"
+                    enableSystem
+                    disableTransitionOnChange={false}
+                  >
+                    <NavigationHeader />
+                    {children}
+                  </ThemeProvider>
+                </SSEProvider>
               </I18nProvider>
             </TRPCProvider>
           </ErrorBoundary>

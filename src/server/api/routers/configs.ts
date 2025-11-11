@@ -4,6 +4,7 @@ import { createTRPCRouter, protectedProcedure, longCachedProcedure } from '../tr
 import { db } from '@/db';
 import { configs } from '@/db/schema/configs';
 import { eq, and, isNull } from 'drizzle-orm';
+import { sse } from '@/lib/sse/broadcaster';
 
 // Default configurations
 const DEFAULT_SHIFT_TYPES = [
@@ -248,6 +249,26 @@ export const configsRouter = createTRPCRouter({
           .where(and(...whereConditions))
           .returning();
 
+        // ✅ SSE: 설정 업데이트 이벤트 브로드캐스트
+        const category = input.configKey.includes('shift') ? 'shift_types' :
+                        input.configKey.includes('contract') ? 'contract_types' :
+                        input.configKey.includes('position') ? 'positions' : 'general';
+
+        sse.config.updated(input.configKey, {
+          departmentId: departmentId || undefined,
+          category,
+          tenantId,
+        });
+
+        // ✅ 시프트 타입 업데이트인 경우 별도 이벤트 전송
+        if (input.configKey === 'shift_types') {
+          sse.config.shiftTypesUpdated({
+            departmentId: departmentId || undefined,
+            shiftTypes: input.configValue,
+            tenantId,
+          });
+        }
+
         return result[0];
       } else {
         // Create
@@ -259,6 +280,26 @@ export const configsRouter = createTRPCRouter({
             configValue: input.configValue,
           })
           .returning();
+
+        // ✅ SSE: 설정 생성 이벤트 브로드캐스트
+        const category = input.configKey.includes('shift') ? 'shift_types' :
+                        input.configKey.includes('contract') ? 'contract_types' :
+                        input.configKey.includes('position') ? 'positions' : 'general';
+
+        sse.config.updated(input.configKey, {
+          departmentId: departmentId || undefined,
+          category,
+          tenantId,
+        });
+
+        // ✅ 시프트 타입 생성인 경우 별도 이벤트 전송
+        if (input.configKey === 'shift_types') {
+          sse.config.shiftTypesUpdated({
+            departmentId: departmentId || undefined,
+            shiftTypes: input.configValue,
+            tenantId,
+          });
+        }
 
         return result[0];
       }
@@ -286,6 +327,17 @@ export const configsRouter = createTRPCRouter({
 
       await db.delete(configs)
         .where(and(...whereConditions));
+
+      // ✅ SSE: 설정 삭제 이벤트 브로드캐스트
+      const category = input.configKey.includes('shift') ? 'shift_types' :
+                      input.configKey.includes('contract') ? 'contract_types' :
+                      input.configKey.includes('position') ? 'positions' : 'general';
+
+      sse.config.updated(input.configKey, {
+        departmentId: input.departmentId,
+        category,
+        tenantId,
+      });
 
       return { success: true };
     }),

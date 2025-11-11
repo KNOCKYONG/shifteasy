@@ -3,6 +3,7 @@ import { createTRPCRouter, protectedProcedure, adminProcedure } from '../trpc';
 import { scopedDb, createAuditLog } from '@/lib/db-helpers';
 import { users } from '@/db/schema';
 import { eq, and, or, like } from 'drizzle-orm';
+import { sse } from '@/lib/sse/broadcaster';
 
 export const staffRouter = createTRPCRouter({
   list: protectedProcedure
@@ -91,6 +92,14 @@ export const staffRouter = createTRPCRouter({
         after: user,
       });
 
+      // ✅ SSE: 직원 생성 이벤트 브로드캐스트
+      sse.staff.created(user.id, {
+        departmentId: input.departmentId,
+        name: input.name,
+        role: input.role,
+        tenantId: ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d',
+      });
+
       return user;
     }),
 
@@ -137,6 +146,29 @@ export const staffRouter = createTRPCRouter({
         after,
       });
 
+      // ✅ SSE: 직원 정보 업데이트 이벤트 브로드캐스트
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const updatedFields = Object.keys(updateData);
+
+      sse.staff.updated(id, {
+        departmentId: after.departmentId,
+        fields: updatedFields,
+        changes: updateData,
+        tenantId,
+      });
+
+      // ✅ 경력 정보 업데이트인 경우 별도 이벤트 전송
+      if (input.hireDate || input.yearsOfService) {
+        sse.staff.careerUpdated(id, {
+          departmentId: after.departmentId,
+          careerInfo: {
+            hireYear: input.hireDate ? new Date(input.hireDate).getFullYear() : undefined,
+            yearsOfService: input.yearsOfService,
+          },
+          tenantId,
+        });
+      }
+
       return after;
     }),
 
@@ -160,6 +192,12 @@ export const staffRouter = createTRPCRouter({
         entityType: 'user',
         entityId: input.id,
         after: updated,
+      });
+
+      // ✅ SSE: 직원 비활성화 이벤트 브로드캐스트 (deleted로 처리)
+      sse.staff.deleted(input.id, {
+        departmentId: updated.departmentId,
+        tenantId: ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d',
       });
 
       return updated;
