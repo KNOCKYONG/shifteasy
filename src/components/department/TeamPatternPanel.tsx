@@ -58,7 +58,7 @@ export function TeamPatternPanel({
 
   const [pattern, setPattern] = useState<Partial<TeamPattern>>({
     departmentId,
-    totalMembers,
+    totalMembers: totalMembers ?? 0,
   });
 
   const [loading, setLoading] = useState(true);
@@ -123,10 +123,10 @@ export function TeamPatternPanel({
     }
 
     const cachedEntry = teamPatternCache.get(departmentId);
-    if (cachedEntry) {
+    if (cachedEntry && cachedEntry.pattern) {
       setPattern(prev => ({
         ...cachedEntry.pattern,
-        totalMembers: cachedEntry.pattern.totalMembers ?? prev.totalMembers ?? totalMembers,
+        totalMembers: cachedEntry.pattern.totalMembers ?? prev?.totalMembers ?? totalMembers ?? 0,
       }));
       setLoading(false);
       // 백그라운드 최신화

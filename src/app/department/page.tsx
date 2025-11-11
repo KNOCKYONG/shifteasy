@@ -237,7 +237,7 @@ const departments =
   }, [rawTeamMembers, currentUserRole, currentUser.dbUser?.id]);
 
   // 통계 계산 (비활성 인원 제외)
-  const activeMembers = teamMembers.filter((member) => member.status !== 'inactive');
+  const activeMembers = teamMembers?.filter((member) => member.status !== 'inactive') ?? [];
   const stats = {
     total: activeMembers.length,
     active: activeMembers.filter((member) => member.status === 'active').length,
@@ -247,7 +247,7 @@ const departments =
   };
 
   // Department Pattern용 필터링된 전체 인원 (비활성 및 근무 패턴이 '행정 근무'인 사람 제외)
-  const filteredTotalMembers = teamMembers.filter((member) => {
+  const filteredTotalMembers = teamMembers?.filter((member) => {
     // 비활성 인원 제외
     if (member.status === 'inactive') {
       return false;
@@ -257,7 +257,7 @@ const departments =
       return false;
     }
     return true;
-  }).length;
+  }).length ?? 0;
 
   const handleToggleActivation = async (id: string, currentStatus: string) => {
     if (currentStatus === 'inactive') {

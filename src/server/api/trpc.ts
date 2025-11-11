@@ -20,7 +20,32 @@ const t = initTRPC.context<Context>().create({
 
 export const createTRPCRouter = t.router;
 
-export const publicProcedure = t.procedure;
+// Performance measurement middleware
+const performanceMiddleware = t.middleware(async ({ path, type, next }) => {
+  const start = Date.now();
+
+  try {
+    const result = await next();
+    const duration = Date.now() - start;
+
+    // Log slow queries (>200ms)
+    if (duration > 200) {
+      console.warn(`🐌 SLOW ${type}: ${path} took ${duration}ms`);
+    } else if (duration > 100) {
+      console.log(`⚠️  ${type}: ${path} took ${duration}ms`);
+    } else {
+      console.log(`✅ ${type}: ${path} took ${duration}ms`);
+    }
+
+    return result;
+  } catch (error) {
+    const duration = Date.now() - start;
+    console.error(`❌ ERROR ${type}: ${path} took ${duration}ms before failing`);
+    throw error;
+  }
+});
+
+export const publicProcedure = t.procedure.use(performanceMiddleware);
 
 const enforceUserIsAuthed = t.middleware(({ ctx, next }) => {
   if (!ctx.userId) {
@@ -34,7 +59,9 @@ const enforceUserIsAuthed = t.middleware(({ ctx, next }) => {
   });
 });
 
-export const protectedProcedure = t.procedure.use(enforceUserIsAuthed);
+export const protectedProcedure = t.procedure
+  .use(performanceMiddleware)
+  .use(enforceUserIsAuthed);
 
 const enforceUserIsAdmin = t.middleware(({ ctx, next }) => {
   if (!ctx.userId) {
@@ -49,7 +76,9 @@ const enforceUserIsAdmin = t.middleware(({ ctx, next }) => {
   });
 });
 
-export const adminProcedure = t.procedure.use(enforceUserIsAdmin);
+export const adminProcedure = t.procedure
+  .use(performanceMiddleware)
+  .use(enforceUserIsAdmin);
 
 // Redis cache middleware for read-only operations
 const withCache = (ttl: number = 300) => // Default 5 minutes
@@ -87,3 +116,6 @@ const withCache = (ttl: number = 300) => // Default 5 minutes
 // Cached procedures with different TTLs
 export const cachedProcedure = protectedProcedure.use(withCache(300)); // 5 min
 export const longCachedProcedure = protectedProcedure.use(withCache(1800)); // 30 min
+
+// Note: cachedProcedure and longCachedProcedure already include performanceMiddleware
+// because they extend protectedProcedure
