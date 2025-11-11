@@ -84,35 +84,33 @@ type ValidateScheduleInput = z.infer<typeof ValidateScheduleSchema>;
 
 export async function POST(request: NextRequest) {
   try {
-    const rawUser = await getCurrentUser();
+    const rawUser = await getCurrentUser().catch(() => null);
     const headerUserId = request.headers.get('x-user-id');
     const headerTenantId = request.headers.get('x-tenant-id');
     const headerUserRole = request.headers.get('x-user-role');
     const headerDepartmentId = request.headers.get('x-department-id');
 
-    let user:
-      | {
-          id: string;
-          role: string;
-          tenantId?: string;
-          departmentId?: string | null;
-        }
-      | null = rawUser
-      ? {
-          id: rawUser.id,
-          role: rawUser.role ?? 'admin',
-          tenantId: rawUser.tenantId,
-          departmentId: rawUser.departmentId ?? null,
-        }
-      : null;
+    let user =
+      rawUser && !headerUserId && !headerTenantId
+        ? {
+            id: rawUser.id,
+            role: rawUser.role ?? 'admin',
+            tenantId: rawUser.tenantId,
+            departmentId: rawUser.departmentId ?? null,
+          }
+        : null;
 
-    if (!user && headerUserId && headerTenantId) {
-      user = {
-        id: headerUserId,
-        role: headerUserRole ?? 'admin',
-        tenantId: headerTenantId,
-        departmentId: headerDepartmentId,
-      };
+    if (!user) {
+      const resolvedId = headerUserId ?? rawUser?.id;
+      const resolvedTenant = headerTenantId ?? rawUser?.tenantId ?? undefined;
+      if (resolvedId && resolvedTenant) {
+        user = {
+          id: resolvedId,
+          role: headerUserRole ?? rawUser?.role ?? 'admin',
+          tenantId: resolvedTenant,
+          departmentId: headerDepartmentId ?? rawUser?.departmentId ?? null,
+        };
+      }
     }
 
     if (!user) {
