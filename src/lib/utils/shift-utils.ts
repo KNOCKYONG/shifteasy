@@ -37,13 +37,16 @@ export function convertShiftTypesToShifts(customShiftTypes: ShiftType[]): Shift[
     let hours = endHour - startHour;
     if (hours <= 0) hours += 24; // Handle overnight shifts
 
+    const normalizedCode = shiftType.code.toUpperCase();
+
     // Map shift code to type
     let type: 'day' | 'evening' | 'night' | 'off' | 'leave' | 'custom' = 'custom';
-    if (shiftType.code === 'D') type = 'day';
-    else if (shiftType.code === 'E') type = 'evening';
-    else if (shiftType.code === 'N') type = 'night';
-    else if (shiftType.code === 'O' || shiftType.code === 'OFF') type = 'off';
-    else if (shiftType.code === 'A') type = 'custom'; // 행정 근무 (administrative work)
+    if (normalizedCode === 'D') type = 'day';
+    else if (normalizedCode === 'E') type = 'evening';
+    else if (normalizedCode === 'N') type = 'night';
+    else if (normalizedCode === 'O' || normalizedCode === 'OFF') type = 'off';
+    else if (normalizedCode === 'A') type = 'custom'; // 행정 근무 (administrative work)
+    else if (normalizedCode === 'V' || shiftType.name.includes('휴가')) type = 'leave';
 
     // Determine color: Try multiple approaches
     let color = '#6B7280'; // Default gray
@@ -65,19 +68,26 @@ export function convertShiftTypesToShifts(customShiftTypes: ShiftType[]): Shift[
         'O': '#9CA3AF',   // off - gray
         'A': '#10B981',   // administrative - green
       };
-      color = codeColorMap[shiftType.code.toUpperCase()] || '#6B7280';
+      color = codeColorMap[normalizedCode] || '#6B7280';
     }
 
+    const staffingDefaults: Record<string, { required: number; min: number; max: number }> = {
+      D: { required: 5, min: 4, max: 6 },
+      E: { required: 4, min: 3, max: 5 },
+      N: { required: 3, min: 2, max: 4 },
+    };
+    const staffing = staffingDefaults[normalizedCode] ?? { required: 0, min: 0, max: 99 };
+
     return {
-      id: `shift-${shiftType.code.toLowerCase()}`,
-      code: shiftType.code.toUpperCase(),
+      id: `shift-${normalizedCode.toLowerCase()}`,
+      code: normalizedCode,
       type,
       name: shiftType.name,
       time: { start: shiftType.startTime, end: shiftType.endTime, hours },
       color,
-      requiredStaff: shiftType.code === 'D' ? 5 : shiftType.code === 'E' ? 4 : shiftType.code === 'N' ? 3 : 1,
-      minStaff: shiftType.code === 'D' ? 4 : shiftType.code === 'E' ? 3 : shiftType.code === 'N' ? 2 : 1,
-      maxStaff: shiftType.code === 'D' ? 6 : shiftType.code === 'E' ? 5 : shiftType.code === 'N' ? 4 : 3,
+      requiredStaff: staffing.required,
+      minStaff: staffing.min,
+      maxStaff: staffing.max,
     };
   });
 }
