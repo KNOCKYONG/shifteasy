@@ -75,6 +75,7 @@ interface EmployeeState {
   consecutiveNights: number;
   lastAssignedDate: Date | null;
   lastShiftCode: string | null;
+  lastWorkShiftCode: string | null;
   shiftCounts: Record<string, number>;
   distinctShifts: Set<string>;
   rotationLock: string | null;
@@ -182,6 +183,7 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       consecutiveNights: 0,
       lastAssignedDate: null,
       lastShiftCode: null,
+      lastWorkShiftCode: null,
       shiftCounts: {},
       distinctShifts: new Set(),
       rotationLock: null,
@@ -492,6 +494,32 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       }
     });
 
+    // Step 1.2: After any night shift, try to schedule immediate rest (OFF preferred, else E)
+    request.employees.forEach((employee) => {
+      if (assignedToday.has(employee.id)) {
+        return;
+      }
+      const state = employeeStates.get(employee.id);
+      if (!state) {
+        return;
+      }
+      if (state.lastShiftCode !== 'N') {
+        return;
+      }
+      const canTakeOff = state.offDays < state.maxOffDays;
+      if (canTakeOff) {
+        assignOffShift(employee, { force: true, dayIndex, mustPreserveOffQuota: true });
+      } else {
+        const assigned = assignSupportShift(employee, {
+          countTowardsRotation: true,
+          allowedCodes: ['E'],
+        });
+        if (!assigned) {
+          assignOffShift(employee, { dayIndex, mustPreserveOffQuota: true });
+        }
+      }
+    });
+
     const isWeekendDay = isWeekend(date);
     const isHoliday = holidays.has(dateKey);
     const isSpecialDay = isWeekendDay || isHoliday;
@@ -711,7 +739,7 @@ function selectCandidate(params: CandidateSelectionParams) {
         return null;
       }
 
-      if (state.lastShiftCode === 'N' && (normalizedShiftCode === 'D' || normalizedShiftCode === 'E')) {
+      if (state.lastShiftCode === 'N' && normalizedShiftCode === 'D') {
         return null;
       }
 
@@ -779,6 +807,51 @@ function calculateCandidateScore(params: CandidateScoreParams) {
   const hasPreferenceWeights = !!employee.preferredShiftTypes && Object.keys(employee.preferredShiftTypes).length > 0;
 
   const workPattern = employee.workPatternType ?? 'three-shift';
+  const lastWorkShift = state.lastWorkShiftCode;
+  if (lastWorkShift) {
+    if (lastWorkShift === 'D') {
+      if (normalizedShiftCode === 'E') {
+        score += 20;
+      }
+      if (normalizedShiftCode === 'N') {
+        score -= 15;
+      }
+    } else if (lastWorkShift === 'E') {
+      if (normalizedShiftCode === 'N') {
+        score += 20;
+      }
+      if (normalizedShiftCode === 'D') {
+        score -= 25;
+      }
+      if (normalizedShiftCode === 'E') {
+        score -= 35;
+      }
+    } else if (lastWorkShift === 'N') {
+      if (normalizedShiftCode === 'E') {
+        score += 15;
+      }
+      if (normalizedShiftCode === 'D') {
+        score -= 50;
+      }
+    }
+  }
+
+  const workedShifts = Object.values(state.shiftCounts).reduce((sum, value) => sum + value, 0);
+  if (workedShifts > 0) {
+    const dRatio = (state.shiftCounts['D'] ?? 0) / workedShifts;
+    if (normalizedShiftCode === 'D') {
+      score -= 15 + dRatio * 40;
+    }
+    const eRatio = (state.shiftCounts['E'] ?? 0) / workedShifts;
+    const nRatio = (state.shiftCounts['N'] ?? 0) / workedShifts;
+    if (normalizedShiftCode === 'E' && eRatio > nRatio + 0.2) {
+      score -= 10;
+    }
+    if (normalizedShiftCode === 'N' && nRatio < 0.2) {
+      score += 5;
+    }
+  }
+
   const maxConsecutive =
     employee.maxConsecutiveDaysPreferred ?? DEFAULT_MAX_CONSECUTIVE[workPattern as WorkPatternType];
   const maxConsecutiveNight =
@@ -915,6 +988,7 @@ function updateEmployeeState(
       state.shiftCounts[normalizedShiftCode] = (state.shiftCounts[normalizedShiftCode] ?? 0) + 1;
       state.distinctShifts.add(normalizedShiftCode);
     }
+    state.lastWorkShiftCode = normalizedShiftCode;
 
     if (countTowardsRotation && state.workPatternType === 'three-shift') {
       if (state.distinctShifts.size >= 2) {
