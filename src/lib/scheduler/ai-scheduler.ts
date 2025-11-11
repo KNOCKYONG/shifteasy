@@ -85,6 +85,7 @@ interface EmployeeState {
   maxOffDays: number;
   extraOffDays: number;
   lastShiftRunCount: number;
+  nightRecoveryDaysNeeded: number;
 }
 
 const SHIFT_CODE_MAP: Record<string, string> = {
@@ -112,6 +113,8 @@ const DEFAULT_MAX_CONSECUTIVE_NIGHT = {
 };
 
 const THREE_SHIFT_ROTATION_LOCK_THRESHOLD = 5;
+const NIGHT_INTENSIVE_RECOVERY_MIN_STREAK = 3;
+const NIGHT_INTENSIVE_MIN_RECOVERY_DAYS = 2;
 
 function extractShiftCode(shift: Shift & { code?: string }): string {
   if (shift.code) {
@@ -125,6 +128,13 @@ function extractShiftCode(shift: Shift & { code?: string }): string {
 
 function toDateKey(date: Date): string {
   return format(date, 'yyyy-MM-dd');
+}
+
+function hasShiftPreferences(employee: AiEmployee | undefined): boolean {
+  if (!employee?.preferredShiftTypes) {
+    return false;
+  }
+  return Object.keys(employee.preferredShiftTypes).length > 0;
 }
 
 function isOffShiftCode(code?: string | null): boolean {
@@ -181,6 +191,7 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       maxOffDays: maxOffDaysPerEmployee + nightLeaveDays,
       extraOffDays: 0,
       lastShiftRunCount: 0,
+      nightRecoveryDaysNeeded: 0,
     });
     employeeMap.set(emp.id, emp);
   });
@@ -336,6 +347,33 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       }
     });
 
+    // Step 1.1: Enforce recovery OFF blocks for night-intensive staff without explicit preferences
+    request.employees.forEach((employee) => {
+      if (assignedToday.has(employee.id)) {
+        return;
+      }
+      if (employee.workPatternType !== 'night-intensive' || hasShiftPreferences(employee)) {
+        return;
+      }
+      const state = employeeStates.get(employee.id);
+      if (!state) {
+        return;
+      }
+      if (state.nightRecoveryDaysNeeded > 0) {
+        assignOffShift(employee, { force: true, dayIndex, mustPreserveOffQuota: true });
+        return;
+      }
+      const configuredMaxNights =
+        employee.maxConsecutiveNightsPreferred ?? DEFAULT_MAX_CONSECUTIVE_NIGHT['night-intensive'];
+      const recoveryTrigger = Math.min(configuredMaxNights, NIGHT_INTENSIVE_RECOVERY_MIN_STREAK);
+      if (state.lastShiftCode === 'N' && state.consecutiveNights >= recoveryTrigger) {
+        if (state.nightRecoveryDaysNeeded <= 0) {
+          state.nightRecoveryDaysNeeded = NIGHT_INTENSIVE_MIN_RECOVERY_DAYS;
+        }
+        assignOffShift(employee, { force: true, dayIndex, mustPreserveOffQuota: true });
+      }
+    });
+
     const assignSupportShift = (
       employee: AiEmployee,
       options?: { mode?: 'admin' | 'clinical'; countTowardsRotation?: boolean; allowedCodes?: string[] }
@@ -442,6 +480,10 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
         shiftCode: 'O',
         countedAsWork: false,
       });
+
+      if (state.nightRecoveryDaysNeeded > 0) {
+        state.nightRecoveryDaysNeeded = Math.max(0, state.nightRecoveryDaysNeeded - 1);
+      }
 
     };
 
@@ -635,6 +677,14 @@ function selectCandidate(params: CandidateSelectionParams) {
       const remainingOffNeeded = Math.max(0, state.maxOffDays - state.offDays);
       const daysLeftAfterToday = params.totalDays - params.dayIndex - 1;
       if (remainingOffNeeded > daysLeftAfterToday) {
+        return null;
+      }
+
+      if (
+        employee.workPatternType === 'night-intensive' &&
+        !hasShiftPreferences(employee) &&
+        state.nightRecoveryDaysNeeded > 0
+      ) {
         return null;
       }
 
