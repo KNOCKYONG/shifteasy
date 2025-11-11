@@ -9,14 +9,23 @@ const isPublicRoute = createRouteMatcher([
   '/api/auth/validate-secret-code',
   '/api/auth/signup',
   '/api/auth/guest-signup',
-  '/api/schedule/validate(.*)',
+  '/api/schedule/validate',
+  '/api/schedule/confirm',
+  '/api/schedule/save-draft',
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  if (req.method === 'OPTIONS' || isPublicRoute(req)) {
+  // Handle OPTIONS (CORS preflight) first
+  if (req.method === 'OPTIONS') {
     return NextResponse.next();
   }
 
+  // Allow public routes
+  if (isPublicRoute(req)) {
+    return NextResponse.next();
+  }
+
+  // Protect all other routes
   await auth.protect();
 });
 
