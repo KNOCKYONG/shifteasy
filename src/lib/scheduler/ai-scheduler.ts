@@ -494,7 +494,7 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       }
     });
 
-    // Step 1.2: After any night shift, try to schedule immediate rest (OFF preferred, else E)
+    // Step 1.2: After any night shift (non night-intensive), try to schedule immediate rest (OFF preferred, else E)
     request.employees.forEach((employee) => {
       if (assignedToday.has(employee.id)) {
         return;
@@ -504,6 +504,9 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
         return;
       }
       if (state.lastShiftCode !== 'N') {
+        return;
+      }
+      if (employee.workPatternType === 'night-intensive') {
         return;
       }
       const canTakeOff = state.offDays < state.maxOffDays;
