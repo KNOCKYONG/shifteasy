@@ -1155,8 +1155,12 @@ function SchedulePageContent() {
 
       console.log('✅ Employees with preferences:', employeesWithPreferences.length);
 
-      const response = await fetchWithAuth('/api/schedule/validate', {
+      // Use regular fetch for public validate endpoint (no auth required)
+      const response = await fetch('/api/schedule/validate', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           schedule: schedulePayload,
           employees: employeesWithPreferences,
