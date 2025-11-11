@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 
+// Public routes that don't require authentication
 const isPublicRoute = createRouteMatcher([
   '/',
   '/sign-in(.*)',
@@ -9,25 +9,21 @@ const isPublicRoute = createRouteMatcher([
   '/api/auth/validate-secret-code',
   '/api/auth/signup',
   '/api/auth/guest-signup',
-  '/api/schedule/validate',
-  '/api/schedule/confirm',
-  '/api/schedule/save-draft',
+  '/api/schedule/validate', // Validation is a pure computation, no DB access
 ]);
 
-export default clerkMiddleware(async (auth, req) => {
-  // Handle OPTIONS (CORS preflight) first
-  if (req.method === 'OPTIONS') {
-    return NextResponse.next();
+export default clerkMiddleware(
+  async (auth, req) => {
+    // Protect all routes except public ones
+    if (!isPublicRoute(req)) {
+      await auth.protect();
+    }
+  },
+  {
+    // Debug mode to see what's happening (remove in production)
+    debug: process.env.NODE_ENV === 'development',
   }
-
-  // Allow public routes
-  if (isPublicRoute(req)) {
-    return NextResponse.next();
-  }
-
-  // Protect all other routes
-  await auth.protect();
-});
+);
 
 export const config = {
   matcher: [
