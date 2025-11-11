@@ -104,33 +104,28 @@ async function addTeamsIndexes() {
       ON teams(department_id);
   `);
 
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_team_members_team
-      ON team_members(team_id);
-  `);
-
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_team_members_user
-      ON team_members(user_id);
-  `);
+  // Team membership is tracked via users.team_id (no separate team_members table)
+  console.log('  ℹ️  Team membership index already exists in users table');
 }
 
 async function addHandoffIndexes() {
   console.log('🏥 Adding handoffs table indexes (Critical: 4.87s → target <500ms)...');
 
+  // Note: handoffs table already has indexes defined in schema
+  // Just ensure composite indexes for common queries
   await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_handoffs_tenant_date
-      ON handoffs(tenant_id, handoff_date DESC);
+    CREATE INDEX IF NOT EXISTS idx_handoffs_tenant_shift_date
+      ON handoffs(tenant_id, shift_date DESC);
   `);
 
   await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_handoffs_dept_date
-      ON handoffs(department_id, handoff_date DESC);
+    CREATE INDEX IF NOT EXISTS idx_handoffs_dept_shift_date
+      ON handoffs(department_id, shift_date DESC);
   `);
 
   await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_handoffs_submitter
-      ON handoffs(submitter_id);
+    CREATE INDEX IF NOT EXISTS idx_handoffs_status_date
+      ON handoffs(status, shift_date DESC);
   `);
 }
 
@@ -166,19 +161,21 @@ async function addConfigsIndexes() {
 async function addSpecialRequestsIndexes() {
   console.log('📝 Adding special_requests table indexes...');
 
+  // Note: special_requests table already has basic indexes in schema
+  // Add composite indexes for common query patterns
   await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_special_requests_tenant_dates
+    CREATE INDEX IF NOT EXISTS idx_special_requests_tenant_date
       ON special_requests(tenant_id, date);
   `);
 
   await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_special_requests_nurse_dates
-      ON special_requests(nurse_id, date);
+    CREATE INDEX IF NOT EXISTS idx_special_requests_employee_date
+      ON special_requests(employee_id, date);
   `);
 
   await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_special_requests_status
-      ON special_requests(tenant_id, status);
+    CREATE INDEX IF NOT EXISTS idx_special_requests_tenant_status_date
+      ON special_requests(tenant_id, status, date);
   `);
 }
 
@@ -194,19 +191,22 @@ async function addHolidaysIndexes() {
 async function addSwapRequestsIndexes() {
   console.log('🔄 Adding swap_requests table indexes...');
 
+  // Note: swap_requests table already has basic indexes in schema
+  // Add composite indexes for common query patterns
   await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_swap_requests_tenant_status
-      ON swap_requests(tenant_id, status);
+    CREATE INDEX IF NOT EXISTS idx_swap_requests_tenant_status_date
+      ON swap_requests(tenant_id, status, date DESC);
   `);
 
   await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_swap_requests_requester
-      ON swap_requests(requester_id);
+    CREATE INDEX IF NOT EXISTS idx_swap_requests_requester_status
+      ON swap_requests(requester_id, status);
   `);
 
   await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_swap_requests_target
-      ON swap_requests(target_id);
+    CREATE INDEX IF NOT EXISTS idx_swap_requests_target_user_status
+      ON swap_requests(target_user_id, status)
+      WHERE target_user_id IS NOT NULL;
   `);
 }
 
@@ -218,7 +218,6 @@ async function analyzeTablesForOptimization() {
     'schedules',
     'nurse_preferences',
     'teams',
-    'team_members',
     'handoffs',
     'department_patterns',
     'configs',
