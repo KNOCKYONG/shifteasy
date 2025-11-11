@@ -151,7 +151,7 @@ export const staffRouter = createTRPCRouter({
       const updatedFields = Object.keys(updateData);
 
       sse.staff.updated(id, {
-        departmentId: after.departmentId,
+        departmentId: after.departmentId || undefined,
         fields: updatedFields,
         changes: updateData,
         tenantId,
@@ -160,7 +160,7 @@ export const staffRouter = createTRPCRouter({
       // ✅ 경력 정보 업데이트인 경우 별도 이벤트 전송
       if (input.hireDate || input.yearsOfService) {
         sse.staff.careerUpdated(id, {
-          departmentId: after.departmentId,
+          departmentId: after.departmentId || undefined,
           careerInfo: {
             hireYear: input.hireDate ? new Date(input.hireDate).getFullYear() : undefined,
             yearsOfService: input.yearsOfService,
@@ -196,7 +196,7 @@ export const staffRouter = createTRPCRouter({
 
       // ✅ SSE: 직원 비활성화 이벤트 브로드캐스트 (deleted로 처리)
       sse.staff.deleted(input.id, {
-        departmentId: updated.departmentId,
+        departmentId: updated.departmentId || undefined,
         tenantId: ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d',
       });
 

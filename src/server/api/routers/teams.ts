@@ -144,7 +144,7 @@ export const teamsRouter = createTRPCRouter({
 
       // ✅ SSE: 팀 업데이트 이벤트 브로드캐스트
       sse.team.updated(input.id, {
-        departmentId: result[0].departmentId,
+        departmentId: result[0].departmentId || undefined,
         changes: updateData,
         tenantId,
       });
@@ -177,7 +177,7 @@ export const teamsRouter = createTRPCRouter({
 
       // ✅ SSE: 팀 삭제 이벤트 브로드캐스트
       sse.team.deleted(input.id, {
-        departmentId: result[0].departmentId,
+        departmentId: result[0].departmentId || undefined,
         tenantId,
       });
 

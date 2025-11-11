@@ -1,19 +1,23 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
-// 이벤트 타입 정의
-export type SSEEventType =
-  | 'schedule.updated'
-  | 'schedule.published'
-  | 'swap.requested'
-  | 'swap.approved'
-  | 'swap.rejected'
-  | 'notification'
-  | 'ping';
+// 이벤트 타입 정의 - events.ts에서 import
+import type { SSEEventType, SSEEvent } from './events';
 
-export interface SSEEvent {
+// Backward compatibility - 기존 헬퍼 함수들을 위한 레거시 타입
+type LegacySSEEvent = {
   type: SSEEventType;
   data: any;
   userId?: string;
   timestamp: number;
+};
+
+// SSEEvent를 LegacySSEEvent로 변환하는 헬퍼
+function toLegacyEvent(event: SSEEvent<any>): LegacySSEEvent {
+  return {
+    type: event.type,
+    data: event.data,
+    userId: event.userId,
+    timestamp: event.timestamp,
+  };
 }
 
 // 연결된 클라이언트 관리
@@ -73,7 +77,7 @@ class SSEManager {
     return clientIds;
   }
 
-  sendToClient(clientId: string, event: SSEEvent) {
+  sendToClient(clientId: string, event: SSEEvent<any> | LegacySSEEvent) {
     const controller = this.clients.get(clientId);
     if (controller) {
       try {
@@ -87,7 +91,7 @@ class SSEManager {
     }
   }
 
-  broadcast(event: SSEEvent, filterFn?: (clientId: string) => boolean) {
+  broadcast(event: SSEEvent<any> | LegacySSEEvent, filterFn?: (clientId: string) => boolean) {
     this.clients.forEach((controller, clientId) => {
       if (!filterFn || filterFn(clientId)) {
         this.sendToClient(clientId, event);

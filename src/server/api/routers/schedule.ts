@@ -455,7 +455,7 @@ export const scheduleRouter = createTRPCRouter({
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
 
       sse.schedule.published(schedule.id, {
-        departmentId: schedule.departmentId,
+        departmentId: schedule.departmentId || undefined,
         startDate: schedule.startDate,
         endDate: schedule.endDate,
         publishedBy: ctx.user?.id || 'dev-user-id',
@@ -533,7 +533,7 @@ export const scheduleRouter = createTRPCRouter({
 
       // ✅ SSE: 스케줄 아카이브 이벤트 브로드캐스트
       sse.schedule.archived(input.id, {
-        departmentId: schedule.departmentId,
+        departmentId: schedule.departmentId || undefined,
         tenantId: ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d',
       });
 
@@ -601,7 +601,7 @@ export const scheduleRouter = createTRPCRouter({
 
       // ✅ SSE: 스케줄 삭제 이벤트 브로드캐스트
       sse.schedule.deleted(input.id, {
-        departmentId: schedule.departmentId,
+        departmentId: schedule.departmentId || undefined,
         tenantId,
       });
 

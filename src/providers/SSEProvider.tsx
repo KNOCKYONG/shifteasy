@@ -46,24 +46,24 @@ interface SSEProviderProps {
 
 export function SSEProvider({ children, enabled = true }: SSEProviderProps) {
   const queryClient = useQueryClient();
-  const { user } = useCurrentUser();
+  const { userId } = useCurrentUser();
   const clientRef = useRef<SSEClient | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
 
   useEffect(() => {
-    if (!enabled || !user?.id) {
+    if (!enabled || !userId) {
       console.log('[SSE Provider] Disabled or no user ID');
       return;
     }
 
-    console.log('[SSE Provider] Initializing SSE connection for user:', user.id);
+    console.log('[SSE Provider] Initializing SSE connection for user:', userId);
 
     // SSE 클라이언트 생성
     const options: SSEClientOptions = {
       url: '/api/sse',
       headers: {
-        userId: user.id,
+        userId: userId,
       },
       reconnect: true,
       reconnectDelay: 3000,
@@ -174,7 +174,7 @@ export function SSEProvider({ children, enabled = true }: SSEProviderProps) {
       client.disconnect();
       clientRef.current = null;
     };
-  }, [enabled, user?.id, queryClient]);
+  }, [enabled, userId, queryClient]);
 
   // ========================================================================
   // Background Refetch on Focus (SSE 백업)
