@@ -69,7 +69,8 @@ export const tenantRouter = createTRPCRouter({
           );
         }
 
-        const includeDetails = input?.includeDetails ?? true;
+        // Default to false for better performance - most list views don't need detailed info
+        const includeDetails = input?.includeDetails ?? false;
 
         const baseSelection = {
           id: users.id,
@@ -103,11 +104,18 @@ export const tenantRouter = createTRPCRouter({
           workPatternType: nursePreferences.workPatternType,
         };
 
-        const result = await ctx.db
+        // Optimize query: only join nursePreferences when includeDetails is true
+        let query = ctx.db
           .select(includeDetails ? detailedSelection : baseSelection)
           .from(users)
-          .leftJoin(departments, eq(users.departmentId, departments.id))
-          .leftJoin(nursePreferences, eq(users.id, nursePreferences.nurseId))
+          .leftJoin(departments, eq(users.departmentId, departments.id));
+
+        // Only add nursePreferences join if details are needed
+        if (includeDetails) {
+          query = query.leftJoin(nursePreferences, eq(users.id, nursePreferences.nurseId)) as typeof query;
+        }
+
+        const result = await query
           .where(and(...conditions))
           .limit(input?.limit || 50)
           .offset(input?.offset || 0);

@@ -69,14 +69,21 @@ async function addSchedulesIndexes() {
 async function addPreferencesIndexes() {
   console.log('⚙️  Adding nurse_preferences table indexes...');
 
+  // Critical: nurseId is used in LEFT JOIN with users table
+  await db.execute(sql`
+    CREATE INDEX IF NOT EXISTS idx_nurse_preferences_nurse_id
+      ON nurse_preferences(nurse_id);
+  `);
+
   await db.execute(sql`
     CREATE INDEX IF NOT EXISTS idx_nurse_preferences_tenant
       ON nurse_preferences(tenant_id);
   `);
 
+  // Composite index for common query pattern
   await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_nurse_preferences_nurse
-      ON nurse_preferences(nurse_id);
+    CREATE INDEX IF NOT EXISTS idx_nurse_preferences_tenant_nurse
+      ON nurse_preferences(tenant_id, nurse_id);
   `);
 
   // JSONB GIN indexes for pattern matching
