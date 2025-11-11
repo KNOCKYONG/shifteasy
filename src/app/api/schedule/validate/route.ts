@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getCurrentUser } from '@/lib/auth';
 import {
   validateSchedule,
   type AiEmployee,
@@ -84,25 +83,6 @@ type ValidateScheduleInput = z.infer<typeof ValidateScheduleSchema>;
 
 export async function POST(request: NextRequest) {
   try {
-    const rawUser = await getCurrentUser().catch(() => null);
-    const headerUserId = request.headers.get('x-user-id');
-    const headerTenantId = request.headers.get('x-tenant-id');
-    const headerUserRole = request.headers.get('x-user-role');
-    const headerDepartmentId = request.headers.get('x-department-id');
-
-    const resolvedUser = {
-      id: headerUserId ?? rawUser?.id ?? 'unknown-user',
-      role: headerUserRole ?? rawUser?.role ?? 'admin',
-      tenantId: headerTenantId ?? rawUser?.tenantId,
-      departmentId: headerDepartmentId ?? rawUser?.departmentId ?? null,
-    };
-
-    if (!resolvedUser.tenantId) {
-      return NextResponse.json({ success: false, error: '테넌트 정보가 존재하지 않습니다.' }, { status: 400 });
-    }
-
-    const user = resolvedUser;
-
     const body = await request.json();
     const parsed = ValidateScheduleSchema.safeParse(body);
 
@@ -114,14 +94,6 @@ export async function POST(request: NextRequest) {
     }
 
     const data: ValidateScheduleInput = parsed.data;
-    const tenantId = user.tenantId;
-
-    if (user.role === 'manager' && user.departmentId && user.departmentId !== data.schedule.departmentId) {
-      return NextResponse.json(
-        { success: false, error: '다른 부서의 스케줄은 검증할 수 없습니다.' },
-        { status: 403 }
-      );
-    }
 
     const validationRequest: AiScheduleValidationRequest = {
       departmentId: data.schedule.departmentId,
@@ -173,7 +145,7 @@ export async function OPTIONS() {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, x-tenant-id, x-user-id',
+      'Access-Control-Allow-Headers': 'Content-Type, x-tenant-id, x-user-id, x-user-role, x-department-id',
     },
   });
 }
