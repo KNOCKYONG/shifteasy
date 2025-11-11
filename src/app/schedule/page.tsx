@@ -42,6 +42,7 @@ import { normalizeDate } from "@/lib/utils/date-utils";
 import { useScheduleModals } from "@/hooks/useScheduleModals";
 import { useScheduleFilters, type ScheduleView } from "@/hooks/useScheduleFilters";
 import { ScheduleSkeleton } from "@/components/schedule/ScheduleSkeleton";
+import { LottieLoadingOverlay } from "@/components/common/LottieLoadingOverlay";
 import type { SSEEvent } from "@/lib/sse/events";
 
 // 스케줄 페이지에서 사용하는 확장된 ScheduleAssignment 타입
@@ -322,6 +323,12 @@ function SchedulePageContent() {
   const [generationResult, setGenerationResult] = useState<SchedulingResult | null>(null);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const [scheduleName, setScheduleName] = useState('');
+  const [existingScheduleToReplace, setExistingScheduleToReplace] = useState<{
+    id: string;
+    startDate: Date;
+    endDate: Date;
+    publishedAt: Date | null;
+  } | null>(null);
   const [customShiftTypes, setCustomShiftTypes] = useState<ShiftType[]>(() => {
     if (typeof window === 'undefined') {
       return [];
@@ -634,6 +641,7 @@ function SchedulePageContent() {
 
   const [shouldPrefetchFullData, setShouldPrefetchFullData] = useState(false);
   const isScheduleViewActive = deferredActiveView === 'schedule';
+  const isTodayViewActive = deferredActiveView === 'today';
 
   const requestFullDataPrefetch = useCallback(() => {
     setShouldPrefetchFullData((prev) => (prev ? prev : true));
@@ -651,11 +659,11 @@ function SchedulePageContent() {
     }
   }, [isScheduleViewActive, requestFullDataPrefetch]);
 
-  const shouldLoadFullScheduleData = shouldPrefetchFullData || isScheduleViewActive;
+  const shouldLoadFullScheduleData = shouldPrefetchFullData || isScheduleViewActive || isTodayViewActive;
 
   // ✅ Load full month schedule only when 필요 또는 백그라운드 프리패치
   const needsFullSchedule = shouldLoadFullScheduleData;
-  const { data: savedSchedules } = api.schedule.list.useQuery({
+  const scheduleListQuery = api.schedule.list.useQuery({
     departmentId: (isManager || isMember) && memberDepartmentId ? memberDepartmentId :
                   selectedDepartment !== 'all' && selectedDepartment !== 'no-department' ? selectedDepartment : undefined,
     status: isMember ? 'published' : undefined, // Members only see published, managers/admins see all including drafts
@@ -667,6 +675,13 @@ function SchedulePageContent() {
     staleTime: 5 * 60 * 1000, // 5분 동안 fresh 유지
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
+  const savedSchedules = scheduleListQuery.data;
+  const isScheduleQueryLoading = shouldLoadFullScheduleData && (
+    scheduleListQuery.status === 'pending' ||
+    (scheduleListQuery.isFetching && !scheduleListQuery.data)
+  );
+  const isTodayViewLoading = isTodayViewActive && isScheduleQueryLoading;
+  const isScheduleViewLoading = isScheduleViewActive && isScheduleQueryLoading;
 
   // ✅ Derive today's assignments from loaded schedule to avoid 반복 fetch
   const todayAssignments = React.useMemo(() => {
@@ -1501,38 +1516,25 @@ function SchedulePageContent() {
 
       if (existingCheck.hasExisting && existingCheck.schedules.length > 0) {
         const existingSchedule = existingCheck.schedules[0];
-        const existingPeriod = `${format(new Date(existingSchedule.startDate), 'yyyy-MM-dd')} ~ ${format(new Date(existingSchedule.endDate), 'yyyy-MM-dd')}`;
 
-        const confirmDelete = confirm(
-          `⚠️ 같은 기간에 이미 확정된 스케줄이 있습니다.\n\n` +
-          `기간: ${existingPeriod}\n` +
-          `확정일: ${existingSchedule.publishedAt ? format(new Date(existingSchedule.publishedAt), 'yyyy-MM-dd HH:mm') : '알 수 없음'}\n\n` +
-          `기존 스케줄을 삭제하고 새 스케줄을 확정하시겠습니까?\n\n` +
-          `※ 이 작업은 되돌릴 수 없으며, 기존 스케줄이 영구 삭제됩니다.`
-        );
-
-        if (!confirmDelete) {
-          return;
-        }
-
-        // Delete existing schedules
-        for (const schedule of existingCheck.schedules) {
-          try {
-            await deleteMutation.mutateAsync({ id: schedule.id });
-            console.log(`✅ Deleted existing schedule: ${schedule.id}`);
-          } catch (deleteError) {
-            console.error(`❌ Failed to delete schedule ${schedule.id}:`, deleteError);
-            alert(`기존 스케줄 삭제 실패: ${deleteError instanceof Error ? deleteError.message : '알 수 없는 오류'}`);
-            return;
-          }
-        }
+        // Set existing schedule info to show warning in modal
+        setExistingScheduleToReplace({
+          id: existingSchedule.id,
+          startDate: new Date(existingSchedule.startDate),
+          endDate: new Date(existingSchedule.endDate),
+          publishedAt: existingSchedule.publishedAt ? new Date(existingSchedule.publishedAt) : null,
+        });
+      } else {
+        // No existing schedule
+        setExistingScheduleToReplace(null);
       }
 
-      // Show confirmation dialog
+      // Show confirmation dialog with existing schedule warning (if any)
       modals.setShowConfirmDialog(true);
     } catch (error) {
       console.error('Error checking existing schedules:', error);
       // Continue to confirmation even if check fails
+      setExistingScheduleToReplace(null);
       modals.setShowConfirmDialog(true);
     }
   };
@@ -1570,6 +1572,19 @@ function SchedulePageContent() {
     modals.setIsConfirming(true);
 
     try {
+      // Delete existing schedule if present
+      if (existingScheduleToReplace) {
+        try {
+          await deleteMutation.mutateAsync({ id: existingScheduleToReplace.id });
+          console.log(`✅ Deleted existing schedule: ${existingScheduleToReplace.id}`);
+        } catch (deleteError) {
+          console.error(`❌ Failed to delete existing schedule:`, deleteError);
+          alert(`기존 스케줄 삭제 실패: ${deleteError instanceof Error ? deleteError.message : '알 수 없는 오류'}`);
+          modals.setIsConfirming(false);
+          return;
+        }
+      }
+
       const schedulePayload = buildSchedulePayload();
 
       // 스케줄 명이 입력되지 않은 경우 기본값 설정
@@ -1595,10 +1610,9 @@ function SchedulePageContent() {
       const result = await response.json();
 
       if (result.success) {
-        setScheduleStatus('confirmed');
-        setIsConfirmed(true);
         modals.setShowConfirmDialog(false);
         setScheduleName(''); // 스케줄 명 초기화
+        setExistingScheduleToReplace(null); // Clear existing schedule state
 
         // ✅ Invalidate related queries to refresh UI immediately
         await Promise.all([
@@ -2580,13 +2594,17 @@ function SchedulePageContent() {
 
         {/* Today View */}
         {deferredActiveView === 'today' && (
-          <TodayScheduleBoard
-            employees={allMembers}
-            assignments={todayAssignments}
-            shiftTypes={customShiftTypes}
-            today={selectedDate}
-            onDateChange={setSelectedDate}
-          />
+          isTodayViewLoading ? (
+            <LottieLoadingOverlay message="오늘의 근무 데이터를 불러오는 중입니다..." compact />
+          ) : (
+            <TodayScheduleBoard
+              employees={allMembers}
+              assignments={todayAssignments}
+              shiftTypes={customShiftTypes}
+              today={selectedDate}
+              onDateChange={setSelectedDate}
+            />
+          )
         )}
 
         {/* Schedule View */}
@@ -2658,51 +2676,57 @@ function SchedulePageContent() {
         <div>
           {/* Main Schedule View */}
           <div>
-            {filters.viewMode === 'grid' ? (
-              <ScheduleGridView
-                daysInMonth={daysInMonth}
-                displayMembers={displayMembers}
-                selectedShiftTypesSize={filters.selectedShiftTypes.size}
-                scheduleGridTemplate={scheduleGridTemplate}
-                holidayDates={holidayDates}
-                showCodeFormat={filters.showCodeFormat}
-                getScheduleForDay={getScheduleForDay}
-                getAssignmentsForCell={getAssignmentsForCell}
-                getShiftColor={getShiftColor}
-                getShiftName={getShiftName}
-                getShiftCode={getShiftCode}
-                enableSwapMode={false}
-                currentUserId={currentUser.dbUser?.id}
-                selectedSwapCell={null}
-                onCellClick={isManager ? handleManagerCellClick : undefined}
-                enableManagerEdit={isManager}
-                offBalanceData={offBalanceMap}
-                showOffBalance={true}
-              />
+            {isScheduleViewLoading ? (
+              <LottieLoadingOverlay message="스케줄 데이터를 불러오는 중입니다..." />
             ) : (
-              <ScheduleCalendarView
-                currentMonth={currentMonth}
-                displayMembers={displayMembers}
-                holidayDates={holidayDates}
-                showSameSchedule={filters.showSameSchedule}
-                showCodeFormat={filters.showCodeFormat}
-                currentUser={currentUser}
-                getScheduleForDay={getScheduleForDay}
-                getShiftColor={getShiftColor}
-                getShiftName={getShiftName}
-                getShiftCode={getShiftCode}
-                onCellClick={isManager ? handleManagerCellClick : undefined}
-                enableManagerEdit={isManager}
-              />
-            )}
+              <>
+                {filters.viewMode === 'grid' ? (
+                  <ScheduleGridView
+                    daysInMonth={daysInMonth}
+                    displayMembers={displayMembers}
+                    selectedShiftTypesSize={filters.selectedShiftTypes.size}
+                    scheduleGridTemplate={scheduleGridTemplate}
+                    holidayDates={holidayDates}
+                    showCodeFormat={filters.showCodeFormat}
+                    getScheduleForDay={getScheduleForDay}
+                    getAssignmentsForCell={getAssignmentsForCell}
+                    getShiftColor={getShiftColor}
+                    getShiftName={getShiftName}
+                    getShiftCode={getShiftCode}
+                    enableSwapMode={false}
+                    currentUserId={currentUser.dbUser?.id}
+                    selectedSwapCell={null}
+                    onCellClick={isManager ? handleManagerCellClick : undefined}
+                    enableManagerEdit={isManager}
+                    offBalanceData={offBalanceMap}
+                    showOffBalance={true}
+                  />
+                ) : (
+                  <ScheduleCalendarView
+                    currentMonth={currentMonth}
+                    displayMembers={displayMembers}
+                    holidayDates={holidayDates}
+                    showSameSchedule={filters.showSameSchedule}
+                    showCodeFormat={filters.showCodeFormat}
+                    currentUser={currentUser}
+                    getScheduleForDay={getScheduleForDay}
+                    getShiftColor={getShiftColor}
+                    getShiftName={getShiftName}
+                    getShiftCode={getShiftCode}
+                    onCellClick={isManager ? handleManagerCellClick : undefined}
+                    enableManagerEdit={isManager}
+                  />
+                )}
 
-            {/* Stats */}
-            <div className="mt-6">
-              <ScheduleStats
-                schedule={schedule}
-                shifts={shifts}
-              />
-            </div>
+                {/* Stats */}
+                <div className="mt-6">
+                  <ScheduleStats
+                    schedule={schedule}
+                    shifts={shifts}
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
           </>
@@ -2762,6 +2786,7 @@ function SchedulePageContent() {
         scheduleName={scheduleName}
         onScheduleNameChange={handleScheduleNameChange}
         defaultScheduleName={`${format(monthStart, 'yyyy년 M월')} 스케줄`}
+        existingSchedule={existingScheduleToReplace}
       />
 
       {/* Swap Request Modal */}
