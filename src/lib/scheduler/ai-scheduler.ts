@@ -396,17 +396,21 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       return true;
     };
 
-    const assignOffShift = (employee: AiEmployee, options?: { force?: boolean; dayIndex: number }) => {
+    const assignOffShift = (
+      employee: AiEmployee,
+      options?: { force?: boolean; dayIndex: number; mustPreserveOffQuota?: boolean }
+    ) => {
       const state = employeeStates.get(employee.id);
       if (!state) {
         return;
       }
 
       const force = options?.force ?? false;
+      const mustPreserveOffQuota = options?.mustPreserveOffQuota ?? false;
       const daysElapsed = options?.dayIndex ?? 0;
       const expectedOffByToday = Math.ceil(((daysElapsed + 1) / dateRange.length) * state.maxOffDays);
       const offQuotaReached = state.offDays >= state.maxOffDays;
-      if (!force && (state.offDays >= expectedOffByToday || offQuotaReached)) {
+      if (!force && !mustPreserveOffQuota && (state.offDays >= expectedOffByToday || offQuotaReached)) {
         const supportMode: 'admin' | 'clinical' =
           employee.workPatternType === 'weekday-only' ? 'admin' : 'clinical';
         const preferredCodes =
@@ -529,7 +533,14 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       if (assignedToday.has(employee.id)) {
         return;
       }
-      assignOffShift(employee, { dayIndex });
+      const state = employeeStates.get(employee.id);
+      if (!state) {
+        return;
+      }
+      const remainingOffNeeded = Math.max(0, state.maxOffDays - state.offDays);
+      const daysRemainingIncludingToday = dateRange.length - dayIndex;
+      const mustPreserveOffQuota = remainingOffNeeded > daysRemainingIncludingToday - 1;
+      assignOffShift(employee, { dayIndex, force: mustPreserveOffQuota, mustPreserveOffQuota });
     });
   });
 
@@ -618,6 +629,12 @@ function selectCandidate(params: CandidateSelectionParams) {
       }
       const state = params.employeeStates.get(employee.id);
       if (!state) {
+        return null;
+      }
+
+      const remainingOffNeeded = Math.max(0, state.maxOffDays - state.offDays);
+      const daysLeftAfterToday = params.totalDays - params.dayIndex - 1;
+      if (remainingOffNeeded > daysLeftAfterToday) {
         return null;
       }
 
