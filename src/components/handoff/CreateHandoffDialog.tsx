@@ -79,6 +79,8 @@ export function CreateHandoffDialog({ isOpen, onClose }: CreateHandoffDialogProp
   // Step 2: Patient Information
   const [patients, setPatients] = useState<PatientItem[]>([]);
   const [editingPatientIndex, setEditingPatientIndex] = useState<number | null>(null);
+  const [priorityFilter, setPriorityFilter] = useState<"all" | "critical" | "high" | "medium" | "low">("all");
+  const [sortBy, setSortBy] = useState<"priority" | "room" | "order">("priority");
 
   // Fetch templates
   const { data: templates = [] } = api.handoff.listTemplates.useQuery({});
@@ -311,11 +313,54 @@ export function CreateHandoffDialog({ isOpen, onClose }: CreateHandoffDialogProp
     </div>
   );
 
+  // Priority labels and colors
+  const PRIORITY_LABELS = {
+    critical: "긴급",
+    high: "높음",
+    medium: "보통",
+    low: "낮음",
+  };
+
+  const PRIORITY_COLORS = {
+    critical: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700",
+    high: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-700",
+    medium: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700",
+    low: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700",
+  };
+
+  const PRIORITY_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
+
+  // Filter and sort patients
+  const getFilteredAndSortedPatients = () => {
+    let filtered = patients;
+
+    // Apply priority filter
+    if (priorityFilter !== "all") {
+      filtered = filtered.filter((p) => p.priority === priorityFilter);
+    }
+
+    // Apply sorting
+    const sorted = [...filtered];
+    if (sortBy === "priority") {
+      sorted.sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
+    } else if (sortBy === "room") {
+      sorted.sort((a, b) => {
+        if (!a.roomNumber || !b.roomNumber) return 0;
+        return a.roomNumber.localeCompare(b.roomNumber);
+      });
+    }
+    // "order" keeps original order
+
+    return sorted;
+  };
+
+  const filteredPatients = getFilteredAndSortedPatients();
+
   const renderStep2 = () => (
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          환자 정보 ({patients.length}명)
+          환자 정보 ({filteredPatients.length}/{patients.length}명)
         </h3>
         <button
           onClick={handleAddPatient}
@@ -326,22 +371,87 @@ export function CreateHandoffDialog({ isOpen, onClose }: CreateHandoffDialogProp
         </button>
       </div>
 
+      {/* Filter and Sort Controls */}
+      {patients.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+          {/* Priority Filter */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">우선순위:</span>
+            <div className="flex gap-1">
+              <button
+                onClick={() => setPriorityFilter("all")}
+                className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
+                  priorityFilter === "all"
+                    ? "bg-blue-600 text-white"
+                    : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600"
+                }`}
+              >
+                전체
+              </button>
+              {(["critical", "high", "medium", "low"] as const).map((priority) => (
+                <button
+                  key={priority}
+                  onClick={() => setPriorityFilter(priority)}
+                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors border ${
+                    priorityFilter === priority
+                      ? PRIORITY_COLORS[priority]
+                      : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border-gray-300 dark:border-gray-600"
+                  }`}
+                >
+                  {PRIORITY_LABELS[priority]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Sort By */}
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">정렬:</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as "priority" | "room" | "order")}
+              className="px-3 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="priority">우선순위순</option>
+              <option value="room">병실번호순</option>
+              <option value="order">추가순</option>
+            </select>
+          </div>
+        </div>
+      )}
+
       {patients.length === 0 ? (
         <div className="text-center py-8 text-gray-500 dark:text-gray-400">
           <AlertCircle className="w-12 h-12 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
           <p>환자를 추가하여 인수인계를 시작하세요</p>
         </div>
+      ) : filteredPatients.length === 0 ? (
+        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+          <AlertCircle className="w-12 h-12 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
+          <p>해당 우선순위의 환자가 없습니다</p>
+          <button
+            onClick={() => setPriorityFilter("all")}
+            className="mt-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            전체 보기
+          </button>
+        </div>
       ) : (
         <div className="space-y-3 max-h-96 overflow-y-auto">
-          {patients.map((patient, index) => (
+          {filteredPatients.map((patient) => {
+            const originalIndex = patients.indexOf(patient);
+            return (
             <div
-              key={index}
+              key={originalIndex}
               className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50"
             >
               <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs font-medium rounded">
-                    환자 {index + 1}
+                    환자 {originalIndex + 1}
+                  </span>
+                  <span className={`px-2 py-1 text-xs font-medium rounded border ${PRIORITY_COLORS[patient.priority]}`}>
+                    {PRIORITY_LABELS[patient.priority]}
                   </span>
                   {patient.patientIdentifier && (
                     <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -351,15 +461,38 @@ export function CreateHandoffDialog({ isOpen, onClose }: CreateHandoffDialogProp
                   )}
                 </div>
                 <button
-                  onClick={() => handleRemovePatient(index)}
+                  onClick={() => handleRemovePatient(originalIndex)}
                   className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
 
-              {editingPatientIndex === index ? (
+              {editingPatientIndex === originalIndex ? (
                 <div className="space-y-3">
+                  {/* Priority Selection */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      우선순위 *
+                    </label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {(["critical", "high", "medium", "low"] as const).map((priority) => (
+                        <button
+                          key={priority}
+                          type="button"
+                          onClick={() => handleUpdatePatient(originalIndex, { priority })}
+                          className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
+                            patient.priority === priority
+                              ? PRIORITY_COLORS[priority]
+                              : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 border-gray-300 dark:border-gray-600"
+                          }`}
+                        >
+                          {PRIORITY_LABELS[priority]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* Basic Info */}
                   <div className="grid grid-cols-2 gap-3">
                     <input
@@ -367,7 +500,7 @@ export function CreateHandoffDialog({ isOpen, onClose }: CreateHandoffDialogProp
                       placeholder="환자 식별자 *"
                       value={patient.patientIdentifier}
                       onChange={(e) =>
-                        handleUpdatePatient(index, { patientIdentifier: e.target.value })
+                        handleUpdatePatient(originalIndex, { patientIdentifier: e.target.value })
                       }
                       className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                     />
@@ -376,7 +509,7 @@ export function CreateHandoffDialog({ isOpen, onClose }: CreateHandoffDialogProp
                       placeholder="병실 번호 *"
                       value={patient.roomNumber}
                       onChange={(e) =>
-                        handleUpdatePatient(index, { roomNumber: e.target.value })
+                        handleUpdatePatient(originalIndex, { roomNumber: e.target.value })
                       }
                       className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                     />
@@ -391,7 +524,7 @@ export function CreateHandoffDialog({ isOpen, onClose }: CreateHandoffDialogProp
                       placeholder="Situation (상황) *"
                       value={patient.situation}
                       onChange={(e) =>
-                        handleUpdatePatient(index, { situation: e.target.value })
+                        handleUpdatePatient(originalIndex, { situation: e.target.value })
                       }
                       rows={2}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
@@ -400,7 +533,7 @@ export function CreateHandoffDialog({ isOpen, onClose }: CreateHandoffDialogProp
                       placeholder="Background (배경) *"
                       value={patient.background}
                       onChange={(e) =>
-                        handleUpdatePatient(index, { background: e.target.value })
+                        handleUpdatePatient(originalIndex, { background: e.target.value })
                       }
                       rows={2}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
@@ -409,7 +542,7 @@ export function CreateHandoffDialog({ isOpen, onClose }: CreateHandoffDialogProp
                       placeholder="Assessment (평가) *"
                       value={patient.assessment}
                       onChange={(e) =>
-                        handleUpdatePatient(index, { assessment: e.target.value })
+                        handleUpdatePatient(originalIndex, { assessment: e.target.value })
                       }
                       rows={2}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
@@ -418,7 +551,7 @@ export function CreateHandoffDialog({ isOpen, onClose }: CreateHandoffDialogProp
                       placeholder="Recommendation (권고사항) *"
                       value={patient.recommendation}
                       onChange={(e) =>
-                        handleUpdatePatient(index, { recommendation: e.target.value })
+                        handleUpdatePatient(originalIndex, { recommendation: e.target.value })
                       }
                       rows={2}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
@@ -434,14 +567,15 @@ export function CreateHandoffDialog({ isOpen, onClose }: CreateHandoffDialogProp
                 </div>
               ) : (
                 <button
-                  onClick={() => setEditingPatientIndex(index)}
+                  onClick={() => setEditingPatientIndex(originalIndex)}
                   className="w-full px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
                 >
                   정보 입력/수정
                 </button>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
