@@ -1,3 +1,4 @@
+import { NextResponse } from 'next/server';
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 
 const isPublicRoute = createRouteMatcher([
@@ -8,13 +9,15 @@ const isPublicRoute = createRouteMatcher([
   '/api/auth/validate-secret-code',
   '/api/auth/signup',
   '/api/auth/guest-signup',
+  '/api/schedule/validate(.*)',
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  // 공개 경로가 아니면 인증 필요
-  if (!isPublicRoute(req)) {
-    await auth.protect();
+  if (req.method === 'OPTIONS' || isPublicRoute(req)) {
+    return NextResponse.next();
   }
+
+  await auth.protect();
 });
 
 export const config = {

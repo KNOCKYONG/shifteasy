@@ -10,6 +10,44 @@ import type { Shift } from '@/lib/types/scheduler';
 
 export const dynamic = 'force-dynamic';
 
+const ACCESS_CONTROL_HEADERS =
+  'Content-Type, x-tenant-id, x-user-id, x-user-role, x-department-id';
+
+function createCorsHeaders(request: NextRequest): Record<string, string> {
+  const origin = request.headers.get('origin');
+  return {
+    'Access-Control-Allow-Origin': origin ?? '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': ACCESS_CONTROL_HEADERS,
+    ...(origin ? { 'Access-Control-Allow-Credentials': 'true' } : {}),
+    Vary: 'Origin',
+  };
+}
+
+function normalizeHeaders(input?: HeadersInit): Record<string, string> {
+  if (!input) {
+    return {};
+  }
+  if (input instanceof Headers) {
+    return Object.fromEntries(input.entries());
+  }
+  if (Array.isArray(input)) {
+    return Object.fromEntries(input);
+  }
+  return input;
+}
+
+function jsonWithCors(request: NextRequest, body: unknown, init?: ResponseInit): NextResponse {
+  const headers = {
+    ...createCorsHeaders(request),
+    ...normalizeHeaders(init?.headers),
+  };
+  return NextResponse.json(body, {
+    ...init,
+    headers,
+  });
+}
+
 const EmployeeSchema = z.object({
   id: z.string(),
   name: z.string().optional(),
@@ -87,7 +125,8 @@ export async function POST(request: NextRequest) {
     const parsed = ValidateScheduleSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
+      return jsonWithCors(
+        request,
         { success: false, error: 'Invalid request data', details: parsed.error.flatten() },
         { status: 400 }
       );
@@ -117,18 +156,23 @@ export async function POST(request: NextRequest) {
 
     const result = await validateSchedule(validationRequest);
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        score: result.score.total,
-        breakdown: result.score,
-        stats: result.stats,
-        violations: result.violations,
+    return jsonWithCors(
+      request,
+      {
+        success: true,
+        data: {
+          score: result.score.total,
+          breakdown: result.score,
+          stats: result.stats,
+          violations: result.violations,
+        },
       },
-    });
+      { status: 200 }
+    );
   } catch (error) {
     console.error('Schedule validation error:', error);
-    return NextResponse.json(
+    return jsonWithCors(
+      request,
       {
         success: false,
         error: 'Failed to validate schedule',
@@ -139,14 +183,10 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function OPTIONS() {
+export async function OPTIONS(request: NextRequest) {
   return new NextResponse(null, {
     status: 200,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, x-tenant-id, x-user-id, x-user-role, x-department-id',
-    },
+    headers: createCorsHeaders(request),
   });
 }
 
