@@ -119,15 +119,15 @@ const DEFAULT_STANDARD_SHIFT_TYPES: Record<StandardShiftCode, ShiftType> = {
 function SchedulePageContent() {
   const utils = api.useUtils();
   const currentUser = useCurrentUser();
-  const currentUserId = currentUser.dbUser?.id || currentUser.userId || "user-1";
+  const currentUserId = currentUser.dbUser?.id || currentUser.userId || '';
   const userRole = (currentUser.dbUser?.role ?? currentUser.role) as string | undefined;
   const isMember = userRole === 'member';
   const isManager = userRole === 'manager';
   const memberDepartmentId = currentUser.dbUser?.departmentId ?? null;
-  const defaultTenantId = process.env.NEXT_PUBLIC_DEFAULT_TENANT_ID ?? 'default-tenant';
-  const effectiveTenantId = currentUser.dbUser?.tenantId ?? currentUser.orgId ?? defaultTenantId;
+  const effectiveTenantId = currentUser.dbUser?.tenantId ?? currentUser.orgId ?? '';
   const effectiveUserRole = currentUser.dbUser?.role ?? currentUser.role ?? 'admin';
   const headerDepartmentId = memberDepartmentId ?? undefined;
+  const isAuthReady = Boolean(currentUserId && effectiveTenantId);
 
   const authHeaders = React.useMemo<Record<string, string>>(() => {
     const headers: Record<string, string> = {
@@ -149,6 +149,9 @@ function SchedulePageContent() {
   }, [currentUserId, effectiveTenantId, effectiveUserRole, headerDepartmentId]);
 
   const fetchWithAuth = useCallback((url: RequestInfo | URL, options: RequestInit = {}) => {
+    if (!isAuthReady) {
+      return Promise.reject(new Error('사용자 세션이 아직 준비되지 않았습니다.'));
+    }
     const mergedHeaders = {
       ...authHeaders,
       ...(options.headers as Record<string, string> | undefined),
@@ -158,7 +161,7 @@ function SchedulePageContent() {
       ...options,
       headers: mergedHeaders,
     });
-  }, [authHeaders]);
+  }, [authHeaders, isAuthReady]);
   const canManageSchedules = userRole ? ['admin', 'manager', 'owner'].includes(userRole) : false;
   const canViewStaffPreferences = canManageSchedules && !isMember;
   const currentUserName = currentUser.name || "사용자";
