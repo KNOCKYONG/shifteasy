@@ -347,33 +347,6 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       }
     });
 
-    // Step 1.1: Enforce recovery OFF blocks for night-intensive staff without explicit preferences
-    request.employees.forEach((employee) => {
-      if (assignedToday.has(employee.id)) {
-        return;
-      }
-      if (employee.workPatternType !== 'night-intensive' || hasShiftPreferences(employee)) {
-        return;
-      }
-      const state = employeeStates.get(employee.id);
-      if (!state) {
-        return;
-      }
-      if (state.nightRecoveryDaysNeeded > 0) {
-        assignOffShift(employee, { force: true, dayIndex, mustPreserveOffQuota: true });
-        return;
-      }
-      const configuredMaxNights =
-        employee.maxConsecutiveNightsPreferred ?? DEFAULT_MAX_CONSECUTIVE_NIGHT['night-intensive'];
-      const recoveryTrigger = Math.min(configuredMaxNights, NIGHT_INTENSIVE_RECOVERY_MIN_STREAK);
-      if (state.lastShiftCode === 'N' && state.consecutiveNights >= recoveryTrigger) {
-        if (state.nightRecoveryDaysNeeded <= 0) {
-          state.nightRecoveryDaysNeeded = NIGHT_INTENSIVE_MIN_RECOVERY_DAYS;
-        }
-        assignOffShift(employee, { force: true, dayIndex, mustPreserveOffQuota: true });
-      }
-    });
-
     const assignSupportShift = (
       employee: AiEmployee,
       options?: { mode?: 'admin' | 'clinical'; countTowardsRotation?: boolean; allowedCodes?: string[] }
