@@ -1,7 +1,7 @@
 "use client";
-import React, { useState } from 'react';
-import { X, Trash2, Calendar, Users, AlertCircle, Loader2 } from 'lucide-react';
-import { format } from 'date-fns';
+import React, { useState, useMemo } from 'react';
+import { X, Trash2, Calendar, Users, AlertCircle, Loader2, Filter } from 'lucide-react';
+import { format, getYear, getMonth } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { api } from '@/lib/trpc/client';
 
@@ -15,6 +15,13 @@ interface ManageSchedulesModalProps {
 export function ManageSchedulesModal({ isOpen, onClose, onScheduleDeleted, onScheduleLoad }: ManageSchedulesModalProps) {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const utils = api.useUtils();
+
+  // Filter states - defaults to current year/month and all status
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth() + 1; // 1-12
+  const [filterYear, setFilterYear] = useState<number>(currentYear);
+  const [filterMonth, setFilterMonth] = useState<number>(currentMonth);
+  const [filterStatus, setFilterStatus] = useState<'all' | 'draft' | 'published'>('all');
 
   // Fetch schedules from database
   const { data: schedules = [], isLoading, refetch } = api.schedule.list.useQuery(
@@ -55,6 +62,38 @@ export function ManageSchedulesModal({ isOpen, onClose, onScheduleDeleted, onSch
     }
   };
 
+  // Filter schedules based on year, month, and status
+  const filteredSchedules = useMemo(() => {
+    return schedules.filter((schedule) => {
+      const scheduleDate = new Date(schedule.startDate);
+      const scheduleYear = getYear(scheduleDate);
+      const scheduleMonth = getMonth(scheduleDate) + 1; // 0-11 to 1-12
+
+      // Filter by year
+      if (scheduleYear !== filterYear) return false;
+
+      // Filter by month
+      if (scheduleMonth !== filterMonth) return false;
+
+      // Filter by status
+      if (filterStatus !== 'all' && schedule.status !== filterStatus) return false;
+
+      return true;
+    });
+  }, [schedules, filterYear, filterMonth, filterStatus]);
+
+  // Generate year options (current year ± 2 years)
+  const yearOptions = useMemo(() => {
+    const years = [];
+    for (let i = currentYear - 2; i <= currentYear + 2; i++) {
+      years.push(i);
+    }
+    return years;
+  }, [currentYear]);
+
+  // Month options (1-12)
+  const monthOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
   if (!isOpen) return null;
 
   return (
@@ -78,6 +117,67 @@ export function ManageSchedulesModal({ isOpen, onClose, onScheduleDeleted, onSch
           </button>
         </div>
 
+        {/* Filter Controls */}
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">필터:</span>
+            </div>
+
+            {/* Year Filter */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600 dark:text-gray-400">년도</label>
+              <select
+                value={filterYear}
+                onChange={(e) => setFilterYear(Number(e.target.value))}
+                className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+              >
+                {yearOptions.map((year) => (
+                  <option key={year} value={year}>
+                    {year}년
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Month Filter */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600 dark:text-gray-400">월</label>
+              <select
+                value={filterMonth}
+                onChange={(e) => setFilterMonth(Number(e.target.value))}
+                className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+              >
+                {monthOptions.map((month) => (
+                  <option key={month} value={month}>
+                    {month}월
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Status Filter */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600 dark:text-gray-400">상태</label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value as 'all' | 'draft' | 'published')}
+                className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">전체</option>
+                <option value="draft">임시저장</option>
+                <option value="published">확정</option>
+              </select>
+            </div>
+
+            {/* Result Count */}
+            <div className="ml-auto text-sm text-gray-500 dark:text-gray-400">
+              {filteredSchedules.length}개 / 전체 {schedules.length}개
+            </div>
+          </div>
+        </div>
+
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           {isLoading ? (
@@ -97,9 +197,19 @@ export function ManageSchedulesModal({ isOpen, onClose, onScheduleDeleted, onSch
                 스케줄을 생성하고 저장하면 여기에 표시됩니다
               </p>
             </div>
+          ) : filteredSchedules.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Calendar className="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4" />
+              <p className="text-gray-500 dark:text-gray-400 text-lg">
+                필터 조건에 맞는 스케줄이 없습니다
+              </p>
+              <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">
+                다른 년도, 월 또는 상태를 선택해보세요
+              </p>
+            </div>
           ) : (
             <div className="space-y-3">
-              {schedules.map((schedule) => {
+              {filteredSchedules.map((schedule) => {
                 const statusBadge = getStatusBadge(schedule.status);
                 const dateRange = `${format(new Date(schedule.startDate), 'yyyy년 MM월 dd일', { locale: ko })} ~ ${format(new Date(schedule.endDate), 'MM월 dd일', { locale: ko })}`;
 
