@@ -21,6 +21,7 @@ export type SSEEventType =
   | 'staff.updated'
   | 'staff.deleted'
   | 'staff.career_updated'
+  | 'staff.preferences_updated'
 
   // Team 관련
   | 'team.created'
@@ -121,6 +122,14 @@ export interface SSEEventPayload {
       hireYear?: number;
       yearsOfService?: number;
     };
+  };
+
+  'staff.preferences_updated': {
+    staffId: string;
+    departmentId?: string;
+    workPatternType?: string;
+    hasPreferredPatterns: boolean;
+    hasAvoidPatterns: boolean;
   };
 
   'team.created': {
@@ -287,6 +296,11 @@ export const EVENT_TO_QUERIES_MAP: Record<SSEEventType, string[]> = {
     'tenant.users.list',
     'tenant.users.get',
     'tenant.users.current',
+  ],
+  'staff.preferences_updated': [
+    'preferences.listAll',
+    'preferences.get',
+    'schedule.getPageData',
   ],
 
   // Team 이벤트

@@ -5,6 +5,7 @@ import { db } from '@/db';
 import { nursePreferences } from '@/db/schema/nurse-preferences';
 import { users } from '@/db/schema/tenants';
 import { eq } from 'drizzle-orm';
+import { sse } from '@/lib/sse/broadcaster';
 
 // Schema for preference updates
 const preferenceUpdateSchema = z.object({
@@ -24,6 +25,28 @@ const preferenceUpdateSchema = z.object({
 });
 
 export const preferencesRouter = createTRPCRouter({
+  // Get all preferences for multiple staff members (prefetching)
+  listAll: protectedProcedure
+    .input(z.object({
+      departmentId: z.string().optional(),
+      tenantId: z.string().optional(),
+    }).optional())
+    .query(async ({ ctx, input }) => {
+      const tenantId = input?.tenantId || ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+
+      const result = await db.select()
+        .from(nursePreferences)
+        .where(eq(nursePreferences.tenantId, tenantId));
+
+      // Return as a map: staffId -> preferences
+      const preferencesMap: Record<string, typeof result[0]> = {};
+      result.forEach(pref => {
+        preferencesMap[pref.nurseId] = pref;
+      });
+
+      return preferencesMap;
+    }),
+
   // Get preferences for a staff member
   get: protectedProcedure
     .input(z.object({
@@ -98,6 +121,15 @@ export const preferencesRouter = createTRPCRouter({
         entityId: staffId,
         before: existing[0] || null,
         after: preferences,
+      });
+
+      // ✅ SSE: Broadcast preference update event
+      sse.staff.preferencesUpdated(staffId, {
+        departmentId: departmentId || undefined,
+        workPatternType: preferences.workPatternType,
+        hasPreferredPatterns: (preferences.preferredPatterns?.length ?? 0) > 0,
+        hasAvoidPatterns: (preferences.avoidPatterns?.length ?? 0) > 0,
+        tenantId,
       });
 
       return result[0];

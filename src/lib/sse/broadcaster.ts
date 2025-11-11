@@ -261,6 +261,25 @@ export const staffSSE = {
       careerInfo: data.careerInfo,
     }, { tenantId: data.tenantId });
   },
+
+  preferencesUpdated: (
+    staffId: string,
+    data: {
+      departmentId?: string;
+      workPatternType?: string;
+      hasPreferredPatterns: boolean;
+      hasAvoidPatterns: boolean;
+      tenantId?: string;
+    }
+  ) => {
+    sseBroadcaster.broadcast('staff.preferences_updated', {
+      staffId,
+      departmentId: data.departmentId,
+      workPatternType: data.workPatternType,
+      hasPreferredPatterns: data.hasPreferredPatterns,
+      hasAvoidPatterns: data.hasAvoidPatterns,
+    }, { tenantId: data.tenantId });
+  },
 };
 
 /**

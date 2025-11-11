@@ -522,6 +522,16 @@ function SchedulePageContent() {
     }
   );
 
+  // ✅ Prefetch all staff preferences (모든 직원의 선호도 미리 불러오기)
+  const { data: allPreferencesMap } = api.preferences.listAll.useQuery(
+    undefined,
+    {
+      enabled: true,
+      staleTime: 5 * 60 * 1000, // 5분 동안 fresh 유지 (선호도는 자주 변경되지 않음)
+      refetchOnWindowFocus: false,
+    }
+  );
+
   const [shouldPrefetchFullData, setShouldPrefetchFullData] = useState(false);
   const isScheduleViewActive = deferredActiveView === 'schedule';
 
@@ -965,71 +975,41 @@ function SchedulePageContent() {
 
   // Handle employee card click to open preferences modal
   const handleEmployeeClick = async (member: UnifiedEmployee) => {
-    const mapUserToMember = (userData: UserDataItem): UnifiedEmployee => ({
-      id: userData.id,
-      name: userData.name,
-      email: userData.email,
-      role: userData.role as 'admin' | 'manager' | 'staff',
-      departmentId: userData.departmentId || '',
-      department: userData.department?.name || '',
-      status: (userData.status === 'on_leave' ? 'on-leave' : userData.status) as 'active' | 'inactive' | 'on-leave',
-      position: userData.position || '',
-      joinDate: userData.createdAt?.toISOString() || new Date().toISOString(),
-      avatar: '',
-      phone: userData.profile?.phone || '',
-      teamId: userData.teamId || null,
-    });
+    // 1️⃣ 현재 화면의 데이터로 모달을 연다
+    const employee = toEmployee(member);
 
-    // 1️⃣ 우선 현재 화면의 데이터를 즉시 사용해 모달을 연다
-    setSelectedEmployee(toEmployee(member));
-    setSelectedPreferences(null);
-    modals.setIsPreferencesModalOpen(true);
-
-    try {
-      const fetchLatestMember = utils.tenant.users.list.fetch({
-        limit: 100,
-        offset: 0,
-        status: 'active',
-        departmentId:
-          !isMember && userRole !== 'manager' && selectedDepartment !== 'all' && selectedDepartment !== 'no-department'
-            ? selectedDepartment
-            : undefined,
-        includeDetails: true,
-      }).then(freshUsersData => {
-        const latest = freshUsersData?.items?.find(item => item.id === member.id) as UserDataItem | undefined;
-        return latest ? mapUserToMember(latest) : null;
-      }).catch(error => {
-        console.error('Failed to refresh member data:', error);
-        return null;
-      });
-
-      const fetchPreferences = fetchWithAuth(`/api/preferences?employeeId=${member.id}`)
-        .then(async response => {
-          if (!response.ok) return null;
-          const savedData = await response.json();
-          console.log('Loaded preferences API response for', member.name, ':', savedData);
-          return savedData.success ? (savedData.data as SimplifiedPreferences) : null;
-        })
-        .catch(error => {
-          console.error('Failed to load preferences:', error);
-          return null;
-        });
-
-      const [latestMember, savedPreferences] = await Promise.all([fetchLatestMember, fetchPreferences]);
-
-      const resolvedMember = latestMember || member;
-      const employee = toEmployee(resolvedMember);
-
-      if (savedPreferences) {
-        employee.workPatternType = savedPreferences.workPatternType || employee.workPatternType || 'three-shift';
-        setSelectedPreferences(savedPreferences);
-      }
-
-      setSelectedEmployee(employee);
-    } catch (error) {
-      console.error('Failed to prepare preferences modal:', error);
+    // ✅ 캐시된 선호도 데이터 사용 (API 호출 없음!)
+    const cachedPrefs = allPreferencesMap?.[member.id];
+    if (cachedPrefs) {
+      const simplifiedPrefs: SimplifiedPreferences = {
+        workPatternType: cachedPrefs.workPatternType as 'three-shift' | 'night-intensive' | 'weekday-only' || 'three-shift',
+        preferredPatterns: cachedPrefs.preferredPatterns || [],
+        avoidPatterns: cachedPrefs.avoidPatterns || [],
+      };
+      employee.workPatternType = simplifiedPrefs.workPatternType;
+      setSelectedPreferences(simplifiedPrefs);
+      console.log('✅ Loaded cached preferences for', member.name);
+    } else {
+      console.log('ℹ️ No preferences found for', member.name);
+      setSelectedPreferences(null);
     }
+
+    setSelectedEmployee(employee);
+    modals.setIsPreferencesModalOpen(true);
   };
+
+  // ✅ tRPC mutation for preferences save
+  const savePreferencesMutation = api.preferences.upsert.useMutation({
+    onSuccess: () => {
+      // Invalidate preferences cache to refetch updated data
+      void utils.preferences.listAll.invalidate();
+      console.log('✅ Preferences saved and cache invalidated');
+    },
+    onError: (error) => {
+      console.error('Error saving preferences:', error);
+      alert('선호도 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+    },
+  });
 
   // Handle preferences save
   const handlePreferencesSave = (preferences: ExtendedEmployeePreferences) => {
@@ -1037,42 +1017,20 @@ function SchedulePageContent() {
 
     const employeeSnapshot = selectedEmployee;
 
-    // Convert ExtendedEmployeePreferences to SimplifiedPreferences
-    const simplifiedPrefs: SimplifiedPreferences = {
-      workPatternType: preferences.workPatternType || 'three-shift',
-      preferredPatterns: (preferences.preferredPatterns || []).map(p =>
-        typeof p === 'string' ? { pattern: p, preference: 5 } : p
-      ),
-      avoidPatterns: preferences.avoidPatterns || [],
-    };
-
-    console.log('Saving preferences for', employeeSnapshot.name, ':', simplifiedPrefs);
+    console.log('Saving preferences for', employeeSnapshot.name, ':', preferences);
 
     // Close modal immediately for snappier UX
     handleModalClose();
 
-    // Persist asynchronously
-    void (async () => {
-      try {
-        const response = await fetchWithAuth('/api/preferences', {
-          method: 'POST',
-          body: JSON.stringify({
-            employeeId: employeeSnapshot.id,
-            preferences: simplifiedPrefs,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to save preferences');
-        }
-
-        const result = await response.json();
-        console.log('Preferences saved:', result);
-      } catch (error) {
-        console.error('Error saving preferences:', error);
-        alert('선호도 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
-      }
-    })();
+    // ✅ Use tRPC mutation instead of fetch API
+    savePreferencesMutation.mutate({
+      staffId: employeeSnapshot.id,
+      workPatternType: preferences.workPatternType,
+      preferredPatterns: (preferences.preferredPatterns || []).map(p =>
+        typeof p === 'string' ? { pattern: p, preference: 5 } : p
+      ),
+      avoidPatterns: preferences.avoidPatterns,
+    });
   };
 
   // Handle modal close
