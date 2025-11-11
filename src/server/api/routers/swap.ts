@@ -6,6 +6,7 @@ import { swapRequests, users, schedules } from '@/db/schema';
 import { eq, and, desc, inArray } from 'drizzle-orm';
 import { format } from 'date-fns';
 import { notificationService } from '@/lib/notifications/notification-service';
+import { db } from '@/db';
 
 export const swapRouter = createTRPCRouter({
   list: protectedProcedure
@@ -18,20 +19,28 @@ export const swapRouter = createTRPCRouter({
       offset: z.number().default(0),
     }))
     .query(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const userId = ctx.user?.id || 'dev-user-id';
 
       // Get current user to check department permissions
-      const [currentUser] = await db.query(users, eq(users.id, (ctx.user?.id || 'dev-user-id')));
+      const [currentUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
 
-      const conditions = [];
+      const conditions = [
+        eq(swapRequests.tenantId, tenantId)
+      ];
+
       if (input.status) {
         conditions.push(eq(swapRequests.status, input.status));
       }
       if (input.isRequester) {
-        conditions.push(eq(swapRequests.requesterId, (ctx.user?.id || 'dev-user-id')));
+        conditions.push(eq(swapRequests.requesterId, userId));
       }
       if (input.isTarget) {
-        conditions.push(eq(swapRequests.targetUserId, (ctx.user?.id || 'dev-user-id')));
+        conditions.push(eq(swapRequests.targetUserId, userId));
       }
 
       // Department filtering and role-based filtering
@@ -42,10 +51,10 @@ export const swapRouter = createTRPCRouter({
         conditions.push(eq(swapRequests.departmentId, currentUser.departmentId));
       } else if (currentUser?.role === 'member') {
         // Members can only see their own requests (where they are the requester)
-        conditions.push(eq(swapRequests.requesterId, (ctx.user?.id || 'dev-user-id')));
+        conditions.push(eq(swapRequests.requesterId, userId));
       }
 
-      const where = conditions.length > 0 ? and(...conditions) : undefined;
+      const where = and(...conditions);
 
       // Get paginated results with proper ordering in database
       const results = await db
@@ -82,7 +91,7 @@ export const swapRouter = createTRPCRouter({
           .from(users)
           .where(
             and(
-              eq(users.tenantId, (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d')),
+              eq(users.tenantId, tenantId),
               // Only fetch users that are actually needed
               inArray(users.id, userIdsArray)
             )
