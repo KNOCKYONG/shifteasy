@@ -80,6 +80,8 @@ interface EmployeeState {
   rotationLock: string | null;
   workPatternType: WorkPatternType;
   offDays: number;
+  specialRequestOffDays: number;
+  autoOffDays: number;
   maxOffDays: number;
   extraOffDays: number;
   lastShiftRunCount: number;
@@ -94,6 +96,8 @@ const SHIFT_CODE_MAP: Record<string, string> = {
   off: 'O',
   leave: 'L',
 };
+
+const OFF_REQUEST_KEYWORDS = new Set(['off', 'off_day', 'day_off', 'time_off', 'off-request', 'off_request']);
 
 const OFF_SHIFT_ID = 'shift-off';
 
@@ -165,6 +169,8 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       rotationLock: null,
       workPatternType: emp.workPatternType ?? 'three-shift',
       offDays: 0,
+      specialRequestOffDays: 0,
+      autoOffDays: 0,
       maxOffDays: maxOffDaysPerEmployee + nightLeaveDays,
       extraOffDays: 0,
       lastShiftRunCount: 0,
@@ -244,11 +250,12 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       return bestCode;
     };
 
-    const incrementOffCounter = (state: EmployeeState) => {
-      if (state.offDays < state.maxOffDays) {
-        state.offDays += 1;
+    const incrementOffCounter = (state: EmployeeState, source: 'special-request' | 'system') => {
+      state.offDays += 1;
+      if (source === 'special-request') {
+        state.specialRequestOffDays += 1;
       } else {
-        state.extraOffDays += 1;
+        state.autoOffDays += 1;
       }
     };
 
@@ -258,19 +265,41 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       if (!state) {
         return;
       }
+      const employee = employeeMap.get(req.employeeId);
+      const normalizedRequestType = req.requestType?.toLowerCase() ?? '';
+      const normalizedShiftTypeCode = req.shiftTypeCode?.toUpperCase() ?? null;
 
       let shiftId = OFF_SHIFT_ID;
       let shiftCode = 'O';
       let countedAsWork = false;
 
-      if (req.requestType === 'shift_request' && req.shiftTypeCode) {
-        shiftCode = req.shiftTypeCode.toUpperCase();
+      if (req.requestType === 'shift_request' && normalizedShiftTypeCode) {
+        shiftCode = normalizedShiftTypeCode;
         shiftId = `shift-${shiftCode.toLowerCase()}`;
         countedAsWork = shiftCode !== 'O';
-      } else if (req.requestType === 'overtime' || req.requestType === 'extra_shift') {
+      } else if (normalizedRequestType === 'overtime' || normalizedRequestType === 'extra_shift') {
         shiftCode = 'D';
         shiftId = 'shift-d';
         countedAsWork = true;
+      } else if (OFF_REQUEST_KEYWORDS.has(normalizedRequestType)) {
+        shiftCode = 'O';
+        shiftId = OFF_SHIFT_ID;
+        countedAsWork = false;
+      }
+
+      const isOffRequest = !countedAsWork && shiftCode === 'O';
+      if (isOffRequest && state.offDays >= state.maxOffDays) {
+        violations.push({
+          constraintId: 'special_request_off_quota',
+          constraintName: '특별 요청 휴무 한도',
+          type: 'soft',
+          severity: 'medium',
+          message: `${employee?.name ?? req.employeeId}님은 월 최대 휴무(${state.maxOffDays}일)를 이미 채워 ${dateKey} OFF 요청을 수용할 수 없습니다.`,
+          affectedEmployees: [req.employeeId],
+          affectedDates: [date],
+          cost: 3,
+        });
+        return;
       }
 
       assignments.push({
@@ -287,11 +316,10 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
         shiftCode,
         countedAsWork,
       });
-      if (!countedAsWork && shiftCode === 'O') {
-        incrementOffCounter(state);
+      if (isOffRequest) {
+        incrementOffCounter(state, 'special-request');
       }
       if (countedAsWork) {
-        const employee = employeeMap.get(req.employeeId);
         recordShiftAssignment(employee, shiftCode);
         filledSlots += 1;
       }
@@ -379,7 +407,8 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       const isBonus = options?.bonus ?? false;
       const daysElapsed = options?.dayIndex ?? 0;
       const expectedOffByToday = Math.ceil(((daysElapsed + 1) / dateRange.length) * state.maxOffDays);
-      if (!force && state.offDays >= expectedOffByToday) {
+      const offQuotaReached = state.offDays >= state.maxOffDays;
+      if (!force && (state.offDays >= expectedOffByToday || offQuotaReached)) {
         const supportMode: 'admin' | 'clinical' =
           employee.workPatternType === 'weekday-only' ? 'admin' : 'clinical';
         const preferredCodes =
@@ -394,9 +423,8 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
           return;
         }
         state.extraOffDays += 1;
-      } else {
-        incrementOffCounter(state);
       }
+      incrementOffCounter(state, 'system');
 
       assignments.push({
         employeeId: employee.id,
