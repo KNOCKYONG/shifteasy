@@ -577,6 +577,7 @@ function SchedulePageContent() {
     status: isMember ? 'published' : undefined, // Members only see published, managers/admins see all including drafts
     startDate: monthStart,
     endDate: monthEnd,
+    includeMetadata: true, // Need full metadata for assignments
   }, {
     enabled: needsFullSchedule, // 필요한 경우에만 로드
     staleTime: 5 * 60 * 1000, // 5분 동안 fresh 유지

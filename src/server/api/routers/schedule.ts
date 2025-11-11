@@ -19,6 +19,7 @@ export const scheduleRouter = createTRPCRouter({
       endDate: z.date().optional(),
       limit: z.number().default(10),
       offset: z.number().default(0),
+      includeMetadata: z.boolean().default(false), // Default false for performance
     }))
     .query(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
@@ -54,14 +55,36 @@ export const scheduleRouter = createTRPCRouter({
         conditions.push(lte(schedules.endDate, input.endDate));
       }
 
-      // Get schedules
-      const scheduleResults = await db
-        .select()
-        .from(schedules)
-        .where(and(...conditions))
-        .orderBy(desc(schedules.createdAt))
-        .limit(input.limit)
-        .offset(input.offset);
+      // Conditional metadata inclusion based on includeMetadata flag
+      const scheduleResults = input.includeMetadata
+        ? await db
+            .select()
+            .from(schedules)
+            .where(and(...conditions))
+            .orderBy(desc(schedules.createdAt))
+            .limit(input.limit)
+            .offset(input.offset)
+        : await db
+            .select({
+              id: schedules.id,
+              tenantId: schedules.tenantId,
+              departmentId: schedules.departmentId,
+              startDate: schedules.startDate,
+              endDate: schedules.endDate,
+              status: schedules.status,
+              version: schedules.version,
+              publishedAt: schedules.publishedAt,
+              publishedBy: schedules.publishedBy,
+              deletedFlag: schedules.deletedFlag,
+              createdAt: schedules.createdAt,
+              updatedAt: schedules.updatedAt,
+              metadata: schedules.metadata, // Include metadata but it will be null for list queries
+            })
+            .from(schedules)
+            .where(and(...conditions))
+            .orderBy(desc(schedules.createdAt))
+            .limit(input.limit)
+            .offset(input.offset);
 
       // Get unique department IDs
       const deptIds = [...new Set(scheduleResults.map(s => s.departmentId).filter(Boolean))] as string[];
