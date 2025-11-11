@@ -24,8 +24,8 @@
   - 같은 날 동일 시프트 안에서 가능한 한 서로 다른 `teamId`가 최소 1명 이상 포함되도록 팀 커버리지 가중치를 부여해 편향을 줄인다.
 - `workPatternType === 'night-intensive'` 직원은 가능한 한 야간(`N`) 시프트에만 배정되며, 지원 근무가 필요할 때도 야간 슬롯이 없으면 OFF로 유지한다.
 - 스케줄 설정 > 고급 설정의 “나이트 집중 근무 유급 휴가” 값(`nightIntensivePaidLeaveDays`)은 해당 직원의 월간 휴무 한도(`maxOffDays`)를 늘리는 용도로만 사용하며, 연속 OFF 블록을 강제하지 않는다. 즉, 보상 휴무 수만큼 추가 휴무를 배정할 수 있지만 배치 순서는 일반 OFF 로직과 동일하게 결정된다.
-- 엔진은 `maxOffDays - 현재 OFF` 값이 남은 날짜 수보다 많아지는 순간 해당 직원을 근무 배치 후보에서 제외하고 즉시 OFF로 전환해, 월말에 휴무가 부족하게 배정되는 상황을 방지한다.
-- 선호 패턴이 없는 나이트 집중 근무자는 `N` 연속 근무(기본 3일, 직접 설정 값이 더 낮으면 그 값) 이후 최소 2일 연속 OFF를 확보해야 하며, 회복 OFF가 소진되기 전에는 다른 근무에 배정되지 않는다.
+- 엔진은 `남은 휴무 필요량 = maxOffDays - 현재 OFF`가 남은 날짜 수와 같아지는 시점(나이트 집중 근무자는 같아지기만 해도)부터 근무 배치 후보에서 제외하고 즉시 OFF로 전환해, 월말에 휴무가 부족하게 배정되는 상황을 방지한다.
+- 선호 패턴이 없는 나이트 집중 근무자는 `N` 연속 근무(기본 3일, 직접 설정 값이 더 낮으면 그 값) 이후 최소 2일, 연속 야간이 한 번 더 이어지면 최대 3일까지 회복 OFF를 확보하며, 이 회복 OFF(`nightRecoveryDaysNeeded`)가 소진되기 전에는 다른 근무나 지원 근무에 배정되지 않는다.
 - 야간(`N`) 근무 직후에는 주간(`D`)·저녁(`E`) 시프트가 배정되지 않도록 하드 필터를 두어 연속 야간→주간 패턴을 차단한다.
 - 선호 정보(`preferredShiftTypes`)가 없는 직원은 2~3회 연속 동일 시프트를 우선 배정해 패턴을 유지하되, 연속 3회를 넘기면 자동으로 다른 시프트나 휴무를 권장해 한 달 내내 동일 시프트만 받지 않도록 한다.
 - 지원 근무로도 배치할 수 없는 잉여 OFF는 `extraOffDays`로 축적해 나중에 잔여 휴무로 표기한다.
@@ -41,7 +41,7 @@
 ## 3. 휴무 보장 및 잔여 휴무 기록
 - 해당 월의 토/일/공휴일에 대해 직원별로 보장해야 하는 오프 일수를 계산한다.
 - `workPatternType === 'night-intensive'` 직원은 기본 보장 휴무 수에 `nightIntensivePaidLeaveDays`를 더해 개인별 `guaranteedOffDays`를 산출하고, `off_balance_ledger` 및 스케줄 메타데이터에서도 같은 값을 사용해 추후 정산 시 보상 휴무가 자동 반영되게 한다.
-- 각 날짜마다 `remainingOffNeeded > 남은 날짜 수 - 1` 인 직원은 반드시 OFF를 배정해, `special_requests`가 없더라도 최종적으로 `actualOffDays >= guaranteedOffDays` 관계가 유지되도록 한다.
+- 각 날짜마다 `remainingOffNeeded > 남은 날짜 수 - 1`(일반) 또는 `remainingOffNeeded >= 남은 날짜 수`(나이트 집중 근무자)인 직원은 반드시 OFF를 배정해, `special_requests`가 없더라도 최종적으로 `actualOffDays >= guaranteedOffDays` 관계가 유지되도록 한다.
 - 나이트 집중 근무자의 회복 OFF(`nightRecoveryDaysNeeded`)는 월 전 기간에 분산되며, 강제 휴무가 남아있는 동안에는 근무 후보군에서 제외해 월말 몰림을 방지한다.
 - 배정 완료 후 실제 오프 일수와 비교해 부족분은 `off_balance_ledger`에 `remainingOffDays`로 적립한다.  
   - 저장 필드 예시: `tenantId`, `nurseId`, `year`, `month`, `periodStart`, `periodEnd`, `guaranteedOffDays`, `actualOffDays`, `remainingOffDays`, `scheduleId`.

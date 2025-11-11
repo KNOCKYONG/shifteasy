@@ -115,6 +115,7 @@ const DEFAULT_MAX_CONSECUTIVE_NIGHT = {
 const THREE_SHIFT_ROTATION_LOCK_THRESHOLD = 5;
 const NIGHT_INTENSIVE_RECOVERY_MIN_STREAK = 3;
 const NIGHT_INTENSIVE_MIN_RECOVERY_DAYS = 2;
+const NIGHT_INTENSIVE_MAX_RECOVERY_DAYS = 3;
 
 function extractShiftCode(shift: Shift & { code?: string }): string {
   if (shift.code) {
@@ -418,10 +419,12 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
 
       const force = options?.force ?? false;
       const mustPreserveOffQuota = options?.mustPreserveOffQuota ?? false;
+      const needsRecovery = state.nightRecoveryDaysNeeded > 0;
+      const enforceOff = mustPreserveOffQuota || needsRecovery;
       const daysElapsed = options?.dayIndex ?? 0;
       const expectedOffByToday = Math.ceil(((daysElapsed + 1) / dateRange.length) * state.maxOffDays);
       const offQuotaReached = state.offDays >= state.maxOffDays;
-      if (!force && !mustPreserveOffQuota && (state.offDays >= expectedOffByToday || offQuotaReached)) {
+      if (!force && !enforceOff && (state.offDays >= expectedOffByToday || offQuotaReached)) {
         const supportMode: 'admin' | 'clinical' =
           employee.workPatternType === 'weekday-only' ? 'admin' : 'clinical';
         const preferredCodes =
@@ -459,6 +462,35 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       }
 
     };
+
+    // Step 1.1: Enforce recovery OFF blocks for night-intensive staff without explicit preferences
+    request.employees.forEach((employee) => {
+      if (assignedToday.has(employee.id)) {
+        return;
+      }
+      if (employee.workPatternType !== 'night-intensive' || hasShiftPreferences(employee)) {
+        return;
+      }
+      const state = employeeStates.get(employee.id);
+      if (!state) {
+        return;
+      }
+      const configuredMaxNights =
+        employee.maxConsecutiveNightsPreferred ?? DEFAULT_MAX_CONSECUTIVE_NIGHT['night-intensive'];
+      const recoveryTrigger = Math.min(configuredMaxNights, NIGHT_INTENSIVE_RECOVERY_MIN_STREAK);
+      const exceededTrigger = state.lastShiftCode === 'N' && state.consecutiveNights >= recoveryTrigger;
+      if (state.nightRecoveryDaysNeeded <= 0 && exceededTrigger) {
+        const extraNights = state.consecutiveNights - recoveryTrigger;
+        const targetRecoveryDays = Math.min(
+          NIGHT_INTENSIVE_MAX_RECOVERY_DAYS,
+          NIGHT_INTENSIVE_MIN_RECOVERY_DAYS + (extraNights > 0 ? 1 : 0)
+        );
+        state.nightRecoveryDaysNeeded = targetRecoveryDays;
+      }
+      if (state.nightRecoveryDaysNeeded > 0) {
+        assignOffShift(employee, { force: true, dayIndex, mustPreserveOffQuota: true });
+      }
+    });
 
     const isWeekendDay = isWeekend(date);
     const isHoliday = holidays.has(dateKey);
@@ -554,8 +586,16 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       }
       const remainingOffNeeded = Math.max(0, state.maxOffDays - state.offDays);
       const daysRemainingIncludingToday = dateRange.length - dayIndex;
-      const mustPreserveOffQuota = remainingOffNeeded > daysRemainingIncludingToday - 1;
-      assignOffShift(employee, { dayIndex, force: mustPreserveOffQuota, mustPreserveOffQuota });
+      const isNightIntensive = state.workPatternType === 'night-intensive';
+      const shortageWithoutToday = remainingOffNeeded > daysRemainingIncludingToday - 1;
+      const noSlackForNight =
+        isNightIntensive && remainingOffNeeded >= daysRemainingIncludingToday && remainingOffNeeded > 0;
+      const mustPreserveOffQuota = shortageWithoutToday || noSlackForNight;
+      assignOffShift(employee, {
+        dayIndex,
+        force: noSlackForNight,
+        mustPreserveOffQuota,
+      });
     });
   });
 
@@ -649,7 +689,9 @@ function selectCandidate(params: CandidateSelectionParams) {
 
       const remainingOffNeeded = Math.max(0, state.maxOffDays - state.offDays);
       const daysLeftAfterToday = params.totalDays - params.dayIndex - 1;
-      if (remainingOffNeeded > daysLeftAfterToday) {
+      const isNightIntensive = employee.workPatternType === 'night-intensive';
+      const zeroSlack = isNightIntensive && remainingOffNeeded === daysLeftAfterToday && remainingOffNeeded > 0;
+      if (remainingOffNeeded > daysLeftAfterToday || zeroSlack) {
         return null;
       }
 
