@@ -99,16 +99,25 @@ async function addPreferencesIndexes() {
 }
 
 async function addTeamsIndexes() {
-  console.log('👥 Adding teams table indexes...');
+  console.log('👥 Adding teams table indexes (Critical: 2.09s → target <300ms)...');
 
+  // Critical: teams.getAll queries by tenant_id + is_active
   await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_teams_tenant
-      ON teams(tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_teams_tenant_active
+      ON teams(tenant_id, is_active);
   `);
 
+  // For department-specific team queries
   await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_teams_dept
-      ON teams(department_id);
+    CREATE INDEX IF NOT EXISTS idx_teams_tenant_dept_active
+      ON teams(tenant_id, department_id, is_active);
+  `);
+
+  // For ordering by display_order
+  await db.execute(sql`
+    CREATE INDEX IF NOT EXISTS idx_teams_tenant_order
+      ON teams(tenant_id, display_order, name)
+      WHERE is_active = 'true';
   `);
 
   // Team membership is tracked via users.team_id (no separate team_members table)

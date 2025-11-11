@@ -3,7 +3,7 @@ import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, protectedProcedure, adminProcedure } from '../trpc';
 import { scopedDb, createAuditLog } from '@/lib/db-helpers';
 import { swapRequests, users, schedules } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc, inArray } from 'drizzle-orm';
 import { format } from 'date-fns';
 import { notificationService } from '@/lib/notifications/notification-service';
 
@@ -46,25 +46,50 @@ export const swapRouter = createTRPCRouter({
       }
 
       const where = conditions.length > 0 ? and(...conditions) : undefined;
-      const results = await db.query(swapRequests, where);
 
-      // Get all unique user IDs
+      // Get paginated results with proper ordering in database
+      const results = await db
+        .select()
+        .from(swapRequests)
+        .where(where)
+        .orderBy(desc(swapRequests.createdAt))
+        .limit(input.limit)
+        .offset(input.offset);
+
+      // Get total count efficiently
+      const countResult = await db
+        .select({ count: swapRequests.id })
+        .from(swapRequests)
+        .where(where);
+
+      // Get unique user IDs from paginated results only
       const userIds = new Set<string>();
       results.forEach(req => {
         userIds.add(req.requesterId);
         if (req.targetUserId) userIds.add(req.targetUserId);
       });
 
-      // Fetch all users in one query
+      // Fetch only needed users with IN query
       const usersMap = new Map();
       if (userIds.size > 0) {
-        const usersData = await db.query(users, eq(users.tenantId, (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d')));
+        const userIdsArray = Array.from(userIds);
+        const usersData = await db
+          .select({
+            id: users.id,
+            name: users.name,
+            email: users.email,
+          })
+          .from(users)
+          .where(
+            and(
+              eq(users.tenantId, (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d')),
+              // Only fetch users that are actually needed
+              inArray(users.id, userIdsArray)
+            )
+          );
+
         usersData.forEach(user => {
-          usersMap.set(user.id, {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-          });
+          usersMap.set(user.id, user);
         });
       }
 
@@ -79,10 +104,8 @@ export const swapRouter = createTRPCRouter({
       }>;
 
       return {
-        items: enrichedResults
-          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-          .slice(input.offset, input.offset + input.limit),
-        total: enrichedResults.length,
+        items: enrichedResults,
+        total: countResult.length,
       };
     }),
 
