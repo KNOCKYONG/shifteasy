@@ -1,5 +1,12 @@
 import React, { memo, useState, useEffect } from 'react';
-import { Lock, X, RefreshCcw } from 'lucide-react';
+import { Lock, X, RefreshCcw, AlertTriangle } from 'lucide-react';
+
+interface ExistingSchedule {
+  id: string;
+  startDate: string | Date;
+  endDate: string | Date;
+  publishedAt: string | Date | null;
+}
 
 interface ConfirmationDialogProps {
   isOpen: boolean;
@@ -10,6 +17,7 @@ interface ConfirmationDialogProps {
   scheduleName: string;
   onScheduleNameChange: (name: string) => void;
   defaultScheduleName: string;
+  existingSchedule?: ExistingSchedule | null;
 }
 
 export const ConfirmationDialog = memo(function ConfirmationDialog({
@@ -21,6 +29,7 @@ export const ConfirmationDialog = memo(function ConfirmationDialog({
   scheduleName,
   onScheduleNameChange,
   defaultScheduleName,
+  existingSchedule,
 }: ConfirmationDialogProps) {
   // Use local state to prevent parent re-renders on every keystroke
   const [localName, setLocalName] = useState(scheduleName);
@@ -68,8 +77,47 @@ export const ConfirmationDialog = memo(function ConfirmationDialog({
 
         <div className="p-6">
           <div className="mb-6">
+            {/* 기존 스케줄 경고 */}
+            {existingSchedule && (
+              <div className="mb-6 bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-700 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-amber-900 dark:text-amber-100 mb-2">
+                      ⚠️ 같은 기간에 이미 확정된 스케줄이 있습니다.
+                    </h3>
+                    <div className="text-sm text-amber-800 dark:text-amber-200 space-y-1">
+                      <p><strong>기간:</strong> {new Date(existingSchedule.startDate).toLocaleDateString('ko-KR')} ~ {new Date(existingSchedule.endDate).toLocaleDateString('ko-KR')}</p>
+                      <p><strong>확정일:</strong> {existingSchedule.publishedAt
+                        ? new Date(existingSchedule.publishedAt).toLocaleString('ko-KR', {
+                            year: 'numeric', month: '2-digit', day: '2-digit',
+                            hour: '2-digit', minute: '2-digit'
+                          })
+                        : '알 수 없음'}</p>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-amber-300 dark:border-amber-700">
+                      <p className="text-sm font-semibold text-amber-900 dark:text-amber-100 mb-1">
+                        확정 시 수행되는 작업:
+                      </p>
+                      <ul className="text-sm text-amber-800 dark:text-amber-200 space-y-1">
+                        <li>• 스케줄이 최종 확정되어 수정 불가</li>
+                        <li>• 모든 직원에게 알림 발송</li>
+                        <li>• 스케줄 공개 및 접근 가능</li>
+                        <li>• 근무 일정 캘린더 동기화</li>
+                      </ul>
+                    </div>
+                    <p className="mt-3 text-sm font-bold text-red-600 dark:text-red-400">
+                      ※ 이 작업은 되돌릴 수 없으며, 기존 스케줄이 영구 삭제됩니다.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <p className="text-gray-700 dark:text-gray-300 mb-4">
-              현재 스케줄을 확정하시겠습니까?
+              {existingSchedule
+                ? '기존 스케줄을 삭제하고 새 스케줄을 확정하시겠습니까?'
+                : '현재 스케줄을 확정하시겠습니까?'}
             </p>
 
             {/* 스케줄 명 입력 필드 */}
@@ -119,17 +167,20 @@ export const ConfirmationDialog = memo(function ConfirmationDialog({
               </div>
             )}
 
-            <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4">
-              <p className="text-sm text-blue-700 dark:text-blue-400">
-                <strong>확정 시 수행되는 작업:</strong>
-              </p>
-              <ul className="mt-2 space-y-1 text-sm text-blue-600 dark:text-blue-300">
-                <li>• 스케줄이 최종 확정되어 수정 불가</li>
-                <li>• 모든 직원에게 알림 발송</li>
-                <li>• 스케줄 공개 및 접근 가능</li>
-                <li>• 근무 일정 캘린더 동기화</li>
-              </ul>
-            </div>
+            {/* 기존 스케줄이 없을 때만 정보 박스 표시 */}
+            {!existingSchedule && (
+              <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4">
+                <p className="text-sm text-blue-700 dark:text-blue-400">
+                  <strong>확정 시 수행되는 작업:</strong>
+                </p>
+                <ul className="mt-2 space-y-1 text-sm text-blue-600 dark:text-blue-300">
+                  <li>• 스케줄이 최종 확정되어 수정 불가</li>
+                  <li>• 모든 직원에게 알림 발송</li>
+                  <li>• 스케줄 공개 및 접근 가능</li>
+                  <li>• 근무 일정 캘린더 동기화</li>
+                </ul>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-3">
