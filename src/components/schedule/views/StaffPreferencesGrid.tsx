@@ -35,7 +35,7 @@ export function StaffPreferencesGrid({ allMembers, onEmployeeClick }: StaffPrefe
 
   const renderMemberCard = (member: UnifiedEmployee) => {
     const hasCareerInfo = typeof member.yearsOfService === 'number' && Number.isFinite(member.yearsOfService);
-    const careerYears = hasCareerInfo ? member.yearsOfService : null;
+    const careerYears: number | null = hasCareerInfo ? member.yearsOfService! : null;
     const careerLabel = careerYears !== null && careerYears > 0
       ? `${careerYears}년 차`
       : careerYears === 0

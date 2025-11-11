@@ -4,7 +4,6 @@
  */
 
 import { sseManager } from './sseManager';
-import { notificationService } from '../notifications/notification-service';
 import {
   type SSEEventType,
   type SSEEventPayload,
