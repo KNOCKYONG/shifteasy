@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { api } from "@/lib/trpc/client";
+import { CreateHandoffDialog } from "@/components/handoff/CreateHandoffDialog";
 
 // Priority color mapping
 const PRIORITY_COLORS = {
@@ -324,21 +325,11 @@ export default function HandoffPage() {
         </div>
       </div>
 
-      {/* New Handoff Dialog - Placeholder for now */}
-      {showNewHandoffDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h2 className="text-xl font-bold mb-4">새 인수인계 시작</h2>
-            <p className="text-gray-600 mb-6">인수인계 생성 기능은 곧 추가됩니다.</p>
-            <button
-              onClick={() => setShowNewHandoffDialog(false)}
-              className="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
-            >
-              닫기
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Create Handoff Dialog */}
+      <CreateHandoffDialog
+        isOpen={showNewHandoffDialog}
+        onClose={() => setShowNewHandoffDialog(false)}
+      />
     </MainLayout>
   );
 }
