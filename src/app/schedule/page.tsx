@@ -488,6 +488,12 @@ function SchedulePageContent() {
   };
 
   const currentWeek = monthStart;
+
+  const toStableDateISOString = React.useCallback((value: Date | string) => {
+    const date = normalizeDate(value);
+    const stable = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0, 0));
+    return stable.toISOString();
+  }, []);
   const buildSchedulePayload = () => {
     // ✅ Manager/Member는 항상 실제 departmentId 사용
     let actualDepartmentId: string;
@@ -506,12 +512,12 @@ function SchedulePageContent() {
     return {
       id: `schedule-${format(monthStart, 'yyyy-MM')}-${actualDepartmentId}`,
       departmentId: actualDepartmentId,
-      startDate: monthStart.toISOString(),
-      endDate: monthEnd.toISOString(),
+      startDate: toStableDateISOString(monthStart),
+      endDate: toStableDateISOString(monthEnd),
       assignments: schedule.map(assignment => ({
         employeeId: assignment.employeeId,
         shiftId: assignment.shiftId,
-        date: normalizeDate(assignment.date).toISOString(),
+        date: toStableDateISOString(assignment.date),
         isLocked: (assignment as any).isLocked ?? false,
         shiftType: deriveShiftTypeFromId(assignment.shiftId),
       })),
