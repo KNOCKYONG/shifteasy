@@ -129,6 +129,14 @@ function toDateKey(date: Date): string {
   return format(date, 'yyyy-MM-dd');
 }
 
+function isOffShiftCode(code?: string | null): boolean {
+  if (!code) {
+    return false;
+  }
+  const normalized = code.replace(/[^a-z]/gi, '').toUpperCase();
+  return normalized === 'O' || normalized === 'OFF';
+}
+
 export async function generateAiSchedule(request: AiScheduleRequest): Promise<AiScheduleGenerationResult> {
   const start = performance.now();
   const dateRange = eachDayOfInterval({ start: request.startDate, end: request.endDate });
@@ -274,9 +282,15 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       let countedAsWork = false;
 
       if (req.requestType === 'shift_request' && normalizedShiftTypeCode) {
-        shiftCode = normalizedShiftTypeCode;
-        shiftId = `shift-${shiftCode.toLowerCase()}`;
-        countedAsWork = shiftCode !== 'O';
+        if (isOffShiftCode(normalizedShiftTypeCode)) {
+          shiftCode = 'O';
+          shiftId = OFF_SHIFT_ID;
+          countedAsWork = false;
+        } else {
+          shiftCode = normalizedShiftTypeCode;
+          shiftId = `shift-${shiftCode.toLowerCase()}`;
+          countedAsWork = true;
+        }
       } else if (normalizedRequestType === 'overtime' || normalizedRequestType === 'extra_shift') {
         shiftCode = 'D';
         shiftId = 'shift-d';
@@ -287,7 +301,7 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
         countedAsWork = false;
       }
 
-      const isOffRequest = !countedAsWork && shiftCode === 'O';
+      const isOffRequest = !countedAsWork && isOffShiftCode(shiftCode);
       if (isOffRequest && state.offDays >= state.maxOffDays) {
         violations.push({
           constraintId: 'special_request_off_quota',

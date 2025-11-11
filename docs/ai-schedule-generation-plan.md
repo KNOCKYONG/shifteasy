@@ -13,6 +13,7 @@
 - OFF 타입 특별 요청은 직원별 월간 휴무 한도(`maxOffDays`)에서 선차감하며, 요청 시점에 이미 한도를 소진했다면 OFF 확정을 취소하고 `violations`에 `special_request_off_quota`를 기록한 뒤 일반 배정 후보군으로 되돌린다.
 - `O`(OFF)로 확정된 특별 요청은 월간 보장 휴무 한도에서 즉시 차감해, 요청이 일부만 수용되더라도 나머지 자동 배정 OFF가 잔여 한도 내에서만 생성되도록 한다.
 - 엔진은 특별 요청 OFF(`specialRequestOffDays`)와 시스템 자동 OFF(`autoOffDays`)를 분리해 누적하고, 두 값의 합이 `maxOffDays`를 넘기지 않도록 OFF 할당 직전에 확인한다.
+- UI에서는 특별 요청 OFF를 `O^` 등으로 표시하지만, 엔진은 문자 외 기호를 제거해 모두 `O`로 정규화하여 같은 휴무 한도로 계산한다.
 - 엔진이 부여하는 기본 OFF(`assignOffShift`)와 특별 요청 OFF의 합이 한도를 넘으려 하면 해당 날짜에는 지원 근무/행정 근무 전환을 우선 시도해 휴무 초과를 방지한다. 불가피하게 초과한 경우에는 `extraOffDays`로 남겨 보고한다.
 - 충돌(인력 부족 등)로 수용 불가할 경우 `{employeeId, date, rule: 'special_request', reason}` 형태로 `violations`에 기록하고 나중에 보고한다.
 
