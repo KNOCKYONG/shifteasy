@@ -266,19 +266,27 @@ export const EVENT_TO_QUERIES_MAP: Record<SSEEventType, string[]> = {
   'staff.created': [
     'staff.list',
     'schedule.getPageData',
+    'tenant.users.list',
   ],
   'staff.updated': [
     'staff.list',
     'staff.get',
     'schedule.getPageData',
+    'tenant.users.list',
+    'tenant.users.get',
+    'tenant.users.current',
   ],
   'staff.deleted': [
     'staff.list',
     'schedule.getPageData',
+    'tenant.users.list',
   ],
   'staff.career_updated': [
     'staff.list',
     'staff.get',
+    'tenant.users.list',
+    'tenant.users.get',
+    'tenant.users.current',
   ],
 
   // Team 이벤트

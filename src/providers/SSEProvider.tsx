@@ -6,7 +6,7 @@
  */
 
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { SSEClient, type SSEClientOptions } from '@/lib/sse/client';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import {
@@ -97,6 +97,25 @@ export function SSEProvider({ children, enabled = true }: SSEProviderProps) {
     /**
      * 모든 SSE 이벤트를 처리하는 중앙 핸들러
      */
+    const matchesQueryKey = (targetKey: string, currentKey: QueryKey) => {
+      if (!Array.isArray(currentKey) || currentKey.length === 0) {
+        return false;
+      }
+
+      const [pathSegment] = currentKey;
+
+      if (typeof pathSegment === 'string') {
+        return pathSegment === targetKey;
+      }
+
+      if (Array.isArray(pathSegment)) {
+        const joined = pathSegment.join('.');
+        return joined === targetKey;
+      }
+
+      return false;
+    };
+
     const handleSSEEvent = (eventType: SSEEventType) => (event: MessageEvent) => {
       try {
         const parsedData: SSEEvent = JSON.parse(event.data);
@@ -109,7 +128,9 @@ export function SSEProvider({ children, enabled = true }: SSEProviderProps) {
           console.log(`🔄 [SSE Provider] Invalidating queries:`, queriesToInvalidate);
 
           queriesToInvalidate.forEach(queryKey => {
-            queryClient.invalidateQueries({ queryKey: [queryKey] });
+            queryClient.invalidateQueries({
+              predicate: ({ queryKey: currentKey }) => matchesQueryKey(queryKey, currentKey),
+            });
           });
         }
 

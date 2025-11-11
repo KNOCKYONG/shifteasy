@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useCallback, Suspense, useDeferredValue } from "react";
 import equal from "fast-deep-equal";
 import { useSearchParams } from "next/navigation";
-import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isWeekend } from "date-fns";
+import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isWeekend, differenceInCalendarYears } from "date-fns";
 import { Download, Upload, Lock, Unlock, Wand2, RefreshCcw, FileText, Heart, CheckCircle, MoreVertical, Settings, FolderOpen, Save } from "lucide-react";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { api } from "../../lib/trpc/client";
@@ -21,7 +21,6 @@ import { ImportModal } from "@/components/schedule/modals/ImportModal";
 import { ExportModal } from "@/components/schedule/modals/ExportModal";
 import { ValidationResultsModal } from "@/components/schedule/modals/ValidationResultsModal";
 import { ConfirmationDialog } from "@/components/schedule/modals/ConfirmationDialog";
-import { ReportModal } from "@/components/schedule/modals/ReportModal";
 import { ManageSchedulesModal } from "@/components/schedule/modals/ManageSchedulesModal";
 import { SwapRequestModal } from "@/components/schedule/modals/SwapRequestModal";
 import { ScheduleSwapModal } from "@/components/schedule/modals/ScheduleSwapModal";
@@ -43,6 +42,7 @@ import { normalizeDate } from "@/lib/utils/date-utils";
 import { useScheduleModals } from "@/hooks/useScheduleModals";
 import { useScheduleFilters, type ScheduleView } from "@/hooks/useScheduleFilters";
 import { ScheduleSkeleton } from "@/components/schedule/ScheduleSkeleton";
+import type { SSEEvent } from "@/lib/sse/events";
 
 // 스케줄 페이지에서 사용하는 확장된 ScheduleAssignment 타입
 type SwapShift = {
@@ -111,9 +111,26 @@ type UserDataItem = {
   department?: { name: string } | null;
   status: string;
   position?: string | null;
+  hireDate?: Date | string | null;
+  yearsOfService?: number | null;
   createdAt?: Date;
   profile?: { phone?: string | null } | null;
   teamId?: string | null;
+};
+
+const calculateYearsOfService = (user: UserDataItem): number | undefined => {
+  if (typeof user.yearsOfService === 'number' && Number.isFinite(user.yearsOfService)) {
+    return Math.max(0, user.yearsOfService);
+  }
+
+  if (user.hireDate) {
+    const hireDate = new Date(user.hireDate);
+    if (!Number.isNaN(hireDate.getTime())) {
+      return Math.max(0, differenceInCalendarYears(new Date(), hireDate));
+    }
+  }
+
+  return undefined;
 };
 
 // 팀 패턴 타입
@@ -319,6 +336,101 @@ function SchedulePageContent() {
   }); // Config의 근무 타입 데이터
   const [, setLoadedScheduleId] = useState<string | null>(null); // Setter used for state tracking
   const [selectedDate, setSelectedDate] = useState<Date>(getInitialDate()); // 오늘의 근무 날짜 선택
+  const [careerOverrides, setCareerOverrides] = useState<Record<string, { yearsOfService?: number; hireYear?: number }>>({});
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const handleCareerUpdate: EventListener = (event) => {
+      const customEvent = event as CustomEvent<SSEEvent<'staff.career_updated'>>;
+      const payload = customEvent.detail?.data;
+      if (!payload?.careerInfo) {
+        return;
+      }
+
+      const derivedYears =
+        typeof payload.careerInfo.yearsOfService === 'number'
+          ? Math.max(0, payload.careerInfo.yearsOfService)
+          : typeof payload.careerInfo.hireYear === 'number'
+            ? Math.max(0, new Date().getFullYear() - payload.careerInfo.hireYear)
+            : undefined;
+
+      setCareerOverrides(prev => {
+        const previous = prev[payload.userId];
+        if (
+          previous &&
+          previous.yearsOfService === derivedYears &&
+          previous.hireYear === payload.careerInfo.hireYear
+        ) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [payload.userId]: {
+            yearsOfService: derivedYears,
+            hireYear: payload.careerInfo.hireYear,
+          },
+        };
+      });
+
+      utils.tenant.users.list.invalidate();
+    };
+
+    window.addEventListener('sse:staff.career_updated', handleCareerUpdate);
+    return () => {
+      window.removeEventListener('sse:staff.career_updated', handleCareerUpdate);
+    };
+  }, [utils]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const handleStaffUpdated: EventListener = (event) => {
+      const customEvent = event as CustomEvent<SSEEvent<'staff.updated'>>;
+      const payload = customEvent.detail?.data;
+      if (!payload?.changes) {
+        return;
+      }
+
+      const rawHireDate = payload.changes.hireDate;
+      let hireYear: number | undefined;
+      if (rawHireDate instanceof Date) {
+        hireYear = rawHireDate.getFullYear();
+      } else if (typeof rawHireDate === 'string') {
+        const parsed = new Date(rawHireDate);
+        if (!Number.isNaN(parsed.getTime())) {
+          hireYear = parsed.getFullYear();
+        }
+      }
+
+      const years = typeof payload.changes.yearsOfService === 'number'
+        ? Math.max(0, payload.changes.yearsOfService)
+        : undefined;
+
+      if (hireYear === undefined && years === undefined) {
+        return;
+      }
+
+      setCareerOverrides(prev => ({
+        ...prev,
+        [payload.userId]: {
+          yearsOfService: years ?? prev[payload.userId]?.yearsOfService,
+          hireYear: hireYear ?? prev[payload.userId]?.hireYear,
+        },
+      }));
+
+      utils.tenant.users.list.invalidate();
+    };
+
+    window.addEventListener('sse:staff.updated', handleStaffUpdated);
+    return () => {
+      window.removeEventListener('sse:staff.updated', handleStaffUpdated);
+    };
+  }, [utils]);
 
   // 오늘의 근무 탭에서 날짜를 이동하면 해당 월 전체 데이터를 사전 로드
   useEffect(() => {
@@ -737,21 +849,29 @@ function SchedulePageContent() {
   const allMembers = React.useMemo((): UnifiedEmployee[] => {
     if (!usersData?.items) return [];
 
-    return (usersData.items as UserDataItem[]).map((item: UserDataItem): UnifiedEmployee => ({
-      id: item.id,
-      name: item.name,
-      email: item.email,
-      role: item.role as 'admin' | 'manager' | 'staff',
-      departmentId: item.departmentId || '',
-      department: item.department?.name || '',
-      status: (item.status === 'on_leave' ? 'on-leave' : item.status) as 'active' | 'inactive' | 'on-leave',
-      position: item.position || '',
-      joinDate: item.createdAt?.toISOString() || new Date().toISOString(),
-      avatar: '',
-      phone: item.profile?.phone || '',
-      teamId: item.teamId || null,
-    }));
-  }, [usersData]);
+    return (usersData.items as UserDataItem[]).map((item: UserDataItem): UnifiedEmployee => {
+      const override = careerOverrides[item.id];
+      const yearsOfService = override?.yearsOfService ?? calculateYearsOfService(item);
+      const joinDateSource = item.hireDate ?? item.createdAt;
+      const joinDate = joinDateSource ? new Date(joinDateSource).toISOString() : new Date().toISOString();
+
+      return {
+        id: item.id,
+        name: item.name,
+        email: item.email,
+        role: item.role as 'admin' | 'manager' | 'staff',
+        departmentId: item.departmentId || '',
+        department: item.department?.name || '',
+        status: (item.status === 'on_leave' ? 'on-leave' : item.status) as 'active' | 'inactive' | 'on-leave',
+        position: item.position || '',
+        joinDate,
+        yearsOfService,
+        avatar: '',
+        phone: item.profile?.phone || '',
+        teamId: item.teamId || null,
+      };
+    });
+  }, [usersData, careerOverrides]);
 
   const employeeNameMap = React.useMemo(() => {
     const map: Record<string, string> = {};
@@ -2524,12 +2644,6 @@ function SchedulePageContent() {
         isConfirmed={isConfirmed}
       />
 
-      {/* 스케줄링 리포트 모달 */}
-      <ReportModal
-        isOpen={modals.showReport}
-        onClose={() => modals.setShowReport(false)}
-        generationResult={generationResult}
-      />
 
       {/* 스케줄 관리 모달 */}
       <ManageSchedulesModal

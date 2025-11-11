@@ -18,6 +18,7 @@ export interface UnifiedEmployee extends Employee {
   position: string;
   department: string;
   joinDate: string;
+  yearsOfService?: number | null;
   avatar?: string;
   status: 'active' | 'on-leave' | 'inactive';
 

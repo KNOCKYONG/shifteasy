@@ -34,11 +34,13 @@ export function StaffPreferencesGrid({ allMembers, onEmployeeClick }: StaffPrefe
   }, [allMembers, teams]);
 
   const renderMemberCard = (member: UnifiedEmployee) => {
-    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-    const careerYears = (member as any).yearsOfService;
-    const careerLabel = typeof careerYears === 'number' && careerYears > 0
+    const hasCareerInfo = typeof member.yearsOfService === 'number' && Number.isFinite(member.yearsOfService);
+    const careerYears = hasCareerInfo ? member.yearsOfService : null;
+    const careerLabel = careerYears !== null && careerYears > 0
       ? `${careerYears}년 차`
-      : '경력 정보 없음';
+      : careerYears === 0
+        ? '신입'
+        : '경력 정보 없음';
     const positionLabel = member.position || '직급 정보 없음';
 
     return (

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { users, departments, nursePreferences } from '@/db/schema';
 import { eq, and, or, like, sql } from 'drizzle-orm';
+import { sse } from '@/lib/sse/broadcaster';
 
 export const tenantRouter = createTRPCRouter({
   users: createTRPCRouter({
@@ -437,9 +438,38 @@ export const tenantRouter = createTRPCRouter({
           throw new Error('사용자를 찾을 수 없습니다.');
         }
 
+        const updatedUser = result[0];
+
+        try {
+          const changedFields = Object.keys(updateData).filter(field => field !== 'updatedAt');
+          if (updateData.profile) {
+            changedFields.push('profile');
+          }
+
+          sse.staff.updated(input.userId, {
+            departmentId: updatedUser.departmentId || undefined,
+            fields: changedFields,
+            changes: updateData,
+            tenantId,
+          });
+
+          if (updateData.hireDate !== undefined || updateData.yearsOfService !== undefined) {
+            sse.staff.careerUpdated(input.userId, {
+              departmentId: updatedUser.departmentId || undefined,
+              careerInfo: {
+                hireYear: updateData.hireDate ? updateData.hireDate.getFullYear() : undefined,
+                yearsOfService: updateData.yearsOfService,
+              },
+              tenantId,
+            });
+          }
+        } catch (sseError) {
+          console.error('[tenant.users.update] Failed to broadcast SSE event', sseError);
+        }
+
         return {
           success: true,
-          user: result[0]
+          user: updatedUser
         };
       }),
   }),
