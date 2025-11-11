@@ -38,6 +38,7 @@
 
 ## 3. 휴무 보장 및 잔여 휴무 기록
 - 해당 월의 토/일/공휴일에 대해 직원별로 보장해야 하는 오프 일수를 계산한다.
+- `workPatternType === 'night-intensive'` 직원은 기본 보장 휴무 수에 `nightIntensivePaidLeaveDays`를 더해 개인별 `guaranteedOffDays`를 산출하고, `off_balance_ledger` 및 스케줄 메타데이터에서도 같은 값을 사용해 추후 정산 시 보상 휴무가 자동 반영되게 한다.
 - 배정 완료 후 실제 오프 일수와 비교해 부족분은 `off_balance_ledger`에 `remainingOffDays`로 적립한다.  
   - 저장 필드 예시: `tenantId`, `nurseId`, `year`, `month`, `periodStart`, `periodEnd`, `guaranteedOffDays`, `actualOffDays`, `remainingOffDays`, `scheduleId`.
 - 동시에, 이번 스케줄에서 발생한 잔여 휴무(`extraOffDays`)를 `generationResult.offAccruals` 및 `schedules.metadata.offAccruals`에 기록해 UI/리포트에서 잔여 휴무 적립을 바로 확인할 수 있게 한다. 잔여 휴무는 월 내내 목표 대비 부족한 직원에게 우선 배정해 월말에 몰리지 않도록 목표치를 일 단위로 분산 관리하며, 화면에서는 “+X일 예정” 라벨로 표시된다.
