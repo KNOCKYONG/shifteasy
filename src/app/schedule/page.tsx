@@ -998,16 +998,56 @@ function SchedulePageContent() {
     modals.setIsPreferencesModalOpen(true);
   };
 
-  // ✅ tRPC mutation for preferences save
+  // ✅ tRPC mutation with Optimistic Update for instant UI feedback
   const savePreferencesMutation = api.preferences.upsert.useMutation({
-    onSuccess: () => {
-      // Invalidate preferences cache to refetch updated data
-      void utils.preferences.listAll.invalidate();
-      console.log('✅ Preferences saved and cache invalidated');
+    onMutate: async (newPreferences) => {
+      // 🚀 Cancel outgoing refetches to avoid overwriting optimistic update
+      await utils.preferences.listAll.cancel();
+
+      // Snapshot current state for rollback
+      const previousPreferences = utils.preferences.listAll.getData();
+
+      // 🚀 Optimistically update cache immediately
+      utils.preferences.listAll.setData(undefined, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          [newPreferences.staffId]: {
+            id: old[newPreferences.staffId]?.id || crypto.randomUUID(),
+            tenantId: old[newPreferences.staffId]?.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d',
+            nurseId: newPreferences.staffId,
+            departmentId: old[newPreferences.staffId]?.departmentId || null,
+            workPatternType: newPreferences.workPatternType || 'three-shift',
+            preferredPatterns: newPreferences.preferredPatterns || [],
+            avoidPatterns: newPreferences.avoidPatterns || [],
+            accumulatedOffDays: old[newPreferences.staffId]?.accumulatedOffDays || 0,
+            allocatedToAccumulation: old[newPreferences.staffId]?.allocatedToAccumulation || 0,
+            allocatedToAllowance: old[newPreferences.staffId]?.allocatedToAllowance || 0,
+            createdAt: old[newPreferences.staffId]?.createdAt || new Date(),
+            updatedAt: new Date(),
+          },
+        };
+      });
+
+      console.log('🚀 Optimistic update applied instantly');
+
+      return { previousPreferences };
     },
-    onError: (error) => {
-      console.error('Error saving preferences:', error);
+    onError: (error, _variables, context) => {
+      // ⏪ Rollback on error
+      if (context?.previousPreferences) {
+        utils.preferences.listAll.setData(undefined, context.previousPreferences);
+        console.log('⏪ Rolled back due to error');
+      }
+      console.error('❌ Error saving preferences:', error);
       alert('선호도 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+    },
+    onSuccess: () => {
+      console.log('✅ Preferences saved to server');
+    },
+    onSettled: () => {
+      // Refetch in background to sync with server (non-blocking)
+      void utils.preferences.listAll.invalidate();
     },
   });
 
@@ -1017,12 +1057,9 @@ function SchedulePageContent() {
 
     const employeeSnapshot = selectedEmployee;
 
-    console.log('Saving preferences for', employeeSnapshot.name, ':', preferences);
+    console.log('💾 Saving preferences for', employeeSnapshot.name);
 
-    // Close modal immediately for snappier UX
-    handleModalClose();
-
-    // ✅ Use tRPC mutation instead of fetch API
+    // 🚀 Mutate with optimistic update (non-blocking)
     savePreferencesMutation.mutate({
       staffId: employeeSnapshot.id,
       workPatternType: preferences.workPatternType,
@@ -1031,6 +1068,9 @@ function SchedulePageContent() {
       ),
       avoidPatterns: preferences.avoidPatterns,
     });
+
+    // Close modal immediately (cache already updated optimistically!)
+    handleModalClose();
   };
 
   // Handle modal close
