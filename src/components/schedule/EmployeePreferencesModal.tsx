@@ -66,6 +66,8 @@ export function EmployeePreferencesModal({
   onClose,
   initialPreferences,
 }: EmployeePreferencesModalProps) {
+  const getMonthKey = (date: Date) => format(date, 'yyyy-MM');
+
   const buildInitialPreferences = (source?: SimplifiedPreferences): ExtendedEmployeePreferences => {
     const basePrefs = {
       workPatternType: 'three-shift' as WorkPatternType,
@@ -118,6 +120,9 @@ export function EmployeePreferencesModal({
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const shouldAutoSaveRef = useRef(false);
   const initialSnapshotRef = useRef<ExtendedEmployeePreferences>(buildInitialPreferences(initialPreferences));
+  const initialShiftRequestsRef = useRef<Record<string, Record<string, string>>>({});
+  const hasCapturedInitialRequestsRef = useRef<Record<string, boolean>>({});
+  const isRevertingRequestsRef = useRef(false);
 
   const updatePreferences = (
     updater: ExtendedEmployeePreferences | ((prev: ExtendedEmployeePreferences) => ExtendedEmployeePreferences),
@@ -163,6 +168,8 @@ export function EmployeePreferencesModal({
     initialSnapshotRef.current = snapshot;
     updatePreferences(snapshot, { autoSave: false });
     setHasHydratedFromInitial(!!initialPreferences);
+    initialShiftRequestsRef.current = {};
+    hasCapturedInitialRequestsRef.current = {};
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employee.id]);
 
@@ -384,9 +391,22 @@ export function EmployeePreferencesModal({
 
   // Load existing shift requests when data is fetched
   useEffect(() => {
-    updateShiftRequestsState(() => buildShiftRequestMap(existingRequests), { persist: false });
+    const monthKey = getMonthKey(selectedMonth);
+    const map = buildShiftRequestMap(existingRequests);
+
+    if (existingRequests && !hasCapturedInitialRequestsRef.current[monthKey]) {
+      initialShiftRequestsRef.current[monthKey] = map;
+      hasCapturedInitialRequestsRef.current[monthKey] = true;
+    }
+
+    if (isRevertingRequestsRef.current) {
+      isRevertingRequestsRef.current = false;
+      return;
+    }
+
+    updateShiftRequestsState(() => map, { persist: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [existingRequests]);
+  }, [existingRequests, selectedMonth]);
 
   const daysOfWeek = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -446,8 +466,17 @@ export function EmployeePreferencesModal({
   };
 
   const handleRevertChanges = () => {
-    updatePreferences(initialSnapshotRef.current, { autoSave: true });
-    updateShiftRequestsState(() => buildShiftRequestMap(existingRequests), { persist: true });
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+      autoSaveTimeoutRef.current = null;
+    }
+    shouldAutoSaveRef.current = false;
+    updatePreferences(initialSnapshotRef.current, { autoSave: false });
+
+    const monthKey = getMonthKey(selectedMonth);
+    const initialRequestsForMonth = initialShiftRequestsRef.current[monthKey] || {};
+    isRevertingRequestsRef.current = true;
+    updateShiftRequestsState(() => ({ ...initialRequestsForMonth }), { persist: true });
   };
 
   // 패턴 입력 핸들러 (실시간 검증)
