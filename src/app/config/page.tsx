@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Settings, Save, Trash2, Activity, Plus, Edit2, Briefcase } from "lucide-react";
+import { Settings, Save, Trash2, Activity, Plus, Edit2, Briefcase, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { RoleGuard } from "@/components/auth/RoleGuard";
@@ -168,6 +168,8 @@ function ConfigPageContent() {
     },
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingShiftTypes, setIsSavingShiftTypes] = useState(false);
+  const [isSavingNightPreference, setIsSavingNightPreference] = useState(false);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -196,6 +198,43 @@ function ConfigPageContent() {
       alert('설정 저장 중 오류가 발생했습니다.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const persistShiftTypes = async (updatedList: ShiftConfig[]) => {
+    const previous = shiftTypes;
+    setShiftTypes(updatedList);
+    setIsSavingShiftTypes(true);
+    try {
+      await setConfigMutation.mutateAsync({ configKey: 'shift_types', configValue: updatedList });
+      await Promise.all([
+        utils.configs.getByKey.invalidate({ configKey: 'shift_types' }),
+        utils.configs.getAll.invalidate(),
+      ]);
+    } catch (error) {
+      console.error('Failed to save shift types:', error);
+      alert('근무 타입 저장 중 오류가 발생했습니다.');
+      setShiftTypes(previous);
+      throw error;
+    } finally {
+      setIsSavingShiftTypes(false);
+    }
+  };
+
+  const handleNightPreferenceSave = async () => {
+    setIsSavingNightPreference(true);
+    try {
+      await setConfigMutation.mutateAsync({
+        configKey: 'preferences',
+        configValue: config.preferences,
+      });
+      await utils.configs.getAll.invalidate();
+      alert('나이트 집중 근무 설정이 저장되었습니다.');
+    } catch (error) {
+      console.error('Failed to save preference config:', error);
+      alert('나이트 집중 근무 설정 저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsSavingNightPreference(false);
     }
   };
 
@@ -319,6 +358,23 @@ function ConfigPageContent() {
                       비활성화됨
                     </span>
                   )}
+                  <button
+                    onClick={handleNightPreferenceSave}
+                    disabled={isSavingNightPreference}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+                  >
+                    {isSavingNightPreference ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        저장 중...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        저장
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
             </div>
@@ -482,11 +538,12 @@ function ConfigPageContent() {
         {activeTab === "shifts" && (
           <ShiftTypesTab
             shiftTypes={shiftTypes}
-            setShiftTypes={setShiftTypes}
             newShiftType={newShiftType}
             setNewShiftType={setNewShiftType}
             editingShiftType={editingShiftType}
             setEditingShiftType={setEditingShiftType}
+            onPersistShiftTypes={persistShiftTypes}
+            isSavingShiftTypes={isSavingShiftTypes}
           />
         )}
 
@@ -643,6 +700,7 @@ function ConfigPageContent() {
         {/* Departments Tab */}
 
         {/* Action Buttons */}
+        {activeTab !== "shifts" && (
         <div className="mt-8 flex justify-between">
           <button
             onClick={() => router.push("/department")}
@@ -661,6 +719,7 @@ function ConfigPageContent() {
             {isSaving ? '저장 중...' : '저장'}
           </LoadingButton>
         </div>
+        )}
     </MainLayout>
     </RoleGuard>
   );

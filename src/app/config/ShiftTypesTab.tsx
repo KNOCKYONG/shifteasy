@@ -1,4 +1,4 @@
-import { Clock, Plus, Edit2, Trash2 } from "lucide-react";
+import { Clock, Plus, Edit2, Trash2, Loader2 } from "lucide-react";
 
 interface ShiftType {
   code: string;
@@ -11,11 +11,12 @@ interface ShiftType {
 
 interface ShiftTypesTabProps {
   shiftTypes: ShiftType[];
-  setShiftTypes: React.Dispatch<React.SetStateAction<ShiftType[]>>;
   newShiftType: ShiftType;
   setNewShiftType: React.Dispatch<React.SetStateAction<ShiftType>>;
   editingShiftType: string | null;
   setEditingShiftType: React.Dispatch<React.SetStateAction<string | null>>;
+  onPersistShiftTypes: (updated: ShiftType[]) => Promise<void>;
+  isSavingShiftTypes: boolean;
 }
 
 const AVAILABLE_COLORS = [
@@ -31,11 +32,12 @@ const AVAILABLE_COLORS = [
 
 export function ShiftTypesTab({
   shiftTypes,
-  setShiftTypes,
   newShiftType,
   setNewShiftType,
   editingShiftType,
   setEditingShiftType,
+  onPersistShiftTypes,
+  isSavingShiftTypes,
 }: ShiftTypesTabProps) {
   const normalizedNewCode = newShiftType.code.trim().toUpperCase();
   const normalizedNewName = newShiftType.name.trim();
@@ -44,7 +46,7 @@ export function ShiftTypesTab({
   );
   const canAddShiftType = normalizedNewCode.length > 0 && normalizedNewName.length > 0 && !isDuplicateCode;
 
-  const handleAddShiftType = () => {
+  const handleAddShiftType = async () => {
     if (!canAddShiftType) return;
 
     const preparedShiftType: ShiftType = {
@@ -54,28 +56,40 @@ export function ShiftTypesTab({
     };
 
     const updatedShiftTypes = [...shiftTypes, preparedShiftType];
-    setShiftTypes(updatedShiftTypes);
-    setNewShiftType({
-      code: '',
-      name: '',
-      startTime: '09:00',
-      endTime: '17:00',
-      color: 'blue',
-      allowOvertime: false,
-    });
+    try {
+      await onPersistShiftTypes(updatedShiftTypes);
+      setNewShiftType({
+        code: '',
+        name: '',
+        startTime: '09:00',
+        endTime: '17:00',
+        color: 'blue',
+        allowOvertime: false,
+      });
+    } catch (error) {
+      console.error('Failed to add shift type:', error);
+    }
   };
 
-  const handleUpdateShiftType = (code: string, updates: Partial<ShiftType>) => {
-    const updatedShiftTypes = shiftTypes.map(s =>
+  const handleUpdateShiftType = async (code: string, updates: Partial<ShiftType>) => {
+    const updatedShiftTypes = shiftTypes.map((s) =>
       s.code === code ? { ...s, ...updates } : s
     );
-    setShiftTypes(updatedShiftTypes);
+    try {
+      await onPersistShiftTypes(updatedShiftTypes);
+    } catch (error) {
+      console.error('Failed to update shift type:', error);
+    }
   };
 
-  const handleDeleteShiftType = (code: string) => {
+  const handleDeleteShiftType = async (code: string) => {
     if (confirm(`"${shiftTypes.find(s => s.code === code)?.name}" 근무 타입을 삭제하시겠습니까?`)) {
-      const updatedShiftTypes = shiftTypes.filter(s => s.code !== code);
-      setShiftTypes(updatedShiftTypes);
+      const updatedShiftTypes = shiftTypes.filter((s) => s.code !== code);
+      try {
+        await onPersistShiftTypes(updatedShiftTypes);
+      } catch (error) {
+        console.error('Failed to delete shift type:', error);
+      }
     }
   };
 
@@ -152,14 +166,23 @@ export function ShiftTypesTab({
             <button
               onClick={handleAddShiftType}
               className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-                canAddShiftType
+                canAddShiftType && !isSavingShiftTypes
                   ? "bg-blue-600 dark:bg-blue-500 text-white hover:bg-blue-700 dark:hover:bg-blue-600"
                   : "bg-gray-200 dark:bg-gray-700 text-gray-500 cursor-not-allowed"
               }`}
-              disabled={!canAddShiftType}
+              disabled={!canAddShiftType || isSavingShiftTypes}
             >
-              <Plus className="w-4 h-4" />
-              추가
+              {isSavingShiftTypes ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  저장 중...
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4" />
+                  추가
+                </>
+              )}
             </button>
           </div>
         </div>
