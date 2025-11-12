@@ -2507,34 +2507,34 @@ function SchedulePageContent() {
             <div className="flex items-center justify-between">
                 {/* Primary Actions - Only Essential Buttons */}
                 <div className="flex items-center gap-2">
-                  {/* AI Generate Button - Primary Action */}
-                  {!isMember && (
-                    <button
-                      onClick={handleGenerateSchedule}
-                      disabled={isGenerating}
-                      className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg ${
-                        isGenerating
-                          ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
-                          : "text-white bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
-                      }`}
-                    >
-                      {isGenerating ? (
-                        <>
-                          <RefreshCcw className="w-4 h-4 animate-spin" />
-                          생성 중...
-                        </>
-                      ) : (
-                        <>
-                          <Wand2 className="w-4 h-4" />
-                          AI 스케줄 생성
-                        </>
-                      )}
-                    </button>
-                  )}
-
                   {/* Quick Actions for existing schedule */}
                   {schedule.length > 0 && (
                     <>
+                      {/* AI Generate Button - Primary Action */}
+                      {!isMember && (
+                        <button
+                          onClick={handleGenerateSchedule}
+                          disabled={isGenerating}
+                          className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg ${
+                            isGenerating
+                              ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
+                              : "text-white bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
+                          }`}
+                        >
+                          {isGenerating ? (
+                            <>
+                              <RefreshCcw className="w-4 h-4 animate-spin" />
+                              생성 중...
+                            </>
+                          ) : (
+                            <>
+                              <Wand2 className="w-4 h-4" />
+                              AI 스케줄 생성
+                            </>
+                          )}
+                        </button>
+                      )}
+
                       <button
                         onClick={handleValidateSchedule}
                         disabled={modals.isValidating}
