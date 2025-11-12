@@ -955,25 +955,33 @@ function SchedulePageContent() {
 
       const targetDept = payload.departmentId ?? null;
       const currentDept = configDepartmentId ?? null;
-      if (targetDept !== currentDept) {
-        return;
-      }
+      const selectedDeptForView =
+        selectedDepartment !== 'all' && selectedDepartment !== 'no-department'
+          ? selectedDepartment
+          : null;
 
-      const transformedShiftTypes = payload.shiftTypes.map((raw) => {
-        const st = raw as ConfigShiftType;
-        return {
-          code: st?.code ?? '',
-          name: st?.name ?? '',
-          startTime: st?.startTime ?? '00:00',
-          endTime: st?.endTime ?? '00:00',
-          color: st?.color ?? '#A3A3A3',
-          allowOvertime: (st as ConfigShiftType & { allowOvertime?: boolean })?.allowOvertime ?? false,
-        };
-      });
+      const shouldUpdate =
+        targetDept === null ||
+        targetDept === currentDept ||
+        (currentDept === null && targetDept === selectedDeptForView);
 
-      setCustomShiftTypes(prev => equal(prev, transformedShiftTypes) ? prev : transformedShiftTypes);
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem('customShiftTypes', JSON.stringify(transformedShiftTypes));
+      if (shouldUpdate) {
+        const transformedShiftTypes = payload.shiftTypes.map((raw) => {
+          const st = raw as ConfigShiftType;
+          return {
+            code: st?.code ?? '',
+            name: st?.name ?? '',
+            startTime: st?.startTime ?? '00:00',
+            endTime: st?.endTime ?? '00:00',
+            color: st?.color ?? '#A3A3A3',
+            allowOvertime: (st as ConfigShiftType & { allowOvertime?: boolean })?.allowOvertime ?? false,
+          };
+        });
+
+        setCustomShiftTypes(prev => equal(prev, transformedShiftTypes) ? prev : transformedShiftTypes);
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('customShiftTypes', JSON.stringify(transformedShiftTypes));
+        }
       }
 
       void utils.configs.getByKey.invalidate({
@@ -984,7 +992,7 @@ function SchedulePageContent() {
 
     window.addEventListener('sse:config.shift_types_updated', handleShiftTypesUpdate);
     return () => window.removeEventListener('sse:config.shift_types_updated', handleShiftTypesUpdate);
-  }, [configDepartmentId, utils]);
+  }, [configDepartmentId, selectedDepartment, utils]);
 
   // Convert customShiftTypes to Shift[] format
   const shifts = React.useMemo(() => {
@@ -2470,7 +2478,7 @@ function SchedulePageContent() {
 {canManageSchedules && (!isScheduleQueryLoading || toolbarAnimatedIn) && (
         <div
           className={`bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6 transition-all duration-500 ease-out transform ${
-            toolbarAnimatedIn ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'
+            toolbarAnimatedIn ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'
           }`}
         >
           {!isScheduleQueryLoading && (
