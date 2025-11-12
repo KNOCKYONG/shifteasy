@@ -73,6 +73,45 @@ export const users = pgTable('users', {
     phone?: string;
     avatar?: string;
   }>(),
+  notificationPreferences: jsonb('notification_preferences').$type<{
+    enabled?: boolean; // 전체 알림 on/off
+    channels?: {
+      sse?: boolean; // 실시간 알림
+      push?: boolean; // 푸시 알림
+      email?: boolean; // 이메일 알림
+    };
+    types?: {
+      handoff_submitted?: boolean;
+      handoff_completed?: boolean;
+      handoff_critical_patient?: boolean;
+      handoff_reminder?: boolean;
+      schedule_published?: boolean;
+      schedule_updated?: boolean;
+      swap_requested?: boolean;
+      swap_approved?: boolean;
+      swap_rejected?: boolean;
+    };
+    quietHours?: {
+      enabled?: boolean;
+      start?: string; // "22:00"
+      end?: string; // "08:00"
+    };
+  }>().default({
+    enabled: true,
+    channels: { sse: true, push: false, email: false },
+    types: {
+      handoff_submitted: true,
+      handoff_completed: true,
+      handoff_critical_patient: true,
+      handoff_reminder: true,
+      schedule_published: true,
+      schedule_updated: true,
+      swap_requested: true,
+      swap_approved: true,
+      swap_rejected: true,
+    },
+    quietHours: { enabled: false, start: '22:00', end: '08:00' },
+  }),
   status: text('status').notNull().default('active'), // active, inactive, on_leave
   // Career/Experience fields
   hireDate: timestamp('hire_date', { withTimezone: true }), // 입사일 (근속 년수 계산용)

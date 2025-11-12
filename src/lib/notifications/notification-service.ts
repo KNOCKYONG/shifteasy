@@ -5,7 +5,7 @@
  */
 
 import { db } from '@/db';
-import { notifications } from '@/db/schema';
+import { notifications, users } from '@/db/schema';
 import { eq, and, isNull, desc } from 'drizzle-orm';
 import { sseManager } from '@/lib/sse/sseManager';
 import { pushSubscriptionManager } from '@/lib/push/subscription-manager';
@@ -61,6 +61,30 @@ export interface NotificationInbox {
   unreadCount: number;
 }
 
+// Helper function to check if current time is in quiet hours
+function isQuietHours(quietHours: { enabled?: boolean; start?: string; end?: string } | undefined): boolean {
+  if (!quietHours?.enabled || !quietHours.start || !quietHours.end) {
+    return false;
+  }
+
+  const now = new Date();
+  const currentTime = now.getHours() * 60 + now.getMinutes(); // minutes since midnight
+
+  const [startHour, startMin] = quietHours.start.split(':').map(Number);
+  const startTime = startHour * 60 + startMin;
+
+  const [endHour, endMin] = quietHours.end.split(':').map(Number);
+  const endTime = endHour * 60 + endMin;
+
+  // Handle overnight quiet hours (e.g., 22:00 to 08:00)
+  if (startTime > endTime) {
+    return currentTime >= startTime || currentTime < endTime;
+  }
+
+  // Normal quiet hours (e.g., 13:00 to 17:00)
+  return currentTime >= startTime && currentTime < endTime;
+}
+
 class NotificationService {
   private static instance: NotificationService;
 
@@ -93,6 +117,38 @@ class NotificationService {
     });
 
     try {
+      // Check user notification preferences
+      const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+
+      if (user) {
+        const prefs = user.notificationPreferences as any;
+
+        // Check if notifications are globally disabled
+        if (prefs?.enabled === false) {
+          console.log('[NotificationService] sendToUser - Notifications disabled for user', { userId });
+          return null;
+        }
+
+        // Check if this notification type is disabled
+        if (prefs?.types && prefs.types[notification.type] === false) {
+          console.log('[NotificationService] sendToUser - Notification type disabled', {
+            userId,
+            type: notification.type,
+          });
+          return null;
+        }
+
+        // Check quiet hours (except for urgent/critical notifications)
+        if (notification.priority !== 'urgent' && isQuietHours(prefs?.quietHours)) {
+          console.log('[NotificationService] sendToUser - Quiet hours active, skipping non-urgent notification', {
+            userId,
+            type: notification.type,
+            priority: notification.priority,
+          });
+          return null;
+        }
+      }
+
       // Insert notification into database
       const [created] = await db.insert(notifications).values({
         tenantId,

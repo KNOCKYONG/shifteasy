@@ -160,4 +160,119 @@ export const preferencesRouter = createTRPCRouter({
 
       return { success: true };
     }),
+
+  // Get notification preferences for current user
+  getNotificationPreferences: protectedProcedure
+    .query(async ({ ctx }) => {
+      const userId = ctx.user?.id || 'dev-user-id';
+
+      const [user] = await db.select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // Return notification preferences with defaults if not set
+      return user.notificationPreferences || {
+        enabled: true,
+        channels: { sse: true, push: false, email: false },
+        types: {
+          handoff_submitted: true,
+          handoff_completed: true,
+          handoff_critical_patient: true,
+          handoff_reminder: true,
+          schedule_published: true,
+          schedule_updated: true,
+          swap_requested: true,
+          swap_approved: true,
+          swap_rejected: true,
+        },
+        quietHours: { enabled: false, start: '22:00', end: '08:00' },
+      };
+    }),
+
+  // Update notification preferences for current user
+  updateNotificationPreferences: protectedProcedure
+    .input(z.object({
+      enabled: z.boolean().optional(),
+      channels: z.object({
+        sse: z.boolean().optional(),
+        push: z.boolean().optional(),
+        email: z.boolean().optional(),
+      }).optional(),
+      types: z.object({
+        handoff_submitted: z.boolean().optional(),
+        handoff_completed: z.boolean().optional(),
+        handoff_critical_patient: z.boolean().optional(),
+        handoff_reminder: z.boolean().optional(),
+        schedule_published: z.boolean().optional(),
+        schedule_updated: z.boolean().optional(),
+        swap_requested: z.boolean().optional(),
+        swap_approved: z.boolean().optional(),
+        swap_rejected: z.boolean().optional(),
+      }).optional(),
+      quietHours: z.object({
+        enabled: z.boolean().optional(),
+        start: z.string().optional(),
+        end: z.string().optional(),
+      }).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user?.id || 'dev-user-id';
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+
+      // Get current preferences
+      const [user] = await db.select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      const currentPrefs = user.notificationPreferences as any || {};
+
+      // Merge with new preferences
+      const updatedPrefs = {
+        enabled: input.enabled !== undefined ? input.enabled : currentPrefs.enabled ?? true,
+        channels: {
+          ...(currentPrefs.channels || {}),
+          ...(input.channels || {}),
+        },
+        types: {
+          ...(currentPrefs.types || {}),
+          ...(input.types || {}),
+        },
+        quietHours: {
+          ...(currentPrefs.quietHours || {}),
+          ...(input.quietHours || {}),
+        },
+      };
+
+      // Update user preferences
+      const [updated] = await db.update(users)
+        .set({
+          notificationPreferences: updatedPrefs,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId))
+        .returning();
+
+      // Create audit log
+      await createAuditLog({
+        tenantId,
+        actorId: userId,
+        action: 'notification_preferences.updated',
+        entityType: 'user',
+        entityId: userId,
+        before: { notificationPreferences: currentPrefs },
+        after: { notificationPreferences: updatedPrefs },
+      });
+
+      return updated.notificationPreferences;
+    }),
 });

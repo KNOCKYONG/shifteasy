@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { SecretCodeTab } from "@/app/config/SecretCodeTab";
+import { NotificationPreferencesTab } from "@/components/settings/NotificationPreferencesTab";
 
 // Force dynamic rendering to prevent build-time errors
 export const dynamic = 'force-dynamic';
@@ -36,14 +37,6 @@ function SettingsContent() {
   // Department secret code state (admin/owner only)
   const [allDepartments, setAllDepartments] = useState<Department[]>([]);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
-
-  // Notification settings
-  const [notificationSettings, setNotificationSettings] = useState({
-    scheduleChanges: true,
-    swapRequests: true,
-    announcements: true,
-    emailDigest: false,
-  });
 
   // Profile edit states
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -113,13 +106,6 @@ function SettingsContent() {
     navigator.clipboard.writeText(code);
     setCopiedCode(code);
     setTimeout(() => setCopiedCode(null), 2000);
-  };
-
-  const handleNotificationChange = (key: keyof typeof notificationSettings) => {
-    setNotificationSettings(prev => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
   };
 
   // Profile update handler
@@ -593,98 +579,7 @@ function SettingsContent() {
               </div>
             )}
 
-            {activeTab === "notifications" && (
-              <div className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                  {t('notifications.title', { ns: 'settings', defaultValue: '알림 설정' })}
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-                  {t('notifications.description', { ns: 'settings', defaultValue: '받고 싶은 알림을 선택하세요.' })}
-                </p>
-
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-gray-100">
-                        {t('notifications.scheduleChanges', { ns: 'settings', defaultValue: '스케줄 변경 알림' })}
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        {t('notifications.scheduleChangesDesc', { ns: 'settings', defaultValue: '근무 스케줄이 변경될 때 알림을 받습니다' })}
-                      </p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={notificationSettings.scheduleChanges}
-                        onChange={() => handleNotificationChange('scheduleChanges')}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 dark:peer-checked:bg-blue-500"></div>
-                    </label>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-gray-100">
-                        {t('notifications.swapRequests', { ns: 'settings', defaultValue: '근무 교환 요청' })}
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        {t('notifications.swapRequestsDesc', { ns: 'settings', defaultValue: '근무 교환 요청이 있을 때 알림을 받습니다' })}
-                      </p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={notificationSettings.swapRequests}
-                        onChange={() => handleNotificationChange('swapRequests')}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 dark:peer-checked:bg-blue-500"></div>
-                    </label>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-gray-100">
-                        {t('notifications.announcements', { ns: 'settings', defaultValue: '공지사항' })}
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        {t('notifications.announcementsDesc', { ns: 'settings', defaultValue: '중요한 공지사항을 받습니다' })}
-                      </p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={notificationSettings.announcements}
-                        onChange={() => handleNotificationChange('announcements')}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 dark:peer-checked:bg-blue-500"></div>
-                    </label>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-gray-100">
-                        {t('notifications.emailDigest', { ns: 'settings', defaultValue: '이메일 요약' })}
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        {t('notifications.emailDigestDesc', { ns: 'settings', defaultValue: '주간 활동 요약을 이메일로 받습니다' })}
-                      </p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={notificationSettings.emailDigest}
-                        onChange={() => handleNotificationChange('emailDigest')}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 dark:peer-checked:bg-blue-500"></div>
-                    </label>
-                  </div>
-                </div>
-              </div>
-            )}
+            {activeTab === "notifications" && <NotificationPreferencesTab />}
 
             {activeTab === "secretCode" && showSecretCodeTab && currentUser && (
               <div className="p-6">
