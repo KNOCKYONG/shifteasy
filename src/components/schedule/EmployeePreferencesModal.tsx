@@ -439,6 +439,7 @@ export function EmployeePreferencesModal({
       return;
     }
 
+    initialShiftRequestsRef.current[monthKey] = map;
     shiftRequestDraftsRef.current[monthKey] = { ...map };
     setShiftRequests({ ...map });
     updateDirtyStateForMonth(monthKey, map);
