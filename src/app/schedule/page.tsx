@@ -323,6 +323,7 @@ function SchedulePageContent() {
   const [generationResult, setGenerationResult] = useState<SchedulingResult | null>(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isPreparingConfirmation, setIsPreparingConfirmation] = useState(false);
+  const [toolbarAnimatedIn, setToolbarAnimatedIn] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const [scheduleName, setScheduleName] = useState('');
   const [existingScheduleToReplace, setExistingScheduleToReplace] = useState<{
@@ -684,6 +685,13 @@ function SchedulePageContent() {
   );
   const isTodayViewLoading = isTodayViewActive && isScheduleQueryLoading;
   const isScheduleViewLoading = isScheduleViewActive && isScheduleQueryLoading;
+  useEffect(() => {
+    if (isScheduleQueryLoading) {
+      setToolbarAnimatedIn(false);
+    } else {
+      setToolbarAnimatedIn(true);
+    }
+  }, [isScheduleQueryLoading]);
 
   // ✅ Derive today's assignments from loaded schedule to avoid 반복 fetch
   const todayAssignments = React.useMemo(() => {
@@ -1491,7 +1499,6 @@ function SchedulePageContent() {
       return;
     }
 
-    // Check for existing published schedules before confirming
     let validDepartmentId: string | null = selectedDepartment;
 
     if (selectedDepartment === 'all' || selectedDepartment === 'no-department') {
@@ -1509,8 +1516,9 @@ function SchedulePageContent() {
     }
 
     setIsPreparingConfirmation(true);
+    modals.setShowConfirmDialog(true);
+
     try {
-      // Check for existing published schedules in the same period
       const existingCheck = await utils.schedule.checkExisting.fetch({
         departmentId: validDepartmentId,
         startDate: monthStart,
@@ -1519,8 +1527,6 @@ function SchedulePageContent() {
 
       if (existingCheck.hasExisting && existingCheck.schedules.length > 0) {
         const existingSchedule = existingCheck.schedules[0];
-
-        // Set existing schedule info to show warning in modal
         setExistingScheduleToReplace({
           id: existingSchedule.id,
           startDate: new Date(existingSchedule.startDate),
@@ -1528,17 +1534,11 @@ function SchedulePageContent() {
           publishedAt: existingSchedule.publishedAt ? new Date(existingSchedule.publishedAt) : null,
         });
       } else {
-        // No existing schedule
         setExistingScheduleToReplace(null);
       }
-
-      // Show confirmation dialog with existing schedule warning (if any)
-      modals.setShowConfirmDialog(true);
     } catch (error) {
       console.error('Error checking existing schedules:', error);
-      // Continue to confirmation even if check fails
       setExistingScheduleToReplace(null);
-      modals.setShowConfirmDialog(true);
     } finally {
       setIsPreparingConfirmation(false);
     }
@@ -2421,13 +2421,14 @@ function SchedulePageContent() {
         </div>
         )}
         {/* Simplified Schedule Action Toolbar - Only for managers */}
-{canManageSchedules && (
-        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
-          {isScheduleQueryLoading ? (
-            <LottieLoadingOverlay compact message="스케줄 액션을 준비하는 중입니다..." />
-          ) : (
+{canManageSchedules && (!isScheduleQueryLoading || toolbarAnimatedIn) && (
+        <div
+          className={`bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6 transition-all duration-500 ease-out transform ${
+            toolbarAnimatedIn ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'
+          }`}
+        >
+          {!isScheduleQueryLoading && (
             <div className="flex items-center justify-between">
-              <>
                 {/* Primary Actions - Only Essential Buttons */}
                 <div className="flex items-center gap-2">
                   {/* AI Generate Button - Primary Action */}
@@ -2619,7 +2620,6 @@ function SchedulePageContent() {
                     )}
                   </div>
                 </div>
-              </>
             </div>
           )}
         </div>
@@ -2831,6 +2831,7 @@ function SchedulePageContent() {
         onClose={() => modals.setShowConfirmDialog(false)}
         onConfirm={handleConfirmSchedule}
         isConfirming={modals.isConfirming}
+        isCheckingConflicts={isPreparingConfirmation}
         validationScore={modals.validationScore}
         scheduleName={scheduleName}
         onScheduleNameChange={handleScheduleNameChange}

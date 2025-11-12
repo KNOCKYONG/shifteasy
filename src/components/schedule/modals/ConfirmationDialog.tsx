@@ -1,5 +1,5 @@
 import React, { memo, useState, useEffect } from 'react';
-import { Lock, X, RefreshCcw, AlertTriangle } from 'lucide-react';
+import { Lock, X, RefreshCcw, AlertTriangle, Loader2 } from 'lucide-react';
 
 interface ExistingSchedule {
   id: string;
@@ -13,6 +13,7 @@ interface ConfirmationDialogProps {
   onClose: () => void;
   onConfirm: () => void;
   isConfirming: boolean;
+  isCheckingConflicts?: boolean;
   validationScore: number | null;
   scheduleName: string;
   onScheduleNameChange: (name: string) => void;
@@ -30,6 +31,7 @@ export const ConfirmationDialog = memo(function ConfirmationDialog({
   onScheduleNameChange,
   defaultScheduleName,
   existingSchedule,
+  isCheckingConflicts = false,
 }: ConfirmationDialogProps) {
   // Use local state to prevent parent re-renders on every keystroke
   const [localName, setLocalName] = useState(scheduleName);
@@ -76,7 +78,13 @@ export const ConfirmationDialog = memo(function ConfirmationDialog({
         </div>
 
         <div className="p-6">
-          <div className="mb-6">
+          <div className="mb-6 space-y-4">
+            {isCheckingConflicts && (
+              <div className="flex items-center gap-3 rounded-lg border border-purple-200 bg-purple-50 px-4 py-3 text-sm text-purple-700 dark:border-purple-800 dark:bg-purple-900/30 dark:text-purple-200">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                기존 확정 스케줄을 확인하는 중입니다...
+              </div>
+            )}
             {/* 기존 스케줄 경고 */}
             {existingSchedule && (
               <div className="mb-6 bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-700 rounded-lg p-4">
