@@ -408,10 +408,17 @@ export function EmployeePreferencesModal({
 
     if (!hasCapturedInitialRequestsRef.current[monthKey]) {
       initialShiftRequestsRef.current[monthKey] = map;
-      shiftRequestDraftsRef.current[monthKey] = { ...map };
       hasCapturedInitialRequestsRef.current[monthKey] = true;
-      setShiftRequests({ ...map });
-      updateDirtyStateForMonth(monthKey, map);
+
+      if (!dirtyShiftMonthsRef.current.has(monthKey)) {
+        shiftRequestDraftsRef.current[monthKey] = { ...map };
+        setShiftRequests({ ...map });
+        updateDirtyStateForMonth(monthKey, map);
+      } else {
+        // Keep user edits visible; ensure draft exists
+        shiftRequestDraftsRef.current[monthKey] =
+          shiftRequestDraftsRef.current[monthKey] || { ...map };
+      }
       return;
     }
 
