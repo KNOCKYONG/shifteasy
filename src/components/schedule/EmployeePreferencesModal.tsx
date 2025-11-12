@@ -487,12 +487,13 @@ export function EmployeePreferencesModal({
     console.log('✅ Shift requests saved successfully:', entries.length, 'dates for', monthKey);
   };
 
-  const savePendingShiftRequests = async () => {
-    for (const monthKey of Array.from(dirtyShiftMonthsRef.current)) {
-      const snapshot = shiftRequestDraftsRef.current[monthKey] || {};
-      await persistShiftRequestsForMonth(monthKey, snapshot);
-    }
-    dirtyShiftMonthsRef.current.clear();
+  const savePendingShiftRequests = async (monthsToSave: string[]) => {
+    await Promise.all(
+      monthsToSave.map(async (monthKey) => {
+        const snapshot = shiftRequestDraftsRef.current[monthKey] || {};
+        await persistShiftRequestsForMonth(monthKey, snapshot);
+      })
+    );
   };
 
   const handleShiftRequestSelection = (dateKey: string, selectedValue: string) => {
@@ -621,7 +622,15 @@ export function EmployeePreferencesModal({
     });
   };
 
-  const handleCloseModal = async () => {
+  const handleCloseModal = () => {
+    const hasPendingPreferenceChanges = !!autoSaveTimeoutRef.current;
+    const hasPendingShiftChanges = dirtyShiftMonthsRef.current.size > 0;
+
+    if (!hasPendingPreferenceChanges && !hasPendingShiftChanges) {
+      onClose();
+      return;
+    }
+
     const shouldSave = window.confirm('변경 사항을 저장하고 창을 닫을까요?\n취소를 누르면 계속 편집할 수 있습니다.');
     if (!shouldSave) {
       dirtyShiftMonthsRef.current.clear();
@@ -629,18 +638,20 @@ export function EmployeePreferencesModal({
       return;
     }
 
-    if (autoSaveTimeoutRef.current) {
+    if (hasPendingPreferenceChanges && autoSaveTimeoutRef.current) {
       clearTimeout(autoSaveTimeoutRef.current);
       autoSaveTimeoutRef.current = null;
+      onSave(preferences);
     }
-    onSave(preferences);
 
-    try {
-      await savePendingShiftRequests();
-    } catch (error) {
-      console.error('❌ Failed to save shift requests on close:', error);
-      alert('시프트 요청 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
-      return;
+    const monthsToSave = Array.from(dirtyShiftMonthsRef.current);
+    dirtyShiftMonthsRef.current.clear();
+
+    if (monthsToSave.length > 0) {
+      savePendingShiftRequests(monthsToSave).catch((error) => {
+        console.error('❌ Failed to save shift requests on close:', error);
+        alert('시프트 요청 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+      });
     }
 
     onClose();
@@ -670,7 +681,7 @@ export function EmployeePreferencesModal({
                 되돌리기
               </button>
               <button
-                onClick={() => { void handleCloseModal(); }}
+                onClick={handleCloseModal}
                 className="p-2 hover:bg-white/20 rounded-lg transition-colors"
               >
                 <X className="w-6 h-6" />
