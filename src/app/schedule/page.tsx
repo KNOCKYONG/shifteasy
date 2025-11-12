@@ -940,6 +940,52 @@ function SchedulePageContent() {
     }
   }, [shiftTypesConfig, isLoadingShiftTypesConfig]);
 
+  // Listen for SSE shift type updates to refresh filters immediately
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const handleShiftTypesUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent<SSEEvent<'config.shift_types_updated'>>;
+      const payload = customEvent.detail?.data;
+      if (!payload || !Array.isArray(payload.shiftTypes)) {
+        return;
+      }
+
+      const targetDept = payload.departmentId ?? null;
+      const currentDept = configDepartmentId ?? null;
+      if (targetDept !== currentDept) {
+        return;
+      }
+
+      const transformedShiftTypes = payload.shiftTypes.map((raw) => {
+        const st = raw as ConfigShiftType;
+        return {
+          code: st?.code ?? '',
+          name: st?.name ?? '',
+          startTime: st?.startTime ?? '00:00',
+          endTime: st?.endTime ?? '00:00',
+          color: st?.color ?? '#A3A3A3',
+          allowOvertime: (st as ConfigShiftType & { allowOvertime?: boolean })?.allowOvertime ?? false,
+        };
+      });
+
+      setCustomShiftTypes(prev => equal(prev, transformedShiftTypes) ? prev : transformedShiftTypes);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('customShiftTypes', JSON.stringify(transformedShiftTypes));
+      }
+
+      void utils.configs.getByKey.invalidate({
+        configKey: 'shift_types',
+        departmentId: configDepartmentId,
+      });
+    };
+
+    window.addEventListener('sse:config.shift_types_updated', handleShiftTypesUpdate);
+    return () => window.removeEventListener('sse:config.shift_types_updated', handleShiftTypesUpdate);
+  }, [configDepartmentId, utils]);
+
   // Convert customShiftTypes to Shift[] format
   const shifts = React.useMemo(() => {
     if (customShiftTypes.length > 0) {
