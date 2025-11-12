@@ -1213,24 +1213,39 @@ export const scheduleRouter = createTRPCRouter({
       return myShifts;
     }),
 
-  // Get colleagues working with me this week
+  // Get colleagues working with me on same shifts
   getMyWorkmates: protectedProcedure
-    .query(async ({ ctx }) => {
+    .input(z.object({
+      period: z.enum(['today', 'week', 'month']).default('week'),
+    }).optional())
+    .query(async ({ ctx, input }) => {
+      const period = input?.period || 'week';
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      // Get start of this week (Monday)
-      const startOfWeek = new Date(today);
-      const dayOfWeek = startOfWeek.getDay();
-      const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Adjust to Monday
-      startOfWeek.setDate(startOfWeek.getDate() + diff);
+      let startDate: Date;
+      let endDate: Date;
 
-      // Get end of this week (Sunday)
-      const endOfWeek = new Date(startOfWeek);
-      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      if (period === 'today') {
+        // Today only
+        startDate = new Date(today);
+        endDate = new Date(today);
+      } else if (period === 'week') {
+        // This week (Monday to Sunday)
+        startDate = new Date(today);
+        const dayOfWeek = startDate.getDay();
+        const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        startDate.setDate(startDate.getDate() + diff);
+        endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + 6);
+      } else {
+        // This month
+        startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      }
 
-      // Find schedules that overlap with this week
+      // Find schedules that overlap with the selected period
       const scheduleList = await db
         .select({
           id: schedules.id,
@@ -1246,8 +1261,8 @@ export const scheduleRouter = createTRPCRouter({
             isNull(schedules.deletedFlag),
             ne(schedules.deletedFlag, 'X')
           ),
-          lte(schedules.startDate, endOfWeek),
-          gte(schedules.endDate, startOfWeek)
+          lte(schedules.startDate, endDate),
+          gte(schedules.endDate, startDate)
         ))
         .orderBy(desc(schedules.publishedAt));
 
@@ -1278,17 +1293,17 @@ export const scheduleRouter = createTRPCRouter({
         const metadata = schedule.metadata as WorkmateMetadata;
         const assignments = metadata?.assignments || [];
 
-        // Filter assignments within this week
-        const weekAssignments = assignments.filter((a) => {
+        // Filter assignments within the selected period
+        const periodAssignments = assignments.filter((a) => {
           const assignmentDate = new Date(a.date);
-          return assignmentDate >= startOfWeek && assignmentDate <= endOfWeek;
+          return assignmentDate >= startDate && assignmentDate <= endDate;
         });
 
         // Separate my shifts
-        const userAssignments = weekAssignments.filter((a) => a.employeeId === currentUserId);
+        const userAssignments = periodAssignments.filter((a) => a.employeeId === currentUserId);
         myShifts.push(...userAssignments);
 
-        allAssignments.push(...weekAssignments);
+        allAssignments.push(...periodAssignments);
       }
 
       // Helper to check if non-working shift
@@ -1305,31 +1320,35 @@ export const scheduleRouter = createTRPCRouter({
         );
       };
 
-      // Find colleagues who work on the same days as me
-      const workmateMap = new Map<string, { employeeId: string; sharedDays: number }>();
+      // Find colleagues who work on the same shifts as me
+      const workmateMap = new Map<string, { employeeId: string; sharedShifts: number }>();
 
       for (const myShift of myShifts) {
         if (isNonWorkingShift(myShift)) continue;
 
         const myDate = new Date(myShift.date).toISOString().split('T')[0];
+        const myShiftId = myShift.shiftId || myShift.shiftType || '';
 
-        // Find others working on the same day
-        const sameDayWorkers = allAssignments.filter((a) => {
+        // Find others working on the same day with the same shift
+        const sameShiftWorkers = allAssignments.filter((a) => {
           if (a.employeeId === currentUserId) return false;
           if (isNonWorkingShift(a)) return false;
 
           const aDate = new Date(a.date).toISOString().split('T')[0];
-          return aDate === myDate;
+          const aShiftId = a.shiftId || a.shiftType || '';
+
+          // Must be same date AND same shift
+          return aDate === myDate && aShiftId === myShiftId && myShiftId !== '';
         });
 
-        for (const worker of sameDayWorkers) {
+        for (const worker of sameShiftWorkers) {
           const existing = workmateMap.get(worker.employeeId);
           if (existing) {
-            existing.sharedDays++;
+            existing.sharedShifts++;
           } else {
             workmateMap.set(worker.employeeId, {
               employeeId: worker.employeeId,
-              sharedDays: 1,
+              sharedShifts: 1,
             });
           }
         }
@@ -1352,11 +1371,11 @@ export const scheduleRouter = createTRPCRouter({
             ))
         : [];
 
-      // Combine with shared days count
+      // Combine with shared shifts count
       const workmates = employees.map(emp => ({
         ...emp,
-        sharedDays: workmateMap.get(emp.id)?.sharedDays || 0,
-      })).sort((a, b) => b.sharedDays - a.sharedDays);
+        sharedShifts: workmateMap.get(emp.id)?.sharedShifts || 0,
+      })).sort((a, b) => b.sharedShifts - a.sharedShifts);
 
       return {
         workmates,

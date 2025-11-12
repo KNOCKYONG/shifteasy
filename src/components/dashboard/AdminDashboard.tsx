@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import {
   Calendar, Clock, Users, ArrowRightLeft, AlertTriangle,
@@ -16,6 +16,9 @@ export function AdminDashboard() {
   const today = new Date();
   const todayStr = format(today, 'yyyy-MM-dd');
   const currentMonth = format(today, 'yyyy-MM');
+
+  // Workmates filter state
+  const [workmatesPeriod, setWorkmatesPeriod] = useState<'today' | 'week' | 'month'>('week');
 
   // Optimized dashboard data query - single request with caching
   const { data: dashboardData, isLoading } = api.schedule.getDashboardData.useQuery(undefined, {
@@ -36,11 +39,14 @@ export function AdminDashboard() {
     }
   }, [upcomingShifts]);
 
-  // Get colleagues working with me this week
-  const { data: workmatesData, isLoading: isLoadingWorkmates } = api.schedule.getMyWorkmates.useQuery(undefined, {
-    staleTime: 2 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
+  // Get colleagues working with me on same shifts
+  const { data: workmatesData, isLoading: isLoadingWorkmates } = api.schedule.getMyWorkmates.useQuery(
+    { period: workmatesPeriod },
+    {
+      staleTime: 2 * 60 * 1000,
+      refetchOnWindowFocus: false,
+    }
+  );
 
   // Extract stats from optimized response
   const workingToday = dashboardData?.workingToday || 0;
@@ -361,15 +367,51 @@ export function AdminDashboard() {
           )}
         </Card>
 
-        {/* My Workmates This Week */}
+        {/* My Workmates on Same Shifts */}
         <Card className="p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-green-100 dark:bg-green-950 rounded-lg">
-              <UserCheck className="w-5 h-5 text-green-600 dark:text-green-400" />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-100 dark:bg-green-950 rounded-lg">
+                <UserCheck className="w-5 h-5 text-green-600 dark:text-green-400" />
+              </div>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                같은 스케줄 동료 보기
+              </h2>
             </div>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-              이번 주 같이 근무하는 동료
-            </h2>
+
+            {/* Period Filter */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setWorkmatesPeriod('today')}
+                className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
+                  workmatesPeriod === 'today'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                오늘
+              </button>
+              <button
+                onClick={() => setWorkmatesPeriod('week')}
+                className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
+                  workmatesPeriod === 'week'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                이번 주
+              </button>
+              <button
+                onClick={() => setWorkmatesPeriod('month')}
+                className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
+                  workmatesPeriod === 'month'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                이번 달
+              </button>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -399,21 +441,21 @@ export function AdminDashboard() {
                   </div>
                   <div className="text-right">
                     <p className="text-xs font-semibold text-green-600 dark:text-green-400">
-                      {workmate.sharedDays}일
+                      {workmate.sharedShifts}회
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      함께 근무
+                      같은 시프트
                     </p>
                   </div>
                 </div>
               ))
             ) : workmatesData && workmatesData.myShifts && workmatesData.myShifts.length === 0 ? (
               <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-                이번 주 근무 일정이 없습니다
+                {workmatesPeriod === 'today' ? '오늘' : workmatesPeriod === 'week' ? '이번 주' : '이번 달'} 근무 일정이 없습니다
               </p>
             ) : (
               <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-                같이 근무하는 동료가 없습니다
+                같은 시프트로 근무하는 동료가 없습니다
               </p>
             )}
           </div>
