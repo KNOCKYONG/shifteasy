@@ -281,6 +281,7 @@ export function EmployeePreferencesModal({
       employeeId: employee.id,
       allocatedToAccumulation: allocToAccumulation,
       allocatedToAllowance: allocToAllowance,
+      departmentId: employee.departmentId || undefined,
     });
   };
   // Request 탭을 위한 state

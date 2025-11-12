@@ -1213,9 +1213,6 @@ function SchedulePageContent() {
             workPatternType: newPreferences.workPatternType || 'three-shift',
             preferredPatterns: newPreferences.preferredPatterns || [],
             avoidPatterns: newPreferences.avoidPatterns || [],
-            accumulatedOffDays: old[newPreferences.staffId]?.accumulatedOffDays || 0,
-            allocatedToAccumulation: old[newPreferences.staffId]?.allocatedToAccumulation || 0,
-            allocatedToAllowance: old[newPreferences.staffId]?.allocatedToAllowance || 0,
             createdAt: old[newPreferences.staffId]?.createdAt || new Date(),
             updatedAt: new Date(),
           },
@@ -1366,8 +1363,19 @@ function SchedulePageContent() {
     modals.isPreferencesModalOpen
   );
 
+  const offBalanceDepartmentId = React.useMemo(() => {
+    if (isManager || isMember) {
+      return memberDepartmentId || undefined;
+    }
+    if (selectedDepartment !== 'all' && selectedDepartment !== 'no-department') {
+      return selectedDepartment;
+    }
+    return undefined;
+  }, [isManager, isMember, memberDepartmentId, selectedDepartment]);
+
   const { data: offBalanceData } = api.offBalance.getBulkCurrentBalance.useQuery({
     employeeIds: displayMemberIds,
+    departmentId: offBalanceDepartmentId,
   }, {
     enabled: shouldLoadOffBalance,
   });
@@ -1377,6 +1385,8 @@ function SchedulePageContent() {
     accumulatedOffDays: number;
     allocatedToAccumulation: number;
     allocatedToAllowance: number;
+    allocationStatus?: string | null;
+    departmentId?: string | null;
     pendingExtraOffDays?: number;
   };
 
@@ -1388,6 +1398,8 @@ function SchedulePageContent() {
           accumulatedOffDays: item.accumulatedOffDays || 0,
           allocatedToAccumulation: item.allocatedToAccumulation || 0,
           allocatedToAllowance: item.allocatedToAllowance || 0,
+          allocationStatus: item.allocationStatus,
+          departmentId: item.departmentId,
         });
       });
     }
@@ -1397,13 +1409,15 @@ function SchedulePageContent() {
           accumulatedOffDays: 0,
           allocatedToAccumulation: 0,
           allocatedToAllowance: 0,
+          allocationStatus: 'pending',
+          departmentId: offBalanceDepartmentId ?? null,
         };
         entry.pendingExtraOffDays = (entry.pendingExtraOffDays || 0) + record.extraOffDays;
         map.set(record.employeeId, entry);
       });
     }
     return map;
-  }, [offBalanceData, generationResult]);
+  }, [offBalanceData, generationResult, offBalanceDepartmentId]);
 
   // Validate current schedule
   const handleValidateSchedule = async () => {

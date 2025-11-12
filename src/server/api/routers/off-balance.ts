@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
-import { offBalanceLedger, nursePreferences } from '@/db/schema';
+import { offBalanceLedger } from '@/db/schema';
 import { eq, and, desc, inArray } from 'drizzle-orm';
 
 export const offBalanceRouter = createTRPCRouter({
@@ -16,23 +16,6 @@ export const offBalanceRouter = createTRPCRouter({
         throw new Error('Tenant not found');
       }
 
-      // Get nurse preferences (current balance and allocation)
-      const [preferences] = await ctx.db
-        .select({
-          accumulatedOffDays: nursePreferences.accumulatedOffDays,
-          allocatedToAccumulation: nursePreferences.allocatedToAccumulation,
-          allocatedToAllowance: nursePreferences.allocatedToAllowance,
-        })
-        .from(nursePreferences)
-        .where(
-          and(
-            eq(nursePreferences.nurseId, input.employeeId),
-            eq(nursePreferences.tenantId, tenantId)
-          )
-        )
-        .limit(1);
-
-      // Get off-balance history
       const history = await ctx.db
         .select()
         .from(offBalanceLedger)
@@ -42,15 +25,29 @@ export const offBalanceRouter = createTRPCRouter({
             eq(offBalanceLedger.tenantId, tenantId)
           )
         )
-        .orderBy(desc(offBalanceLedger.year), desc(offBalanceLedger.month))
+        .orderBy(
+          desc(offBalanceLedger.year),
+          desc(offBalanceLedger.month),
+          desc(offBalanceLedger.createdAt)
+        )
         .limit(input.limit);
 
+      const latest = history[0];
+
       return {
-        preferences: preferences || {
-          accumulatedOffDays: 0,
-          allocatedToAccumulation: 0,
-          allocatedToAllowance: 0,
-        },
+        preferences: latest
+          ? {
+              accumulatedOffDays: latest.accumulatedOffDays ?? latest.remainingOffDays ?? 0,
+              allocatedToAccumulation: latest.allocatedToAccumulation ?? 0,
+              allocatedToAllowance: latest.allocatedToAllowance ?? 0,
+              allocationStatus: latest.allocationStatus ?? 'pending',
+            }
+          : {
+              accumulatedOffDays: 0,
+              allocatedToAccumulation: 0,
+              allocatedToAllowance: 0,
+              allocationStatus: 'pending',
+            },
         history,
       };
     }),
@@ -61,6 +58,7 @@ export const offBalanceRouter = createTRPCRouter({
       employeeId: z.string(),
       allocatedToAccumulation: z.number().min(0),
       allocatedToAllowance: z.number().min(0),
+      departmentId: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId;
@@ -68,42 +66,48 @@ export const offBalanceRouter = createTRPCRouter({
         throw new Error('Tenant not found');
       }
 
-      // Check if preferences exist
-      const [existing] = await ctx.db
+      const conditions = [
+        eq(offBalanceLedger.nurseId, input.employeeId),
+        eq(offBalanceLedger.tenantId, tenantId),
+      ];
+
+      if (input.departmentId) {
+        conditions.push(eq(offBalanceLedger.departmentId, input.departmentId));
+      }
+
+      const [latestLedger] = await ctx.db
         .select()
-        .from(nursePreferences)
-        .where(
-          and(
-            eq(nursePreferences.nurseId, input.employeeId),
-            eq(nursePreferences.tenantId, tenantId)
-          )
+        .from(offBalanceLedger)
+        .where(and(...conditions))
+        .orderBy(
+          desc(offBalanceLedger.year),
+          desc(offBalanceLedger.month),
+          desc(offBalanceLedger.createdAt)
         )
         .limit(1);
 
-      if (!existing) {
-        throw new Error('Employee preferences not found');
+      if (!latestLedger) {
+        throw new Error('잔여 OFF 정보가 없습니다. 스케줄을 확정한 뒤 다시 시도해주세요.');
       }
 
-      // Validate: total allocation cannot exceed accumulated OFF days
       const totalAllocation = input.allocatedToAccumulation + input.allocatedToAllowance;
-      if (totalAllocation > (existing.accumulatedOffDays || 0)) {
-        throw new Error(`Total allocation (${totalAllocation}) cannot exceed accumulated OFF days (${existing.accumulatedOffDays || 0})`);
+      const available = latestLedger.remainingOffDays || 0;
+
+      if (totalAllocation > available) {
+        throw new Error(`배분 가능한 OFF 일수(${available}일)를 초과했습니다.`);
       }
 
-      // Update allocation
       const [updated] = await ctx.db
-        .update(nursePreferences)
+        .update(offBalanceLedger)
         .set({
           allocatedToAccumulation: input.allocatedToAccumulation,
           allocatedToAllowance: input.allocatedToAllowance,
+          allocationStatus: 'processed',
+          allocationUpdatedAt: new Date(),
+          allocationUpdatedBy: ctx.userId,
           updatedAt: new Date(),
         })
-        .where(
-          and(
-            eq(nursePreferences.nurseId, input.employeeId),
-            eq(nursePreferences.tenantId, tenantId)
-          )
-        )
+        .where(eq(offBalanceLedger.id, latestLedger.id))
         .returning();
 
       return updated;
@@ -120,21 +124,24 @@ export const offBalanceRouter = createTRPCRouter({
         throw new Error('Tenant not found');
       }
 
-      const [preferences] = await ctx.db
-        .select({
-          accumulatedOffDays: nursePreferences.accumulatedOffDays,
-        })
-        .from(nursePreferences)
+      const [latest] = await ctx.db
+        .select()
+        .from(offBalanceLedger)
         .where(
           and(
-            eq(nursePreferences.nurseId, input.employeeId),
-            eq(nursePreferences.tenantId, tenantId)
+            eq(offBalanceLedger.nurseId, input.employeeId),
+            eq(offBalanceLedger.tenantId, tenantId)
           )
+        )
+        .orderBy(
+          desc(offBalanceLedger.year),
+          desc(offBalanceLedger.month),
+          desc(offBalanceLedger.createdAt)
         )
         .limit(1);
 
       return {
-        accumulatedOffDays: preferences?.accumulatedOffDays || 0,
+        accumulatedOffDays: latest?.accumulatedOffDays ?? latest?.remainingOffDays ?? 0,
       };
     }),
 
@@ -142,6 +149,7 @@ export const offBalanceRouter = createTRPCRouter({
   getBulkCurrentBalance: protectedProcedure
     .input(z.object({
       employeeIds: z.array(z.string()),
+      departmentId: z.string().optional(),
     }))
     .query(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId;
@@ -154,22 +162,39 @@ export const offBalanceRouter = createTRPCRouter({
         return [];
       }
 
-      // Fetch preferences for all employees
-      const preferences = await ctx.db
-        .select({
-          nurseId: nursePreferences.nurseId,
-          accumulatedOffDays: nursePreferences.accumulatedOffDays,
-          allocatedToAccumulation: nursePreferences.allocatedToAccumulation,
-          allocatedToAllowance: nursePreferences.allocatedToAllowance,
-        })
-        .from(nursePreferences)
-        .where(
-          and(
-            eq(nursePreferences.tenantId, tenantId),
-            inArray(nursePreferences.nurseId, input.employeeIds)
-          )
+      const conditions = [
+        eq(offBalanceLedger.tenantId, tenantId),
+        inArray(offBalanceLedger.nurseId, input.employeeIds),
+      ];
+
+      if (input.departmentId) {
+        conditions.push(eq(offBalanceLedger.departmentId, input.departmentId));
+      }
+
+      const ledgerRows = await ctx.db
+        .select()
+        .from(offBalanceLedger)
+        .where(and(...conditions))
+        .orderBy(
+          desc(offBalanceLedger.year),
+          desc(offBalanceLedger.month),
+          desc(offBalanceLedger.createdAt)
         );
 
-      return preferences;
+      const latestByNurse = new Map<string, typeof ledgerRows[number]>();
+      for (const row of ledgerRows) {
+        if (!latestByNurse.has(row.nurseId)) {
+          latestByNurse.set(row.nurseId, row);
+        }
+      }
+
+      return Array.from(latestByNurse.values()).map(row => ({
+        nurseId: row.nurseId,
+        departmentId: row.departmentId,
+        accumulatedOffDays: row.accumulatedOffDays ?? row.remainingOffDays ?? 0,
+        allocatedToAccumulation: row.allocatedToAccumulation ?? 0,
+        allocatedToAllowance: row.allocatedToAllowance ?? 0,
+        allocationStatus: row.allocationStatus ?? 'pending',
+      }));
     }),
 });

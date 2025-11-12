@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentUser } from '@/lib/auth';
 import { db } from '@/db';
-import { schedules, nursePreferences, offBalanceLedger } from '@/db/schema';
+import { schedules, offBalanceLedger } from '@/db/schema';
 import { notificationService } from '@/lib/notifications/notification-service';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -471,28 +471,24 @@ async function updateOffBalanceAfterConfirmation({
     return;
   }
 
-  const preferences = await db
-    .select({
-      nurseId: nursePreferences.nurseId,
-      accumulatedOffDays: nursePreferences.accumulatedOffDays,
-    })
-    .from(nursePreferences)
-    .where(
-      and(
-        eq(nursePreferences.tenantId, tenantId),
-        inArray(nursePreferences.nurseId, employeeIds)
-      )
-    );
-
-  const preferenceMap = new Map(
-    preferences.map(pref => [pref.nurseId, pref.accumulatedOffDays || 0])
-  );
-
   const ledgerRecords: typeof offBalanceLedger.$inferInsert[] = [];
   const periodStart = new Date(scheduleRecord.startDate);
   const periodEnd = new Date(scheduleRecord.endDate);
   const year = periodStart.getFullYear();
   const month = periodStart.getMonth() + 1;
+
+  const deleteConditions = [
+    eq(offBalanceLedger.tenantId, tenantId),
+    eq(offBalanceLedger.year, year),
+    eq(offBalanceLedger.month, month),
+  ];
+
+  if (scheduleRecord.departmentId) {
+    deleteConditions.push(eq(offBalanceLedger.departmentId, scheduleRecord.departmentId));
+  }
+
+  await db.delete(offBalanceLedger)
+    .where(and(...deleteConditions));
 
   for (const employeeId of employeeIds) {
     const employeeAssignments = assignments.filter(a => a.employeeId === employeeId);
@@ -504,25 +500,11 @@ async function updateOffBalanceAfterConfirmation({
     const guaranteedOffDays = 8; // TODO: derive from pattern/preferences
     const remainingOffDays = guaranteedOffDays - actualOffDays;
 
-    if (remainingOffDays > 0 && preferenceMap.has(employeeId)) {
-      const currentBalance = preferenceMap.get(employeeId) || 0;
-
-      await db
-        .update(nursePreferences)
-        .set({
-          accumulatedOffDays: currentBalance + remainingOffDays,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(nursePreferences.nurseId, employeeId),
-            eq(nursePreferences.tenantId, tenantId)
-          )
-        );
-
+    if (remainingOffDays > 0) {
       ledgerRecords.push({
         tenantId,
         nurseId: employeeId,
+        departmentId: scheduleRecord.departmentId,
         year,
         month,
         periodStart,
@@ -530,8 +512,12 @@ async function updateOffBalanceAfterConfirmation({
         guaranteedOffDays,
         actualOffDays,
         remainingOffDays,
+        accumulatedOffDays: remainingOffDays,
+        allocatedToAccumulation: 0,
+        allocatedToAllowance: 0,
         compensationType: null,
         status: 'pending',
+        allocationStatus: 'pending',
         scheduleId: scheduleRecord.id,
       });
     }
