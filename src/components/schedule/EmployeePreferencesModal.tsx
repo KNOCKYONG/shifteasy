@@ -133,9 +133,8 @@ export function EmployeePreferencesModal({
     return buildInitialPreferences(initialPreferences);
   });
   const [hasHydratedFromInitial, setHasHydratedFromInitial] = useState<boolean>(!!initialPreferences);
-  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const shouldAutoSaveRef = useRef(false);
   const initialSnapshotRef = useRef<ExtendedEmployeePreferences>(buildInitialPreferences(initialPreferences));
+  const preferenceDirtyRef = useRef(false);
   const initialShiftRequestsRef = useRef<Record<string, Record<string, string>>>({});
   const hasCapturedInitialRequestsRef = useRef<Record<string, boolean>>({});
   const isRevertingRequestsRef = useRef(false);
@@ -144,47 +143,26 @@ export function EmployeePreferencesModal({
 
   const updatePreferences = (
     updater: ExtendedEmployeePreferences | ((prev: ExtendedEmployeePreferences) => ExtendedEmployeePreferences),
-    options: { autoSave?: boolean } = {}
+    options: { markDirty?: boolean } = {}
   ) => {
-    const { autoSave = true } = options;
+    const { markDirty = true } = options;
     setPreferencesState((prev) => {
-      const next = typeof updater === 'function' ? (updater as (prev: ExtendedEmployeePreferences) => ExtendedEmployeePreferences)(prev) : updater;
-      if (autoSave) {
-        shouldAutoSaveRef.current = true;
+      const next =
+        typeof updater === 'function'
+          ? (updater as (prev: ExtendedEmployeePreferences) => ExtendedEmployeePreferences)(prev)
+          : updater;
+      if (markDirty) {
+        preferenceDirtyRef.current = true;
       }
       return next;
     });
   };
 
   useEffect(() => {
-    if (!shouldAutoSaveRef.current) {
-      return;
-    }
-
-    if (autoSaveTimeoutRef.current) {
-      clearTimeout(autoSaveTimeoutRef.current);
-    }
-
-    autoSaveTimeoutRef.current = setTimeout(() => {
-      onSave(preferences);
-    }, 500);
-
-    shouldAutoSaveRef.current = false;
-  }, [preferences, onSave]);
-
-  useEffect(() => {
-    return () => {
-      if (autoSaveTimeoutRef.current) {
-        clearTimeout(autoSaveTimeoutRef.current);
-        autoSaveTimeoutRef.current = null;
-      }
-    };
-  }, []);
-
-  useEffect(() => {
     const snapshot = buildInitialPreferences(initialPreferences);
     initialSnapshotRef.current = snapshot;
-    updatePreferences(snapshot, { autoSave: false });
+    preferenceDirtyRef.current = false;
+    updatePreferences(snapshot, { markDirty: false });
     setHasHydratedFromInitial(!!initialPreferences);
     initialShiftRequestsRef.current = {};
     hasCapturedInitialRequestsRef.current = {};
@@ -197,7 +175,8 @@ export function EmployeePreferencesModal({
     }
     const snapshot = buildInitialPreferences(initialPreferences);
     initialSnapshotRef.current = snapshot;
-    updatePreferences(snapshot, { autoSave: false });
+    preferenceDirtyRef.current = false;
+    updatePreferences(snapshot, { markDirty: false });
     setHasHydratedFromInitial(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPreferences, hasHydratedFromInitial]);
@@ -512,12 +491,8 @@ export function EmployeePreferencesModal({
   };
 
   const handleRevertChanges = () => {
-    if (autoSaveTimeoutRef.current) {
-      clearTimeout(autoSaveTimeoutRef.current);
-      autoSaveTimeoutRef.current = null;
-    }
-    shouldAutoSaveRef.current = false;
-    updatePreferences(initialSnapshotRef.current, { autoSave: false });
+    preferenceDirtyRef.current = false;
+    updatePreferences(initialSnapshotRef.current, { markDirty: false });
 
     const monthKey = getMonthKey(selectedMonth);
     const initialRequestsForMonth = initialShiftRequestsRef.current[monthKey] || {};
@@ -623,7 +598,7 @@ export function EmployeePreferencesModal({
   };
 
   const handleCloseModal = () => {
-    const hasPendingPreferenceChanges = !!autoSaveTimeoutRef.current;
+    const hasPendingPreferenceChanges = preferenceDirtyRef.current;
     const hasPendingShiftChanges = dirtyShiftMonthsRef.current.size > 0;
 
     if (!hasPendingPreferenceChanges && !hasPendingShiftChanges) {
@@ -638,10 +613,9 @@ export function EmployeePreferencesModal({
       return;
     }
 
-    if (hasPendingPreferenceChanges && autoSaveTimeoutRef.current) {
-      clearTimeout(autoSaveTimeoutRef.current);
-      autoSaveTimeoutRef.current = null;
+    if (hasPendingPreferenceChanges) {
       onSave(preferences);
+      preferenceDirtyRef.current = false;
     }
 
     const monthsToSave = Array.from(dirtyShiftMonthsRef.current);
