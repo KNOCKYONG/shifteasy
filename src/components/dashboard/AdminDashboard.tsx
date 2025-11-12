@@ -19,6 +19,7 @@ export function AdminDashboard() {
 
   // Workmates filter state
   const [workmatesPeriod, setWorkmatesPeriod] = useState<'today' | 'week' | 'month'>('week');
+  const [workmatesGroupBy, setWorkmatesGroupBy] = useState<'shift' | 'department' | 'team'>('shift');
 
   // Optimized dashboard data query - single request with caching
   const { data: dashboardData, isLoading } = api.schedule.getDashboardData.useQuery(undefined, {
@@ -41,7 +42,7 @@ export function AdminDashboard() {
 
   // Get colleagues working with me on same shifts
   const { data: workmatesData, isLoading: isLoadingWorkmates } = api.schedule.getMyWorkmates.useQuery(
-    { period: workmatesPeriod },
+    { period: workmatesPeriod, groupBy: workmatesGroupBy },
     {
       staleTime: 2 * 60 * 1000,
       refetchOnWindowFocus: false,
@@ -369,48 +370,89 @@ export function AdminDashboard() {
 
         {/* My Workmates on Same Shifts */}
         <Card className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 dark:bg-green-950 rounded-lg">
-                <UserCheck className="w-5 h-5 text-green-600 dark:text-green-400" />
-              </div>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                같은 스케줄 동료 보기
-              </h2>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-green-100 dark:bg-green-950 rounded-lg">
+              <UserCheck className="w-5 h-5 text-green-600 dark:text-green-400" />
             </div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+              같은 스케줄 동료 보기
+            </h2>
+          </div>
 
+          {/* Filters */}
+          <div className="flex flex-col gap-3 mb-4">
             {/* Period Filter */}
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setWorkmatesPeriod('today')}
-                className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
-                  workmatesPeriod === 'today'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-              >
-                오늘
-              </button>
-              <button
-                onClick={() => setWorkmatesPeriod('week')}
-                className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
-                  workmatesPeriod === 'week'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-              >
-                이번 주
-              </button>
-              <button
-                onClick={() => setWorkmatesPeriod('month')}
-                className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
-                  workmatesPeriod === 'month'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-              >
-                이번 달
-              </button>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-[60px]">기간:</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setWorkmatesPeriod('today')}
+                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
+                    workmatesPeriod === 'today'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  오늘
+                </button>
+                <button
+                  onClick={() => setWorkmatesPeriod('week')}
+                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
+                    workmatesPeriod === 'week'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  이번 주
+                </button>
+                <button
+                  onClick={() => setWorkmatesPeriod('month')}
+                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
+                    workmatesPeriod === 'month'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  이번 달
+                </button>
+              </div>
+            </div>
+
+            {/* GroupBy Filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-[60px]">분류:</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setWorkmatesGroupBy('shift')}
+                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
+                    workmatesGroupBy === 'shift'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  같은 시프트
+                </button>
+                <button
+                  onClick={() => setWorkmatesGroupBy('department')}
+                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
+                    workmatesGroupBy === 'department'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  같은 부서
+                </button>
+                <button
+                  onClick={() => setWorkmatesGroupBy('team')}
+                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
+                    workmatesGroupBy === 'team'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  같은 팀
+                </button>
+              </div>
             </div>
           </div>
 
@@ -455,7 +497,7 @@ export function AdminDashboard() {
               </p>
             ) : (
               <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-                같은 시프트로 근무하는 동료가 없습니다
+                {workmatesGroupBy === 'shift' ? '같은 시프트로' : workmatesGroupBy === 'department' ? '같은 부서에서' : '같은 팀에서'} 근무하는 동료가 없습니다
               </p>
             )}
           </div>

@@ -1217,9 +1217,11 @@ export const scheduleRouter = createTRPCRouter({
   getMyWorkmates: protectedProcedure
     .input(z.object({
       period: z.enum(['today', 'week', 'month']).default('week'),
+      groupBy: z.enum(['shift', 'department', 'team']).default('shift'),
     }).optional())
     .query(async ({ ctx, input }) => {
       const period = input?.period || 'week';
+      const groupBy = input?.groupBy || 'shift';
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -1266,9 +1268,22 @@ export const scheduleRouter = createTRPCRouter({
         ))
         .orderBy(desc(schedules.publishedAt));
 
-      // Get current user's database ID
+      // Get current user's database ID and info
       const currentUserId = ctx.user?.id;
       if (!currentUserId) return { workmates: [], myShifts: [] };
+
+      // Get current user's department and team info
+      const [currentUser] = await db
+        .select({
+          id: users.id,
+          departmentId: users.departmentId,
+          teamId: users.teamId,
+        })
+        .from(users)
+        .where(eq(users.id, currentUserId))
+        .limit(1);
+
+      if (!currentUser) return { workmates: [], myShifts: [] };
 
       type WorkmateAssignment = {
         employeeId: string;
@@ -1320,8 +1335,22 @@ export const scheduleRouter = createTRPCRouter({
         );
       };
 
-      // Find colleagues who work on the same shifts as me
+      // Find colleagues based on groupBy criteria
       const workmateMap = new Map<string, { employeeId: string; sharedShifts: number }>();
+
+      // Get all employees with their department/team info for filtering
+      const allEmployees = await db
+        .select({
+          id: users.id,
+          departmentId: users.departmentId,
+          teamId: users.teamId,
+        })
+        .from(users)
+        .where(eq(users.tenantId, tenantId));
+
+      const employeeInfoMap = new Map(
+        allEmployees.map(emp => [emp.id, { departmentId: emp.departmentId, teamId: emp.teamId }])
+      );
 
       for (const myShift of myShifts) {
         if (isNonWorkingShift(myShift)) continue;
@@ -1329,19 +1358,34 @@ export const scheduleRouter = createTRPCRouter({
         const myDate = new Date(myShift.date).toISOString().split('T')[0];
         const myShiftId = myShift.shiftId || myShift.shiftType || '';
 
-        // Find others working on the same day with the same shift
-        const sameShiftWorkers = allAssignments.filter((a) => {
+        // Find colleagues based on groupBy criteria
+        const matchingWorkers = allAssignments.filter((a) => {
           if (a.employeeId === currentUserId) return false;
           if (isNonWorkingShift(a)) return false;
 
           const aDate = new Date(a.date).toISOString().split('T')[0];
-          const aShiftId = a.shiftId || a.shiftType || '';
+          if (aDate !== myDate) return false; // Must be same date
 
-          // Must be same date AND same shift
-          return aDate === myDate && aShiftId === myShiftId && myShiftId !== '';
+          const employeeInfo = employeeInfoMap.get(a.employeeId);
+          if (!employeeInfo) return false;
+
+          // Apply groupBy filter
+          if (groupBy === 'shift') {
+            // Same shift
+            const aShiftId = a.shiftId || a.shiftType || '';
+            return aShiftId === myShiftId && myShiftId !== '';
+          } else if (groupBy === 'department') {
+            // Same department
+            return employeeInfo.departmentId === currentUser.departmentId && currentUser.departmentId != null;
+          } else if (groupBy === 'team') {
+            // Same team
+            return employeeInfo.teamId === currentUser.teamId && currentUser.teamId != null;
+          }
+
+          return false;
         });
 
-        for (const worker of sameShiftWorkers) {
+        for (const worker of matchingWorkers) {
           const existing = workmateMap.get(worker.employeeId);
           if (existing) {
             existing.sharedShifts++;
