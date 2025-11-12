@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Settings, Save, Trash2, Activity, Plus, Edit2, Briefcase, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { MainLayout } from "../../components/layout/MainLayout";
@@ -8,7 +8,6 @@ import { RoleGuard } from "@/components/auth/RoleGuard";
 import { ShiftTypesTab } from "./ShiftTypesTab";
 import { HandoffTemplatesTab } from "./HandoffTemplatesTab";
 import { api as trpc } from "@/lib/trpc/client";
-import { LoadingButton } from "@/components/ui/LoadingButton";
 
 interface ConfigData {
   preferences: {
@@ -26,12 +25,11 @@ type ShiftConfig = {
 };
 
 function ConfigPageContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useTranslation(['config', 'common']);
 
   // tRPC queries for fetching configs
-  const { data: allConfigs, refetch: refetchConfigs } = trpc.configs.getAll.useQuery();
+  const { data: allConfigs } = trpc.configs.getAll.useQuery();
   const utils = trpc.useUtils();
   const setConfigMutation = trpc.configs.set.useMutation();
 
@@ -61,22 +59,6 @@ function ConfigPageContent() {
   });
   const [editingShiftType, setEditingShiftType] = useState<string | null>(null);
 
-  // Departments state
-  const [departments, setDepartments] = useState<{
-    id: string;
-    name: string;
-    code: string;
-    requiresSpecialSkills: boolean;
-  }[]>([]);
-  // Employee status state
-  const [employeeStatuses, setEmployeeStatuses] = useState<{
-    code: string;
-    name: string;
-    description: string;
-    isActive: boolean;
-    allowScheduling: boolean;
-    color: string;
-  }[]>([]);
   // Career groups state
   const [careerGroups, setCareerGroups] = useState<{
     code: string;
@@ -121,20 +103,6 @@ function ConfigPageContent() {
       { code: 'V', name: '휴가', startTime: '00:00', endTime: '00:00', color: 'purple', allowOvertime: false },
     ];
 
-    const defaultDepartments = [
-      { id: 'dept-er', name: '응급실', code: 'ER', requiresSpecialSkills: true },
-      { id: 'dept-icu', name: '중환자실', code: 'ICU', requiresSpecialSkills: true },
-      { id: 'dept-or', name: '수술실', code: 'OR', requiresSpecialSkills: true },
-      { id: 'dept-ward', name: '일반병동', code: 'WARD', requiresSpecialSkills: false },
-    ];
-
-    const defaultEmployeeStatuses = [
-      { code: 'ACTIVE', name: '활성', description: '정상 근무', isActive: true, allowScheduling: true, color: 'green' },
-      { code: 'LEAVE', name: '휴가', description: '휴가 중', isActive: false, allowScheduling: false, color: 'amber' },
-      { code: 'SICK', name: '병가', description: '병가 중', isActive: false, allowScheduling: false, color: 'red' },
-      { code: 'TRAINING', name: '교육', description: '교육 참여 중', isActive: true, allowScheduling: false, color: 'blue' },
-    ];
-
     // Load from API or use defaults
     setPositions(allConfigs.positions || defaultPositions);
 
@@ -147,9 +115,6 @@ function ConfigPageContent() {
     } else {
       setShiftTypes(defaultShiftTypes);
     }
-
-    setDepartments(allConfigs.departments || defaultDepartments);
-    setEmployeeStatuses(allConfigs.employee_statuses || defaultEmployeeStatuses);
 
     // Load career groups
     if (allConfigs.career_groups) {
@@ -167,39 +132,10 @@ function ConfigPageContent() {
       nightIntensivePaidLeaveDays: 2, // 기본값: 월 2회
     },
   });
-  const [isSaving, setIsSaving] = useState(false);
   const [isSavingShiftTypes, setIsSavingShiftTypes] = useState(false);
   const [isSavingNightPreference, setIsSavingNightPreference] = useState(false);
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      // Save all configurations to tenant_configs via API
-      await Promise.all([
-        setConfigMutation.mutateAsync({ configKey: 'positions', configValue: positions }),
-        setConfigMutation.mutateAsync({ configKey: 'shift_types', configValue: shiftTypes }),
-        setConfigMutation.mutateAsync({ configKey: 'departments', configValue: departments }),
-        setConfigMutation.mutateAsync({ configKey: 'employee_statuses', configValue: employeeStatuses }),
-        setConfigMutation.mutateAsync({ configKey: 'career_groups', configValue: careerGroups }),
-        setConfigMutation.mutateAsync({ configKey: 'preferences', configValue: config.preferences }),
-      ]);
-
-      // Refetch configs to update UI
-      await Promise.all([
-        refetchConfigs(),
-        utils.shiftTypes.getAll.invalidate(),
-        utils.configs.getAll.invalidate(),
-        utils.configs.getByKey.invalidate({ configKey: 'shift_types' }),
-      ]);
-
-      alert(t('alerts.saved', { ns: 'config' }));
-    } catch (error) {
-      console.error('Failed to save configurations:', error);
-      alert('설정 저장 중 오류가 발생했습니다.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  const [isSavingPositions, setIsSavingPositions] = useState(false);
+  const [isSavingCareerGroups, setIsSavingCareerGroups] = useState(false);
 
   const persistShiftTypes = async (updatedList: ShiftConfig[]) => {
     const previous = shiftTypes;
@@ -235,6 +171,40 @@ function ConfigPageContent() {
       alert('나이트 집중 근무 설정 저장 중 오류가 발생했습니다.');
     } finally {
       setIsSavingNightPreference(false);
+    }
+  };
+
+  const persistPositions = async (updated: typeof positions) => {
+    const previous = positions;
+    setPositions(updated);
+    setIsSavingPositions(true);
+    try {
+      await setConfigMutation.mutateAsync({ configKey: 'positions', configValue: updated });
+      await utils.configs.getAll.invalidate();
+    } catch (error) {
+      console.error('Failed to save positions:', error);
+      alert('직책 저장 중 오류가 발생했습니다.');
+      setPositions(previous);
+      throw error;
+    } finally {
+      setIsSavingPositions(false);
+    }
+  };
+
+  const persistCareerGroups = async (updated: typeof careerGroups) => {
+    const previous = careerGroups;
+    setCareerGroups(updated);
+    setIsSavingCareerGroups(true);
+    try {
+      await setConfigMutation.mutateAsync({ configKey: 'career_groups', configValue: updated });
+      await utils.configs.getAll.invalidate();
+    } catch (error) {
+      console.error('Failed to save career groups:', error);
+      alert('경력 그룹 저장 중 오류가 발생했습니다.');
+      setCareerGroups(previous);
+      throw error;
+    } finally {
+      setIsSavingCareerGroups(false);
     }
   };
 
@@ -433,17 +403,36 @@ function ConfigPageContent() {
                   />
                 </div>
                 <button
-                  onClick={() => {
-                    if (newPosition.value && newPosition.label && newPosition.level > 0) {
-                      const updatedPositions = [...positions, newPosition];
-                      setPositions(updatedPositions);
+                  onClick={async () => {
+                    if (!newPosition.value || !newPosition.label || newPosition.level <= 0 || isSavingPositions) {
+                      return;
+                    }
+                    const updatedPositions = [...positions, newPosition];
+                    try {
+                      await persistPositions(updatedPositions);
                       setNewPosition({ value: '', label: '', level: 1 });
+                    } catch {
+                      // error handled inside persistPositions
                     }
                   }}
-                  className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 flex items-center gap-2"
+                  disabled={isSavingPositions}
+                  className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+                    isSavingPositions
+                      ? "bg-gray-200 dark:bg-gray-700 text-gray-500 cursor-not-allowed"
+                      : "bg-blue-600 dark:bg-blue-500 text-white hover:bg-blue-700 dark:hover:bg-blue-600"
+                  }`}
                 >
-                  <Plus className="w-4 h-4" />
-                  추가
+                  {isSavingPositions ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      저장 중...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      추가
+                    </>
+                  )}
                 </button>
               </div>
 
@@ -462,11 +451,22 @@ function ConfigPageContent() {
                         <input
                           type="text"
                           defaultValue={position.label}
-                          onBlur={(e) => {
-                            const updatedPositions = positions.map(p =>
-                              p.value === position.value ? { ...p, label: e.target.value } : p
+                          onBlur={async (e) => {
+                            const nextLabel = e.target.value.trim();
+                            if (!nextLabel || nextLabel === position.label) {
+                              setEditingPosition(null);
+                              return;
+                            }
+                            const updatedPositions = positions.map((p) =>
+                              p.value === position.value ? { ...p, label: nextLabel } : p
                             );
-                            setPositions(updatedPositions);
+                            try {
+                              await persistPositions(updatedPositions);
+                            } catch {
+                              // handled inside persistPositions
+                            } finally {
+                              setEditingPosition(null);
+                            }
                           }}
                           className="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
                         />
@@ -475,12 +475,22 @@ function ConfigPageContent() {
                           <input
                             type="number"
                             defaultValue={position.level}
-                            onBlur={(e) => {
-                              const updatedPositions = positions.map(p =>
-                                p.value === position.value ? { ...p, level: parseInt(e.target.value) || 1 } : p
+                            onBlur={async (e) => {
+                              const nextLevel = parseInt(e.target.value) || 1;
+                              if (nextLevel === position.level) {
+                                setEditingPosition(null);
+                                return;
+                              }
+                              const updatedPositions = positions.map((p) =>
+                                p.value === position.value ? { ...p, level: nextLevel } : p
                               );
-                              setPositions(updatedPositions);
-                              setEditingPosition(null);
+                              try {
+                                await persistPositions(updatedPositions);
+                              } catch {
+                                // handled inside persistPositions
+                              } finally {
+                                setEditingPosition(null);
+                              }
                             }}
                             min="1"
                             max="10"
@@ -510,10 +520,14 @@ function ConfigPageContent() {
                         <Edit2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                       </button>
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           if (confirm(`"${position.label}" 직책을 삭제하시겠습니까?`)) {
                             const updatedPositions = positions.filter(p => p.value !== position.value);
-                            setPositions(updatedPositions);
+                            try {
+                              await persistPositions(updatedPositions);
+                            } catch {
+                              // handled inside persistPositions
+                            }
                           }
                         }}
                         className="p-2 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors"
@@ -633,9 +647,13 @@ function ConfigPageContent() {
                 </div>
               </div>
               <button
-                onClick={() => {
-                  if (newCareerGroup.code && newCareerGroup.name) {
-                    setCareerGroups([...careerGroups, { ...newCareerGroup }]);
+                onClick={async () => {
+                  if (!newCareerGroup.code || !newCareerGroup.name || isSavingCareerGroups) {
+                    return;
+                  }
+                  const updatedGroups = [...careerGroups, { ...newCareerGroup }];
+                  try {
+                    await persistCareerGroups(updatedGroups);
                     setNewCareerGroup({
                       code: '',
                       name: '',
@@ -643,11 +661,25 @@ function ConfigPageContent() {
                       maxYears: 2,
                       description: '',
                     });
+                  } catch {
+                    // handled in persistCareerGroups
                   }
                 }}
-                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                disabled={isSavingCareerGroups}
+                className={`mt-4 px-4 py-2 rounded-lg ${
+                  isSavingCareerGroups
+                    ? "bg-gray-200 dark:bg-gray-700 text-gray-500 cursor-not-allowed"
+                    : "bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                }`}
               >
-                추가
+                {isSavingCareerGroups ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin inline-block mr-2" />
+                    저장 중...
+                  </>
+                ) : (
+                  '추가'
+                )}
               </button>
             </div>
 
@@ -677,7 +709,16 @@ function ConfigPageContent() {
                       )}
                     </div>
                     <button
-                      onClick={() => setCareerGroups(careerGroups.filter(g => g.code !== group.code))}
+                      onClick={async () => {
+                        if (confirm(`"${group.name}" 경력 그룹을 삭제하시겠습니까?`)) {
+                          const updatedGroups = careerGroups.filter(g => g.code !== group.code);
+                          try {
+                            await persistCareerGroups(updatedGroups);
+                          } catch {
+                            // handled inside persistCareerGroups
+                          }
+                        }
+                      }}
                       className="ml-4 p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -698,28 +739,6 @@ function ConfigPageContent() {
         {activeTab === "handoffTemplates" && <HandoffTemplatesTab />}
 
         {/* Departments Tab */}
-
-        {/* Action Buttons */}
-        {activeTab !== "shifts" && (
-        <div className="mt-8 flex justify-between">
-          <button
-            onClick={() => router.push("/department")}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
-          >
-            {t('actions.previousStep', { ns: 'config' })}
-          </button>
-          <LoadingButton
-            onClick={handleSave}
-            isLoading={isSaving}
-            variant="primary"
-            size="md"
-            className="px-6 py-2"
-          >
-            <Save className="w-4 h-4" />
-            {isSaving ? '저장 중...' : '저장'}
-          </LoadingButton>
-        </div>
-        )}
     </MainLayout>
     </RoleGuard>
   );
