@@ -44,6 +44,7 @@ import { useScheduleFilters, type ScheduleView } from "@/hooks/useScheduleFilter
 import { ScheduleSkeleton } from "@/components/schedule/ScheduleSkeleton";
 import { LottieLoadingOverlay } from "@/components/common/LottieLoadingOverlay";
 import type { SSEEvent } from "@/lib/sse/events";
+import { useSSEContext } from "@/providers/SSEProvider";
 
 // 스케줄 페이지에서 사용하는 확장된 ScheduleAssignment 타입
 type SwapShift = {
@@ -198,6 +199,8 @@ const DEFAULT_STANDARD_SHIFT_TYPES: Record<StandardShiftCode, ShiftType> = {
   A: { code: 'A', name: '행정', startTime: '09:00', endTime: '18:00', color: '#10B981', allowOvertime: false },
 };
 
+const SELECTED_DEPARTMENT_STORAGE_KEY = 'schedule:last-selected-department';
+
 /**
  * 나이트 집중 근무 후 유급 휴가 추가
  * @param schedule 생성된 스케줄 배열
@@ -281,6 +284,7 @@ function SchedulePageContent() {
   const setActiveView = filters.setActiveView;
   const deferredActiveView = useDeferredValue(filters.activeView);
   const modals = useScheduleModals();
+  const { isConnected: isSSEConnected, reconnectAttempt } = useSSEContext();
   const generateScheduleMutation = api.schedule.generate.useMutation();
   const deleteMutation = api.schedule.delete.useMutation();
 
@@ -324,7 +328,17 @@ function SchedulePageContent() {
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isPreparingConfirmation, setIsPreparingConfirmation] = useState(false);
   const [toolbarAnimatedIn, setToolbarAnimatedIn] = useState(false);
-  const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
+  const [selectedDepartmentState, setSelectedDepartmentState] = useState<string>('all');
+  const setSelectedDepartment = useCallback((value: string | ((prev: string) => string)) => {
+    setSelectedDepartmentState((prev) => {
+      const nextValue = typeof value === 'function' ? (value as (prev: string) => string)(prev) : value;
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(SELECTED_DEPARTMENT_STORAGE_KEY, nextValue);
+      }
+      return nextValue;
+    });
+  }, []);
+  const selectedDepartment = selectedDepartmentState;
   const [scheduleName, setScheduleName] = useState('');
   const [existingScheduleToReplace, setExistingScheduleToReplace] = useState<{
     id: string;
@@ -347,6 +361,16 @@ function SchedulePageContent() {
   const [, setLoadedScheduleId] = useState<string | null>(null); // Setter used for state tracking
   const [selectedDate, setSelectedDate] = useState<Date>(getInitialDate()); // 오늘의 근무 날짜 선택
   const [careerOverrides, setCareerOverrides] = useState<Record<string, { yearsOfService?: number; hireYear?: number }>>({});
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const storedDepartment = window.localStorage.getItem(SELECTED_DEPARTMENT_STORAGE_KEY);
+    if (storedDepartment) {
+      setSelectedDepartmentState((prev) => (prev === storedDepartment ? prev : storedDepartment));
+    }
+  }, []);
 
 
   // 오늘의 근무 탭에서 날짜를 이동하면 해당 월 전체 데이터를 사전 로드
@@ -766,10 +790,15 @@ function SchedulePageContent() {
         setIsConfirmed(currentMonthSchedule.status === 'published'); // Only confirmed if published
         setLoadedScheduleId(currentMonthSchedule.id);
         lastLoadedRef.current = { id: currentMonthSchedule.id, updatedAt: currentUpdatedAt };
+        if (currentMonthSchedule.departmentId && !isMember) {
+          setSelectedDepartment(prev => (
+            prev === currentMonthSchedule.departmentId ? prev : currentMonthSchedule.departmentId!
+          ));
+        }
         console.log(`✅ Loaded ${convertedAssignments.length} assignments from ${currentMonthSchedule.status} schedule ${currentMonthSchedule.id} (updated: ${currentMonthSchedule.updatedAt})`);
       });
     }
-  }, [savedSchedules, monthStart, canManageSchedules]);
+  }, [savedSchedules, monthStart, canManageSchedules, isMember, setSelectedDepartment]);
 
   const deriveShiftTypeFromId = (shiftId: string) => {
     if (!shiftId) {
@@ -837,7 +866,7 @@ function SchedulePageContent() {
 
     const targetDepartment = memberDepartmentId ?? 'no-department';
     setSelectedDepartment(prev => (prev === targetDepartment ? prev : targetDepartment));
-  }, [isMember, memberDepartmentId]);
+  }, [isMember, memberDepartmentId, setSelectedDepartment]);
 
   // member 권한은 '오늘의 근무' 탭을 기본으로 설정
   useEffect(() => {
@@ -870,8 +899,8 @@ function SchedulePageContent() {
     staleTime: 2 * 60 * 60 * 1000, // 2시간 동안 캐시
     gcTime: 2.5 * 60 * 60 * 1000,
     refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
   });
 
   // Load shift config (나이트 집중 근무 유급 휴가 설정 등)
@@ -882,8 +911,8 @@ function SchedulePageContent() {
     staleTime: 60 * 60 * 1000, // 1시간 동안 fresh 유지
     gcTime: 65 * 60 * 1000,
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
-    refetchOnReconnect: false,
-    refetchOnMount: false,
+    refetchOnReconnect: true,
+    refetchOnMount: true,
   });
 
   // Fetch teams from database
@@ -2576,6 +2605,31 @@ function SchedulePageContent() {
                       </button>
                     </>
                   )}
+
+                  <div
+                    className={`ml-2 inline-flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                      isSSEConnected
+                        ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/40 dark:text-green-300 dark:border-green-800'
+                        : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800'
+                    }`}
+                    title={
+                      isSSEConnected
+                        ? '실시간 동기화가 활성화되어 있습니다.'
+                        : '실시간 연결이 끊겼습니다. 자동으로 재연결을 시도합니다.'
+                    }
+                  >
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        isSSEConnected ? 'bg-green-500' : 'bg-red-500'
+                      }`}
+                    />
+                    {isSSEConnected ? '실시간 동기화 중' : '재연결 중'}
+                    {!isSSEConnected && reconnectAttempt > 0 && (
+                      <span className="text-[10px] text-gray-600 dark:text-gray-400">
+                        #{reconnectAttempt}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* More Options Menu */}

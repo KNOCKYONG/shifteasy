@@ -8,6 +8,7 @@ import { RoleGuard } from "@/components/auth/RoleGuard";
 import { ShiftTypesTab } from "./ShiftTypesTab";
 import { HandoffTemplatesTab } from "./HandoffTemplatesTab";
 import { api as trpc } from "@/lib/trpc/client";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 interface ConfigData {
   preferences: {
@@ -24,9 +25,34 @@ type ShiftConfig = {
   allowOvertime: boolean;
 };
 
+const normalizeShiftTypes = (list: ShiftConfig[]): ShiftConfig[] => {
+  const deduped = new Map<string, ShiftConfig>();
+
+  list.forEach((shift) => {
+    const normalizedCode = (shift.code ?? '').trim().toUpperCase();
+    if (!normalizedCode) {
+      return;
+    }
+
+    deduped.set(normalizedCode, {
+      ...shift,
+      code: normalizedCode,
+      name: (shift.name ?? '').trim() || normalizedCode,
+      startTime: shift.startTime || '00:00',
+      endTime: shift.endTime || '00:00',
+      color: shift.color || 'blue',
+      allowOvertime: Boolean(shift.allowOvertime),
+    });
+  });
+
+  return Array.from(deduped.values());
+};
+
 function ConfigPageContent() {
   const searchParams = useSearchParams();
   const { t } = useTranslation(['config', 'common']);
+  const currentUser = useCurrentUser();
+  const managedDepartmentId = currentUser.dbUser?.departmentId ?? null;
 
   // tRPC queries for fetching configs
   const { data: allConfigs } = trpc.configs.getAll.useQuery();
@@ -108,7 +134,7 @@ function ConfigPageContent() {
 
     // Merge saved shift types with defaults (add missing defaults)
     if (allConfigs.shift_types) {
-      const savedShiftTypes = allConfigs.shift_types as ShiftConfig[];
+      const savedShiftTypes = normalizeShiftTypes(allConfigs.shift_types as ShiftConfig[]);
       const savedCodes = new Set(savedShiftTypes.map((st) => st.code));
       const missingDefaults = defaultShiftTypes.filter(dst => !savedCodes.has(dst.code));
       setShiftTypes([...savedShiftTypes, ...missingDefaults]);
@@ -139,14 +165,29 @@ function ConfigPageContent() {
 
   const persistShiftTypes = async (updatedList: ShiftConfig[]) => {
     const previous = shiftTypes;
-    setShiftTypes(updatedList);
+    const normalizedList = normalizeShiftTypes(updatedList);
+    const targetDepartmentId = managedDepartmentId ?? undefined;
+    setShiftTypes(normalizedList);
     setIsSavingShiftTypes(true);
     try {
-      await setConfigMutation.mutateAsync({ configKey: 'shift_types', configValue: updatedList });
+      await setConfigMutation.mutateAsync({
+        configKey: 'shift_types',
+        configValue: normalizedList,
+        departmentId: targetDepartmentId,
+      });
+
+      const getAllInvalidateInput = targetDepartmentId
+        ? { departmentId: targetDepartmentId }
+        : undefined;
+
       await Promise.all([
-        utils.configs.getByKey.invalidate({ configKey: 'shift_types' }),
-        utils.configs.getAll.invalidate(),
+        utils.configs.getByKey.invalidate({ configKey: 'shift_types', departmentId: targetDepartmentId }),
+        utils.configs.getAll.invalidate(getAllInvalidateInput),
       ]);
+
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('customShiftTypes', JSON.stringify(normalizedList));
+      }
     } catch (error) {
       console.error('Failed to save shift types:', error);
       alert('근무 타입 저장 중 오류가 발생했습니다.');
