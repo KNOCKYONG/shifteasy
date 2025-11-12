@@ -1,6 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
-import { User, X, Save, AlertCircle, Star, ChevronLeft, ChevronRight, Info, CheckCircle, Wallet, Clock } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { User, X, AlertCircle, Star, ChevronLeft, ChevronRight, Info, CheckCircle, Wallet, Clock, RotateCcw } from "lucide-react";
 import { type Employee, type EmployeePreferences, type ShiftType } from "@/lib/types/scheduler";
 import { validatePattern as validatePatternUtil, describePattern, EXAMPLE_PATTERNS } from "@/lib/utils/pattern-validator";
 import { api } from "@/lib/trpc/client";
@@ -111,13 +111,57 @@ export function EmployeePreferencesModal({
     } as ExtendedEmployeePreferences;
   };
 
-  const [preferences, setPreferences] = useState<ExtendedEmployeePreferences>(() => {
+  const [preferences, setPreferencesState] = useState<ExtendedEmployeePreferences>(() => {
     return buildInitialPreferences(initialPreferences);
   });
   const [hasHydratedFromInitial, setHasHydratedFromInitial] = useState<boolean>(!!initialPreferences);
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const shouldAutoSaveRef = useRef(false);
+  const initialSnapshotRef = useRef<ExtendedEmployeePreferences>(buildInitialPreferences(initialPreferences));
+
+  const updatePreferences = (
+    updater: ExtendedEmployeePreferences | ((prev: ExtendedEmployeePreferences) => ExtendedEmployeePreferences),
+    options: { autoSave?: boolean } = {}
+  ) => {
+    const { autoSave = true } = options;
+    setPreferencesState((prev) => {
+      const next = typeof updater === 'function' ? (updater as (prev: ExtendedEmployeePreferences) => ExtendedEmployeePreferences)(prev) : updater;
+      if (autoSave) {
+        shouldAutoSaveRef.current = true;
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
-    setPreferences(buildInitialPreferences(initialPreferences));
+    if (!shouldAutoSaveRef.current) {
+      return;
+    }
+
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      onSave(preferences);
+    }, 500);
+
+    shouldAutoSaveRef.current = false;
+  }, [preferences, onSave]);
+
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+        autoSaveTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const snapshot = buildInitialPreferences(initialPreferences);
+    initialSnapshotRef.current = snapshot;
+    updatePreferences(snapshot, { autoSave: false });
     setHasHydratedFromInitial(!!initialPreferences);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employee.id]);
@@ -126,7 +170,9 @@ export function EmployeePreferencesModal({
     if (!initialPreferences || hasHydratedFromInitial) {
       return;
     }
-    setPreferences(buildInitialPreferences(initialPreferences));
+    const snapshot = buildInitialPreferences(initialPreferences);
+    initialSnapshotRef.current = snapshot;
+    updatePreferences(snapshot, { autoSave: false });
     setHasHydratedFromInitial(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPreferences, hasHydratedFromInitial]);
@@ -163,6 +209,7 @@ export function EmployeePreferencesModal({
   // Local state for allocation inputs
   const [allocToAccumulation, setAllocToAccumulation] = useState(0);
   const [allocToAllowance, setAllocToAllowance] = useState(0);
+  const lastAllocationRef = useRef({ accumulation: 0, allowance: 0 });
 
   // Fetch off-balance data
   const { data: offBalance, refetch: refetchOffBalance } = api.offBalance.getByEmployee.useQuery(
@@ -200,6 +247,17 @@ export function EmployeePreferencesModal({
   // Update allocation mutation
   const updateAllocationMutation = api.offBalance.updateAllocation.useMutation({
     onSuccess: () => {
+      setOffBalanceData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          preferences: {
+            ...prev.preferences,
+            allocatedToAccumulation: lastAllocationRef.current.accumulation,
+            allocatedToAllowance: lastAllocationRef.current.allowance,
+          },
+        };
+      });
       refetchOffBalance();
       alert('OFF 배분이 저장되었습니다');
     },
@@ -210,6 +268,10 @@ export function EmployeePreferencesModal({
 
   // Handle allocation save
   const handleSaveAllocation = () => {
+    lastAllocationRef.current = {
+      accumulation: allocToAccumulation,
+      allowance: allocToAllowance,
+    };
     updateAllocationMutation.mutate({
       employeeId: employee.id,
       allocatedToAccumulation: allocToAccumulation,
@@ -219,6 +281,7 @@ export function EmployeePreferencesModal({
   // Request 탭을 위한 state
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [shiftRequests, setShiftRequests] = useState<Record<string, string>>({});
+  const shiftRequestPersistQueue = useRef<Promise<void>>(Promise.resolve());
 
   // Custom shift types from config
   interface CustomShiftType {
@@ -257,6 +320,21 @@ export function EmployeePreferencesModal({
     employeeId: employee.id,
     status: 'pending',
   });
+
+  const buildShiftRequestMap = (requests?: typeof existingRequests) => {
+    const requestsMap: Record<string, string> = {};
+
+    if (requests && requests.length > 0) {
+      requests.forEach(req => {
+        const dateKey = req.date;
+        if (req.shiftTypeCode) {
+          requestsMap[dateKey] = req.shiftTypeCode;
+        }
+      });
+    }
+
+    return requestsMap;
+  };
 
   // Load custom shift types from shift_types table with fallback chain
   useEffect(() => {
@@ -306,69 +384,70 @@ export function EmployeePreferencesModal({
 
   // Load existing shift requests when data is fetched
   useEffect(() => {
-    if (existingRequests && existingRequests.length > 0) {
-      const requestsMap: Record<string, string> = {};
-
-      existingRequests.forEach(req => {
-        // Each request now has a single date (not a range)
-        const dateKey = req.date; // Already in 'yyyy-MM-dd' format
-        if (req.shiftTypeCode) {
-          requestsMap[dateKey] = req.shiftTypeCode;
-        }
-      });
-
-      setShiftRequests(requestsMap);
-    } else {
-      // Clear requests if no data
-      setShiftRequests({});
-    }
+    updateShiftRequestsState(() => buildShiftRequestMap(existingRequests), { persist: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existingRequests]);
 
   const daysOfWeek = ['일', '월', '화', '수', '목', '금', '토'];
 
-  const persistShiftRequests = async () => {
-    // Save shift requests to database
-    try {
-      // 1. First, delete all existing shift_request type requests for this employee in the current month
-      await deleteShiftRequests.mutateAsync({
-        employeeId: employee.id,
-        requestType: 'shift_request',
-        startDate: format(startOfMonth(selectedMonth), 'yyyy-MM-dd'),
-        endDate: format(endOfMonth(selectedMonth), 'yyyy-MM-dd'),
-      });
-      console.log('✅ Existing shift requests deleted for month:', format(selectedMonth, 'yyyy-MM'));
+  const persistShiftRequests = (requestsSnapshot?: Record<string, string>, monthOverride?: Date) => {
+    const snapshot = requestsSnapshot ?? shiftRequests;
+    const targetMonth = monthOverride ?? selectedMonth;
 
-      // 2. Then create new requests based on current shiftRequests state
-      if (Object.keys(shiftRequests).length > 0) {
-        // Save each date as an individual request (no grouping)
-        // This ensures only selected dates are saved, not date ranges
-        const dates = Object.keys(shiftRequests);
-
-        // Save each request
-        for (const date of dates) {
-          await createSpecialRequest.mutateAsync({
+    shiftRequestPersistQueue.current = shiftRequestPersistQueue.current
+      .catch(() => undefined)
+      .then(async () => {
+        try {
+          await deleteShiftRequests.mutateAsync({
             employeeId: employee.id,
             requestType: 'shift_request',
-            shiftTypeCode: shiftRequests[date],
-            date: date,
-            status: 'pending',
+            startDate: format(startOfMonth(targetMonth), 'yyyy-MM-dd'),
+            endDate: format(endOfMonth(targetMonth), 'yyyy-MM-dd'),
           });
-        }
+          console.log('✅ Existing shift requests deleted for month:', format(targetMonth, 'yyyy-MM'));
 
-        console.log('✅ Shift requests saved successfully:', dates.length, 'individual dates');
-      } else {
-        console.log('✅ No shift requests to save (all cleared)');
-      }
-    } catch (error) {
-      console.error('❌ Failed to save shift requests:', error);
-      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
-      alert(`⚠️ 시프트 요청 저장 실패:\n\n${errorMessage}\n\n선호도는 저장되었지만 시프트 요청은 저장되지 않았습니다.`);
-    }
+          const entries = Object.entries(snapshot);
+          if (entries.length > 0) {
+            for (const [date, shiftTypeCode] of entries) {
+              await createSpecialRequest.mutateAsync({
+                employeeId: employee.id,
+                requestType: 'shift_request',
+                shiftTypeCode,
+                date,
+                status: 'pending',
+              });
+            }
+            console.log('✅ Shift requests saved successfully:', entries.length, 'individual dates');
+          } else {
+            console.log('✅ No shift requests to save (all cleared)');
+          }
+        } catch (error) {
+          console.error('❌ Failed to save shift requests:', error);
+          const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+          alert(`⚠️ 시프트 요청 저장 실패:\n\n${errorMessage}\n\n선호도는 저장되었지만 시프트 요청은 저장되지 않았습니다.`);
+        }
+      });
+
+    return shiftRequestPersistQueue.current;
   };
-  
-  const handleSave = () => {
-    void persistShiftRequests();
-    onSave(preferences);
+
+  const updateShiftRequestsState = (
+    updater: (prev: Record<string, string>) => Record<string, string>,
+    options: { persist?: boolean } = {}
+  ) => {
+    const { persist = true } = options;
+    setShiftRequests(prev => {
+      const next = updater(prev);
+      if (persist) {
+        void persistShiftRequests(next, selectedMonth);
+      }
+      return next;
+    });
+  };
+
+  const handleRevertChanges = () => {
+    updatePreferences(initialSnapshotRef.current, { autoSave: true });
+    updateShiftRequestsState(() => buildShiftRequestMap(existingRequests), { persist: true });
   };
 
   // 패턴 입력 핸들러 (실시간 검증)
@@ -398,7 +477,7 @@ export function EmployeePreferencesModal({
       .join('-');
 
     if (!current.includes(patternString)) {
-      setPreferences({
+      updatePreferences({
         ...preferences,
         preferredPatterns: [...current, patternString],
       });
@@ -408,7 +487,7 @@ export function EmployeePreferencesModal({
   };
 
   const removePattern = (pattern: string) => {
-    setPreferences({
+    updatePreferences({
       ...preferences,
       preferredPatterns: (preferences.preferredPatterns || []).filter(p => p !== pattern),
     });
@@ -445,7 +524,7 @@ export function EmployeePreferencesModal({
     // 검증된 토큰을 패턴 배열에 추가
     const newPatternArray = avoidPatternValidation.tokens as string[];
 
-    setPreferences(prev => ({
+    updatePreferences(prev => ({
       ...prev,
       avoidPatterns: [
         ...(prev.avoidPatterns || []),
@@ -460,10 +539,19 @@ export function EmployeePreferencesModal({
 
   // 기피 패턴 삭제
   const removeAvoidPattern = (index: number) => {
-    setPreferences({
+    updatePreferences({
       ...preferences,
       avoidPatterns: (preferences.avoidPatterns || []).filter((_, i) => i !== index),
     });
+  };
+
+  const handleCloseModal = () => {
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+      autoSaveTimeoutRef.current = null;
+      onSave(preferences);
+    }
+    onClose();
   };
 
   return (
@@ -481,12 +569,21 @@ export function EmployeePreferencesModal({
                 <p className="text-blue-100 text-sm mt-1">{employee.role} · {employee.departmentId}</p>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleRevertChanges}
+                className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-white/15 hover:bg-white/25 rounded-lg transition-colors"
+              >
+                <RotateCcw className="w-4 h-4" />
+                되돌리기
+              </button>
+              <button
+                onClick={handleCloseModal}
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -529,7 +626,7 @@ export function EmployeePreferencesModal({
                   ].map(option => (
                     <button
                       key={option.value}
-                      onClick={() => setPreferences({ ...preferences, workPatternType: option.value as WorkPatternType })}
+                      onClick={() => updatePreferences({ ...preferences, workPatternType: option.value as WorkPatternType })}
                       className={`p-3 rounded-lg border-2 transition-all text-left ${
                         preferences.workPatternType === option.value
                           ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
@@ -1156,16 +1253,19 @@ export function EmployeePreferencesModal({
                           className="absolute inset-0 opacity-0 cursor-pointer"
                           value={currentRequest?.replace('^', '') || ''}
                           onChange={(e) => {
-                            if (e.target.value) {
-                              // Add "^" suffix to indicate it's a request
-                              setShiftRequests({
-                                ...shiftRequests,
-                                [dateKey]: e.target.value + '^'
-                              });
+                            const selectedValue = e.target.value;
+
+                            if (selectedValue) {
+                              updateShiftRequestsState((prev) => ({
+                                ...prev,
+                                [dateKey]: `${selectedValue}^`,
+                              }));
                             } else {
-                              const newRequests = {...shiftRequests};
-                              delete newRequests[dateKey];
-                              setShiftRequests(newRequests);
+                              updateShiftRequestsState((prev) => {
+                                const updated = { ...prev };
+                                delete updated[dateKey];
+                                return updated;
+                              });
                             }
                           }}
                         >
@@ -1195,31 +1295,6 @@ export function EmployeePreferencesModal({
             </div>
           )}
 
-        </div>
-
-        {/* Footer */}
-        <div className="border-t border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-              <AlertCircle className="w-4 h-4" />
-              <span>모든 정보는 비밀로 유지되며 스케줄 최적화에만 사용됩니다.</span>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={onClose}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleSave}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-              >
-                <Save className="w-4 h-4" />
-                저장
-              </button>
-            </div>
-          </div>
         </div>
       </div>
 

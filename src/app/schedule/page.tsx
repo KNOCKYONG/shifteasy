@@ -1261,9 +1261,6 @@ function SchedulePageContent() {
       ),
       avoidPatterns: preferences.avoidPatterns,
     });
-
-    // Close modal immediately (cache already updated optimistically!)
-    handleModalClose();
   };
 
   // Handle modal close
