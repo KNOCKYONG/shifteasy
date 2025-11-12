@@ -6,7 +6,7 @@ import React, { useState, useEffect, useCallback, Suspense, useDeferredValue } f
 import equal from "fast-deep-equal";
 import { useSearchParams } from "next/navigation";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isWeekend, differenceInCalendarYears } from "date-fns";
-import { Download, Upload, Lock, Unlock, Wand2, RefreshCcw, FileText, Heart, CheckCircle, MoreVertical, Settings, FolderOpen, Save } from "lucide-react";
+import { Download, Upload, Lock, Unlock, Wand2, RefreshCcw, FileText, Heart, CheckCircle, MoreVertical, Settings, FolderOpen, Save, Loader2 } from "lucide-react";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { api } from "../../lib/trpc/client";
 import { type Employee, type Constraint, type ScheduleAssignment, type SchedulingResult } from "@/lib/types/scheduler";
@@ -321,6 +321,8 @@ function SchedulePageContent() {
   const [scheduleStatus, setScheduleStatus] = useState<'draft' | 'confirmed'>('draft');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationResult, setGenerationResult] = useState<SchedulingResult | null>(null);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [isPreparingConfirmation, setIsPreparingConfirmation] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const [scheduleName, setScheduleName] = useState('');
   const [existingScheduleToReplace, setExistingScheduleToReplace] = useState<{
@@ -1506,6 +1508,7 @@ function SchedulePageContent() {
       return;
     }
 
+    setIsPreparingConfirmation(true);
     try {
       // Check for existing published schedules in the same period
       const existingCheck = await utils.schedule.checkExisting.fetch({
@@ -1536,6 +1539,8 @@ function SchedulePageContent() {
       // Continue to confirmation even if check fails
       setExistingScheduleToReplace(null);
       modals.setShowConfirmDialog(true);
+    } finally {
+      setIsPreparingConfirmation(false);
     }
   };
 
@@ -1666,6 +1671,7 @@ function SchedulePageContent() {
 
     console.log(`📋 Saving draft schedule to department: ${validDepartmentId}`);
 
+    setIsSavingDraft(true);
     try {
       const schedulePayload = buildSchedulePayload();
 
@@ -1709,6 +1715,9 @@ function SchedulePageContent() {
     } catch (error) {
       console.error('Save draft error:', error);
       alert('임시 저장 중 오류가 발생했습니다.');
+    }
+    finally {
+      setIsSavingDraft(false);
     }
   };
 
@@ -2412,10 +2421,12 @@ function SchedulePageContent() {
         </div>
         )}
         {/* Simplified Schedule Action Toolbar - Only for managers */}
-        {canManageSchedules && (
+{canManageSchedules && (
         <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
-          <div className="flex items-center justify-between">
-            {canManageSchedules && (
+          {isScheduleQueryLoading ? (
+            <LottieLoadingOverlay compact message="스케줄 액션을 준비하는 중입니다..." />
+          ) : (
+            <div className="flex items-center justify-between">
               <>
                 {/* Primary Actions - Only Essential Buttons */}
                 <div className="flex items-center gap-2">
@@ -2450,32 +2461,63 @@ function SchedulePageContent() {
                       <button
                         onClick={handleValidateSchedule}
                         disabled={modals.isValidating}
-                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-70 disabled:cursor-not-allowed"
                         title="스케줄 검증"
                       >
-                        <CheckCircle className="w-4 h-4" />
-                        <span className="hidden sm:inline">검증</span>
+                        {modals.isValidating ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span className="hidden sm:inline">검증 중...</span>
+                            <span className="sm:hidden">진행중</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-4 h-4" />
+                            <span className="hidden sm:inline">검증</span>
+                          </>
+                        )}
                       </button>
 
                       {canManageSchedules && (
                         <button
                           onClick={handleSaveDraft}
-                          className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 dark:text-blue-400 rounded-lg border border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                          disabled={isSavingDraft}
+                          className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 dark:text-blue-400 rounded-lg border border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-70 disabled:cursor-not-allowed"
                           title="스케줄 임시 저장 (멤버에게는 보이지 않음)"
                         >
-                          <Save className="w-4 h-4" />
-                          <span className="hidden sm:inline">임시 저장</span>
+                          {isSavingDraft ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span className="hidden sm:inline">저장 중...</span>
+                              <span className="sm:hidden">저장</span>
+                            </>
+                          ) : (
+                            <>
+                              <Save className="w-4 h-4" />
+                              <span className="hidden sm:inline">임시 저장</span>
+                            </>
+                          )}
                         </button>
                       )}
 
                       <button
                         onClick={handleConfirmToggle}
-                        disabled={scheduleStatus === 'confirmed'}
-                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        disabled={scheduleStatus === 'confirmed' || isPreparingConfirmation}
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-70 disabled:cursor-not-allowed"
                         title="스케줄 확정"
                       >
-                        <Lock className="w-4 h-4" />
-                        <span className="hidden sm:inline">확정</span>
+                        {isPreparingConfirmation ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span className="hidden sm:inline">확인 중...</span>
+                            <span className="sm:hidden">대기</span>
+                          </>
+                        ) : (
+                          <>
+                            <Lock className="w-4 h-4" />
+                            <span className="hidden sm:inline">확정</span>
+                          </>
+                        )}
                       </button>
                     </>
                   )}
@@ -2550,9 +2592,16 @@ function SchedulePageContent() {
                             handleConfirmToggle();
                             setShowMoreMenu(false);
                           }}
-                          className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
+                          disabled={isPreparingConfirmation}
+                          className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                         >
-                          {isConfirmed ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                          {isPreparingConfirmation ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : isConfirmed ? (
+                            <Lock className="w-4 h-4" />
+                          ) : (
+                            <Unlock className="w-4 h-4" />
+                          )}
                           {isConfirmed ? "스케줄 해제" : "스케줄 잠금"}
                         </button>
 
@@ -2571,8 +2620,8 @@ function SchedulePageContent() {
                   </div>
                 </div>
               </>
-            )}
-        </div>
+            </div>
+          )}
         </div>
         )}
 
