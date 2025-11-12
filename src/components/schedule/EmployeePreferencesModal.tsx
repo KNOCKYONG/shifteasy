@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { User, X, AlertCircle, Star, ChevronLeft, ChevronRight, Info, CheckCircle, Wallet, Clock, RotateCcw } from "lucide-react";
 import { type Employee, type EmployeePreferences, type ShiftType } from "@/lib/types/scheduler";
 import { validatePattern as validatePatternUtil, describePattern, EXAMPLE_PATTERNS } from "@/lib/utils/pattern-validator";
@@ -69,22 +69,6 @@ export function EmployeePreferencesModal({
 }: EmployeePreferencesModalProps) {
   const getMonthKey = (date: Date) => format(date, 'yyyy-MM');
 
-  const areShiftMapsEqual = (a: Record<string, string>, b: Record<string, string>) => {
-    const keysA = Object.keys(a);
-    const keysB = Object.keys(b);
-    if (keysA.length !== keysB.length) return false;
-    return keysA.every((key) => a[key] === b[key]);
-  };
-
-  const updateDirtyStateForMonth = (monthKey: string, currentMap: Record<string, string>) => {
-    const initialMap = initialShiftRequestsRef.current[monthKey] || {};
-    if (areShiftMapsEqual(currentMap, initialMap)) {
-      dirtyShiftMonthsRef.current.delete(monthKey);
-    } else {
-      dirtyShiftMonthsRef.current.add(monthKey);
-    }
-  };
-
   const buildInitialPreferences = (source?: SimplifiedPreferences): ExtendedEmployeePreferences => {
     const basePrefs = {
       workPatternType: 'three-shift' as WorkPatternType,
@@ -141,6 +125,22 @@ export function EmployeePreferencesModal({
   const isRevertingRequestsRef = useRef(false);
   const shiftRequestDraftsRef = useRef<Record<string, Record<string, string>>>({});
   const dirtyShiftMonthsRef = useRef<Set<string>>(new Set());
+
+  const areShiftMapsEqual = useCallback((a: Record<string, string>, b: Record<string, string>) => {
+    const keysA = Object.keys(a);
+    const keysB = Object.keys(b);
+    if (keysA.length !== keysB.length) return false;
+    return keysA.every((key) => a[key] === b[key]);
+  }, []);
+
+  const updateDirtyStateForMonth = useCallback((monthKey: string, currentMap: Record<string, string>) => {
+    const initialMap = initialShiftRequestsRef.current[monthKey] || {};
+    if (areShiftMapsEqual(currentMap, initialMap)) {
+      dirtyShiftMonthsRef.current.delete(monthKey);
+    } else {
+      dirtyShiftMonthsRef.current.add(monthKey);
+    }
+  }, [areShiftMapsEqual]);
 
   const updatePreferences = (
     updater: ExtendedEmployeePreferences | ((prev: ExtendedEmployeePreferences) => ExtendedEmployeePreferences),
@@ -330,7 +330,12 @@ export function EmployeePreferencesModal({
   });
   const isRequestLoadingState = isRequestDataLoading || isRequestDataFetching;
 
-  const buildShiftRequestMap = (requests?: typeof existingRequests) => {
+  type ShiftRequestRecord = {
+    date: string;
+    shiftTypeCode: string | null;
+  };
+
+  const buildShiftRequestMap = useCallback((requests?: ShiftRequestRecord[]) => {
     const requestsMap: Record<string, string> = {};
 
     if (requests && requests.length > 0) {
@@ -343,7 +348,7 @@ export function EmployeePreferencesModal({
     }
 
     return requestsMap;
-  };
+  }, []);
 
   // Load custom shift types from shift_types table with fallback chain
   useEffect(() => {
@@ -404,8 +409,9 @@ export function EmployeePreferencesModal({
   }, [selectedMonth]);
 
   // Load existing shift requests when data is fetched
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!existingRequests) {
+    if (!existingRequests || isRequestDataFetching) {
       return;
     }
 
@@ -436,8 +442,7 @@ export function EmployeePreferencesModal({
     shiftRequestDraftsRef.current[monthKey] = { ...map };
     setShiftRequests({ ...map });
     updateDirtyStateForMonth(monthKey, map);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [existingRequests, selectedMonth]);
+  }, [existingRequests, selectedMonth, isRequestDataFetching, buildShiftRequestMap, updateDirtyStateForMonth]);
 
   const daysOfWeek = ['일', '월', '화', '수', '목', '금', '토'];
 
