@@ -68,6 +68,22 @@ export function EmployeePreferencesModal({
 }: EmployeePreferencesModalProps) {
   const getMonthKey = (date: Date) => format(date, 'yyyy-MM');
 
+  const areShiftMapsEqual = (a: Record<string, string>, b: Record<string, string>) => {
+    const keysA = Object.keys(a);
+    const keysB = Object.keys(b);
+    if (keysA.length !== keysB.length) return false;
+    return keysA.every((key) => a[key] === b[key]);
+  };
+
+  const updateDirtyStateForMonth = (monthKey: string, currentMap: Record<string, string>) => {
+    const initialMap = initialShiftRequestsRef.current[monthKey] || {};
+    if (areShiftMapsEqual(currentMap, initialMap)) {
+      dirtyShiftMonthsRef.current.delete(monthKey);
+    } else {
+      dirtyShiftMonthsRef.current.add(monthKey);
+    }
+  };
+
   const buildInitialPreferences = (source?: SimplifiedPreferences): ExtendedEmployeePreferences => {
     const basePrefs = {
       workPatternType: 'three-shift' as WorkPatternType,
@@ -123,6 +139,8 @@ export function EmployeePreferencesModal({
   const initialShiftRequestsRef = useRef<Record<string, Record<string, string>>>({});
   const hasCapturedInitialRequestsRef = useRef<Record<string, boolean>>({});
   const isRevertingRequestsRef = useRef(false);
+  const shiftRequestDraftsRef = useRef<Record<string, Record<string, string>>>({});
+  const dirtyShiftMonthsRef = useRef<Set<string>>(new Set());
 
   const updatePreferences = (
     updater: ExtendedEmployeePreferences | ((prev: ExtendedEmployeePreferences) => ExtendedEmployeePreferences),
@@ -288,7 +306,6 @@ export function EmployeePreferencesModal({
   // Request 탭을 위한 state
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [shiftRequests, setShiftRequests] = useState<Record<string, string>>({});
-  const shiftRequestPersistQueue = useRef<Promise<void>>(Promise.resolve());
 
   // Custom shift types from config
   interface CustomShiftType {
@@ -389,78 +406,106 @@ export function EmployeePreferencesModal({
     setCustomShiftTypes(loadedShiftTypes);
   }, [shiftTypesFromDB]);
 
+  // Sync calendar when month changes
+  useEffect(() => {
+    const monthKey = getMonthKey(selectedMonth);
+    const draft = shiftRequestDraftsRef.current[monthKey];
+    if (draft) {
+      setShiftRequests({ ...draft });
+    } else {
+      shiftRequestDraftsRef.current[monthKey] = {};
+      setShiftRequests({});
+    }
+  }, [selectedMonth]);
+
   // Load existing shift requests when data is fetched
   useEffect(() => {
+    if (!existingRequests) {
+      return;
+    }
+
     const monthKey = getMonthKey(selectedMonth);
     const map = buildShiftRequestMap(existingRequests);
 
-    if (existingRequests && !hasCapturedInitialRequestsRef.current[monthKey]) {
+    if (!hasCapturedInitialRequestsRef.current[monthKey]) {
       initialShiftRequestsRef.current[monthKey] = map;
+      shiftRequestDraftsRef.current[monthKey] = { ...map };
       hasCapturedInitialRequestsRef.current[monthKey] = true;
+      setShiftRequests({ ...map });
+      updateDirtyStateForMonth(monthKey, map);
+      return;
     }
 
-    if (isRevertingRequestsRef.current) {
+    if (isRevertingRequestsRef.current || dirtyShiftMonthsRef.current.has(monthKey)) {
       isRevertingRequestsRef.current = false;
       return;
     }
 
-    updateShiftRequestsState(() => map, { persist: false });
+    shiftRequestDraftsRef.current[monthKey] = { ...map };
+    setShiftRequests({ ...map });
+    updateDirtyStateForMonth(monthKey, map);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existingRequests, selectedMonth]);
 
   const daysOfWeek = ['일', '월', '화', '수', '목', '금', '토'];
 
-  const persistShiftRequests = (requestsSnapshot?: Record<string, string>, monthOverride?: Date) => {
-    const snapshot = requestsSnapshot ?? shiftRequests;
-    const targetMonth = monthOverride ?? selectedMonth;
+  const persistShiftRequestsForMonth = async (monthKey: string, snapshot: Record<string, string>) => {
+    const [yearStr, monthStr] = monthKey.split('-');
+    const year = Number(yearStr);
+    const monthIndex = Number(monthStr) - 1;
+    const targetMonth = new Date(year, monthIndex, 1);
 
-    shiftRequestPersistQueue.current = shiftRequestPersistQueue.current
-      .catch(() => undefined)
-      .then(async () => {
-        try {
-          await deleteShiftRequests.mutateAsync({
-            employeeId: employee.id,
-            requestType: 'shift_request',
-            startDate: format(startOfMonth(targetMonth), 'yyyy-MM-dd'),
-            endDate: format(endOfMonth(targetMonth), 'yyyy-MM-dd'),
-          });
-          console.log('✅ Existing shift requests deleted for month:', format(targetMonth, 'yyyy-MM'));
+    await deleteShiftRequests.mutateAsync({
+      employeeId: employee.id,
+      requestType: 'shift_request',
+      startDate: format(startOfMonth(targetMonth), 'yyyy-MM-dd'),
+      endDate: format(endOfMonth(targetMonth), 'yyyy-MM-dd'),
+    });
+    console.log('✅ Existing shift requests deleted for month:', monthKey);
 
-          const entries = Object.entries(snapshot);
-          if (entries.length > 0) {
-            for (const [date, shiftTypeCode] of entries) {
-              await createSpecialRequest.mutateAsync({
-                employeeId: employee.id,
-                requestType: 'shift_request',
-                shiftTypeCode,
-                date,
-                status: 'pending',
-              });
-            }
-            console.log('✅ Shift requests saved successfully:', entries.length, 'individual dates');
-          } else {
-            console.log('✅ No shift requests to save (all cleared)');
-          }
-        } catch (error) {
-          console.error('❌ Failed to save shift requests:', error);
-          const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
-          alert(`⚠️ 시프트 요청 저장 실패:\n\n${errorMessage}\n\n선호도는 저장되었지만 시프트 요청은 저장되지 않았습니다.`);
-        }
+    const entries = Object.entries(snapshot);
+    if (entries.length === 0) {
+      console.log('✅ No shift requests to save (all cleared) for', monthKey);
+      initialShiftRequestsRef.current[monthKey] = {};
+      shiftRequestDraftsRef.current[monthKey] = {};
+      updateDirtyStateForMonth(monthKey, {});
+      return;
+    }
+
+    for (const [date, shiftTypeCode] of entries) {
+      await createSpecialRequest.mutateAsync({
+        employeeId: employee.id,
+        requestType: 'shift_request',
+        shiftTypeCode,
+        date,
+        status: 'pending',
       });
-
-    return shiftRequestPersistQueue.current;
+    }
+    initialShiftRequestsRef.current[monthKey] = { ...snapshot };
+    shiftRequestDraftsRef.current[monthKey] = { ...snapshot };
+    updateDirtyStateForMonth(monthKey, snapshot);
+    console.log('✅ Shift requests saved successfully:', entries.length, 'dates for', monthKey);
   };
 
-  const updateShiftRequestsState = (
-    updater: (prev: Record<string, string>) => Record<string, string>,
-    options: { persist?: boolean } = {}
-  ) => {
-    const { persist = true } = options;
-    setShiftRequests(prev => {
-      const next = updater(prev);
-      if (persist) {
-        void persistShiftRequests(next, selectedMonth);
+  const savePendingShiftRequests = async () => {
+    for (const monthKey of Array.from(dirtyShiftMonthsRef.current)) {
+      const snapshot = shiftRequestDraftsRef.current[monthKey] || {};
+      await persistShiftRequestsForMonth(monthKey, snapshot);
+    }
+    dirtyShiftMonthsRef.current.clear();
+  };
+
+  const handleShiftRequestSelection = (dateKey: string, selectedValue: string) => {
+    const monthKey = getMonthKey(selectedMonth);
+    setShiftRequests((prev) => {
+      const next = { ...prev };
+      if (selectedValue) {
+        next[dateKey] = `${selectedValue}^`;
+      } else {
+        delete next[dateKey];
       }
+      shiftRequestDraftsRef.current[monthKey] = next;
+      updateDirtyStateForMonth(monthKey, next);
       return next;
     });
   };
@@ -475,8 +520,10 @@ export function EmployeePreferencesModal({
 
     const monthKey = getMonthKey(selectedMonth);
     const initialRequestsForMonth = initialShiftRequestsRef.current[monthKey] || {};
+    shiftRequestDraftsRef.current[monthKey] = { ...initialRequestsForMonth };
     isRevertingRequestsRef.current = true;
-    updateShiftRequestsState(() => ({ ...initialRequestsForMonth }), { persist: true });
+    setShiftRequests({ ...initialRequestsForMonth });
+    updateDirtyStateForMonth(monthKey, initialRequestsForMonth);
   };
 
   // 패턴 입력 핸들러 (실시간 검증)
@@ -574,17 +621,28 @@ export function EmployeePreferencesModal({
     });
   };
 
-  const handleCloseModal = () => {
-    const shouldClose = window.confirm('변경 사항을 저장하고 창을 닫을까요?\n취소를 누르면 계속 편집할 수 있습니다.');
-    if (!shouldClose) {
+  const handleCloseModal = async () => {
+    const shouldSave = window.confirm('변경 사항을 저장하고 창을 닫을까요?\n취소를 누르면 계속 편집할 수 있습니다.');
+    if (!shouldSave) {
+      dirtyShiftMonthsRef.current.clear();
+      onClose();
       return;
     }
 
     if (autoSaveTimeoutRef.current) {
       clearTimeout(autoSaveTimeoutRef.current);
       autoSaveTimeoutRef.current = null;
-      onSave(preferences);
     }
+    onSave(preferences);
+
+    try {
+      await savePendingShiftRequests();
+    } catch (error) {
+      console.error('❌ Failed to save shift requests on close:', error);
+      alert('시프트 요청 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+      return;
+    }
+
     onClose();
   };
 
@@ -612,7 +670,7 @@ export function EmployeePreferencesModal({
                 되돌리기
               </button>
               <button
-                onClick={handleCloseModal}
+                onClick={() => { void handleCloseModal(); }}
                 className="p-2 hover:bg-white/20 rounded-lg transition-colors"
               >
                 <X className="w-6 h-6" />
@@ -1287,20 +1345,7 @@ export function EmployeePreferencesModal({
                           className="absolute inset-0 opacity-0 cursor-pointer"
                           value={currentRequest?.replace('^', '') || ''}
                           onChange={(e) => {
-                            const selectedValue = e.target.value;
-
-                            if (selectedValue) {
-                              updateShiftRequestsState((prev) => ({
-                                ...prev,
-                                [dateKey]: `${selectedValue}^`,
-                              }));
-                            } else {
-                              updateShiftRequestsState((prev) => {
-                                const updated = { ...prev };
-                                delete updated[dateKey];
-                                return updated;
-                              });
-                            }
+                            handleShiftRequestSelection(dateKey, e.target.value);
                           }}
                         >
                           <option value="">선택 안함</option>
