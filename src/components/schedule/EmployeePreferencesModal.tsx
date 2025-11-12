@@ -6,6 +6,7 @@ import { validatePattern as validatePatternUtil, describePattern, EXAMPLE_PATTER
 import { api } from "@/lib/trpc/client";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import type { SimplifiedPreferences } from "@/components/department/MyPreferencesPanel";
+import { LottieLoadingOverlay } from "@/components/common/LottieLoadingOverlay";
 
 interface EmployeePreferencesModalProps {
   employee: Employee;
@@ -317,12 +318,17 @@ export function EmployeePreferencesModal({
   const { data: shiftTypesFromDB } = api.shiftTypes.getAll.useQuery();
 
   // Query to fetch existing special requests for the selected month
-  const { data: existingRequests } = api.specialRequests.getByDateRange.useQuery({
+  const {
+    data: existingRequests,
+    isLoading: isRequestDataLoading,
+    isFetching: isRequestDataFetching,
+  } = api.specialRequests.getByDateRange.useQuery({
     startDate: format(startOfMonth(selectedMonth), 'yyyy-MM-dd'),
     endDate: format(endOfMonth(selectedMonth), 'yyyy-MM-dd'),
     employeeId: employee.id,
     status: 'pending',
   });
+  const isRequestLoadingState = isRequestDataLoading || isRequestDataFetching;
 
   const buildShiftRequestMap = (requests?: typeof existingRequests) => {
     const requestsMap: Record<string, string> = {};
@@ -1261,7 +1267,13 @@ export function EmployeePreferencesModal({
           )}
 
           {activeTab === 'request' && (
-            <div className="space-y-4">
+            <div className="relative">
+              {isRequestLoadingState && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/80 dark:bg-slate-900/80">
+                  <LottieLoadingOverlay message="근무 요청을 불러오는 중입니다..." compact />
+                </div>
+              )}
+              <div className={`space-y-4 ${isRequestLoadingState ? 'opacity-40 pointer-events-none' : ''}`}>
               {/* 월 선택 */}
               <div className="flex items-center justify-between">
                 <button
@@ -1363,6 +1375,7 @@ export function EmployeePreferencesModal({
                   </div>
                 ))}
               </div>
+            </div>
             </div>
           )}
 
