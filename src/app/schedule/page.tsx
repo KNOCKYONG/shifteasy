@@ -2598,31 +2598,6 @@ function SchedulePageContent() {
                       </button>
                     </>
                   )}
-
-                  <div
-                    className={`ml-2 inline-flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
-                      isSSEConnected
-                        ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/40 dark:text-green-300 dark:border-green-800'
-                        : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800'
-                    }`}
-                    title={
-                      isSSEConnected
-                        ? '실시간 동기화가 활성화되어 있습니다.'
-                        : '실시간 연결이 끊겼습니다. 자동으로 재연결을 시도합니다.'
-                    }
-                  >
-                    <span
-                      className={`w-2 h-2 rounded-full ${
-                        isSSEConnected ? 'bg-green-500' : 'bg-red-500'
-                      }`}
-                    />
-                    {isSSEConnected ? '실시간 동기화 중' : '재연결 중'}
-                    {!isSSEConnected && reconnectAttempt > 0 && (
-                      <span className="text-[10px] text-gray-600 dark:text-gray-400">
-                        #{reconnectAttempt}
-                      </span>
-                    )}
-                  </div>
                 </div>
 
                 {/* More Options Menu */}

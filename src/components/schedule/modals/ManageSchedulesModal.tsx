@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useMemo } from 'react';
-import { X, Trash2, Calendar, AlertCircle, Loader2, Filter } from 'lucide-react';
+import { X, Trash2, Calendar, AlertCircle, Loader2 } from 'lucide-react';
 import { format, getYear, getMonth } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { api } from '@/lib/trpc/client';
@@ -120,14 +120,8 @@ export function ManageSchedulesModal({ isOpen, onClose, onScheduleDeleted, onSch
         {/* Filter Controls */}
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
           <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">필터:</span>
-            </div>
-
             {/* Year Filter */}
             <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600 dark:text-gray-400">년도</label>
               <select
                 value={filterYear}
                 onChange={(e) => setFilterYear(Number(e.target.value))}
@@ -143,7 +137,6 @@ export function ManageSchedulesModal({ isOpen, onClose, onScheduleDeleted, onSch
 
             {/* Month Filter */}
             <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600 dark:text-gray-400">월</label>
               <select
                 value={filterMonth}
                 onChange={(e) => setFilterMonth(Number(e.target.value))}
@@ -159,7 +152,6 @@ export function ManageSchedulesModal({ isOpen, onClose, onScheduleDeleted, onSch
 
             {/* Status Filter */}
             <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600 dark:text-gray-400">상태</label>
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value as 'all' | 'draft' | 'published')}
