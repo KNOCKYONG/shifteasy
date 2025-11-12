@@ -44,7 +44,7 @@ import { useScheduleFilters, type ScheduleView } from "@/hooks/useScheduleFilter
 import { ScheduleSkeleton } from "@/components/schedule/ScheduleSkeleton";
 import { LottieLoadingOverlay } from "@/components/common/LottieLoadingOverlay";
 import type { SSEEvent } from "@/lib/sse/events";
-import { useSSEContext } from "@/providers/SSEProvider";
+// import { useSSEContext } from "@/providers/SSEProvider";
 
 // 스케줄 페이지에서 사용하는 확장된 ScheduleAssignment 타입
 type SwapShift = {
@@ -284,7 +284,8 @@ function SchedulePageContent() {
   const setActiveView = filters.setActiveView;
   const deferredActiveView = useDeferredValue(filters.activeView);
   const modals = useScheduleModals();
-  const { isConnected: isSSEConnected, reconnectAttempt } = useSSEContext();
+  // SSE context available but not currently used in this component
+  // const { isConnected: isSSEConnected, reconnectAttempt } = useSSEContext();
   const generateScheduleMutation = api.schedule.generate.useMutation();
   const deleteMutation = api.schedule.delete.useMutation();
 
