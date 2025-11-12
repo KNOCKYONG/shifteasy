@@ -9,6 +9,7 @@ import { notifications, users } from '@/db/schema';
 import { eq, and, isNull, desc } from 'drizzle-orm';
 import { sseManager } from '@/lib/sse/sseManager';
 import { pushSubscriptionManager } from '@/lib/push/subscription-manager';
+import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
 
 export type NotificationType =
   | 'schedule_published'
@@ -107,6 +108,8 @@ class NotificationService {
     userId: string,
     notification: Omit<Notification, 'id' | 'createdAt' | 'tenantId' | 'userId'>
   ): Promise<Notification | null> {
+    await ensureNotificationPreferencesColumn();
+
     const startTime = Date.now();
     console.log(`[NotificationService] sendToUser - Start`, {
       tenantId,

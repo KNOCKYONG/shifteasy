@@ -5,6 +5,7 @@ import { users, tenants } from '@/db/schema/tenants';
 import { eq, and } from 'drizzle-orm';
 import { createScopedDb, type TenantContext } from '@/lib/db/tenant-isolation';
 import { generateSecretCode } from '@/lib/auth/secret-code';
+import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
 
 /**
  * Clerk 사용자와 데이터베이스 사용자 동기화
@@ -56,6 +57,8 @@ export async function syncClerkUser() {
   }
 
   const tenantId = tenant[0].id;
+
+  await ensureNotificationPreferencesColumn();
 
   // 사용자 찾기 또는 생성
   let user = await db

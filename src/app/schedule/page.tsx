@@ -6,7 +6,7 @@ import React, { useState, useEffect, useCallback, Suspense, useDeferredValue } f
 import equal from "fast-deep-equal";
 import { useSearchParams } from "next/navigation";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isWeekend, differenceInCalendarYears } from "date-fns";
-import { Download, Upload, Lock, Unlock, Wand2, RefreshCcw, FileText, Heart, CheckCircle, MoreVertical, Settings, FolderOpen, Save, Loader2 } from "lucide-react";
+import { Download, Upload, Lock, Wand2, RefreshCcw, FileText, Heart, CheckCircle, MoreVertical, Settings, FolderOpen, Save, Loader2 } from "lucide-react";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { api } from "../../lib/trpc/client";
 import { type Employee, type Constraint, type ScheduleAssignment, type SchedulingResult } from "@/lib/types/scheduler";
@@ -322,7 +322,6 @@ function SchedulePageContent() {
   const [schedule, setSchedule] = useState<ScheduleAssignment[]>([]);
   const [, setOriginalSchedule] = useState<ScheduleAssignment[]>([]); // Setter used for state tracking
   const [isConfirmed, setIsConfirmed] = useState(false);
-  const [scheduleStatus, setScheduleStatus] = useState<'draft' | 'confirmed'>('draft');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationResult, setGenerationResult] = useState<SchedulingResult | null>(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
@@ -1576,12 +1575,6 @@ function SchedulePageContent() {
   };
 
   const handleConfirmToggle = async () => {
-    if (isConfirmed) {
-      setIsConfirmed(false);
-      setScheduleStatus('draft');
-      return;
-    }
-
     let validDepartmentId: string | null = selectedDepartment;
 
     if (selectedDepartment === 'all' || selectedDepartment === 'no-department') {
@@ -2586,7 +2579,7 @@ function SchedulePageContent() {
 
                       <button
                         onClick={handleConfirmToggle}
-                        disabled={scheduleStatus === 'confirmed' || isPreparingConfirmation}
+                        disabled={isPreparingConfirmation}
                         className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-70 disabled:cursor-not-allowed"
                         title="스케줄 확정"
                       >
@@ -2706,12 +2699,10 @@ function SchedulePageContent() {
                         >
                           {isPreparingConfirmation ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : isConfirmed ? (
-                            <Lock className="w-4 h-4" />
                           ) : (
-                            <Unlock className="w-4 h-4" />
+                            <Lock className="w-4 h-4" />
                           )}
-                          {isConfirmed ? "스케줄 해제" : "스케줄 잠금"}
+                          스케줄 확정
                         </button>
 
                         <button

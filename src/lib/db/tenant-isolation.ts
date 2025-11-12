@@ -11,6 +11,7 @@ import {
   auditLogs,
 } from '@/db/schema/tenants';
 import type { SQL } from 'drizzle-orm';
+import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
 
 /**
  * 테넌트 격리를 위한 유틸리티 함수들
@@ -74,6 +75,8 @@ export class ScopedDb {
    * 사용자 조회 (테넌트 격리)
    */
   async getUsers(conditions?: SQL) {
+    await ensureNotificationPreferencesColumn();
+
     return await db
       .select()
       .from(users)
@@ -84,6 +87,8 @@ export class ScopedDb {
    * 단일 사용자 조회
    */
   async getUserById(userId: string) {
+    await ensureNotificationPreferencesColumn();
+
     const result = await db
       .select()
       .from(users)
@@ -364,6 +369,8 @@ export async function testTenantIsolation(
   const errors: string[] = [];
 
   try {
+    await ensureNotificationPreferencesColumn();
+
     // 테넌트 1의 컨텍스트로 테넌트 2의 데이터 접근 시도
     const scopedDb1 = new ScopedDb({ tenantId: tenantId1 });
     const users2 = await db

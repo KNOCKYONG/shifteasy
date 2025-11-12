@@ -6,6 +6,32 @@ import { nursePreferences } from '@/db/schema/nurse-preferences';
 import { users } from '@/db/schema/tenants';
 import { eq } from 'drizzle-orm';
 import { sse } from '@/lib/sse/broadcaster';
+import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
+
+type NotificationPreferences = {
+  enabled?: boolean;
+  channels?: {
+    sse?: boolean;
+    push?: boolean;
+    email?: boolean;
+  };
+  types?: {
+    handoff_submitted?: boolean;
+    handoff_completed?: boolean;
+    handoff_critical_patient?: boolean;
+    handoff_reminder?: boolean;
+    schedule_published?: boolean;
+    schedule_updated?: boolean;
+    swap_requested?: boolean;
+    swap_approved?: boolean;
+    swap_rejected?: boolean;
+  };
+  quietHours?: {
+    enabled?: boolean;
+    start?: string;
+    end?: string;
+  };
+};
 
 // Schema for preference updates
 const preferenceUpdateSchema = z.object({
@@ -71,6 +97,8 @@ export const preferencesRouter = createTRPCRouter({
   upsert: protectedProcedure
     .input(preferenceUpdateSchema)
     .mutation(async ({ ctx, input }) => {
+      await ensureNotificationPreferencesColumn();
+
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
       const { staffId, ...preferences } = input;
 
@@ -164,6 +192,8 @@ export const preferencesRouter = createTRPCRouter({
   // Get notification preferences for current user
   getNotificationPreferences: protectedProcedure
     .query(async ({ ctx }) => {
+      await ensureNotificationPreferencesColumn();
+
       const userId = ctx.user?.id || 'dev-user-id';
 
       const [user] = await db.select()
@@ -221,6 +251,8 @@ export const preferencesRouter = createTRPCRouter({
       }).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      await ensureNotificationPreferencesColumn();
+
       const userId = ctx.user?.id || 'dev-user-id';
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
 
@@ -234,7 +266,7 @@ export const preferencesRouter = createTRPCRouter({
         throw new Error('User not found');
       }
 
-      const currentPrefs = user.notificationPreferences as any || {};
+      const currentPrefs = (user.notificationPreferences as NotificationPreferences | null) || {};
 
       // Merge with new preferences
       const updatedPrefs = {

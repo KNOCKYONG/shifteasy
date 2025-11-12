@@ -2,6 +2,7 @@ import { type FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { db } from '@/db';
 import { users } from '@/db/schema';
+import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
 import { eq, and } from 'drizzle-orm';
 
 export async function createTRPCContext(opts?: FetchCreateContextFnOptions) {
@@ -19,6 +20,8 @@ export async function createTRPCContext(opts?: FetchCreateContextFnOptions) {
       headers: opts?.req.headers,
     };
   }
+
+  await ensureNotificationPreferencesColumn();
 
   // Get user from database with role information
   // If orgId exists, prioritize users from that organization

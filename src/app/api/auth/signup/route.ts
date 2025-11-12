@@ -4,6 +4,7 @@ import { users } from '@/db/schema/tenants';
 import { eq, and } from 'drizzle-orm';
 import { validateSecretCode } from '@/lib/auth/secret-code';
 import { createClerkClient } from '@clerk/nextjs/server';
+import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +43,8 @@ export async function POST(req: NextRequest) {
 
     // Clerk 클라이언트 초기화
     const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
+
+    await ensureNotificationPreferencesColumn();
 
     // 이메일로 기존 사용자 체크 (같은 테넌트 내에서)
     const existingUser = await db

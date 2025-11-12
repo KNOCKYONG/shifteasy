@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { db } from '@/db';
 import { users, departments } from '@/db/schema/tenants';
 import { eq, ne, and } from 'drizzle-orm';
+import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,6 +82,8 @@ export async function POST() {
         { status: 401 }
       );
     }
+
+    await ensureNotificationPreferencesColumn();
 
     // Get current user
     const [user] = await db

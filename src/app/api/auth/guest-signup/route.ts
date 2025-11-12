@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { tenants, departments, users } from '@/db/schema/tenants';
 import { clerkClient } from '@clerk/nextjs/server';
 import { sql } from 'drizzle-orm';
+import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    await ensureNotificationPreferencesColumn();
 
     // 랜덤 문자열 생성 (8자리)
     const randomString = Math.random().toString(36).substring(2, 10);

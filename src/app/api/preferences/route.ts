@@ -4,6 +4,7 @@ import { db } from '@/db';
 import { nursePreferences } from '@/db/schema/nurse-preferences';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
 
 export const dynamic = 'force-dynamic';
 
@@ -129,6 +130,8 @@ export async function POST(request: NextRequest) {
     const { employeeId, preferences } = validationResult.data;
 
     // 1. Get user's department_id
+    await ensureNotificationPreferencesColumn();
+
     const user = await db.select()
       .from(users)
       .where(eq(users.id, employeeId))

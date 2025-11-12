@@ -3,6 +3,7 @@ import { auth, clerkClient } from '@clerk/nextjs/server';
 import { db } from '@/db';
 import { users } from '@/db/schema/tenants';
 import { eq } from 'drizzle-orm';
+import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,6 +41,8 @@ export async function POST(req: NextRequest) {
       const client = await clerkClient();
 
       // Get user's email
+      await ensureNotificationPreferencesColumn();
+
       const currentUser = await db
         .select({ email: users.email })
         .from(users)

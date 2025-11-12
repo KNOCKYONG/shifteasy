@@ -5,6 +5,7 @@ import { users } from '@/db/schema';
 import { eq, and, isNull } from 'drizzle-orm';
 import { type Role, hasPermission, type Permission } from './permissions';
 import { TRPCError } from '@trpc/server';
+import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
 
 /**
  * Get the current authenticated user with organization context
@@ -21,6 +22,8 @@ export async function getCurrentUser() {
   if (!clerkUser) {
     return null;
   }
+
+  await ensureNotificationPreferencesColumn();
 
   // Get user from database - first try with orgId if available
   let dbUser;
@@ -141,6 +144,8 @@ export async function syncClerkUser(clerkUserId: string, orgId: string) {
     throw new Error('Clerk user not found');
   }
 
+  await ensureNotificationPreferencesColumn();
+
   // Check if user exists in database
   const [existingUser] = await db
     .select()
@@ -185,6 +190,8 @@ export async function syncClerkUser(clerkUserId: string, orgId: string) {
  * Get organization (tenant) members
  */
 export async function getOrganizationMembers(orgId: string) {
+  await ensureNotificationPreferencesColumn();
+
   return db
     .select()
     .from(users)
@@ -205,6 +212,8 @@ export async function updateUserRole(
   actorId: string,
   tenantId: string
 ): Promise<void> {
+  await ensureNotificationPreferencesColumn();
+
   // Check if actor has permission to change roles
   const actor = await db
     .select()

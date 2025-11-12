@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { db } from '@/db';
 import { users, departments } from '@/db/schema/tenants';
 import { eq } from 'drizzle-orm';
+import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +17,8 @@ export async function GET() {
         { status: 401 }
       );
     }
+
+    await ensureNotificationPreferencesColumn();
 
     // Get user from database (no orgId required)
     const [user] = await db
@@ -77,6 +80,8 @@ export async function PATCH(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    await ensureNotificationPreferencesColumn();
 
     // Update user in database (no orgId required)
     const updatedUser = await db

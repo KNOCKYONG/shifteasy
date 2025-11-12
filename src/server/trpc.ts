@@ -6,6 +6,7 @@ import { eq, and, isNull } from 'drizzle-orm';
 import { users } from '@/db/schema';
 import { syncClerkUser } from '@/lib/auth';
 import { cacheManager } from '@/lib/cache/cache-manager';
+import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
 
 export const createTRPCContext = async (opts: { req: Request; headers?: Headers }) => {
   const { req } = opts;
@@ -16,6 +17,8 @@ export const createTRPCContext = async (opts: { req: Request; headers?: Headers 
   let user = null;
 
   if (clerkUserId && orgId) {
+    await ensureNotificationPreferencesColumn();
+
     // Sync and get user from database
     try {
       user = await syncClerkUser(clerkUserId, orgId);

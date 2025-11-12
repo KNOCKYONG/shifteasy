@@ -7,12 +7,15 @@ import { db } from './index';
 import { users, tenants, departments } from './schema/tenants';
 import { like, eq, sql } from 'drizzle-orm';
 import { createClerkClient } from '@clerk/nextjs/server';
+import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
 
 /**
  * 데이터베이스의 모든 사용자 확인
  */
 export async function checkDatabaseUsers() {
   try {
+    await ensureNotificationPreferencesColumn();
+
     const testUsers = await db
       .select({
         id: users.id,
@@ -116,6 +119,8 @@ export async function checkDepartments(tenantId?: string) {
  */
 export async function getDatabaseSummary() {
   try {
+    await ensureNotificationPreferencesColumn();
+
     const [tenantCount] = await db
       .select({ count: sql`count(*)` })
       .from(tenants);
