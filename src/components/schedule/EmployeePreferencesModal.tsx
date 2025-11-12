@@ -546,6 +546,11 @@ export function EmployeePreferencesModal({
   };
 
   const handleCloseModal = () => {
+    const shouldClose = window.confirm('변경 사항을 저장하고 창을 닫을까요?\n취소를 누르면 계속 편집할 수 있습니다.');
+    if (!shouldClose) {
+      return;
+    }
+
     if (autoSaveTimeoutRef.current) {
       clearTimeout(autoSaveTimeoutRef.current);
       autoSaveTimeoutRef.current = null;
