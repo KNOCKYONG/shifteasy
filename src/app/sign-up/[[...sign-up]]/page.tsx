@@ -94,10 +94,10 @@ export default function SignUpPage() {
         return;
       }
 
+      // Clerk 인스턴스에서 name 필드가 비활성화되어 있어서 이메일과 비밀번호만 전송
       await signUp.create({
         emailAddress: email,
         password,
-        firstName: name,
       });
 
       await signUp.prepareEmailAddressVerification({
