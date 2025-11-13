@@ -334,6 +334,8 @@ export const EVENT_TO_QUERIES_MAP: Record<SSEEventType, string[]> = {
   'config.shift_types_updated': [
     'configs.getAll',
     'configs.getByKey',
+    'shiftTypes.getAll',
+    'shiftTypes.getByDepartment',
     'schedule.list',
     'schedule.getPageData',
   ],

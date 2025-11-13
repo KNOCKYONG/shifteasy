@@ -4,23 +4,31 @@ import { getCurrentUser } from '@/lib/auth';
 import { db } from '@/db';
 import { departmentPatterns, departments } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { validateTeamPattern } from '@/lib/types/team-pattern';
-import { getShiftTypes } from '@/lib/config/shiftTypes';
+import {
+  EXCLUDED_REQUIRED_SHIFT_CODES,
+  deriveRequiredStaffByShift,
+  validateTeamPattern,
+} from '@/lib/types/team-pattern';
+import { getShiftTypes, type ConfigurableShiftType } from '@/lib/config/shiftTypes';
 
 export const dynamic = 'force-dynamic';
 
 // 요청 검증 스키마
+const RequiredStaffRecordSchema = z.record(z.string(), z.number().min(0)).optional();
+
 const CreateDepartmentPatternSchema = z.object({
   departmentId: z.string().uuid(),
-  requiredStaffDay: z.number().min(1),
-  requiredStaffEvening: z.number().min(1),
-  requiredStaffNight: z.number().min(1),
+  requiredStaffByShift: RequiredStaffRecordSchema,
+  requiredStaffDay: z.number().min(1).optional(),
+  requiredStaffEvening: z.number().min(1).optional(),
+  requiredStaffNight: z.number().min(1).optional(),
   defaultPatterns: z.array(z.array(z.string())).min(1),
   avoidPatterns: z.array(z.array(z.string())).optional().default([]), // 기피 근무 패턴 (선택사항)
   totalMembers: z.number().min(3),
 });
 
 const UpdateDepartmentPatternSchema = z.object({
+  requiredStaffByShift: RequiredStaffRecordSchema,
   requiredStaffDay: z.number().min(1).optional(),
   requiredStaffEvening: z.number().min(1).optional(),
   requiredStaffNight: z.number().min(1).optional(),
@@ -29,6 +37,48 @@ const UpdateDepartmentPatternSchema = z.object({
   totalMembers: z.number().min(3).optional(),
   isActive: z.boolean().transform(val => val ? 'true' : 'false').optional(),
 });
+
+const CORE_SHIFT_CODES = ['D', 'E', 'N'];
+
+const sanitizeRequiredStaff = (
+  payload: {
+    requiredStaffByShift?: Record<string, number>;
+    requiredStaffDay?: number;
+    requiredStaffEvening?: number;
+    requiredStaffNight?: number;
+  },
+  shiftTypes: ConfigurableShiftType[],
+) => {
+  const allowedCodes = new Set(
+    shiftTypes.map((st) => st.code.toUpperCase()).filter((code) => !EXCLUDED_REQUIRED_SHIFT_CODES.has(code))
+  );
+
+  CORE_SHIFT_CODES.forEach((code) => allowedCodes.add(code));
+
+  const baseMap = deriveRequiredStaffByShift(payload);
+
+  allowedCodes.forEach((code) => {
+    if (!(code in baseMap)) {
+      baseMap[code] = 0;
+    }
+  });
+
+  const normalized: Record<string, number> = {};
+  Object.entries(baseMap).forEach(([code, value]) => {
+    const normalizedCode = code.toUpperCase();
+    if (!allowedCodes.has(normalizedCode)) {
+      return;
+    }
+    normalized[normalizedCode] = Math.max(0, Math.floor(value ?? 0));
+  });
+
+  return {
+    requiredStaffByShift: normalized,
+    requiredStaffDay: normalized.D ?? 0,
+    requiredStaffEvening: normalized.E ?? 0,
+    requiredStaffNight: normalized.N ?? 0,
+  };
+};
 
 // GET: Department Pattern 조회
 export async function GET(request: NextRequest) {
@@ -52,6 +102,7 @@ export async function GET(request: NextRequest) {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (departmentId === 'no-department' || !uuidRegex.test(departmentId)) {
       console.log('[GET] Invalid or no-department ID, returning default pattern');
+      const fallbackRequiredStaff = deriveRequiredStaffByShift();
       return NextResponse.json({
         pattern: null,
         defaultPattern: {
@@ -59,6 +110,7 @@ export async function GET(request: NextRequest) {
           requiredStaffDay: 5,
           requiredStaffEvening: 4,
           requiredStaffNight: 3,
+          requiredStaffByShift: fallbackRequiredStaff,
           defaultPatterns: [['D', 'D', 'D', 'OFF', 'OFF']],
           totalMembers: 15,
         }
@@ -120,14 +172,20 @@ export async function GET(request: NextRequest) {
           requiredStaffDay: 5,
           requiredStaffEvening: 4,
           requiredStaffNight: 3,
+          requiredStaffByShift: deriveRequiredStaffByShift(),
           defaultPatterns: [['D', 'D', 'D', 'OFF', 'OFF']],
           totalMembers: 15,
         }
       });
     }
 
+    const sanitized = sanitizeRequiredStaff(patterns[0], shiftTypes);
+
     return NextResponse.json({
-      pattern: patterns[0],
+      pattern: {
+        ...patterns[0],
+        ...sanitized,
+      },
       shiftTypes // shift_types 추가
     });
   } catch (error) {
@@ -232,8 +290,10 @@ export async function POST(request: NextRequest) {
 
     console.log('[POST] Valid shift codes:', validShiftCodes);
 
+    const requiredStaff = sanitizeRequiredStaff(data, shiftTypes);
+
     // 비즈니스 로직 검증 (실제 shift_types 기준으로 검증)
-    const validation = validateTeamPattern(data, validShiftCodes);
+    const validation = validateTeamPattern({ ...data, ...requiredStaff }, validShiftCodes);
     if (!validation.isValid) {
       return NextResponse.json(
         { error: '검증 실패', details: validation.errors },
@@ -275,6 +335,7 @@ export async function POST(request: NextRequest) {
       .insert(departmentPatterns)
       .values({
         ...data,
+        ...requiredStaff,
         tenantId,
         isActive: 'true',
       })
@@ -364,14 +425,6 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // 업데이트할 데이터 병합
-    const updatedData = {
-      ...pattern,
-      ...data,
-      // null을 undefined로 변환
-      avoidPatterns: (data.avoidPatterns ?? pattern.avoidPatterns) || undefined,
-    };
-
     // shift_types 가져오기 (department별로 자동 생성)
     const shiftTypes = await getShiftTypes(pattern.tenantId, pattern.departmentId);
     const validShiftCodes = shiftTypes.map((st) => st.code);
@@ -380,6 +433,24 @@ export async function PUT(request: NextRequest) {
     if (validShiftCodes.includes('O') && !validShiftCodes.includes('OFF')) {
       validShiftCodes.push('OFF');
     }
+
+    const mergedStaffInput = {
+      requiredStaffByShift: data.requiredStaffByShift ?? pattern.requiredStaffByShift,
+      requiredStaffDay: data.requiredStaffDay ?? pattern.requiredStaffDay,
+      requiredStaffEvening: data.requiredStaffEvening ?? pattern.requiredStaffEvening,
+      requiredStaffNight: data.requiredStaffNight ?? pattern.requiredStaffNight,
+    };
+
+    const requiredStaff = sanitizeRequiredStaff(mergedStaffInput, shiftTypes);
+
+    // 업데이트할 데이터 병합
+    const updatedData = {
+      ...pattern,
+      ...data,
+      ...requiredStaff,
+      // null을 undefined로 변환
+      avoidPatterns: (data.avoidPatterns ?? pattern.avoidPatterns) || undefined,
+    };
 
     // 비즈니스 로직 검증 (실제 shift_types 기준으로 검증)
     const validation = validateTeamPattern(updatedData, validShiftCodes);
@@ -395,6 +466,7 @@ export async function PUT(request: NextRequest) {
       .update(departmentPatterns)
       .set({
         ...data,
+        ...requiredStaff,
         updatedAt: new Date(),
       })
       .where(

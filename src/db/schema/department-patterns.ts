@@ -11,6 +11,10 @@ export const departmentPatterns = pgTable('department_patterns', {
   requiredStaffDay: integer('required_staff_day').notNull().default(5),
   requiredStaffEvening: integer('required_staff_evening').notNull().default(4),
   requiredStaffNight: integer('required_staff_night').notNull().default(3),
+  requiredStaffByShift: jsonb('required_staff_by_shift')
+    .$type<Record<string, number>>()
+    .notNull()
+    .default({ D: 5, E: 4, N: 3 }),
 
   // 기본 근무 패턴 (JSON 배열로 저장)
   defaultPatterns: jsonb('default_patterns').$type<string[][]>().notNull().default([

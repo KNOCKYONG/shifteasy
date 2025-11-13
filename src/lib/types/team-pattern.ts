@@ -4,6 +4,7 @@ export interface TeamPattern {
   requiredStaffDay: number;
   requiredStaffEvening: number;
   requiredStaffNight: number;
+  requiredStaffByShift: Record<string, number>;
   defaultPatterns: string[][];
   avoidPatterns?: string[][]; // 기피 근무 패턴 (연속 시프트 조합)
   totalMembers: number;
@@ -17,6 +18,7 @@ export interface CreateTeamPatternRequest {
   requiredStaffDay: number;
   requiredStaffEvening: number;
   requiredStaffNight: number;
+  requiredStaffByShift?: Record<string, number>;
   defaultPatterns: string[][];
   avoidPatterns?: string[][]; // 기피 근무 패턴 (선택사항)
   totalMembers: number;
@@ -26,6 +28,7 @@ export interface UpdateTeamPatternRequest {
   requiredStaffDay?: number;
   requiredStaffEvening?: number;
   requiredStaffNight?: number;
+  requiredStaffByShift?: Record<string, number>;
   defaultPatterns?: string[][];
   avoidPatterns?: string[][]; // 기피 근무 패턴 (선택사항)
   totalMembers?: number;
@@ -36,6 +39,8 @@ export interface TeamPatternValidation {
   isValid: boolean;
   errors: string[];
 }
+
+export type RequiredStaffByShift = Record<string, number>;
 
 // 시프트 타입 정의
 export const SHIFT_TYPES = {
@@ -48,6 +53,14 @@ export const SHIFT_TYPES = {
 
 export type ShiftType = typeof SHIFT_TYPES[keyof typeof SHIFT_TYPES];
 
+export const DEFAULT_REQUIRED_STAFF_BY_SHIFT: RequiredStaffByShift = {
+  D: 5,
+  E: 4,
+  N: 3,
+};
+
+export const EXCLUDED_REQUIRED_SHIFT_CODES = new Set(['A', 'O', 'V']);
+
 // 기본 패턴 예시
 export const DEFAULT_PATTERNS = [
   ['D', 'D', 'D', 'OFF', 'OFF'],        // 3일 주간, 2일 휴무
@@ -56,35 +69,86 @@ export const DEFAULT_PATTERNS = [
   ['D', 'D', 'D', 'D', 'OFF', 'OFF', 'OFF'], // 4일 근무, 3일 휴무
 ];
 
+export function deriveRequiredStaffByShift(
+  pattern?: Partial<TeamPattern> | null,
+  fallback: RequiredStaffByShift = DEFAULT_REQUIRED_STAFF_BY_SHIFT
+): RequiredStaffByShift {
+  const base: RequiredStaffByShift = { ...fallback };
+
+  if (!pattern) {
+    return base;
+  }
+
+  if (pattern.requiredStaffByShift && Object.keys(pattern.requiredStaffByShift).length > 0) {
+    Object.entries(pattern.requiredStaffByShift).forEach(([code, value]) => {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        base[code.toUpperCase()] = Math.max(0, Math.floor(value));
+      }
+    });
+    return base;
+  }
+
+  if (typeof pattern.requiredStaffDay === 'number') {
+    base.D = Math.max(0, Math.floor(pattern.requiredStaffDay));
+  }
+  if (typeof pattern.requiredStaffEvening === 'number') {
+    base.E = Math.max(0, Math.floor(pattern.requiredStaffEvening));
+  }
+  if (typeof pattern.requiredStaffNight === 'number') {
+    base.N = Math.max(0, Math.floor(pattern.requiredStaffNight));
+  }
+
+  return base;
+}
+
 // 검증 함수 (shift_types를 외부에서 받아서 검증)
 export function validateTeamPattern(
   pattern: Partial<TeamPattern>,
   validShiftCodes?: string[]
 ): TeamPatternValidation {
   const errors: string[] = [];
+  const allowedShiftCodes = validShiftCodes?.map((code) => code.toUpperCase()) || Object.values(SHIFT_TYPES);
+  const allowedShiftCodeSet = new Set(allowedShiftCodes);
 
-  // 유효한 시프트 코드 목록 (기본값은 하드코딩된 값 사용)
-  const allowedShiftCodes = validShiftCodes || Object.values(SHIFT_TYPES);
+  const requiredStaffMap = deriveRequiredStaffByShift(pattern);
+  const filteredEntries = Object.entries(requiredStaffMap).filter(([code]) => {
+    const normalized = code.toUpperCase();
+    if (EXCLUDED_REQUIRED_SHIFT_CODES.has(normalized)) {
+      return false;
+    }
+    return allowedShiftCodeSet.has(normalized);
+  });
+
+  if (filteredEntries.length === 0) {
+    errors.push('시프트별 필요 인원을 최소 1개 이상 설정해야 합니다.');
+  }
 
   // 필요 인원 합계 검증
-  const totalRequired = (pattern.requiredStaffDay || 0) +
-                       (pattern.requiredStaffEvening || 0) +
-                       (pattern.requiredStaffNight || 0);
+  const totalRequired = filteredEntries.reduce((sum, [, value]) => sum + (value || 0), 0);
 
-  if (pattern.totalMembers && totalRequired > pattern.totalMembers) {
+  if (pattern.totalMembers && totalRequired > (pattern.totalMembers || 0)) {
     errors.push(`필요 인원 합계(${totalRequired}명)가 전체 팀 인원(${pattern.totalMembers}명)을 초과합니다.`);
   }
 
   // 각 시프트 최소 인원 검증
-  if (pattern.requiredStaffDay !== undefined && pattern.requiredStaffDay < 1) {
-    errors.push('주간 근무 인원은 최소 1명 이상이어야 합니다.');
-  }
-  if (pattern.requiredStaffEvening !== undefined && pattern.requiredStaffEvening < 1) {
-    errors.push('저녁 근무 인원은 최소 1명 이상이어야 합니다.');
-  }
-  if (pattern.requiredStaffNight !== undefined && pattern.requiredStaffNight < 1) {
-    errors.push('야간 근무 인원은 최소 1명 이상이어야 합니다.');
-  }
+  filteredEntries.forEach(([code, value]) => {
+    if (value < 0) {
+      errors.push(`${code} 시프트 필요 인원은 0명 이상이어야 합니다.`);
+    }
+  });
+
+  // D/E/N가 빠진 경우 기본값 안내
+  // 허용되지 않은 시프트 코드 검증
+  Object.keys(requiredStaffMap).forEach((code) => {
+    const normalized = code.toUpperCase();
+    if (EXCLUDED_REQUIRED_SHIFT_CODES.has(normalized)) {
+      errors.push(`${normalized} 시프트는 필요 인원 설정 대상이 아닙니다.`);
+      return;
+    }
+    if (!allowedShiftCodeSet.has(normalized)) {
+      errors.push(`${normalized} 시프트는 현재 근무 타입 목록에 없습니다.`);
+    }
+  });
 
   // 기본 패턴 검증
   if (pattern.defaultPatterns && pattern.defaultPatterns.length === 0) {

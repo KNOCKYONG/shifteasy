@@ -21,6 +21,7 @@
 - `workPatternType === 'weekday-only'`(행정 근무자)는 평일·비공휴일에는 행정 시프트(`A`)로 자동 배정하고, 주말·공휴일에는 강제 OFF로 처리해 3교대 요구 인원에서 제외한다.
 - 일반 3교대 인원의 OFF가 월별 보장 한도를 초과하거나 해당 날짜까지의 목표 OFF 일수를 이미 채웠다면, D/E/N 중 **필요 대비 배정 비율**이 가장 낮은 시프트를 골라 “지원 근무”로 투입한다.  
   - 시프트별 필요 인원은 `requiredStaffPerShift`(없으면 시프트 템플릿의 `requiredStaff`)를 사용한다.  
+  - `requiredStaffPerShift`는 `department_patterns.required_staff_by_shift` JSON 맵을 그대로 전달받는다. 부서 패턴 UI는 D/E/N 기본값에 더해 새로 등록된 근무 타입(근무 타입 설정 탭, SSE 실시간 반영)까지 모두 이 맵에 기록하며, 행정/휴무/휴가 코드(`A`,`O`,`V`)는 자동으로 제외된다.
   - 같은 날 동일 시프트 안에서 가능한 한 서로 다른 `teamId`가 최소 1명 이상 포함되도록 팀 커버리지 가중치를 부여해 편향을 줄인다.
 - `workPatternType === 'night-intensive'` 직원은 가능한 한 야간(`N`) 시프트에만 배정되며, 지원 근무가 필요할 때도 야간 슬롯이 없으면 OFF로 유지한다.
 - 스케줄 설정 > 고급 설정의 “나이트 집중 근무 유급 휴가” 값(`nightIntensivePaidLeaveDays`)은 해당 직원의 월간 휴무 한도(`maxOffDays`)를 늘리는 용도로만 사용하며, 연속 OFF 블록을 강제하지 않는다. 즉, 보상 휴무 수만큼 추가 휴무를 배정할 수 있지만 배치 순서는 일반 OFF 로직과 동일하게 결정된다.

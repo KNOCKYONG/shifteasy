@@ -2113,11 +2113,23 @@ function SchedulePageContent() {
         };
       }
 
-      const requiredStaffPerShift = teamPattern ? {
-        D: (teamPattern.requiredStaffDay as number) || 5,
-        E: (teamPattern.requiredStaffEvening as number) || 4,
-        N: (teamPattern.requiredStaffNight as number) || 3,
-      } as Record<string, number> : undefined;
+      const requiredStaffPerShift = teamPattern
+        ? (() => {
+            const baseMap: Record<string, number> = teamPattern.requiredStaffByShift
+              ? { ...teamPattern.requiredStaffByShift }
+              : {
+                  D: (teamPattern.requiredStaffDay as number) || 5,
+                  E: (teamPattern.requiredStaffEvening as number) || 4,
+                  N: (teamPattern.requiredStaffNight as number) || 3,
+                };
+            ['D', 'E', 'N'].forEach((code, index) => {
+              if (typeof baseMap[code] !== 'number') {
+                baseMap[code] = [5, 4, 3][index];
+              }
+            });
+            return baseMap;
+          })()
+        : undefined;
 
       const configShiftOverrides = new Map<string, ShiftType>();
       if (shiftTypesConfig?.configValue && Array.isArray(shiftTypesConfig.configValue)) {

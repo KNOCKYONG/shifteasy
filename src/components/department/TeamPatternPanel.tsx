@@ -16,7 +16,10 @@ import {
 } from 'lucide-react';
 import { LottieLoadingOverlay } from '@/components/common/LottieLoadingOverlay';
 import {
+  DEFAULT_REQUIRED_STAFF_BY_SHIFT,
+  EXCLUDED_REQUIRED_SHIFT_CODES,
   TeamPattern,
+  deriveRequiredStaffByShift,
   validateTeamPattern,
 } from '@/lib/types/team-pattern';
 import {
@@ -60,7 +63,9 @@ export function TeamPatternPanel({
   const [pattern, setPattern] = useState<Partial<TeamPattern>>({
     departmentId,
     totalMembers: totalMembers ?? 0,
+    requiredStaffByShift: { ...DEFAULT_REQUIRED_STAFF_BY_SHIFT },
   });
+  const [currentShiftTypes, setCurrentShiftTypes] = useState<ShiftType[]>(shiftTypes);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -76,6 +81,104 @@ export function TeamPatternPanel({
   const [avoidPatternInput, setAvoidPatternInput] = useState('');
   const [avoidPatternValidation, setAvoidPatternValidation] = useState<ReturnType<typeof validatePattern> | null>(null);
   const [showAvoidPatternHelp, setShowAvoidPatternHelp] = useState(false);
+
+  useEffect(() => {
+    setCurrentShiftTypes(shiftTypes);
+  }, [shiftTypes]);
+
+  useEffect(() => {
+    setPattern(prev => ({
+      ...prev,
+      totalMembers,
+    }));
+  }, [totalMembers]);
+
+  useEffect(() => {
+    const handleShiftTypeUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent<{
+        data?: {
+          departmentId?: string;
+          shiftTypes?: ShiftType[];
+        };
+      }>;
+
+      const payload = customEvent.detail?.data;
+      if (!payload || !Array.isArray(payload.shiftTypes)) {
+        return;
+      }
+
+      if (payload.departmentId && payload.departmentId !== departmentId) {
+        return;
+      }
+
+      setCurrentShiftTypes(payload.shiftTypes as ShiftType[]);
+    };
+
+    window.addEventListener('sse:config.shift_types_updated', handleShiftTypeUpdate as EventListener);
+    return () => {
+      window.removeEventListener('sse:config.shift_types_updated', handleShiftTypeUpdate as EventListener);
+    };
+  }, [departmentId]);
+
+  const visibleShiftTypes = React.useMemo(
+    () => currentShiftTypes.filter((st) => !EXCLUDED_REQUIRED_SHIFT_CODES.has(st.code.toUpperCase())),
+    [currentShiftTypes]
+  );
+
+  const visibleShiftCodes = React.useMemo(
+    () => visibleShiftTypes.map((st) => st.code.toUpperCase()),
+    [visibleShiftTypes]
+  );
+
+  const visibleShiftCodesKey = React.useMemo(
+    () => visibleShiftCodes.join('|'),
+    [visibleShiftCodes]
+  );
+
+  const validationShiftCodes = React.useMemo(() => {
+    const codes = currentShiftTypes.map((st) => st.code.toUpperCase());
+    if (codes.includes('O') && !codes.includes('OFF')) {
+      codes.push('OFF');
+    }
+    return codes;
+  }, [currentShiftTypes]);
+
+  const currentRequiredStaffMap = React.useMemo(
+    () => ({
+      ...deriveRequiredStaffByShift(pattern),
+    }),
+    [pattern]
+  );
+
+  useEffect(() => {
+    setPattern((prev) => {
+      const existingMap = { ...(prev.requiredStaffByShift ?? deriveRequiredStaffByShift(prev)) };
+      let hasChanged = false;
+
+      visibleShiftCodes.forEach((code) => {
+        if (typeof existingMap[code] !== 'number') {
+          existingMap[code] = 0;
+          hasChanged = true;
+        }
+      });
+
+      Object.keys(existingMap).forEach((code) => {
+        if (!visibleShiftCodes.includes(code)) {
+          delete existingMap[code];
+          hasChanged = true;
+        }
+      });
+
+      if (!hasChanged) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        requiredStaffByShift: existingMap,
+      };
+    });
+  }, [visibleShiftCodesKey, visibleShiftCodes]);
 
   const fetchTeamPattern = React.useCallback(
     async (options: { silent?: boolean; force?: boolean } = {}) => {
@@ -100,8 +203,12 @@ export function TeamPatternPanel({
         }
 
         if (nextPattern) {
-          setPattern(nextPattern);
-          teamPatternCache.set(departmentId, { pattern: nextPattern, timestamp: Date.now() });
+          const enrichedPattern = {
+            ...nextPattern,
+            requiredStaffByShift: deriveRequiredStaffByShift(nextPattern),
+          };
+          setPattern(enrichedPattern);
+          teamPatternCache.set(departmentId, { pattern: enrichedPattern, timestamp: Date.now() });
         } else if (force) {
           teamPatternCache.delete(departmentId);
         }
@@ -127,6 +234,7 @@ export function TeamPatternPanel({
     if (cachedEntry && cachedEntry.pattern) {
       setPattern(prev => ({
         ...cachedEntry.pattern,
+        requiredStaffByShift: deriveRequiredStaffByShift(cachedEntry.pattern),
         totalMembers: cachedEntry.pattern.totalMembers ?? prev?.totalMembers ?? totalMembers ?? 0,
       }));
       setLoading(false);
@@ -138,20 +246,31 @@ export function TeamPatternPanel({
   }, [departmentId, totalMembers, fetchTeamPattern]);
 
   // 시프트별 필요 인원 변경
-  const handleRequiredStaffChange = (shift: 'Day' | 'Evening' | 'Night', inputValue: string) => {
-    // leading zero 제거 및 숫자 변환
-    const value = inputValue === '' ? 0 : parseInt(inputValue, 10) || 0;
+  const handleRequiredStaffChange = (shiftCode: string, inputValue: string) => {
+    const normalizedCode = shiftCode.toUpperCase();
+    const sanitizedValue = inputValue === '' ? 0 : Math.max(0, parseInt(inputValue, 10) || 0);
 
-    const newPattern = {
-      ...pattern,
-      [`requiredStaff${shift}`]: value,
-    };
+    setPattern(prev => {
+      const nextMap = { ...(prev.requiredStaffByShift ?? deriveRequiredStaffByShift(prev)) };
+      nextMap[normalizedCode] = sanitizedValue;
 
-    setPattern(newPattern);
+      const nextPattern = {
+        ...prev,
+        requiredStaffByShift: nextMap,
+      };
 
-    // 실시간 검증
-    const validation = validateTeamPattern({ ...newPattern, totalMembers });
-    setErrors(validation.errors);
+      const validation = validateTeamPattern({ ...nextPattern, totalMembers }, validationShiftCodes);
+      setErrors(validation.errors);
+
+      return nextPattern;
+    });
+  };
+
+  const adjustRequiredStaff = (shiftCode: string, delta: number) => {
+    const normalizedCode = shiftCode.toUpperCase();
+    const currentValue = currentRequiredStaffMap[normalizedCode] ?? 0;
+    const nextValue = Math.max(0, Math.min(totalMembers, currentValue + delta));
+    handleRequiredStaffChange(normalizedCode, String(nextValue));
   };
 
   // 패턴 추가
@@ -215,10 +334,10 @@ export function TeamPatternPanel({
 
   // shiftTypes 기반으로 커스텀 키워드 맵 생성
   const customKeywords = React.useMemo(() => {
-    if (!shiftTypes || shiftTypes.length === 0) return undefined;
+    if (!currentShiftTypes || currentShiftTypes.length === 0) return undefined;
 
     const keywords: Record<string, string> = {};
-    shiftTypes.forEach(st => {
+    currentShiftTypes.forEach(st => {
       // code를 키워드로 등록
       keywords[st.code.toUpperCase()] = st.code;
 
@@ -228,7 +347,7 @@ export function TeamPatternPanel({
 
     console.log('[TeamPatternPanel] Generated custom keywords:', keywords);
     return keywords;
-  }, [shiftTypes]);
+  }, [currentShiftTypes]);
 
   // Tailwind 색상 이름을 hex 코드로 변환
   const colorMap: Record<string, string> = {
@@ -244,7 +363,7 @@ export function TeamPatternPanel({
 
   // shiftTypes 기반으로 색상 스타일 가져오기
   const getShiftColorStyle = React.useCallback((shiftCode: string) => {
-    const shiftType = shiftTypes.find(st => st.code === shiftCode);
+    const shiftType = currentShiftTypes.find(st => st.code === shiftCode);
 
     if (!shiftType) {
       console.log(`[getShiftColorStyle] Shift type not found for code: ${shiftCode}`);
@@ -268,7 +387,7 @@ export function TeamPatternPanel({
       color: hexColor,
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shiftTypes]);
+  }, [currentShiftTypes]);
 
   // 패턴 텍스트 입력 핸들러
   const handlePatternInputChange = (value: string) => {
@@ -375,12 +494,7 @@ export function TeamPatternPanel({
   // 저장
   const handleSave = async () => {
     // shift_types 기반으로 유효한 코드 목록 생성
-    const validShiftCodes = shiftTypes.map((st) => st.code);
-
-    // 'O' 코드가 있으면 'OFF' 별칭도 허용
-    if (validShiftCodes.includes('O') && !validShiftCodes.includes('OFF')) {
-      validShiftCodes.push('OFF');
-    }
+    const validShiftCodes = [...validationShiftCodes];
 
     console.log('[handleSave] Validating with shift codes:', validShiftCodes);
 
@@ -402,12 +516,17 @@ export function TeamPatternPanel({
         ? `/api/department-patterns?id=${pattern.id}`
         : '/api/department-patterns';
 
+      const requiredStaffPayload = Object.fromEntries(
+        Object.entries(currentRequiredStaffMap).map(([code, value]) => [code.toUpperCase(), value])
+      );
+
       const body = pattern.id
         ? {
             // PUT: 수정 가능한 필드만
-            requiredStaffDay: pattern.requiredStaffDay,
-            requiredStaffEvening: pattern.requiredStaffEvening,
-            requiredStaffNight: pattern.requiredStaffNight,
+            requiredStaffByShift: requiredStaffPayload,
+            requiredStaffDay: requiredStaffPayload.D ?? pattern.requiredStaffDay,
+            requiredStaffEvening: requiredStaffPayload.E ?? pattern.requiredStaffEvening,
+            requiredStaffNight: requiredStaffPayload.N ?? pattern.requiredStaffNight,
             defaultPatterns: pattern.defaultPatterns,
             avoidPatterns: pattern.avoidPatterns || [], // 기피 패턴 포함
             totalMembers: pattern.totalMembers,
@@ -415,9 +534,10 @@ export function TeamPatternPanel({
         : {
             // POST: 생성에 필요한 필드만
             departmentId,
-            requiredStaffDay: pattern.requiredStaffDay || 5,
-            requiredStaffEvening: pattern.requiredStaffEvening || 4,
-            requiredStaffNight: pattern.requiredStaffNight || 3,
+            requiredStaffByShift: requiredStaffPayload,
+            requiredStaffDay: requiredStaffPayload.D ?? 5,
+            requiredStaffEvening: requiredStaffPayload.E ?? 4,
+            requiredStaffNight: requiredStaffPayload.N ?? 3,
             defaultPatterns: pattern.defaultPatterns || [['D', 'D', 'D', 'O', 'O']],
             avoidPatterns: pattern.avoidPatterns || [], // 기피 패턴 포함
             totalMembers,
@@ -430,9 +550,7 @@ export function TeamPatternPanel({
       console.log(`   - Department Name: ${departmentName || '(이름 없음)'}`);
       console.log('\n📝 저장 모드:', pattern.id ? `UPDATE (ID: ${pattern.id})` : 'CREATE (신규)');
       console.log('\n📊 저장할 데이터:');
-      console.log('   - 주간(D) 필요 인원:', body.requiredStaffDay || pattern.requiredStaffDay, '명');
-      console.log('   - 저녁(E) 필요 인원:', body.requiredStaffEvening || pattern.requiredStaffEvening, '명');
-      console.log('   - 야간(N) 필요 인원:', body.requiredStaffNight || pattern.requiredStaffNight, '명');
+      console.table(requiredStaffPayload);
       console.log('   - 전체 인원:', body.totalMembers || totalMembers, '명');
       console.log('   - 기본 패턴 개수:', (body.defaultPatterns || pattern.defaultPatterns)?.length || 0, '개');
       console.log('   - 기피 패턴 개수:', (body.avoidPatterns || pattern.avoidPatterns || []).length, '개');
@@ -464,8 +582,13 @@ export function TeamPatternPanel({
       console.log('✅ 저장된 Pattern ID:', result.pattern?.id);
       console.log('✅ ================================================\n');
 
-      setPattern(result.pattern);
-      teamPatternCache.set(departmentId, result.pattern);
+      const normalizedPattern = {
+        ...result.pattern,
+        requiredStaffByShift: deriveRequiredStaffByShift(result.pattern),
+      };
+
+      setPattern(normalizedPattern);
+      teamPatternCache.set(departmentId, normalizedPattern);
       setSuccessMessage('부서 패턴이 성공적으로 저장되었습니다.');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
@@ -488,9 +611,9 @@ export function TeamPatternPanel({
   };
 
   // 필요 인원 합계 계산
-  const totalRequired = (pattern.requiredStaffDay || 0) +
-                       (pattern.requiredStaffEvening || 0) +
-                       (pattern.requiredStaffNight || 0);
+  const totalRequired = visibleShiftCodes.reduce((sum, code) => {
+    return sum + (currentRequiredStaffMap[code] || 0);
+  }, 0);
 
   const remainingStaff = totalMembers - totalRequired;
 
@@ -521,70 +644,79 @@ export function TeamPatternPanel({
           <Calendar className="w-4 h-4" />
           시프트별 필요 인원
         </h3>
-        <div className="grid grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">
-              주간(D)
-            </label>
-            <input
-              type="number"
-              min="1"
-              max={totalMembers}
-              value={Number(pattern.requiredStaffDay || 0)}
-              onChange={(e) => handleRequiredStaffChange('Day', e.target.value)}
-              onInput={(e) => {
-                const input = e.target as HTMLInputElement;
-                const value = input.value.replace(/^0+(?=\d)/, '');
-                if (input.value !== value) {
-                  input.value = value;
-                }
-              }}
-              disabled={!canEdit}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">
-              저녁(E)
-            </label>
-            <input
-              type="number"
-              min="1"
-              max={totalMembers}
-              value={Number(pattern.requiredStaffEvening || 0)}
-              onChange={(e) => handleRequiredStaffChange('Evening', e.target.value)}
-              onInput={(e) => {
-                const input = e.target as HTMLInputElement;
-                const value = input.value.replace(/^0+(?=\d)/, '');
-                if (input.value !== value) {
-                  input.value = value;
-                }
-              }}
-              disabled={!canEdit}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">
-              야간(N)
-            </label>
-            <input
-              type="number"
-              min="1"
-              max={totalMembers}
-              value={Number(pattern.requiredStaffNight || 0)}
-              onChange={(e) => handleRequiredStaffChange('Night', e.target.value)}
-              onInput={(e) => {
-                const input = e.target as HTMLInputElement;
-                const value = input.value.replace(/^0+(?=\d)/, '');
-                if (input.value !== value) {
-                  input.value = value;
-                }
-              }}
-              disabled={!canEdit}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
-            />
-          </div>
+        <div className="space-y-3">
+          {visibleShiftTypes.length === 0 && (
+            <div className="p-4 text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-md">
+              필요 인원 설정 대상 근무 타입이 없습니다. 근무 타입 목록에서 근무 코드를 추가해주세요.
+            </div>
+          )}
+          {visibleShiftTypes.map((shift) => {
+            const code = shift.code.toUpperCase();
+            const value = currentRequiredStaffMap[code] ?? 0;
+            const percentage = totalMembers > 0 ? Math.round((value / totalMembers) * 100) : 0;
+
+            return (
+              <div
+                key={shift.code}
+                className="border border-gray-200 rounded-lg p-3 sm:p-4 bg-white shadow-sm"
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: colorMap[shift.color] || '#94a3b8' }}
+                    />
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {shift.name} <span className="text-xs text-gray-500">({code})</span>
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {shift.startTime} - {shift.endTime}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => adjustRequiredStaff(code, -1)}
+                      disabled={!canEdit || value <= 0}
+                      className="w-8 h-8 rounded-md border border-gray-200 text-gray-600 disabled:text-gray-400 disabled:border-gray-100"
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      min={0}
+                      max={totalMembers}
+                      value={Number(value)}
+                      onChange={(e) => handleRequiredStaffChange(code, e.target.value)}
+                      onInput={(e) => {
+                        const input = e.target as HTMLInputElement;
+                        const sanitized = input.value.replace(/^0+(?=\d)/, '');
+                        if (input.value !== sanitized) {
+                          input.value = sanitized;
+                        }
+                      }}
+                      disabled={!canEdit}
+                      className="w-20 px-3 py-2 border border-gray-300 rounded-md text-center focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => adjustRequiredStaff(code, 1)}
+                      disabled={!canEdit}
+                      className="w-8 h-8 rounded-md border border-gray-200 text-gray-600 disabled:text-gray-400 disabled:border-gray-100"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                  <span>전체 대비 {percentage}%</span>
+                  <span className="font-medium text-gray-700">{value}명</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {/* 인원 배정 상태 */}
@@ -771,7 +903,7 @@ export function TeamPatternPanel({
                       }`}
                       style={isStyleObject ? colorStyle as React.CSSProperties : undefined}
                     >
-                      {shiftTypes.map((st) => (
+                      {currentShiftTypes.map((st) => (
                         <option key={st.id} value={st.code}>
                           {st.code}
                         </option>
@@ -1033,7 +1165,7 @@ export function TeamPatternPanel({
                         }`}
                         style={isStyleObject ? avoidColorStyle as React.CSSProperties : undefined}
                       >
-                        {shiftTypes.map((st) => (
+                        {currentShiftTypes.map((st) => (
                           <option key={st.id} value={st.code}>
                             {st.code}
                           </option>
