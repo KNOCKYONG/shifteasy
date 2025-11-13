@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
   try {
     const { password } = await request.json();
 
-    const masterPassword = process.env.MASTER_ADMIN_PASSWORD;
+    const masterPassword = process.env.MASTER_ADMIN_PASSWORD?.trim();
 
     if (!masterPassword) {
       console.error('MASTER_ADMIN_PASSWORD not configured');
@@ -16,17 +16,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Constant-time comparison to prevent timing attacks
-    const isValid = password === masterPassword;
+    // Debug log (remove after testing)
+    console.log('[DEBUG] Password lengths:', {
+      input: password?.length,
+      stored: masterPassword?.length,
+      inputFirst10: password?.substring(0, 10),
+      storedFirst10: masterPassword?.substring(0, 10),
+    });
+
+    // Trim input password and compare
+    const trimmedPassword = password?.trim();
+    const isValid = trimmedPassword === masterPassword;
 
     if (isValid) {
-      // Log successful access (you can extend this to store in DB)
       console.log(`[MASTER ADMIN] Successful login at ${new Date().toISOString()} from ${request.headers.get('x-forwarded-for') || request.ip || 'unknown'}`);
-
       return NextResponse.json({ authenticated: true });
     }
 
-    // Log failed attempt
     console.warn(`[MASTER ADMIN] Failed login attempt at ${new Date().toISOString()} from ${request.headers.get('x-forwarded-for') || request.ip || 'unknown'}`);
 
     return NextResponse.json(
