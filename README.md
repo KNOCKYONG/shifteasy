@@ -70,6 +70,11 @@ DATABASE_URL=postgresql://[YOUR_USERNAME]@localhost:5432/shifteasy
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_YWJsZS1tdXN0YW5nLTE1LmNsZXJrLmFjY291bnRzLmRldiQ
 CLERK_SECRET_KEY=sk_test_oa1ZdbWfuYftfCwmEjjP686ruOymIKIUwLhmCeVUpN
 
+# Toss Payments (선택)
+TOSS_SECRET_KEY=live_sk_xxx
+TOSS_CLIENT_KEY=live_ck_xxx
+TOSS_WEBHOOK_SECRET=whsec_xxx
+
 # 기타 설정
 NODE_ENV=development
 NEXT_PUBLIC_APP_URL=http://localhost:3000
@@ -188,6 +193,14 @@ shifteasy/
 - **Authentication**: Clerk
 - **Styling**: Tailwind CSS
 - **State Management**: TanStack Query
+
+## 💳 결제 (Toss Payments)
+
+- `POST /api/payments/toss/order`: 테넌트 관리자가 결제 금액/플랜을 지정해 주문번호를 생성합니다. 응답에 담긴 `orderId`와 `customerKey`를 토스 결제 위젯에 그대로 전달하면 됩니다.
+- `POST /api/payments/toss/confirm`: 결제가 완료된 뒤 위젯에서 받은 `paymentKey`, `orderId`, `amount`를 전달해 승인합니다. 승인에 성공하면 `payments` 테이블이 `paid` 상태로 업데이트됩니다.
+- `POST /api/webhooks/toss`: 토스의 웹훅 알림을 수신하여 결제 상태(승인/취소/실패)를 동기화합니다. `TOSS_WEBHOOK_SECRET`을 이용해 HMAC 서명을 검증합니다.
+
+모든 결제 API는 `tenant:billing` 권한이 있는 사용자(보통 Owner)가 호출할 수 있도록 보호되어 있습니다. 실연동 시에는 토스 콘솔에서 발급받은 키와 웹훅 URL(`/api/webhooks/toss`)을 등록하고, `npm run db:push`로 생성된 `payments`/`subscriptions` 테이블을 사용해 결제 내역을 추적하세요. 자세한 연동 단계는 `docs/payments/toss-payments.md`에서 확인할 수 있습니다.
 
 ## 🐛 문제 해결
 
