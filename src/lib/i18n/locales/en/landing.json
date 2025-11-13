@@ -129,7 +129,7 @@
       "description": "Advanced features for growing teams",
       "popular": true,
       "features": [
-        "Up to 50 staff accounts (with secret code access)",
+        "Up to 50 staff accounts",
         "Enhanced AI auto-scheduling",
         "Team preference & avoidance patterns",
         "Per-employee preference & avoidance controls",
