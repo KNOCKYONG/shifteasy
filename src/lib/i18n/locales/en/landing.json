@@ -116,27 +116,29 @@
       "price": "Free",
       "description": "Essential features for small teams",
       "features": [
-        "Up to 10 users",
-        "Basic scheduling",
-        "Shift swap feature"
+        "Up to 30 team members",
+        "AI auto-scheduling",
+        "Team preference & avoidance patterns"
       ],
       "cta": "Start Free"
     },
     "professional": {
       "name": "Professional",
-      "price": "$29",
+      "price": "₩29,000",
       "priceUnit": "/month",
       "description": "Advanced features for growing teams",
       "popular": true,
       "features": [
-        "Up to 50 users",
-        "AI auto-scheduling",
-        "Auto rule validation",
-        "Real-time collaboration",
-        "Data analytics",
-        "Priority support"
+        "Up to 50 staff accounts (with secret code access)",
+        "Enhanced AI auto-scheduling",
+        "Team preference & avoidance patterns",
+        "Per-employee preference & avoidance controls",
+        "Per-shift preferred assignment requests",
+        "Employee-to-employee shift change workflow",
+        "Shift change notifications",
+        "Schedule data analytics"
       ],
-      "cta": "14-Day Free Trial"
+      "cta": "3-Month Free Trial"
     },
     "enterprise": {
       "name": "Enterprise",
