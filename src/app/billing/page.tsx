@@ -73,15 +73,13 @@ function BillingPageContent() {
     }
   }, [searchParams]);
 
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (isLoaded && !user) {
-      router.push('/sign-up?redirect=/billing');
-    }
-  }, [isLoaded, user, router]);
-
   const handleStartTrial = async () => {
-    if (!user) return;
+    // Redirect to sign-up if not authenticated
+    if (!user) {
+      const currentPlan = searchParams.get('plan') || selectedPlan;
+      router.push(`/sign-up?redirect=/billing?plan=${currentPlan}`);
+      return;
+    }
 
     setIsProcessing(true);
     try {
@@ -96,7 +94,14 @@ function BillingPageContent() {
   };
 
   const handlePayment = async () => {
-    if (!user || selectedPlan === 'starter') return;
+    // Redirect to sign-up if not authenticated
+    if (!user) {
+      const currentPlan = searchParams.get('plan') || selectedPlan;
+      router.push(`/sign-up?redirect=/billing?plan=${currentPlan}`);
+      return;
+    }
+
+    if (selectedPlan === 'starter') return;
 
     setIsProcessing(true);
     try {
