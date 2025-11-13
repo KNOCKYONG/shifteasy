@@ -135,15 +135,6 @@ export default function PricingSection() {
         </div>
 
         {/* Bottom note */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={inView ? { opacity: 1 } : {}}
-          transition={{ duration: 0.8, delay: 0.8 }}
-          className="mt-12 text-center text-gray-600"
-        >
-          <p>모든 플랜은 14일 무료 체험이 가능합니다 · 언제든지 취소 가능</p>
-        </motion.div>
-
         {/* Contact Modal */}
         <ContactModal
           isOpen={isContactModalOpen}
