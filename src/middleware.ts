@@ -5,6 +5,7 @@ const isPublicRoute = createRouteMatcher([
   '/',
   '/sign-in(.*)',
   '/sign-up(.*)',
+  '/billing(.*)', // Allow viewing billing page without login
   '/api/webhooks/(.*)',
   '/api/auth/validate-secret-code',
   '/api/auth/signup',
