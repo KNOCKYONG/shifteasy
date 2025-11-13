@@ -70,8 +70,16 @@ DATABASE_URL=postgresql://[YOUR_USERNAME]@localhost:5432/shifteasy
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_YWJsZS1tdXN0YW5nLTE1LmNsZXJrLmFjY291bnRzLmRldiQ
 CLERK_SECRET_KEY=sk_test_oa1ZdbWfuYftfCwmEjjP686ruOymIKIUwLhmCeVUpN
 
+# Stripe (선구축용 선택 사항)
+STRIPE_SECRET_KEY=sk_test_xxx
+STRIPE_WEBHOOK_SECRET=whsec_xxx
+STRIPE_PRICE_PRO_MONTHLY=price_xxx
+STRIPE_PRICE_PRO_YEARLY=price_xxx
+STRIPE_PRICE_ENTERPRISE=price_xxx
+
 # 기타 설정
 NODE_ENV=development
+APP_URL=http://localhost:3000
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
@@ -188,6 +196,16 @@ shifteasy/
 - **Authentication**: Clerk
 - **Styling**: Tailwind CSS
 - **State Management**: TanStack Query
+
+## 💳 Stripe 결제 스캐폴딩
+
+Stripe 연동은 아직 실제 서비스에 연결하지 않지만, 다음 API로 미리 구축되어 있습니다.
+
+- `POST /api/billing/checkout-session`: 테넌트 관리자(tenant:billing 권한)가 결제 세션을 생성합니다. `priceId`, `quantity`, `billingEmail`, `successUrl`, `cancelUrl`을 전달할 수 있으며, 환경 변수에 기본 가격이 없으면 400을 반환합니다.
+- `POST /api/billing/customer-portal`: Stripe Customer Portal 세션을 생성하여 카드/청구 정보를 self-service로 관리할 수 있습니다.
+- `POST /api/webhooks/stripe`: Stripe 웹훅 엔드포인트로, `checkout.session.completed`, `customer.subscription.*`, `invoice.payment_*` 이벤트를 수신해 테넌트의 결제 상태를 동기화합니다.
+
+> **주의:** `STRIPE_SECRET_KEY`와 `STRIPE_WEBHOOK_SECRET`이 설정되어 있지 않으면 각 API는 501(미구현) 상태를 반환하므로, 실 결제 연결 전까지 안전하게 비활성화된 상태를 유지합니다.
 
 ## 🐛 문제 해결
 

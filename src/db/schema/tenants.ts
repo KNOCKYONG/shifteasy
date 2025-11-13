@@ -3,6 +3,9 @@ import { pgTable, uuid, text, timestamp, jsonb, integer, index } from 'drizzle-o
 import { relations, sql } from 'drizzle-orm';
 import { teams } from './teams';
 
+export const BILLING_STATUSES = ['inactive', 'trialing', 'active', 'past_due', 'canceled'] as const;
+export type BillingStatus = typeof BILLING_STATUSES[number];
+
 // Tenants table - Multi-tenant structure
 export const tenants = pgTable('tenants', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -10,6 +13,25 @@ export const tenants = pgTable('tenants', {
   slug: text('slug').unique().notNull(),
   secretCode: text('secret_code').unique().notNull(),
   plan: text('plan').notNull().default('free'), // free, pro, enterprise
+  billingEmail: text('billing_email'),
+  billingStatus: text('billing_status').$type<BillingStatus>().notNull().default('inactive'),
+  stripeCustomerId: text('stripe_customer_id').unique(),
+  stripeSubscriptionId: text('stripe_subscription_id').unique(),
+  billingPeriodEnd: timestamp('billing_period_end', { withTimezone: true }),
+  trialEndsAt: timestamp('trial_ends_at', { withTimezone: true }),
+  billingMetadata: jsonb('billing_metadata').$type<{
+    lastEventId?: string;
+    lastError?: string;
+    planHistory?: Array<{
+      plan: string;
+      changedAt: string;
+      reason?: string;
+    }>;
+    seatQuantity?: number;
+    defaultPriceId?: string;
+  }>().default({
+    planHistory: [],
+  }),
   settings: jsonb('settings').$type<{
     timezone?: string;
     locale?: string;
@@ -33,6 +55,7 @@ export const tenants = pgTable('tenants', {
 }, (table) => ({
   slugIdx: index('tenants_slug_idx').on(table.slug),
   secretCodeIdx: index('tenants_secret_code_idx').on(table.secretCode),
+  billingStatusIdx: index('tenants_billing_status_idx').on(table.billingStatus),
 }));
 
 // Departments table
