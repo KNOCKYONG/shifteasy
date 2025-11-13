@@ -12,7 +12,7 @@ const CreateOrderSchema = z.object({
   currency: z.string().default('KRW').optional(),
   orderName: z.string().optional(),
   plan: z.string().optional(),
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
 });
 
 export async function POST(request: NextRequest) {
