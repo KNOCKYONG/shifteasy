@@ -5,6 +5,7 @@ import { db } from '@/db';
 import { schedules, offBalanceLedger } from '@/db/schema';
 import { notificationService } from '@/lib/notifications/notification-service';
 import { and, eq } from 'drizzle-orm';
+import type { OffAccrualSummary } from '@/lib/types/scheduler';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +29,7 @@ const ConfirmScheduleSchema = z.object({
   validationScore: z.number().optional(),
   approverNotes: z.string().optional(),
   notifyEmployees: z.boolean().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 // Mock database storage (in production, this would be Supabase)
@@ -39,6 +41,10 @@ type ConfirmedScheduleRecord = ScheduleRow & {
   metadata?: Record<string, unknown> | null;
   revokedAt?: string;
   revokedBy?: string;
+};
+type OffBalanceDebugEntry = {
+  message: string;
+  data?: Record<string, unknown>;
 };
 type NotificationResult = Awaited<ReturnType<typeof notificationService.sendToUser>>;
 
@@ -90,6 +96,16 @@ export async function POST(request: NextRequest) {
 
     const { scheduleId, schedule, scheduleName, validationScore, approverNotes, notifyEmployees } = validationResult.data;
 
+    const offAccrualsFromRequest: OffAccrualSummary[] = Array.isArray(body.metadata?.offAccruals)
+      ? (body.metadata.offAccruals as OffAccrualSummary[])
+      : [];
+    const guaranteedOffDaysMap = new Map<string, number>();
+    offAccrualsFromRequest.forEach((entry) => {
+      if (entry && typeof entry.employeeId === 'string' && typeof entry.guaranteedOffDays === 'number') {
+        guaranteedOffDaysMap.set(entry.employeeId, entry.guaranteedOffDays);
+      }
+    });
+
     // ✅ Manager department permission check using request body departmentId
     const requestDepartmentId = schedule.departmentId;
 
@@ -130,6 +146,7 @@ export async function POST(request: NextRequest) {
           approverNotes,
           validationScore,
           assignments: schedule.assignments, // Store assignments in metadata
+          offAccruals: offAccrualsFromRequest,
         },
       })
       .returning();
@@ -151,11 +168,13 @@ export async function POST(request: NextRequest) {
     };
     confirmedSchedules.set(`${tenantId}:${scheduleId}`, confirmedSchedule);
 
+    let offBalanceDebug: OffBalanceDebugEntry[] = [];
     try {
-      await updateOffBalanceAfterConfirmation({
+      offBalanceDebug = await updateOffBalanceAfterConfirmation({
         tenantId,
         scheduleRecord: confirmedSchedule,
         assignments: schedule.assignments,
+        guaranteedOffDaysMap,
       });
     } catch (error) {
       console.error('[Confirm] Failed to update off-balance ledger', error);
@@ -176,6 +195,7 @@ export async function POST(request: NextRequest) {
       success: true,
       confirmedSchedule,
       confirmationReport,
+      offBalanceDebug,
       notifications: {
         sent: notifyEmployees || false,
         employeeCount: new Set(schedule.assignments.map((assignment) => assignment.employeeId)).size,
@@ -457,18 +477,37 @@ async function updateOffBalanceAfterConfirmation({
   tenantId,
   scheduleRecord,
   assignments,
+  guaranteedOffDaysMap,
 }: {
   tenantId: string;
   scheduleRecord: ConfirmedScheduleRecord;
   assignments: ScheduleAssignmentPayload[];
-}) {
+  guaranteedOffDaysMap?: Map<string, number>;
+}): Promise<OffBalanceDebugEntry[]> {
+  const debugLogs: OffBalanceDebugEntry[] = [];
+  const DEFAULT_GUARANTEED_OFF_DAYS = 8;
+
   if (!assignments.length) {
-    return;
+    debugLogs.push({
+      message: 'Skipping update - no assignments in confirmation payload',
+      data: {
+        tenantId,
+        scheduleId: scheduleRecord.id,
+      },
+    });
+    return debugLogs;
   }
 
   const employeeIds = [...new Set(assignments.map(a => a.employeeId))];
   if (employeeIds.length === 0) {
-    return;
+    debugLogs.push({
+      message: 'Skipping update - no employees derived from assignments',
+      data: {
+        tenantId,
+        scheduleId: scheduleRecord.id,
+      },
+    });
+    return debugLogs;
   }
 
   const ledgerRecords: typeof offBalanceLedger.$inferInsert[] = [];
@@ -487,8 +526,20 @@ async function updateOffBalanceAfterConfirmation({
     deleteConditions.push(eq(offBalanceLedger.departmentId, scheduleRecord.departmentId));
   }
 
-  await db.delete(offBalanceLedger)
-    .where(and(...deleteConditions));
+  const deletedRows = await db.delete(offBalanceLedger)
+    .where(and(...deleteConditions))
+    .returning({ id: offBalanceLedger.id });
+
+  debugLogs.push({
+    message: 'Cleared previous ledger rows',
+    data: {
+      tenantId,
+      departmentId: scheduleRecord.departmentId,
+      year,
+      month,
+      deletedCount: deletedRows.length,
+    },
+  });
 
   for (const employeeId of employeeIds) {
     const employeeAssignments = assignments.filter(a => a.employeeId === employeeId);
@@ -497,8 +548,8 @@ async function updateOffBalanceAfterConfirmation({
       return OFF_SHIFT_CODES.has(code);
     }).length;
 
-    const guaranteedOffDays = 8; // TODO: derive from pattern/preferences
-    const remainingOffDays = guaranteedOffDays - actualOffDays;
+    const guaranteedOffDays = guaranteedOffDaysMap?.get(employeeId) ?? DEFAULT_GUARANTEED_OFF_DAYS;
+    const remainingOffDays = Math.max(0, guaranteedOffDays - actualOffDays);
 
     if (remainingOffDays > 0) {
       ledgerRecords.push({
@@ -523,9 +574,37 @@ async function updateOffBalanceAfterConfirmation({
     }
   }
 
-  if (ledgerRecords.length > 0) {
-    await db.insert(offBalanceLedger).values(ledgerRecords);
+  if (!ledgerRecords.length) {
+    debugLogs.push({
+      message: 'No employees accrued remaining OFF days',
+      data: {
+        tenantId,
+        scheduleId: scheduleRecord.id,
+        departmentId: scheduleRecord.departmentId,
+        year,
+        month,
+        employeeCount: employeeIds.length,
+      },
+    });
+    return debugLogs;
   }
+
+  await db.insert(offBalanceLedger).values(ledgerRecords);
+
+  debugLogs.push({
+    message: 'Inserted ledger rows',
+    data: {
+      tenantId,
+      scheduleId: scheduleRecord.id,
+      departmentId: scheduleRecord.departmentId,
+      year,
+      month,
+      employeeCount: employeeIds.length,
+      insertedCount: ledgerRecords.length,
+    },
+  });
+
+  return debugLogs;
 }
 
 // Helper function to generate confirmation report

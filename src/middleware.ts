@@ -20,8 +20,8 @@ export default clerkMiddleware(
     }
   },
   {
-    // Debug mode to see what's happening (remove in production)
-    debug: process.env.NODE_ENV === 'development',
+    // Reduce noisy Clerk logs unless explicitly enabled
+    debug: process.env.NEXT_PUBLIC_CLERK_DEBUG === 'true',
   }
 );
 

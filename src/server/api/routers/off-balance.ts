@@ -104,7 +104,7 @@ export const offBalanceRouter = createTRPCRouter({
           allocatedToAllowance: input.allocatedToAllowance,
           allocationStatus: 'processed',
           allocationUpdatedAt: new Date(),
-          allocationUpdatedBy: ctx.userId,
+          allocationUpdatedBy: ctx.user?.id ?? null,
           updatedAt: new Date(),
         })
         .where(eq(offBalanceLedger.id, latestLedger.id))

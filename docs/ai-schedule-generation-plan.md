@@ -43,7 +43,8 @@
 
 ## 3. 휴무 보장 및 잔여 휴무 기록
 - 해당 월의 토/일/공휴일에 대해 직원별로 보장해야 하는 오프 일수를 계산한다.
-- `workPatternType === 'night-intensive'` 직원은 기본 보장 휴무 수에 `nightIntensivePaidLeaveDays`를 더해 개인별 `guaranteedOffDays`를 산출하고, `off_balance_ledger` 및 스케줄 메타데이터에서도 같은 값을 사용해 추후 정산 시 보상 휴무가 자동 반영되게 한다.
+- 각 직원에게 입력된 `employee.guaranteedOffDays`(없으면 달력 기반 기본값)를 우선 적용하고, 이전 달 `off_balance_ledger`에 적립된 잔여 OFF(`allocatedToAccumulation`)를 합산해 월간 총 휴무 한도(`maxOffDays`)를 계산한다.
+- `workPatternType === 'night-intensive'` 직원은 위에서 산출한 기본 보장 휴무 수에 `nightIntensivePaidLeaveDays`를 더해 최종 `guaranteedOffDays`를 만들고, `off_balance_ledger` 및 스케줄 메타데이터에서도 같은 값을 사용해 추후 정산 시 보상 휴무가 자동 반영되게 한다.
 - 각 날짜마다 `remainingOffNeeded > 남은 날짜 수 - 1`(일반) 또는 `remainingOffNeeded >= 남은 날짜 수`(나이트 집중 근무자)인 직원은 반드시 OFF를 배정해, `special_requests`가 없더라도 최종적으로 `actualOffDays >= guaranteedOffDays` 관계가 유지되도록 한다.
 - 나이트 집중 근무자의 회복 OFF(`nightRecoveryDaysNeeded`)는 월 전 기간에 분산되며, 강제 휴무가 남아있는 동안에는 근무 후보군에서 제외해 월말 몰림을 방지한다.
 - 선호 패턴이 없는 직원은 월 전체에서 D/E/N 비중이 일정 비율 내에서 유지되도록 가중치가 적용돼, 특정 시프트만 과도하게 배정되지 않도록 관리한다.

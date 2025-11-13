@@ -9,7 +9,7 @@ import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterv
 import { Download, Upload, Lock, Wand2, RefreshCcw, FileText, Heart, CheckCircle, MoreVertical, Settings, FolderOpen, Save, Loader2 } from "lucide-react";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { api } from "../../lib/trpc/client";
-import { type Employee, type Constraint, type ScheduleAssignment, type SchedulingResult } from "@/lib/types/scheduler";
+import { type Employee, type Constraint, type ScheduleAssignment, type SchedulingResult, type OffAccrualSummary } from "@/lib/types/scheduler";
 import type { Assignment } from "@/types/schedule";
 import { EmployeeAdapter } from "../../lib/adapters/employee-adapter";
 import type { UnifiedEmployee } from "@/lib/types/unified-employee";
@@ -65,6 +65,7 @@ type ScheduleMetadata = {
     isLocked?: boolean;
     shiftType?: string;
   }>;
+  offAccruals?: OffAccrualSummary[];
   [key: string]: unknown;
 };
 
@@ -325,6 +326,7 @@ function SchedulePageContent() {
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationResult, setGenerationResult] = useState<SchedulingResult | null>(null);
+  const [offAccrualSummaries, setOffAccrualSummaries] = useState<OffAccrualSummary[]>([]);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isPreparingConfirmation, setIsPreparingConfirmation] = useState(false);
   const [toolbarAnimatedIn, setToolbarAnimatedIn] = useState(false);
@@ -723,6 +725,7 @@ function SchedulePageContent() {
     const targetDateStr = format(selectedDate, 'yyyy-MM-dd');
     return schedule.filter(assignment => format(assignment.date, 'yyyy-MM-dd') === targetDateStr);
   }, [schedule, selectedDate]);
+  const hasSchedule = schedule.length > 0;
 
   // ✅ Track last loaded schedule ID and updatedAt
   const lastLoadedRef = React.useRef<{ id: string; updatedAt: string } | null>(null);
@@ -738,9 +741,14 @@ function SchedulePageContent() {
     }
 
     if (!savedSchedules || savedSchedules.length === 0) {
-      // No saved schedule, clear loaded ID
-      setLoadedScheduleId(null);
+      // No saved schedule, clear cached state only if previously set
+      setLoadedScheduleId((prev) => (prev === null ? prev : null));
       lastLoadedRef.current = null;
+      setSchedule((prev) => (prev.length === 0 ? prev : []));
+      setOriginalSchedule((prev) => (prev.length === 0 ? prev : []));
+      setIsConfirmed(false);
+      setGenerationResult(null);
+      setOffAccrualSummaries((prev) => (prev.length === 0 ? prev : []));
       return;
     }
 
@@ -757,8 +765,13 @@ function SchedulePageContent() {
     }
 
     if (!currentMonthSchedule) {
-      setLoadedScheduleId(null);
+      setLoadedScheduleId((prev) => (prev === null ? prev : null));
       lastLoadedRef.current = null;
+      setSchedule((prev) => (prev.length === 0 ? prev : []));
+      setOriginalSchedule((prev) => (prev.length === 0 ? prev : []));
+      setIsConfirmed(false);
+      setGenerationResult(null);
+      setOffAccrualSummaries((prev) => (prev.length === 0 ? prev : []));
       return;
     }
 
@@ -787,6 +800,7 @@ function SchedulePageContent() {
       React.startTransition(() => {
         setSchedule(convertedAssignments);
         setOriginalSchedule(convertedAssignments);
+        setOffAccrualSummaries((metadata?.offAccruals as OffAccrualSummary[] | undefined) ?? []);
         setIsConfirmed(currentMonthSchedule.status === 'published'); // Only confirmed if published
         setLoadedScheduleId(currentMonthSchedule.id);
         lastLoadedRef.current = { id: currentMonthSchedule.id, updatedAt: currentUpdatedAt };
@@ -797,6 +811,8 @@ function SchedulePageContent() {
         }
         console.log(`✅ Loaded ${convertedAssignments.length} assignments from ${currentMonthSchedule.status} schedule ${currentMonthSchedule.id} (updated: ${currentMonthSchedule.updatedAt})`);
       });
+    } else {
+      setOffAccrualSummaries([]);
     }
   }, [savedSchedules, monthStart, canManageSchedules, isMember, setSelectedDepartment]);
 
@@ -815,6 +831,14 @@ function SchedulePageContent() {
 
     return upper || 'CUSTOM';
   };
+
+  const currentMonthAssignments = React.useMemo(() => {
+    const targetMonthKey = format(monthStart, 'yyyy-MM');
+    return schedule.filter((assignment) => {
+      const assignmentDate = normalizeDate(assignment.date);
+      return format(assignmentDate, 'yyyy-MM') === targetMonthKey;
+    });
+  }, [schedule, monthStart]);
 
   const toStableDateISOString = React.useCallback((value: Date | string) => {
     const date = normalizeDate(value);
@@ -836,18 +860,12 @@ function SchedulePageContent() {
       actualDepartmentId = selectedDepartment;
     }
 
-    const targetMonthKey = format(monthStart, 'yyyy-MM');
-    const filteredAssignments = schedule.filter((assignment) => {
-      const assignmentDate = normalizeDate(assignment.date);
-      return format(assignmentDate, 'yyyy-MM') === targetMonthKey;
-    });
-
     return {
       id: `schedule-${format(monthStart, 'yyyy-MM')}-${actualDepartmentId}`,
       departmentId: actualDepartmentId,
       startDate: toStableDateISOString(monthStart),
       endDate: toStableDateISOString(monthEnd),
-      assignments: filteredAssignments.map(assignment => ({
+      assignments: currentMonthAssignments.map(assignment => ({
         employeeId: assignment.employeeId,
         shiftId: assignment.shiftId,
         date: toStableDateISOString(assignment.date),
@@ -914,6 +932,18 @@ function SchedulePageContent() {
     refetchOnReconnect: true,
     refetchOnMount: true,
   });
+
+  const nightLeaveSetting = React.useMemo(() => {
+    const shiftConfigValue = (shiftConfigData?.configValue ?? {}) as {
+      preferences?: { nightIntensivePaidLeaveDays?: number };
+      nightIntensivePaidLeaveDays?: number;
+    };
+    return (
+      shiftConfigValue.preferences?.nightIntensivePaidLeaveDays ??
+      shiftConfigValue.nightIntensivePaidLeaveDays ??
+      0
+    );
+  }, [shiftConfigData]);
 
   // Fetch teams from database
   const { data: dbTeams = [] } = api.teams.getAll.useQuery(undefined, {
@@ -1095,7 +1125,7 @@ function SchedulePageContent() {
     }
 
     // "나와 같은 스케줄 보기"를 체크한 경우
-    if ((isMember || isManager) && filters.showSameSchedule && currentUser.dbUser?.id && schedule.length > 0) {
+    if ((isMember || isManager) && filters.showSameSchedule && currentUser.dbUser?.id && hasSchedule) {
       // 현재 사용자가 근무하는 날짜들 추출
       const myWorkDates = new Set(
         schedule
@@ -1119,12 +1149,13 @@ function SchedulePageContent() {
     }
 
     return members;
-  }, [allMembers, isMember, isManager, filters.showMyScheduleOnly, filters.showSameSchedule, currentUser.dbUser?.id, schedule]);
+  }, [allMembers, isMember, isManager, filters.showMyScheduleOnly, filters.showSameSchedule, currentUser.dbUser?.id, schedule, hasSchedule]);
 
   const handlePreviousMonth = React.useCallback(() => {
     setCurrentMonth(prev => subMonths(prev, 1));
     setSchedule([]);
     setGenerationResult(null);
+    setOffAccrualSummaries([]);
     setLoadedScheduleId(null); // ✅ Reset to allow loading new month's schedule
   }, []);
 
@@ -1132,6 +1163,7 @@ function SchedulePageContent() {
     setCurrentMonth(prev => addMonths(prev, 1));
     setSchedule([]);
     setGenerationResult(null);
+    setOffAccrualSummaries([]);
     setLoadedScheduleId(null); // ✅ Reset to allow loading new month's schedule
   }, []);
 
@@ -1139,6 +1171,7 @@ function SchedulePageContent() {
     setCurrentMonth(startOfMonth(new Date()));
     setSchedule([]);
     setGenerationResult(null);
+    setOffAccrualSummaries([]);
     setLoadedScheduleId(null); // ✅ Reset to allow loading current month's schedule
   }, []);
 
@@ -1148,6 +1181,7 @@ function SchedulePageContent() {
 
   const handleCloseGenerationResult = React.useCallback(() => {
     setGenerationResult(null);
+    setOffAccrualSummaries([]);
   }, []);
 
   const handleScheduleNameChange = (value: string) => {
@@ -1403,8 +1437,8 @@ function SchedulePageContent() {
         });
       });
     }
-    if (generationResult?.offAccruals) {
-      generationResult.offAccruals.forEach(record => {
+    if (offAccrualSummaries.length > 0) {
+      offAccrualSummaries.forEach(record => {
         const entry = map.get(record.employeeId) || {
           accumulatedOffDays: 0,
           allocatedToAccumulation: 0,
@@ -1417,7 +1451,90 @@ function SchedulePageContent() {
       });
     }
     return map;
-  }, [offBalanceData, generationResult, offBalanceDepartmentId]);
+  }, [offBalanceData, offAccrualSummaries, offBalanceDepartmentId]);
+
+  const recomputeOffAccrualSummaries = React.useCallback((): OffAccrualSummary[] => {
+    if (currentMonthAssignments.length === 0) {
+      return [];
+    }
+
+    const dateRange = eachDayOfInterval({ start: monthStart, end: monthEnd });
+    if (dateRange.length === 0) {
+      return [];
+    }
+
+    const restDayCount = dateRange.reduce((count, date) => {
+      const key = format(date, 'yyyy-MM-dd');
+      if (isWeekend(date) || holidayDates.has(key)) {
+        return count + 1;
+      }
+      return count;
+    }, 0);
+
+    const baseGuarantee = Math.max(restDayCount, Math.max(4, Math.floor(dateRange.length / 7)));
+    const carryOverMap = new Map<string, number>();
+    (offBalanceData ?? []).forEach((entry) => {
+      carryOverMap.set(
+        entry.nurseId,
+        Math.max(
+          0,
+          entry.allocatedToAccumulation ??
+            entry.accumulatedOffDays ??
+            entry.remainingOffDays ??
+            0
+        )
+      );
+    });
+
+    const memberMap = new Map(filteredMembers.map(member => [member.id, member]));
+    const offCounts = new Map<string, number>();
+    const employeeIds = new Set<string>();
+
+    currentMonthAssignments.forEach((assignment) => {
+      employeeIds.add(assignment.employeeId);
+      const shiftCode =
+        (assignment.shiftType?.toUpperCase() ?? deriveShiftTypeFromId(assignment.shiftId)) || 'CUSTOM';
+      if (shiftCode === 'O' || shiftCode === 'OFF') {
+        offCounts.set(assignment.employeeId, (offCounts.get(assignment.employeeId) ?? 0) + 1);
+      }
+    });
+
+    const summaries: OffAccrualSummary[] = [];
+    employeeIds.forEach((employeeId) => {
+      const member = memberMap.get(employeeId);
+      const workPatternType =
+        member?.simplifiedPreferences?.workPatternType ??
+        member?.workPatternType ??
+        'three-shift';
+      const nightLeaveDays =
+        workPatternType === 'night-intensive' ? Math.max(0, nightLeaveSetting) : 0;
+      const carryOver = carryOverMap.get(employeeId) ?? 0;
+      const guaranteedOffDays = baseGuarantee + nightLeaveDays + carryOver;
+      const actualOffDays = offCounts.get(employeeId) ?? 0;
+
+      summaries.push({
+        employeeId,
+        guaranteedOffDays,
+        actualOffDays,
+        extraOffDays: Math.max(0, guaranteedOffDays - actualOffDays),
+      });
+    });
+
+    console.log('[OffBalance] Recomputed off accrual summaries', {
+      employeeCount: summaries.length,
+      baseGuarantee,
+    });
+
+    return summaries;
+  }, [
+    currentMonthAssignments,
+    filteredMembers,
+    offBalanceData,
+    holidayDates,
+    nightLeaveSetting,
+    monthStart,
+    monthEnd,
+  ]);
 
   // Validate current schedule
   const handleValidateSchedule = async () => {
@@ -1679,6 +1796,8 @@ function SchedulePageContent() {
       }
 
       const schedulePayload = buildSchedulePayload();
+      const ensuredOffAccruals = recomputeOffAccrualSummaries();
+      setOffAccrualSummaries(ensuredOffAccruals);
 
       // 스케줄 명이 입력되지 않은 경우 기본값 설정
       const finalScheduleName = scheduleName.trim() || `${format(monthStart, 'yyyy년 M월')} 스케줄`;
@@ -1696,6 +1815,7 @@ function SchedulePageContent() {
             createdBy: currentUserId,
             createdAt: new Date().toISOString(),
             validationScore: modals.validationScore,
+            offAccruals: ensuredOffAccruals,
           },
         }),
       });
@@ -1703,6 +1823,15 @@ function SchedulePageContent() {
       const result = await response.json();
 
       if (result.success) {
+        if (Array.isArray(result.offBalanceDebug)) {
+          result.offBalanceDebug.forEach((entry: { message?: string; data?: Record<string, unknown> }) => {
+            const msg = entry?.message || 'OffBalance debug';
+            const data = entry?.data ?? {};
+            // eslint-disable-next-line no-console
+            console.log(`[OffBalance] ${msg}`, data);
+          });
+        }
+
         modals.setShowConfirmDialog(false);
         setScheduleName(''); // 스케줄 명 초기화
         setExistingScheduleToReplace(null); // Clear existing schedule state
@@ -1773,6 +1902,7 @@ function SchedulePageContent() {
           metadata: {
             createdBy: currentUserId,
             createdAt: new Date().toISOString(),
+            offAccruals: offAccrualSummaries,
           },
         }),
       });
@@ -1822,6 +1952,7 @@ function SchedulePageContent() {
 
     setIsGenerating(true);
     setGenerationResult(null);
+    setOffAccrualSummaries([]);
 
     try {
       let activeCustomShiftTypes = customShiftTypes;
@@ -2023,15 +2154,6 @@ function SchedulePageContent() {
         generationShifts = convertShiftTypesToShifts(STANDARD_AI_SHIFT_CODES.map(code => DEFAULT_STANDARD_SHIFT_TYPES[code]));
       }
 
-      const shiftConfigValue = (shiftConfigData?.configValue ?? {}) as {
-        preferences?: { nightIntensivePaidLeaveDays?: number };
-        nightIntensivePaidLeaveDays?: number;
-      };
-      const nightLeaveSetting =
-        shiftConfigValue.preferences?.nightIntensivePaidLeaveDays ??
-        shiftConfigValue.nightIntensivePaidLeaveDays ??
-        0;
-
       const payload = {
         name: `AI 스케줄 - ${format(monthStart, 'yyyy-MM')}`,
         departmentId: inferredDepartmentId,
@@ -2070,8 +2192,10 @@ function SchedulePageContent() {
           computationTime: result.generationResult.computationTime,
           offAccruals: result.generationResult.offAccruals,
         });
+        setOffAccrualSummaries(result.generationResult.offAccruals ?? []);
       } else {
         setGenerationResult(null);
+        setOffAccrualSummaries([]);
       }
     } catch (error) {
       console.error('AI schedule generation failed:', error);
@@ -2148,6 +2272,9 @@ function SchedulePageContent() {
         // 결과 정보가 있으면 적용
         if (importData.result) {
           setGenerationResult(importData.result);
+          setOffAccrualSummaries(importData.result.offAccruals ?? []);
+        } else {
+          setOffAccrualSummaries([]);
         }
 
         // 확정 상태가 있으면 적용
@@ -2517,99 +2644,91 @@ function SchedulePageContent() {
         >
           {!isScheduleQueryLoading && (
             <div className="flex items-center justify-between">
-                {/* Primary Actions - Only Essential Buttons */}
-                <div className="flex items-center gap-2">
-                  {/* Quick Actions for existing schedule */}
-                  {schedule.length > 0 && (
-                    <>
-                      {/* AI Generate Button - Primary Action */}
-                      {!isMember && (
-                        <button
-                          onClick={handleGenerateSchedule}
-                          disabled={isGenerating}
-                          className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg ${
-                            isGenerating
-                              ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
-                              : "text-white bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
-                          }`}
-                        >
-                          {isGenerating ? (
-                            <>
-                              <RefreshCcw className="w-4 h-4 animate-spin" />
-                              생성 중...
-                            </>
-                          ) : (
-                            <>
-                              <Wand2 className="w-4 h-4" />
-                              AI 스케줄 생성
-                            </>
-                          )}
-                        </button>
+                {/* Primary Actions */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {!isMember && (
+                    <button
+                      onClick={handleGenerateSchedule}
+                      disabled={isGenerating}
+                      className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg ${
+                        isGenerating
+                          ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
+                          : "text-white bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
+                      }`}
+                    >
+                      {isGenerating ? (
+                        <>
+                          <RefreshCcw className="w-4 h-4 animate-spin" />
+                          생성 중...
+                        </>
+                      ) : (
+                        <>
+                          <Wand2 className="w-4 h-4" />
+                          AI 스케줄 생성
+                        </>
                       )}
-
-                      <button
-                        onClick={handleValidateSchedule}
-                        disabled={modals.isValidating}
-                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-70 disabled:cursor-not-allowed"
-                        title="스케줄 검증"
-                      >
-                        {modals.isValidating ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span className="hidden sm:inline">검증 중...</span>
-                            <span className="sm:hidden">진행중</span>
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle className="w-4 h-4" />
-                            <span className="hidden sm:inline">검증</span>
-                          </>
-                        )}
-                      </button>
-
-                      {canManageSchedules && (
-                        <button
-                          onClick={handleSaveDraft}
-                          disabled={isSavingDraft}
-                          className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 dark:text-blue-400 rounded-lg border border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-70 disabled:cursor-not-allowed"
-                          title="스케줄 임시 저장 (멤버에게는 보이지 않음)"
-                        >
-                          {isSavingDraft ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              <span className="hidden sm:inline">저장 중...</span>
-                              <span className="sm:hidden">저장</span>
-                            </>
-                          ) : (
-                            <>
-                              <Save className="w-4 h-4" />
-                              <span className="hidden sm:inline">임시 저장</span>
-                            </>
-                          )}
-                        </button>
-                      )}
-
-                      <button
-                        onClick={handleConfirmToggle}
-                        disabled={isPreparingConfirmation}
-                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-70 disabled:cursor-not-allowed"
-                        title="스케줄 확정"
-                      >
-                        {isPreparingConfirmation ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span className="hidden sm:inline">확인 중...</span>
-                            <span className="sm:hidden">대기</span>
-                          </>
-                        ) : (
-                          <>
-                            <Lock className="w-4 h-4" />
-                            <span className="hidden sm:inline">확정</span>
-                          </>
-                        )}
-                      </button>
-                    </>
+                    </button>
                   )}
+
+                  <button
+                    onClick={handleValidateSchedule}
+                    disabled={modals.isValidating || !hasSchedule}
+                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-70 disabled:cursor-not-allowed"
+                    title={hasSchedule ? "스케줄 검증" : "검증할 스케줄이 없습니다"}
+                  >
+                    {modals.isValidating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span className="hidden sm:inline">검증 중...</span>
+                        <span className="sm:hidden">진행중</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4" />
+                        <span className="hidden sm:inline">검증</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={handleSaveDraft}
+                    disabled={isSavingDraft || !hasSchedule}
+                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 dark:text-blue-400 rounded-lg border border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-70 disabled:cursor-not-allowed"
+                    title={hasSchedule ? "스케줄 임시 저장 (멤버에게는 보이지 않음)" : "저장할 스케줄이 없습니다"}
+                  >
+                    {isSavingDraft ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span className="hidden sm:inline">저장 중...</span>
+                        <span className="sm:hidden">저장</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        <span className="hidden sm:inline">임시 저장</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={handleConfirmToggle}
+                    disabled={isPreparingConfirmation || !hasSchedule}
+                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-70 disabled:cursor-not-allowed"
+                    title={hasSchedule ? "스케줄 확정" : "확정할 스케줄이 없습니다"}
+                  >
+                    {isPreparingConfirmation ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span className="hidden sm:inline">확인 중...</span>
+                        <span className="sm:hidden">대기</span>
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-4 h-4" />
+                        <span className="hidden sm:inline">확정</span>
+                      </>
+                    )}
+                  </button>
                 </div>
 
                 {/* More Options Menu */}
@@ -2623,7 +2742,7 @@ function SchedulePageContent() {
                     <Upload className="w-4 h-4" />
                   </button>
 
-                  {schedule.length > 0 && (
+                  {hasSchedule && (
                     <button
                       onClick={() => modals.setShowExportModal(true)}
                       className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
@@ -2655,7 +2774,7 @@ function SchedulePageContent() {
                     {/* Dropdown Menu */}
                     {showMoreMenu && (
                       <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
-                        {schedule.length > 0 && (
+                        {hasSchedule && (
                           <>
                             {generationResult && (
                               <>
@@ -2709,6 +2828,11 @@ function SchedulePageContent() {
             </div>
           )}
         </div>
+        )}
+        {!isScheduleQueryLoading && !hasSchedule && (
+          <div className="mb-6 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30 p-4 text-sm text-gray-600 dark:text-gray-400">
+            이 달에는 저장된 스케줄이 없습니다. 상단의 AI 스케줄 생성이나 가져오기 버튼을 사용해 새 스케줄을 만들어주세요.
+          </div>
         )}
 
         {/* View Tabs */}
@@ -2794,7 +2918,7 @@ function SchedulePageContent() {
           selectedShiftTypesSize={filters.selectedShiftTypes.size}
           isMember={isMember}
           swapMode={false}
-          hasSchedule={schedule.length > 0}
+          hasSchedule={hasSchedule}
           onPreviousMonth={handlePreviousMonth}
           onThisMonth={handleThisMonth}
           onNextMonth={handleNextMonth}
@@ -2897,6 +3021,7 @@ function SchedulePageContent() {
           setSchedule([]);
           setLoadedScheduleId(null);
           setGenerationResult(null);
+          setOffAccrualSummaries([]);
           setIsConfirmed(false); // Reset confirmed state
         }}
         onScheduleLoad={handleLoadSchedule}

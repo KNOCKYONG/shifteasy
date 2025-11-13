@@ -251,7 +251,7 @@ export function EmployeePreferencesModal({
 
   // Update allocation mutation
   const updateAllocationMutation = api.offBalance.updateAllocation.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
       setOffBalanceData((prev) => {
         if (!prev) return prev;
         return {
@@ -263,7 +263,11 @@ export function EmployeePreferencesModal({
           },
         };
       });
-      refetchOffBalance();
+      await Promise.all([
+        refetchOffBalance(),
+        utils.offBalance.getBulkCurrentBalance.invalidate(),
+        utils.offBalance.getByEmployee.invalidate({ employeeId: employee.id }),
+      ]);
       alert('OFF 배분이 저장되었습니다');
     },
     onError: (error) => {

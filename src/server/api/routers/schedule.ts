@@ -8,7 +8,7 @@ import { db } from '@/db';
 import { generateAiSchedule } from '@/lib/scheduler/ai-scheduler';
 import { sse } from '@/lib/sse/broadcaster';
 import { notificationService } from '@/lib/notifications/notification-service';
-import { format } from 'date-fns';
+import { format, subMonths } from 'date-fns';
 
 export const scheduleRouter = createTRPCRouter({
   list: protectedProcedure
@@ -175,6 +175,7 @@ export const scheduleRouter = createTRPCRouter({
         preferredShiftTypes: z.record(z.string(), z.number()).optional(),
         maxConsecutiveDaysPreferred: z.number().optional(),
         maxConsecutiveNightsPreferred: z.number().optional(),
+        guaranteedOffDays: z.number().optional(),
       })),
       shifts: z.array(z.object({
         id: z.string(),
@@ -251,11 +252,45 @@ export const scheduleRouter = createTRPCRouter({
         });
       }
 
+      const previousMonthDate = subMonths(input.startDate, 1);
+      const previousYear = previousMonthDate.getFullYear();
+      const previousMonth = previousMonthDate.getMonth() + 1;
+
+      const previousLedgerRows = await db
+        .select({
+          nurseId: offBalanceLedger.nurseId,
+          allocatedToAccumulation: offBalanceLedger.allocatedToAccumulation,
+          guaranteedOffDays: offBalanceLedger.guaranteedOffDays,
+        })
+        .from(offBalanceLedger)
+        .where(and(
+          eq(offBalanceLedger.tenantId, tenantId),
+          eq(offBalanceLedger.departmentId, input.departmentId),
+          eq(offBalanceLedger.year, previousYear),
+          eq(offBalanceLedger.month, previousMonth),
+        ));
+
+      const previousOffAccruals: Record<string, number> = {};
+      const previousGuaranteedOffDays: Record<string, number> = {};
+      previousLedgerRows.forEach((row) => {
+        if (row.nurseId) {
+          previousOffAccruals[row.nurseId] = Math.max(0, row.allocatedToAccumulation || 0);
+          if (typeof row.guaranteedOffDays === 'number') {
+            previousGuaranteedOffDays[row.nurseId] = row.guaranteedOffDays;
+          }
+        }
+      });
+
+      const employeesWithGuarantees = input.employees.map((emp) => ({
+        ...emp,
+        guaranteedOffDays: emp.guaranteedOffDays ?? previousGuaranteedOffDays[emp.id],
+      }));
+
       const aiResult = await generateAiSchedule({
         departmentId: input.departmentId,
         startDate: input.startDate,
         endDate: input.endDate,
-        employees: input.employees,
+        employees: employeesWithGuarantees,
         shifts: input.shifts,
         constraints: input.constraints,
         specialRequests: input.specialRequests,
@@ -263,6 +298,7 @@ export const scheduleRouter = createTRPCRouter({
         teamPattern: input.teamPattern ?? null,
         requiredStaffPerShift: input.requiredStaffPerShift,
         nightIntensivePaidLeaveDays: input.nightIntensivePaidLeaveDays,
+        previousOffAccruals,
       });
 
       const serializedAssignments = aiResult.assignments.map((assignment) => ({
@@ -386,7 +422,12 @@ export const scheduleRouter = createTRPCRouter({
         const metadata = schedule.metadata as ScheduleMetadata;
         const assignments = metadata?.assignments || [];
 
-        if (assignments.length > 0) {
+        if (assignments.length === 0) {
+          console.log('[OffBalance] (TRPC) Skipping ledger update - no assignments in metadata', {
+            tenantId,
+            scheduleId: schedule.id,
+          });
+        } else {
           const employeeIds = [...new Set(assignments.map((a) => a.employeeId))] as string[];
 
           const periodStart = schedule.startDate;
@@ -402,7 +443,16 @@ export const scheduleRouter = createTRPCRouter({
             deleteFilters.push(eq(offBalanceLedger.departmentId, schedule.departmentId));
           }
 
-          await db.hardDelete(offBalanceLedger, and(...deleteFilters));
+          const deletedRows = await db.hardDelete(offBalanceLedger, and(...deleteFilters));
+
+          console.log('[OffBalance] (TRPC) Cleared previous ledger rows', {
+            tenantId,
+            departmentId: schedule.departmentId,
+            year,
+            month,
+            deletedCount: deletedRows.length,
+            scheduleId: schedule.id,
+          });
 
           const offBalanceRecords = [];
 
@@ -438,8 +488,27 @@ export const scheduleRouter = createTRPCRouter({
             }
           }
 
-          if (offBalanceRecords.length > 0) {
+          if (!offBalanceRecords.length) {
+            console.log('[OffBalance] (TRPC) No remaining OFF days to record', {
+              tenantId,
+              departmentId: schedule.departmentId,
+              year,
+              month,
+              scheduleId: schedule.id,
+              employeeCount: employeeIds.length,
+            });
+          } else {
             await db.insert(offBalanceLedger, offBalanceRecords);
+
+            console.log('[OffBalance] (TRPC) Inserted ledger rows', {
+              tenantId,
+              departmentId: schedule.departmentId,
+              year,
+              month,
+              scheduleId: schedule.id,
+              employeeCount: employeeIds.length,
+              insertedCount: offBalanceRecords.length,
+            });
           }
         }
       } catch (error) {

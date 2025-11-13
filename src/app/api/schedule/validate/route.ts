@@ -58,6 +58,7 @@ const EmployeeSchema = z.object({
   preferredShiftTypes: z.record(z.string(), z.number()).optional(),
   maxConsecutiveDaysPreferred: z.number().optional(),
   maxConsecutiveNightsPreferred: z.number().optional(),
+  guaranteedOffDays: z.number().optional(),
   preferences: z
     .object({
       workPatternType: z.string().optional(),
@@ -215,6 +216,7 @@ function normalizeEmployee(raw: z.infer<typeof EmployeeSchema>, fallbackDepartme
     preferredShiftTypes,
     maxConsecutiveDaysPreferred: raw.maxConsecutiveDaysPreferred,
     maxConsecutiveNightsPreferred: raw.maxConsecutiveNightsPreferred,
+    guaranteedOffDays: raw.guaranteedOffDays,
   };
 }
 

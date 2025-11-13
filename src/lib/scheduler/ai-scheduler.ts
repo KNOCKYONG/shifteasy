@@ -21,6 +21,7 @@ export interface AiEmployee {
   preferredShiftTypes?: Record<string, number>;
   maxConsecutiveDaysPreferred?: number;
   maxConsecutiveNightsPreferred?: number;
+  guaranteedOffDays?: number;
 }
 
 interface AiSpecialRequest {
@@ -52,6 +53,7 @@ export interface AiScheduleRequest {
   teamPattern?: TeamPatternConfig | null;
   requiredStaffPerShift?: Record<string, number>;
   nightIntensivePaidLeaveDays?: number;
+  previousOffAccruals?: Record<string, number>;
 }
 
 export interface AiScheduleGenerationResult {
@@ -168,10 +170,21 @@ function isOffShiftCode(code?: string | null): boolean {
   return normalized === 'O' || normalized === 'OFF';
 }
 
+function resolveGuaranteedOffDays(employee: AiEmployee | undefined, fallback: number): number {
+  if (!employee || typeof employee.guaranteedOffDays !== 'number') {
+    return fallback;
+  }
+  if (!Number.isFinite(employee.guaranteedOffDays)) {
+    return fallback;
+  }
+  return Math.max(fallback, Math.floor(employee.guaranteedOffDays));
+}
+
 export async function generateAiSchedule(request: AiScheduleRequest): Promise<AiScheduleGenerationResult> {
   const start = performance.now();
   const dateRange = eachDayOfInterval({ start: request.startDate, end: request.endDate });
   const holidays = new Set((request.holidays ?? []).map((h) => h.date));
+  const previousOffAccruals = request.previousOffAccruals ?? {};
   const specialRequestsMap = new Map<string, AiSpecialRequest[]>();
   const restDayKeys = new Set<string>();
   dateRange.forEach((date) => {
@@ -197,6 +210,9 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       emp.workPatternType === 'night-intensive'
         ? Math.max(0, request.nightIntensivePaidLeaveDays ?? 0)
         : 0;
+    const carryOverOffDays = Math.max(0, previousOffAccruals[emp.id] ?? 0);
+    const baseGuaranteedOffDays = resolveGuaranteedOffDays(emp, maxOffDaysPerEmployee);
+    const maxOffTarget = baseGuaranteedOffDays + nightLeaveDays + carryOverOffDays;
     employeeStates.set(emp.id, {
       totalAssignments: 0,
       preferenceScore: 0,
@@ -212,11 +228,11 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       offDays: 0,
       specialRequestOffDays: 0,
       autoOffDays: 0,
-      maxOffDays: maxOffDaysPerEmployee + nightLeaveDays,
+      maxOffDays: maxOffTarget,
       extraOffDays: 0,
       lastShiftRunCount: 0,
       nightLeaveRemaining: nightLeaveDays,
-      bonusOffCarry: 0,
+      bonusOffCarry: carryOverOffDays,
       nightRecoveryDaysNeeded: 0,
     });
     employeeMap.set(emp.id, emp);
@@ -655,14 +671,15 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
 
   const offAccruals: OffAccrualSummary[] = [];
   employeeStates.forEach((state, employeeId) => {
-    if (state.extraOffDays > 0) {
-      offAccruals.push({
-        employeeId,
-        extraOffDays: state.extraOffDays,
-        guaranteedOffDays: state.maxOffDays,
-        actualOffDays: state.offDays,
-      });
-    }
+    const guaranteedOffDays = state.maxOffDays;
+    const actualOffDays = state.offDays;
+    const extraOffDays = Math.max(0, guaranteedOffDays - actualOffDays);
+    offAccruals.push({
+      employeeId,
+      extraOffDays,
+      guaranteedOffDays,
+      actualOffDays,
+    });
   });
 
   return {
@@ -723,11 +740,15 @@ export async function validateSchedule(
 
   const employeeStates = new Map<string, EmployeeState>();
   const employeeMap = new Map<string, AiEmployee>();
+  const previousOffAccruals = request.previousOffAccruals ?? {};
   request.employees.forEach((emp) => {
     const nightLeaveDays =
       emp.workPatternType === 'night-intensive'
         ? Math.max(0, request.nightIntensivePaidLeaveDays ?? 0)
         : 0;
+    const carryOverOffDays = Math.max(0, previousOffAccruals[emp.id] ?? 0);
+    const baseGuaranteedOffDays = resolveGuaranteedOffDays(emp, maxOffDaysPerEmployee);
+    const maxOffTarget = baseGuaranteedOffDays + nightLeaveDays + carryOverOffDays;
     employeeStates.set(emp.id, {
       totalAssignments: 0,
       preferenceScore: 0,
@@ -743,11 +764,11 @@ export async function validateSchedule(
       offDays: 0,
       specialRequestOffDays: 0,
       autoOffDays: 0,
-      maxOffDays: maxOffDaysPerEmployee + nightLeaveDays,
+      maxOffDays: maxOffTarget,
       extraOffDays: 0,
       lastShiftRunCount: 0,
       nightLeaveRemaining: nightLeaveDays,
-      bonusOffCarry: 0,
+      bonusOffCarry: carryOverOffDays,
       nightRecoveryDaysNeeded: 0,
     });
     employeeMap.set(emp.id, emp);
