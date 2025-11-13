@@ -89,9 +89,6 @@ export default function Footer() {
             <p className="text-sm text-gray-400">
               {t('footer.copyright')}
             </p>
-            <p className="text-sm text-gray-400">
-              {t('footer.madeWith')}
-            </p>
           </div>
         </div>
       </div>

@@ -118,7 +118,7 @@ export default function PricingSection() {
                     </button>
                   ) : (
                     <Link
-                      href="/sign-up"
+                      href={`/billing?plan=${plan}`}
                       className={`block w-full text-center px-6 py-3 rounded-lg font-semibold transition-all duration-300 ${
                         isPopular
                           ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 hover:shadow-lg hover:scale-105'

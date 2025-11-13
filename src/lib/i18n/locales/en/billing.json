@@ -1,0 +1,86 @@
+{
+  "title": "Choose Your Plan",
+  "subtitle": "Select the perfect plan for your team",
+  "plans": {
+    "starter": {
+      "name": "Starter",
+      "price": "Free",
+      "trial": "90-day free trial",
+      "features": {
+        "members": "Up to 10 staff members",
+        "scheduling": "Basic schedule management",
+        "mobile": "Mobile app access",
+        "support": "Email support"
+      }
+    },
+    "professional": {
+      "name": "Professional",
+      "price": "₩29,000",
+      "period": "/month",
+      "popular": "Popular",
+      "features": {
+        "members": "Up to 50 staff members",
+        "optimization": "Advanced schedule optimization",
+        "ai": "Auto-scheduling with AI",
+        "analytics": "Team analytics & reports",
+        "support": "Priority support",
+        "notifications": "Custom notifications"
+      }
+    },
+    "enterprise": {
+      "name": "Enterprise",
+      "price": "₩99,000",
+      "period": "/month",
+      "features": {
+        "members": "Unlimited staff members",
+        "multiLocation": "Multi-location support",
+        "advancedAi": "Advanced AI optimization",
+        "integrations": "Custom integrations",
+        "manager": "Dedicated account manager",
+        "sla": "SLA guarantee",
+        "onPremise": "On-premise deployment option"
+      }
+    }
+  },
+  "payment": {
+    "title": "Payment Information",
+    "trialTitle": "Start Free Trial",
+    "selectedPlan": "Selected Plan:",
+    "amount": "Payment Amount:",
+    "trialNote": "✨ Automatically converts to paid plan after {{days}} days free trial. Cancel anytime during trial period.",
+    "security": "Toss Payments Secure Payment (SSL Encrypted)",
+    "startTrial": "Start Free Trial",
+    "payNow": "Pay Now",
+    "processing": "Processing...",
+    "terms": "By proceeding with payment, you agree to our",
+    "termsLink": "Terms of Service",
+    "and": "and",
+    "privacyLink": "Privacy Policy",
+    "termsAccept": ""
+  },
+  "success": {
+    "confirming": "Confirming payment...",
+    "wait": "Please wait a moment.",
+    "title": "Payment Completed!",
+    "message": "Thank you for choosing ShiftEasy.",
+    "subtitle": "You can now use all features.",
+    "receipt": "📧 Payment receipt has been sent to your email.",
+    "dashboard": "Go to Dashboard"
+  },
+  "fail": {
+    "title": "Payment Failed",
+    "message": "An issue occurred during the payment process.",
+    "subtitle": "Please try again or contact customer support.",
+    "errorCode": "Error Code:",
+    "retry": "Try Again",
+    "dashboard": "Go to Dashboard",
+    "support": "Contact Support"
+  },
+  "errors": {
+    "trialStart": "Failed to start free trial. Please try again.",
+    "paymentFailed": "Payment failed. Please try again.",
+    "invalidPaymentInfo": "Payment information is invalid.",
+    "confirmFailed": "Payment confirmation failed.",
+    "confirmError": "An error occurred during payment confirmation."
+  }
+}

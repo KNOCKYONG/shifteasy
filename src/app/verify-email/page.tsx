@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSignUp } from '@clerk/nextjs';
-import { Mail, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 
 function VerifyEmailContent() {
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
@@ -15,7 +15,6 @@ function VerifyEmailContent() {
   useEffect(() => {
     const verifyEmail = async () => {
       const code = searchParams.get('code');
-      const email = searchParams.get('email');
 
       if (!code) {
         setStatus('error');

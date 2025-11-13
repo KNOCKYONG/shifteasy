@@ -1,0 +1,86 @@
+{
+  "title": "プランを選択",
+  "subtitle": "チームに最適なプランをお選びください",
+  "plans": {
+    "starter": {
+      "name": "スターター",
+      "price": "無料",
+      "trial": "90日間無料トライアル",
+      "features": {
+        "members": "最大10名のスタッフ",
+        "scheduling": "基本的なスケジュール管理",
+        "mobile": "モバイルアプリアクセス",
+        "support": "メールサポート"
+      }
+    },
+    "professional": {
+      "name": "プロフェッショナル",
+      "price": "₩29,000",
+      "period": "/月",
+      "popular": "人気プラン",
+      "features": {
+        "members": "最大50名のスタッフ",
+        "optimization": "高度なスケジュール最適化",
+        "ai": "AIによる自動スケジューリング",
+        "analytics": "チーム分析とレポート",
+        "support": "優先サポート",
+        "notifications": "カスタム通知"
+      }
+    },
+    "enterprise": {
+      "name": "エンタープライズ",
+      "price": "₩99,000",
+      "period": "/月",
+      "features": {
+        "members": "無制限のスタッフ",
+        "multiLocation": "複数拠点サポート",
+        "advancedAi": "高度なAI最適化",
+        "integrations": "カスタム統合",
+        "manager": "専任アカウントマネージャー",
+        "sla": "SLA保証",
+        "onPremise": "オンプレミス展開オプション"
+      }
+    }
+  },
+  "payment": {
+    "title": "お支払い情報",
+    "trialTitle": "無料トライアルを開始",
+    "selectedPlan": "選択したプラン：",
+    "amount": "お支払い金額：",
+    "trialNote": "✨ {{days}}日間の無料トライアル後、自動的に有料プランに移行します。トライアル期間中はいつでもキャンセル可能です。",
+    "security": "Toss Payments 安全な決済（SSL暗号化）",
+    "startTrial": "無料トライアルを開始",
+    "payNow": "今すぐ支払う",
+    "processing": "処理中...",
+    "terms": "お支払いを進めることで",
+    "termsLink": "利用規約",
+    "and": "および",
+    "privacyLink": "プライバシーポリシー",
+    "termsAccept": "に同意したものとみなされます。"
+  },
+  "success": {
+    "confirming": "お支払いを確認中...",
+    "wait": "しばらくお待ちください。",
+    "title": "お支払いが完了しました！",
+    "message": "ShiftEasyをお選びいただきありがとうございます。",
+    "subtitle": "すべての機能をご利用いただけます。",
+    "receipt": "📧 お支払い領収書がメールで送信されました。",
+    "dashboard": "ダッシュボードへ移動"
+  },
+  "fail": {
+    "title": "お支払いに失敗しました",
+    "message": "お支払い処理中に問題が発生しました。",
+    "subtitle": "もう一度お試しいただくか、カスタマーサポートにお問い合わせください。",
+    "errorCode": "エラーコード：",
+    "retry": "もう一度試す",
+    "dashboard": "ダッシュボードへ移動",
+    "support": "サポートに問い合わせる"
+  },
+  "errors": {
+    "trialStart": "無料トライアルの開始に失敗しました。もう一度お試しください。",
+    "paymentFailed": "お支払いに失敗しました。もう一度お試しください。",
+    "invalidPaymentInfo": "お支払い情報が無効です。",
+    "confirmFailed": "お支払いの承認に失敗しました。",
+    "confirmError": "お支払いの承認中にエラーが発生しました。"
+  }
+}
