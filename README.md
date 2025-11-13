@@ -202,6 +202,17 @@ shifteasy/
 
 모든 결제 API는 `tenant:billing` 권한이 있는 사용자(보통 Owner)가 호출할 수 있도록 보호되어 있습니다. 실연동 시에는 토스 콘솔에서 발급받은 키와 웹훅 URL(`/api/webhooks/toss`)을 등록하고, `npm run db:push`로 생성된 `payments`/`subscriptions` 테이블을 사용해 결제 내역을 추적하세요. 자세한 연동 단계는 `docs/payments/toss-payments.md`에서 확인할 수 있습니다.
 
+## 📧 Clerk 이메일 템플릿 커스터마이징
+
+클라이언트에게 발송되는 Clerk 인증 메일도 ShiftEasy 브랜드에 맞춰 커스터마이징했습니다. 템플릿을 적용하거나 수정하고 싶다면 아래 스크립트를 실행하세요.
+
+```bash
+# CLERK_SECRET_KEY가 설정돼 있어야 합니다.
+npm run clerk:update-email-template
+```
+
+`scripts/update-clerk-email-template.ts`는 Clerk의 `email_address_verification_code` 템플릿을 PATCH 하여 국문 안내, 브랜드 컬러, CTA 버튼 등이 포함된 HTML 메일로 교체합니다. 메일 제목/본문을 바꾸고 싶으면 스크립트 상단의 `emailSubject`, `emailBody` 값을 편집한 뒤 다시 실행하면 됩니다.
+
 ## 🐛 문제 해결
 
 ### PostgreSQL 연결 오류
