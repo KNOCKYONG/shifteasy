@@ -1474,13 +1474,15 @@ function SchedulePageContent() {
     const baseGuarantee = Math.max(restDayCount, Math.max(4, Math.floor(dateRange.length / 7)));
     const carryOverMap = new Map<string, number>();
     (offBalanceData ?? []).forEach((entry) => {
+      const remainingOffDays =
+        (entry as { remainingOffDays?: number }).remainingOffDays;
       carryOverMap.set(
         entry.nurseId,
         Math.max(
           0,
           entry.allocatedToAccumulation ??
             entry.accumulatedOffDays ??
-            entry.remainingOffDays ??
+            remainingOffDays ??
             0
         )
       );
@@ -2636,16 +2638,22 @@ function SchedulePageContent() {
         </div>
         )}
         {/* Simplified Schedule Action Toolbar - Only for managers */}
-{canManageSchedules && (!isScheduleQueryLoading || toolbarAnimatedIn) && (
+{canManageSchedules && (
         <div
           className={`bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6 transition-all duration-500 ease-out transform ${
             toolbarAnimatedIn ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'
           }`}
         >
-          {!isScheduleQueryLoading && (
             <div className="flex items-center justify-between">
                 {/* Primary Actions */}
                 <div className="flex flex-wrap items-center gap-2">
+                  {isScheduleQueryLoading && (
+                    <div className="flex items-center gap-2 px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>스케줄 데이터를 불러오는 중입니다...</span>
+                    </div>
+                  )}
+
                   {!isMember && (
                     <button
                       onClick={handleGenerateSchedule}
@@ -2826,7 +2834,6 @@ function SchedulePageContent() {
                   </div>
                 </div>
             </div>
-          )}
         </div>
         )}
         {!isScheduleQueryLoading && !hasSchedule && (

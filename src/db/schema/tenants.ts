@@ -152,6 +152,12 @@ export const schedules = pgTable('schedules', {
     approverNotes?: string;
     validationScore?: number;
     assignments?: any;
+    offAccruals?: Array<{
+      employeeId: string;
+      extraOffDays: number;
+      guaranteedOffDays: number;
+      actualOffDays: number;
+    }>;
     versionHistory?: Array<{
       version: number;
       updatedAt: string;

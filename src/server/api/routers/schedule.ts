@@ -222,7 +222,7 @@ export const scheduleRouter = createTRPCRouter({
     }))
     .mutation(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
-      const db = scopedDb(tenantId);
+      const tenantDb = scopedDb(tenantId);
 
       if (!input.employees.length) {
         throw new TRPCError({
@@ -306,7 +306,7 @@ export const scheduleRouter = createTRPCRouter({
         date: assignment.date instanceof Date ? assignment.date.toISOString() : assignment.date,
       }));
 
-      const [schedule] = await db.insert(schedules, {
+      const [schedule] = await tenantDb.insert(schedules, {
         name: input.name,
         departmentId: input.departmentId,
         startDate: input.startDate,
@@ -361,9 +361,9 @@ export const scheduleRouter = createTRPCRouter({
       id: z.string(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
+      const tenantDb = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
 
-      const [schedule] = await db.query(schedules, eq(schedules.id, input.id));
+      const [schedule] = await tenantDb.query(schedules, eq(schedules.id, input.id));
 
       if (!schedule) {
         throw new Error('Schedule not found');
@@ -384,7 +384,7 @@ export const scheduleRouter = createTRPCRouter({
         });
       }
 
-      const [updated] = await db.update(
+      const [updated] = await tenantDb.update(
         schedules,
         {
           status: 'published',
@@ -443,7 +443,7 @@ export const scheduleRouter = createTRPCRouter({
             deleteFilters.push(eq(offBalanceLedger.departmentId, schedule.departmentId));
           }
 
-          const deletedRows = await db.hardDelete(offBalanceLedger, and(...deleteFilters));
+          const deletedRows = await tenantDb.hardDelete(offBalanceLedger, and(...deleteFilters));
 
           console.log('[OffBalance] (TRPC) Cleared previous ledger rows', {
             tenantId,
@@ -498,7 +498,7 @@ export const scheduleRouter = createTRPCRouter({
               employeeCount: employeeIds.length,
             });
           } else {
-            await db.insert(offBalanceLedger, offBalanceRecords);
+            await tenantDb.insert(offBalanceLedger, offBalanceRecords);
 
             console.log('[OffBalance] (TRPC) Inserted ledger rows', {
               tenantId,
@@ -552,10 +552,10 @@ export const scheduleRouter = createTRPCRouter({
       id: z.string(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
+      const tenantDb = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
 
       // Get schedule to check permissions
-      const [schedule] = await db.query(schedules, eq(schedules.id, input.id));
+      const [schedule] = await tenantDb.query(schedules, eq(schedules.id, input.id));
 
       if (!schedule) {
         throw new TRPCError({
@@ -579,7 +579,7 @@ export const scheduleRouter = createTRPCRouter({
         });
       }
 
-      const [updated] = await db.update(
+      const [updated] = await tenantDb.update(
         schedules,
         {
           status: 'archived',
