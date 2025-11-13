@@ -160,6 +160,7 @@ export function SSEProvider({ children, enabled = true }: SSEProviderProps) {
     client.on('staff.updated', handleSSEEvent('staff.updated'));
     client.on('staff.deleted', handleSSEEvent('staff.deleted'));
     client.on('staff.career_updated', handleSSEEvent('staff.career_updated'));
+    client.on('staff.preferences_updated', handleSSEEvent('staff.preferences_updated'));
 
     // Team 이벤트
     client.on('team.created', handleSSEEvent('team.created'));

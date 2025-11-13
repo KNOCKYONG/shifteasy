@@ -200,6 +200,15 @@ const DEFAULT_STANDARD_SHIFT_TYPES: Record<StandardShiftCode, ShiftType> = {
   A: { code: 'A', name: '행정', startTime: '09:00', endTime: '18:00', color: '#10B981', allowOvertime: false },
 };
 
+const DEFAULT_FALLBACK_SHIFT_TYPE: ShiftType = {
+  code: 'X',
+  name: '커스텀',
+  startTime: '09:00',
+  endTime: '18:00',
+  color: '#64748B',
+  allowOvertime: false,
+};
+
 const SELECTED_DEPARTMENT_STORAGE_KEY = 'schedule:last-selected-department';
 
 /**
@@ -2147,20 +2156,53 @@ function SchedulePageContent() {
         });
       }
 
+      const shiftCodeSet = new Set<string>(STANDARD_AI_SHIFT_CODES);
+      const registerShiftCode = (raw?: string | null) => {
+        if (typeof raw !== 'string') return;
+        const normalized = raw.trim().toUpperCase();
+        if (!normalized) return;
+        shiftCodeSet.add(normalized);
+      };
+
+      if (requiredStaffPerShift) {
+        Object.keys(requiredStaffPerShift).forEach(registerShiftCode);
+      }
+      teamPattern?.defaultPatterns?.forEach(pattern => pattern.forEach(registerShiftCode));
+      const legacyPattern = (teamPattern as { pattern?: string[] } | null)?.pattern;
+      legacyPattern?.forEach(registerShiftCode);
+      teamPattern?.avoidPatterns?.forEach(pattern => pattern.forEach(registerShiftCode));
+      activeCustomShiftTypes?.forEach(st => registerShiftCode(st.code));
+      configShiftOverrides.forEach((_, code) => registerShiftCode(code));
+
+      const orderedShiftCodes: string[] = [];
+      STANDARD_AI_SHIFT_CODES.forEach(code => orderedShiftCodes.push(code));
+      const additionalCodes = Array.from(shiftCodeSet).filter(code => !STANDARD_AI_SHIFT_CODES.includes(code as StandardShiftCode));
+      additionalCodes.sort();
+      additionalCodes.forEach(code => orderedShiftCodes.push(code));
+
       const generationShiftTypes: ShiftType[] = [];
-      STANDARD_AI_SHIFT_CODES.forEach(code => {
-        if (configShiftOverrides.has(code)) {
-          generationShiftTypes.push(configShiftOverrides.get(code)!);
+      orderedShiftCodes.forEach(code => {
+        const normalized = code.toUpperCase();
+        if (configShiftOverrides.has(normalized)) {
+          generationShiftTypes.push(configShiftOverrides.get(normalized)!);
           return;
         }
         const fallbackShift = activeCustomShiftTypes?.find(
-          shift => typeof shift.code === 'string' && shift.code.toUpperCase() === code
+          shift => typeof shift.code === 'string' && shift.code.toUpperCase() === normalized
         );
         if (fallbackShift) {
-          generationShiftTypes.push({ ...fallbackShift, code });
+          generationShiftTypes.push({ ...fallbackShift, code: normalized });
           return;
         }
-        generationShiftTypes.push(DEFAULT_STANDARD_SHIFT_TYPES[code]);
+        if (DEFAULT_STANDARD_SHIFT_TYPES[normalized as StandardShiftCode]) {
+          generationShiftTypes.push(DEFAULT_STANDARD_SHIFT_TYPES[normalized as StandardShiftCode]);
+          return;
+        }
+        generationShiftTypes.push({
+          ...DEFAULT_FALLBACK_SHIFT_TYPE,
+          code: normalized,
+          name: normalized,
+        });
       });
 
       let generationShifts = convertShiftTypesToShifts(generationShiftTypes);
