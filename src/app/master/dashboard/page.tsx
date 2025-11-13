@@ -280,57 +280,16 @@ export default function MasterDashboardPage() {
 
         {/* Data Display */}
         {data.length > 0 && (
-          <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-            <div className="p-6 border-b border-gray-700 flex items-center justify-between">
+          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold">
-                {selectedTable.charAt(0).toUpperCase() + selectedTable.slice(1)} ({data.length} records)
+                Data ({data.length} records)
               </h2>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-900/50">
-                  <tr>
-                    {data.length > 0 && Object.keys(data[0] as Record<string, unknown>).map((key) => (
-                      <th
-                        key={key}
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider border-b border-gray-700"
-                      >
-                        {key}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-700">
-                  {data.map((row, rowIndex) => (
-                    <tr key={rowIndex} className="hover:bg-gray-900/30 transition-colors">
-                      {Object.entries(row as Record<string, unknown>).map(([key, value]) => (
-                        <td key={key} className="px-6 py-4 text-sm text-gray-300">
-                          {value === null ? (
-                            <span className="text-gray-600 italic">null</span>
-                          ) : typeof value === 'object' ? (
-                            <details className="cursor-pointer">
-                              <summary className="text-blue-400 hover:text-blue-300">
-                                {Array.isArray(value) ? `Array[${value.length}]` : 'Object'}
-                              </summary>
-                              <pre className="mt-2 text-xs bg-gray-900 p-2 rounded overflow-auto max-w-md">
-                                {JSON.stringify(value, null, 2)}
-                              </pre>
-                            </details>
-                          ) : typeof value === 'boolean' ? (
-                            <span className={value ? 'text-green-400' : 'text-red-400'}>
-                              {value.toString()}
-                            </span>
-                          ) : (
-                            <span className="break-all max-w-md inline-block">
-                              {String(value)}
-                            </span>
-                          )}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <pre className="text-xs bg-gray-900 p-4 rounded-lg overflow-auto max-h-[600px] border border-gray-700">
+                {JSON.stringify(data, null, 2)}
+              </pre>
             </div>
           </div>
         )}
