@@ -9,7 +9,7 @@ const CLERK_BASE_URL = process.env.CLERK_API_URL || 'https://api.clerk.com/v1';
 const TEMPLATE_TYPE = 'email';
 const TEMPLATE_SLUG = 'verification_code';
 
-const emailSubject = '[ShiftEasy] 이메일 인증 코드 안내';
+const emailSubject = 'ShiftEasy 이메일 인증 코드 안내';
 
 const emailBody = `
 <!DOCTYPE html>
@@ -48,11 +48,11 @@ const emailBody = `
         <p class="code">{{otp_code}}</p>
       </div>
       <div class="cta">
-        <a href="{{action_url}}" target="_blank" rel="noreferrer">인증 완료하기</a>
+        <a href="https://shifteasy.kr/verify-email?code={{otp_code}}&email={{user.email_address}}" target="_blank" rel="noreferrer">인증 완료하기</a>
       </div>
       <p class="help">
         인증을 요청한 적이 없다면 이 메일을 무시하셔도 됩니다.<br/>
-        도움이 필요하시면 <a href="mailto:support@shifteasy.app">support@shifteasy.app</a>로 연락주세요.
+        도움이 필요하시면 <a href="mailto:help@shifteasy.kr">help@shifteasy.kr</a>로 연락주세요.
       </p>
       <div class="footer">
         © {{year}} ShiftEasy. All rights reserved.
@@ -80,7 +80,8 @@ async function updateEmailTemplate() {
       name: 'ShiftEasy Email Verification',
       subject: emailSubject,
       body: emailBody,
-      from_email_name: 'ShiftEasy',
+      from_email_name: 'Shifteasy',
+      reply_to_email_name: 'Shifteasy',
       delivered_by_clerk: true,
     }),
   });

@@ -10,7 +10,7 @@ interface ContactModalProps {
 }
 
 export default function ContactModal({ isOpen, onClose }: ContactModalProps) {
-  const email = 'knockroom.help@gmail.com';
+  const email = 'help@shifteasy.kr';
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(email);
