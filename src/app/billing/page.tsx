@@ -65,19 +65,32 @@ function BillingPageContent() {
   const [selectedPlan, setSelectedPlan] = useState<PlanKey>('starter');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Get plan from URL query param
+  // Get plan from URL query param or sessionStorage
   useEffect(() => {
     const planParam = searchParams.get('plan') as PlanKey | null;
     if (planParam && PLANS[planParam]) {
       setSelectedPlan(planParam);
+    } else if (typeof window !== 'undefined') {
+      // Check if there's a stored plan from pre-login
+      const storedPlan = sessionStorage.getItem('billing_plan') as PlanKey | null;
+      if (storedPlan && PLANS[storedPlan]) {
+        setSelectedPlan(storedPlan);
+        // Clear the stored plan
+        sessionStorage.removeItem('billing_plan');
+        // Update URL to reflect the plan
+        router.replace(`/billing?plan=${storedPlan}`);
+      }
     }
-  }, [searchParams]);
+  }, [searchParams, router]);
 
   const handleStartTrial = async () => {
     // Redirect to sign-up if not authenticated
     if (!user) {
-      const currentPlan = searchParams.get('plan') || selectedPlan;
-      router.push(`/sign-up?redirect=/billing?plan=${currentPlan}`);
+      // Store the current plan in sessionStorage for post-login redirect
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('billing_plan', selectedPlan);
+      }
+      router.push('/sign-up');
       return;
     }
 
@@ -96,8 +109,11 @@ function BillingPageContent() {
   const handlePayment = async () => {
     // Redirect to sign-up if not authenticated
     if (!user) {
-      const currentPlan = searchParams.get('plan') || selectedPlan;
-      router.push(`/sign-up?redirect=/billing?plan=${currentPlan}`);
+      // Store the current plan in sessionStorage for post-login redirect
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('billing_plan', selectedPlan);
+      }
+      router.push('/sign-up');
       return;
     }
 
