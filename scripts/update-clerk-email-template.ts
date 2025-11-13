@@ -1,8 +1,13 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import { resolve } from 'path';
+
+// Load .env.local file explicitly
+dotenv.config({ path: resolve(__dirname, '../.env.local') });
 
 const CLERK_SECRET_KEY = process.env.CLERK_SECRET_KEY;
 const CLERK_BASE_URL = process.env.CLERK_API_URL || 'https://api.clerk.com/v1';
-const TEMPLATE_ID = 'email_address_verification_code';
+const TEMPLATE_TYPE = 'email';
+const TEMPLATE_SLUG = 'verification_code';
 
 const emailSubject = '[ShiftEasy] 이메일 인증 코드 안내';
 
@@ -40,7 +45,7 @@ const emailBody = `
         보안을 위해 인증 코드는 <strong>10분 후 만료</strong>됩니다.
       </p>
       <div class="code-box">
-        <p class="code">{{code}}</p>
+        <p class="code">{{otp_code}}</p>
       </div>
       <div class="cta">
         <a href="{{action_url}}" target="_blank" rel="noreferrer">인증 완료하기</a>
@@ -62,18 +67,21 @@ async function updateEmailTemplate() {
     throw new Error('CLERK_SECRET_KEY is not defined in environment variables.');
   }
 
-  const response = await fetch(`${CLERK_BASE_URL}/email_templates/${TEMPLATE_ID}`, {
-    method: 'PATCH',
+  const url = `${CLERK_BASE_URL}/templates/${TEMPLATE_TYPE}/${TEMPLATE_SLUG}`;
+  console.log(`📤 Updating template at: ${url}`);
+
+  const response = await fetch(url, {
+    method: 'PUT',
     headers: {
       Authorization: `Bearer ${CLERK_SECRET_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
+      name: 'ShiftEasy Email Verification',
       subject: emailSubject,
       body: emailBody,
       from_email_name: 'ShiftEasy',
-      name: 'ShiftEasy Email Verification',
-      auto_advance: true,
+      delivered_by_clerk: true,
     }),
   });
 
@@ -83,7 +91,8 @@ async function updateEmailTemplate() {
   }
 
   const data = await response.json();
-  console.log('✅ Clerk email template updated:', data.id);
+  console.log('✅ Clerk email template updated successfully!');
+  console.log('📋 Template details:', JSON.stringify(data, null, 2));
 }
 
 updateEmailTemplate().catch((error) => {

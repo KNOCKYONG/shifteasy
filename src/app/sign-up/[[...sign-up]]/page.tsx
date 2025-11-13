@@ -483,6 +483,19 @@ export default function SignUpPage() {
                   </div>
                 )}
 
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <Mail className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-blue-800 dark:text-blue-300">
+                      <p className="font-medium mb-1">📧 이메일 인증이 필요합니다</p>
+                      <p className="text-xs text-blue-700 dark:text-blue-400">
+                        회원가입 버튼을 누르시면 입력하신 이메일로 6자리 인증 코드가 전송됩니다.
+                        이메일을 확인하여 인증을 완료해주세요.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <button
                   type="submit"
                   disabled={loading || !isLoaded}

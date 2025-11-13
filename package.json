@@ -23,7 +23,9 @@
 		"db:cleanup-profile": "tsx scripts/cleanup-user-profile.ts",
 		"import:users": "tsx scripts/import-users-from-roster.ts --dir ./roster_src --tenant dev-org-id --department \"테스트부서\" --deptCode TEST",
 		"fix:missing-user": "tsx scripts/fix-missing-user.ts",
-		"clerk:update-email-template": "tsx scripts/update-clerk-email-template.ts"
+		"clerk:update-email-template": "tsx scripts/update-clerk-email-template.ts",
+		"clerk:check": "tsx scripts/check-clerk-settings.ts",
+		"clerk:fix-verification": "tsx scripts/fix-clerk-verification.ts"
 	},
 	"dependencies": {
 		"@bull-board/api": "^6.12.7",
