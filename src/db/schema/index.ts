@@ -10,6 +10,7 @@ export * from './special-requests';
 export * from './configs';
 export * from './teams';
 export * from './handoffs';
+export * from './payments';
 
 // Alias for backward compatibility
 export { auditLog as auditLogs } from './system';
