@@ -16,7 +16,7 @@ export default function SignUpPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<'code' | 'signup'>('code');
+  const [step, setStep] = useState<'code' | 'signup' | 'verify'>('code');
   const [tenantInfo, setTenantInfo] = useState<{ id?: string; name?: string; department?: { name: string } } | null>(null);
   const [showGuestForm, setShowGuestForm] = useState(false);
   const [guestEmail, setGuestEmail] = useState('');
@@ -28,9 +28,15 @@ export default function SignUpPage() {
   const [showGuestConfirmPassword, setShowGuestConfirmPassword] = useState(false);
   const [hireDate, setHireDate] = useState('');
   const [yearsOfService, setYearsOfService] = useState(0);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [verificationError, setVerificationError] = useState('');
+  const [verificationMessage, setVerificationMessage] = useState('');
+  const [verificationLoading, setVerificationLoading] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
 
   const router = useRouter();
-  const { isLoaded } = useSignUp();
+  const { isLoaded, signUp } = useSignUp();
 
   // 시크릿 코드 검증
   const handleSecretCodeSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -82,35 +88,42 @@ export default function SignUpPage() {
     }
 
     try {
-      // 먼저 백엔드 API로 회원가입 처리 (데이터베이스 등록)
-      const signupResponse = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          password,
-          name,
-          secretCode,
-          tenantId: tenantInfo?.id,
-          hireDate: hireDate || undefined,
-          yearsOfService: yearsOfService,
-        }),
-      });
-
-      const signupData = await signupResponse.json();
-
-      if (!signupResponse.ok) {
-        setError(signupData.error || '회원가입에 실패했습니다.');
+      if (!signUp) {
+        setError('인증 서비스를 초기화하는 중입니다. 잠시 후 다시 시도해주세요.');
         setLoading(false);
         return;
       }
 
-      // 회원가입 성공 후 바로 로그인
-      router.push('/sign-in');
+      await signUp.create({
+        emailAddress: email,
+        password,
+        firstName: name.split(' ')[0] || name,
+        lastName: name.split(' ').slice(1).join(' ') || '',
+      });
 
-    } catch (err) {
+      await signUp.prepareEmailAddressVerification({
+        strategy: 'email_code',
+      });
+
+      setVerificationEmail(email);
+      setVerificationCode('');
+      setVerificationError('');
+      setVerificationMessage('입력하신 이메일로 인증 코드가 전송되었습니다.');
+      setStep('verify');
+    } catch (err: unknown) {
       console.error('Sign up error:', err);
-      setError('회원가입 중 오류가 발생했습니다.');
+      const clerkError = err as { errors?: Array<{ code?: string; message?: string }> };
+      const firstError = clerkError?.errors?.[0];
+
+      if (firstError?.code === 'form_identifier_exists') {
+        setError('이미 등록된 이메일입니다. 로그인해주세요.');
+      } else if (firstError?.code === 'form_password_pwned') {
+        setError('이 비밀번호는 유출된 기록이 있습니다. 다른 비밀번호를 사용해주세요.');
+      } else if (firstError?.code === 'form_password_length_too_short') {
+        setError('비밀번호는 최소 8자 이상이어야 합니다.');
+      } else {
+        setError(firstError?.message || '회원가입 중 오류가 발생했습니다.');
+      }
     } finally {
       setLoading(false);
     }
@@ -155,6 +168,102 @@ export default function SignUpPage() {
       setError('게스트 계정 생성 중 오류가 발생했습니다.');
     } finally {
       setGuestLoading(false);
+    }
+  };
+
+  const handleVerificationSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setVerificationError('');
+    setVerificationMessage('');
+    setVerificationLoading(true);
+
+    if (!signUp) {
+      setVerificationError('인증 세션을 찾을 수 없습니다. 처음부터 다시 진행해주세요.');
+      setVerificationLoading(false);
+      return;
+    }
+
+    if (!verificationCode) {
+      setVerificationError('이메일로 전송된 인증 코드를 입력해주세요.');
+      setVerificationLoading(false);
+      return;
+    }
+
+    try {
+      const attempt = await signUp.attemptEmailAddressVerification({ code: verificationCode });
+
+      if (attempt.status !== 'complete') {
+        setVerificationError('인증이 완료되지 않았습니다. 코드를 다시 확인해주세요.');
+        setVerificationLoading(false);
+        return;
+      }
+
+      const createdUserId = signUp.createdUserId;
+      if (!createdUserId) {
+        setVerificationError('계정 정보를 확인할 수 없습니다. 다시 시도해주세요.');
+        setVerificationLoading(false);
+        return;
+      }
+
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          name,
+          password,
+          secretCode,
+          tenantId: tenantInfo?.id,
+          hireDate: hireDate || undefined,
+          yearsOfService,
+          clerkUserId: createdUserId,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setVerificationError(data.error || '회원가입에 실패했습니다.');
+        setVerificationLoading(false);
+        return;
+      }
+
+      setVerificationMessage('이메일 인증이 완료되었습니다. 로그인 페이지로 이동합니다.');
+      router.push('/sign-in?verified=1');
+    } catch (err: unknown) {
+      console.error('Verification error:', err);
+      const clerkError = err as { errors?: Array<{ code?: string; message?: string }> };
+      const firstError = clerkError?.errors?.[0];
+
+      if (firstError?.code === 'verification_failed') {
+        setVerificationError('인증 코드가 올바르지 않습니다.');
+      } else if (firstError?.code === 'expired') {
+        setVerificationError('인증 코드가 만료되었습니다. 다시 전송해주세요.');
+      } else {
+        setVerificationError(firstError?.message || '이메일 인증 중 오류가 발생했습니다.');
+      }
+    } finally {
+      setVerificationLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!signUp) {
+      setVerificationError('인증 세션을 찾을 수 없습니다.');
+      return;
+    }
+
+    setVerificationError('');
+    setVerificationMessage('');
+    setResendLoading(true);
+
+    try {
+      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      setVerificationMessage('새로운 인증 코드를 전송했습니다.');
+    } catch (err) {
+      console.error('Resend verification error:', err);
+      setVerificationError('인증 코드를 다시 보내는 중 오류가 발생했습니다.');
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -215,7 +324,7 @@ export default function SignUpPage() {
                 </p>
               </div>
             </>
-          ) : (
+          ) : step === 'signup' ? (
             <>
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">회원가입</h2>
@@ -390,6 +499,67 @@ export default function SignUpPage() {
                   ← 시크릿 코드 다시 입력
                 </button>
               </form>
+            </>
+          ) : (
+            <>
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">이메일 인증</h2>
+                <p className="mt-2 text-gray-600 dark:text-gray-400">
+                  {(verificationEmail || email || '입력한 이메일')} 주소로 전송된 6자리 인증 코드를 입력해주세요.
+                </p>
+              </div>
+
+              <form onSubmit={handleVerificationSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    인증 코드
+                  </label>
+                  <input
+                    type="text"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value)}
+                    maxLength={6}
+                    placeholder="123456"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    required
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800 text-center text-xl tracking-[0.5em]"
+                  />
+                </div>
+
+                {verificationError && (
+                  <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />
+                    <p className="text-sm text-red-600 dark:text-red-400">{verificationError}</p>
+                  </div>
+                )}
+
+                {verificationMessage && !verificationError && (
+                  <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg text-sm text-green-700 dark:text-green-300">
+                    {verificationMessage}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={verificationLoading}
+                  className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {verificationLoading ? '확인 중...' : '인증 완료'}
+                </button>
+              </form>
+
+              <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400 space-y-3">
+                <p>이메일을 받지 못하셨나요?</p>
+                <button
+                  type="button"
+                  onClick={handleResendVerification}
+                  disabled={resendLoading}
+                  className="w-full py-2 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {resendLoading ? '재전송 중...' : '인증 코드 다시 받기'}
+                </button>
+              </div>
             </>
           )}
 

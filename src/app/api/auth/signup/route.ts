@@ -19,12 +19,25 @@ export async function POST(req: NextRequest) {
       departmentId,
       hireDate,
       yearsOfService,
+      clerkUserId,
     } = await req.json();
 
     // 필수 필드 검증
     if (!email || !secretCode || !tenantId || !name) {
       return NextResponse.json(
         { error: '필수 정보를 모두 입력해주세요.' },
+        { status: 400 }
+      );
+    }
+
+    const providedClerkUserId =
+      typeof clerkUserId === 'string' && clerkUserId.trim().length > 0
+        ? clerkUserId.trim()
+        : undefined;
+
+    if (!providedClerkUserId && !password) {
+      return NextResponse.json(
+        { error: '비밀번호를 입력해주세요.' },
         { status: 400 }
       );
     }
@@ -40,9 +53,41 @@ export async function POST(req: NextRequest) {
 
     // 부서 시크릿 코드로 가입한 경우 해당 부서로 자동 배정
     const assignedDepartmentId = validation.department?.id || departmentId;
+    const normalizedEmail = email.toLowerCase();
 
     // Clerk 클라이언트 초기화
     const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
+
+    let externalClerkUser: Awaited<ReturnType<typeof clerk.users.getUser>> | null = null;
+    if (providedClerkUserId) {
+      try {
+        externalClerkUser = await clerk.users.getUser(providedClerkUserId);
+      } catch (lookupError) {
+        console.error('Clerk user lookup failed:', lookupError);
+        return NextResponse.json(
+          { error: '이메일 인증 정보를 확인할 수 없습니다. 다시 시도해주세요.' },
+          { status: 400 }
+        );
+      }
+
+      const matchedEmail = externalClerkUser.emailAddresses?.find(
+        (addr) => addr.emailAddress?.toLowerCase() === normalizedEmail
+      );
+
+      if (!matchedEmail) {
+        return NextResponse.json(
+          { error: '인증된 이메일 정보와 요청 정보가 일치하지 않습니다.' },
+          { status: 400 }
+        );
+      }
+
+      if (matchedEmail.verification?.status !== 'verified') {
+        return NextResponse.json(
+          { error: '이메일 인증을 완료한 후 다시 시도해주세요.' },
+          { status: 400 }
+        );
+      }
+    }
 
     await ensureNotificationPreferencesColumn();
 
@@ -65,10 +110,10 @@ export async function POST(req: NextRequest) {
       console.log('기존 사용자 발견:', existingUser[0].email, '역할:', existingUser[0].role);
 
       // 이미 Clerk 사용자가 있는지 확인
-      let clerkUserId = existingUser[0].clerkUserId;
+      let resolvedClerkUserId = providedClerkUserId || existingUser[0].clerkUserId || '';
 
       // Clerk ID가 없거나 local_ 로 시작하는 경우만 새로 생성
-      if (!clerkUserId || clerkUserId.startsWith('local_')) {
+      if (!resolvedClerkUserId || resolvedClerkUserId.startsWith('local_')) {
         try {
           // 비밀번호가 없으면 오류 반환
           if (!password) {
@@ -84,7 +129,7 @@ export async function POST(req: NextRequest) {
             firstName: name.split(' ')[0] || name,
             lastName: name.split(' ').slice(1).join(' ') || '',
           });
-          clerkUserId = clerkUser.id;
+          resolvedClerkUserId = clerkUser.id;
         } catch (clerkError: unknown) {
           const typedError = clerkError as { errors?: Array<{ code?: string; message?: string }> };
           console.log('Clerk user creation error:', clerkError);
@@ -124,7 +169,7 @@ export async function POST(req: NextRequest) {
       const updatedUser = await db
         .update(users)
         .set({
-          clerkUserId,
+          clerkUserId: resolvedClerkUserId,
           name, // 입력받은 이름으로 업데이트
           departmentId: assignedDepartmentId || existingUser[0].departmentId, // 부서 업데이트 (부서 코드 우선)
           hireDate: hireDate ? new Date(hireDate) : existingUser[0].hireDate,
@@ -139,58 +184,60 @@ export async function POST(req: NextRequest) {
 
     } else {
       // 새 사용자인 경우 - 기존 로직대로 생성
-      let clerkUserId = '';
-      try {
-        // 비밀번호가 없으면 오류 반환
-        if (!password) {
+      let resolvedClerkUserId = providedClerkUserId || '';
+      if (!resolvedClerkUserId) {
+        try {
+          // 비밀번호가 없으면 오류 반환
+          if (!password) {
+            return NextResponse.json(
+              { error: '비밀번호를 입력해주세요.' },
+              { status: 400 }
+            );
+          }
+
+          const clerkUser = await clerk.users.createUser({
+            emailAddress: [email],
+            password: password,
+            firstName: name.split(' ')[0] || name,
+            lastName: name.split(' ').slice(1).join(' ') || '',
+          });
+          resolvedClerkUserId = clerkUser.id;
+        } catch (clerkError: unknown) {
+          const typedError = clerkError as { errors?: Array<{ code?: string; message?: string }> };
+          console.log('Clerk user creation error:', clerkError);
+          console.log('Clerk error details:', JSON.stringify(typedError?.errors, null, 2));
+
+          // Clerk 사용자가 이미 존재하는 경우
+          if (typedError?.errors?.[0]?.code === 'form_identifier_exists') {
+            return NextResponse.json(
+              { error: '이미 등록된 이메일입니다. 로그인해주세요.' },
+              { status: 400 }
+            );
+          }
+
+          // 비밀번호가 데이터 유출에서 발견된 경우
+          if (typedError?.errors?.[0]?.code === 'form_password_pwned') {
+            return NextResponse.json(
+              { error: '이 비밀번호는 온라인 데이터 유출에서 발견되었습니다. 보안을 위해 다른 비밀번호를 사용해주세요.' },
+              { status: 400 }
+            );
+          }
+
+          // 비밀번호가 너무 짧은 경우
+          if (typedError?.errors?.[0]?.code === 'form_password_length_too_short') {
+            return NextResponse.json(
+              { error: '비밀번호는 최소 8자 이상이어야 합니다.' },
+              { status: 400 }
+            );
+          }
+
+          // 다른 오류의 경우 - 회원가입 실패
+          console.error('Clerk 사용자 생성 실패');
           return NextResponse.json(
-            { error: '비밀번호를 입력해주세요.' },
+            { error: typedError?.errors?.[0]?.message || '회원가입에 실패했습니다. 더 복잡한 비밀번호를 사용해주세요.' },
             { status: 400 }
           );
         }
-
-        const clerkUser = await clerk.users.createUser({
-          emailAddress: [email],
-          password: password,
-          firstName: name.split(' ')[0] || name,
-          lastName: name.split(' ').slice(1).join(' ') || '',
-        });
-        clerkUserId = clerkUser.id;
-      } catch (clerkError: unknown) {
-        const typedError = clerkError as { errors?: Array<{ code?: string; message?: string }> };
-        console.log('Clerk user creation error:', clerkError);
-        console.log('Clerk error details:', JSON.stringify(typedError?.errors, null, 2));
-
-        // Clerk 사용자가 이미 존재하는 경우
-        if (typedError?.errors?.[0]?.code === 'form_identifier_exists') {
-          return NextResponse.json(
-            { error: '이미 등록된 이메일입니다. 로그인해주세요.' },
-            { status: 400 }
-          );
-        }
-
-        // 비밀번호가 데이터 유출에서 발견된 경우
-        if (typedError?.errors?.[0]?.code === 'form_password_pwned') {
-          return NextResponse.json(
-            { error: '이 비밀번호는 온라인 데이터 유출에서 발견되었습니다. 보안을 위해 다른 비밀번호를 사용해주세요.' },
-            { status: 400 }
-          );
-        }
-
-        // 비밀번호가 너무 짧은 경우
-        if (typedError?.errors?.[0]?.code === 'form_password_length_too_short') {
-          return NextResponse.json(
-            { error: '비밀번호는 최소 8자 이상이어야 합니다.' },
-            { status: 400 }
-          );
-        }
-
-        // 다른 오류의 경우 - 회원가입 실패
-        console.error('Clerk 사용자 생성 실패');
-        return NextResponse.json(
-          { error: typedError?.errors?.[0]?.message || '회원가입에 실패했습니다. 더 복잡한 비밀번호를 사용해주세요.' },
-          { status: 400 }
-        );
       }
 
       // 데이터베이스에 새 사용자 생성
@@ -198,7 +245,7 @@ export async function POST(req: NextRequest) {
         .insert(users)
         .values({
           tenantId,
-          clerkUserId,
+          clerkUserId: resolvedClerkUserId,
           email,
           name,
           role: 'member', // 새 사용자는 기본 member 역할
