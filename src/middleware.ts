@@ -9,6 +9,7 @@ const PUBLIC_ROUTE_PATTERNS = [
   /^\/api\/webhooks\/.*$/,
   /^\/api\/auth\/validate-secret-code$/,
   /^\/api\/auth\/signup$/,
+  /^\/api\/auth\/provision-tenant$/,
   /^\/api\/auth\/guest-signup$/,
   /^\/api\/schedule\/validate$/,
 ];
