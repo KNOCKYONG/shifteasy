@@ -183,7 +183,6 @@ export function TodayScheduleBoard({
               <Clock className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-xl font-bold">{t('today.title')}</h2>
               <p className="text-sm text-blue-100 font-medium">{format(today, 'PPP', { locale: dateLocale })}</p>
             </div>
           </div>
@@ -201,18 +200,10 @@ export function TodayScheduleBoard({
             <div className="relative" ref={calendarRef}>
               <button
                 onClick={() => setShowCalendar(!showCalendar)}
-                className="px-4 py-2.5 bg-white/10 hover:bg-white/20 rounded-lg transition-all flex items-center gap-2 font-medium hover:scale-105 active:scale-95"
+                className="p-2.5 bg-white/10 hover:bg-white/20 rounded-lg transition-all flex items-center justify-center hover:scale-105 active:scale-95"
                 title={i18n.language === 'ko' ? '날짜 선택' : i18n.language === 'ja' ? '日付選択' : 'Select date'}
               >
-                <Calendar className="w-4 h-4" />
-                <span className="text-sm">
-                  {i18n.language === 'ko'
-                    ? format(today, 'M월 d일(E)', { locale: dateLocale })
-                    : i18n.language === 'ja'
-                    ? format(today, 'M月d日(E)', { locale: dateLocale })
-                    : format(today, 'MMM d (E)', { locale: dateLocale })
-                  }
-                </span>
+                <Calendar className="w-5 h-5" />
               </button>
 
               {/* Calendar Popup */}
