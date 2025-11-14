@@ -2937,11 +2937,11 @@ function SchedulePageContent() {
         {/* Simplified Schedule Action Toolbar - Only for managers */}
 {canManageSchedules && (
         <div
-          className={`bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6 transition-all duration-500 ease-out transform ${
+          className={`bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-3 sm:p-4 mb-6 transition-all duration-500 ease-out transform ${
             toolbarAnimatedIn ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'
           }`}
         >
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 {/* Primary Actions */}
                 <div className="flex flex-wrap items-center gap-2">
                   {isScheduleQueryLoading && (
@@ -2952,11 +2952,11 @@ function SchedulePageContent() {
                   )}
 
                   {!isMember && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                       <button
                         onClick={handleGenerateSchedule}
                         disabled={isGenerating}
-                        className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg ${
+                        className={`inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg flex-1 sm:flex-none ${
                           isGenerating
                             ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
                             : "text-white bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
@@ -2965,12 +2965,14 @@ function SchedulePageContent() {
                         {isGenerating ? (
                           <>
                             <RefreshCcw className="w-4 h-4 animate-spin" />
-                            생성 중...
+                            <span className="hidden sm:inline">생성 중...</span>
+                            <span className="sm:hidden">생성중</span>
                           </>
                         ) : (
                           <>
                             <Wand2 className="w-4 h-4" />
-                            스케줄 생성
+                            <span className="hidden sm:inline">스케줄 생성</span>
+                            <span className="sm:hidden">생성</span>
                           </>
                         )}
                       </button>
@@ -3003,7 +3005,7 @@ function SchedulePageContent() {
                       <button
                         onClick={handleImproveSchedule}
                         disabled={!hasSchedule || isImproving}
-                        className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                        className={`inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all flex-1 sm:flex-none ${
                           !hasSchedule || isImproving
                             ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
                             : "text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md hover:shadow-lg"
@@ -3013,12 +3015,13 @@ function SchedulePageContent() {
                         {isImproving ? (
                           <>
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            개선 중...
+                            <span className="hidden sm:inline">개선 중...</span>
+                            <span className="sm:hidden">개선중</span>
                           </>
                         ) : (
                           <>
                             <TrendingUp className="w-4 h-4" />
-                            개선
+                            <span>개선</span>
                           </>
                         )}
                       </button>
@@ -3028,7 +3031,7 @@ function SchedulePageContent() {
                   <button
                     onClick={handleValidateSchedule}
                     disabled={modals.isValidating || !hasSchedule}
-                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-70 disabled:cursor-not-allowed"
+                    className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-70 disabled:cursor-not-allowed"
                     title={hasSchedule ? "스케줄 검증" : "검증할 스케줄이 없습니다"}
                   >
                     {modals.isValidating ? (
@@ -3041,6 +3044,7 @@ function SchedulePageContent() {
                       <>
                         <CheckCircle className="w-4 h-4" />
                         <span className="hidden sm:inline">검증</span>
+                        <span className="sm:hidden">검증</span>
                       </>
                     )}
                   </button>
@@ -3048,19 +3052,20 @@ function SchedulePageContent() {
                   <button
                     onClick={handleSaveDraft}
                     disabled={isSavingDraft || !hasSchedule}
-                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 dark:text-blue-400 rounded-lg border border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-70 disabled:cursor-not-allowed"
+                    className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-400 rounded-lg border border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-70 disabled:cursor-not-allowed"
                     title={hasSchedule ? "스케줄 임시 저장 (멤버에게는 보이지 않음)" : "저장할 스케줄이 없습니다"}
                   >
                     {isSavingDraft ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
                         <span className="hidden sm:inline">저장 중...</span>
-                        <span className="sm:hidden">저장</span>
+                        <span className="sm:hidden">저장중</span>
                       </>
                     ) : (
                       <>
                         <Save className="w-4 h-4" />
                         <span className="hidden sm:inline">임시 저장</span>
+                        <span className="sm:hidden">저장</span>
                       </>
                     )}
                   </button>
@@ -3068,7 +3073,7 @@ function SchedulePageContent() {
                   <button
                     onClick={handleConfirmToggle}
                     disabled={isPreparingConfirmation || !hasSchedule}
-                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-70 disabled:cursor-not-allowed"
+                    className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-70 disabled:cursor-not-allowed"
                     title={hasSchedule ? "스케줄 확정" : "확정할 스케줄이 없습니다"}
                   >
                     {isPreparingConfirmation ? (
@@ -3081,6 +3086,7 @@ function SchedulePageContent() {
                       <>
                         <Lock className="w-4 h-4" />
                         <span className="hidden sm:inline">확정</span>
+                        <span className="sm:hidden">확정</span>
                       </>
                     )}
                   </button>

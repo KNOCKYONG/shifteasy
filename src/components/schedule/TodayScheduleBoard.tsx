@@ -326,17 +326,19 @@ export function TodayScheduleBoard({
 
       {/* Schedule Board - Team Cards */}
       <div className="p-4">
-        {/* Team Headers Row */}
-        <div className="flex gap-3 mb-3 overflow-x-auto">
-          {/* Empty space for shift time label */}
-          <div className="min-w-[120px] flex-shrink-0">
-            <div className="h-[72px] bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('today.shiftTime')}</span>
+        {/* Desktop View - Table Layout */}
+        <div className="hidden md:block">
+          {/* Team Headers Row */}
+          <div className="flex gap-3 mb-3 overflow-x-auto">
+            {/* Empty space for shift time label */}
+            <div className="min-w-[120px] flex-shrink-0">
+              <div className="h-[72px] bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{t('today.shiftTime')}</span>
+              </div>
             </div>
-          </div>
 
-          {/* Team Headers */}
-          {teams.map((team) => {
+            {/* Team Headers */}
+            {teams.map((team) => {
             const teamEmployees = todayAssignments.filter((a) => {
               const emp = employees.find((e) => e.id === a.employeeId);
               const teamMatches = team.id === 'unassigned'
@@ -432,6 +434,76 @@ export function TodayScheduleBoard({
             <p className="text-sm">{t('today.noShifts')}</p>
           </div>
         )}
+        </div>
+
+        {/* Mobile View - Card Layout */}
+        <div className="md:hidden space-y-4">
+          {shiftGroups.length > 0 ? (
+            shiftGroups.map((shiftGroup) => (
+              <div key={shiftGroup.shift.code} className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                {/* Shift Header */}
+                <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-200 dark:border-gray-700">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                        {shiftGroup.shift.code}
+                      </span>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {shiftGroup.shift.name}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {shiftGroup.shift.startTime} - {shiftGroup.shift.endTime}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Teams */}
+                <div className="space-y-3">
+                  {teams.map((team) => {
+                    const shiftEmployees = getEmployeesForTeamAndShift(team.id, shiftGroup.codes);
+                    if (shiftEmployees.length === 0) return null;
+
+                    return (
+                      <div key={team.id}>
+                        {/* Team Header */}
+                        <div
+                          className="flex items-center gap-2 mb-2 px-3 py-2 rounded-lg text-white font-medium text-sm"
+                          style={{ backgroundColor: team.color }}
+                        >
+                          <Users className="w-4 h-4" />
+                          <span>{team.code}{t('today.team')}</span>
+                          <span className="ml-auto text-xs opacity-90">
+                            {shiftEmployees.length}명
+                          </span>
+                        </div>
+
+                        {/* Employees */}
+                        <div className="space-y-2 pl-2">
+                          {shiftEmployees.map(({ employee }) => (
+                            <div
+                              key={employee.id}
+                              className="flex items-center px-3 py-2 bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600"
+                            >
+                              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                {employee.name}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+              <Clock className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p className="text-sm">{t('today.noShifts')}</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Footer - Summary */}
