@@ -1,20 +1,20 @@
 import { NextResponse } from 'next/server';
+import { readFile } from 'fs/promises';
+import { join } from 'path';
 
 export async function GET() {
-  const svg = `<svg width="240" height="60" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background -->
-  <rect width="240" height="60" fill="#2563eb" rx="8"/>
+  try {
+    const logoPath = join(process.cwd(), 'public', 'email', 'logo.png');
+    const imageBuffer = await readFile(logoPath);
 
-  <!-- Text -->
-  <text x="120" y="38" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="white" text-anchor="middle">
-    ShiftEasy
-  </text>
-</svg>`;
-
-  return new NextResponse(svg, {
-    headers: {
-      'Content-Type': 'image/svg+xml',
-      'Cache-Control': 'public, max-age=31536000, immutable',
-    },
-  });
+    return new NextResponse(imageBuffer, {
+      headers: {
+        'Content-Type': 'image/png',
+        'Cache-Control': 'public, max-age=31536000, immutable',
+      },
+    });
+  } catch (error) {
+    console.error('Error loading logo:', error);
+    return new NextResponse('Logo not found', { status: 404 });
+  }
 }
