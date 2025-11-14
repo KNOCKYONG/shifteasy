@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, clerkClient } from '@clerk/nextjs/server';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
+import { cookies } from 'next/headers';
 import { db } from '@/db';
 import { users } from '@/db/schema/tenants';
 import { eq } from 'drizzle-orm';
@@ -7,15 +9,24 @@ import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotification
 
 export const dynamic = 'force-dynamic';
 
+const supabaseAdmin =
+  process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+    ? createClient(
+        process.env.SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY
+      )
+    : null;
+
 export async function POST(req: NextRequest) {
   try {
-    const { userId } = await auth();
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await req.json();
@@ -28,7 +39,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate new password length (minimum 8 characters)
     if (newPassword.length < 8) {
       return NextResponse.json(
         { error: '새 비밀번호는 최소 8자 이상이어야 합니다.' },
@@ -36,61 +46,55 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    try {
-      // Verify current password by attempting to sign in
-      const client = await clerkClient();
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { error: '서버에서 인증 구성을 찾을 수 없습니다.' },
+        { status: 500 }
+      );
+    }
 
-      // Get user's email
-      await ensureNotificationPreferencesColumn();
+    await ensureNotificationPreferencesColumn();
 
-      const currentUser = await db
-        .select({ email: users.email })
-        .from(users)
-        .where(eq(users.clerkUserId, userId))
-        .limit(1);
+    const [currentUser] = await db
+      .select({ email: users.email })
+      .from(users)
+      .where(eq(users.authUserId, session.user.id))
+      .limit(1);
 
-      if (currentUser.length === 0) {
-        return NextResponse.json(
-          { error: '사용자를 찾을 수 없습니다.' },
-          { status: 404 }
-        );
-      }
+    if (!currentUser) {
+      return NextResponse.json(
+        { error: '사용자를 찾을 수 없습니다.' },
+        { status: 404 }
+      );
+    }
 
-      // Update password in Clerk
-      await client.users.updateUser(userId, {
-        password: newPassword
-      });
+    const passwordCheck = await supabaseAdmin.auth.signInWithPassword({
+      email: currentUser.email,
+      password: currentPassword,
+    });
 
-      return NextResponse.json({
-        success: true,
-        message: '비밀번호가 성공적으로 변경되었습니다.'
-      });
-    } catch (error: unknown) {
-      console.error('Error updating password:', error);
-      const clerkError = error as { errors?: Array<{ code?: string }> };
-      const errorCode = clerkError.errors?.[0]?.code;
+    if (passwordCheck.error) {
+      return NextResponse.json(
+        { error: '현재 비밀번호가 올바르지 않습니다.' },
+        { status: 400 }
+      );
+    }
 
-      // Check if error is due to incorrect current password
-      if (errorCode === 'form_password_incorrect') {
-        return NextResponse.json(
-          { error: '현재 비밀번호가 올바르지 않습니다.' },
-          { status: 400 }
-        );
-      }
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
 
-      // Check if error is due to common password
-      if (errorCode === 'form_password_pwned') {
-        return NextResponse.json(
-          { error: '너무 흔한 비밀번호입니다. 다른 비밀번호를 사용해주세요.' },
-          { status: 400 }
-        );
-      }
-
+    if (updateError) {
       return NextResponse.json(
         { error: '비밀번호 변경에 실패했습니다.' },
         { status: 500 }
       );
     }
+
+    return NextResponse.json({
+      success: true,
+      message: '비밀번호가 성공적으로 변경되었습니다.',
+    });
   } catch (error) {
     console.error('Error in password change:', error);
     return NextResponse.json(

@@ -1,30 +1,43 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
+import { NextResponse, type NextRequest } from 'next/server';
 
-// Public routes that don't require authentication
-const isPublicRoute = createRouteMatcher([
-  '/',
-  '/sign-in(.*)',
-  '/sign-up(.*)',
-  '/billing(.*)', // Allow viewing billing page without login
-  '/api/webhooks/(.*)',
-  '/api/auth/validate-secret-code',
-  '/api/auth/signup',
-  '/api/auth/guest-signup',
-  '/api/schedule/validate', // Validation is a pure computation, no DB access
-]);
+const PUBLIC_ROUTE_PATTERNS = [
+  /^\/$/,
+  /^\/sign-in(?:\/.*)?$/,
+  /^\/sign-up(?:\/.*)?$/,
+  /^\/billing(?:\/.*)?$/,
+  /^\/api\/webhooks\/.*$/,
+  /^\/api\/auth\/validate-secret-code$/,
+  /^\/api\/auth\/signup$/,
+  /^\/api\/auth\/guest-signup$/,
+  /^\/api\/schedule\/validate$/,
+];
 
-export default clerkMiddleware(
-  async (auth, req) => {
-    // Protect all routes except public ones
-    if (!isPublicRoute(req)) {
-      await auth.protect();
-    }
-  },
-  {
-    // Reduce noisy Clerk logs unless explicitly enabled
-    debug: process.env.NEXT_PUBLIC_CLERK_DEBUG === 'true',
+function isPublicRoute(pathname: string) {
+  return PUBLIC_ROUTE_PATTERNS.some((pattern) => pattern.test(pathname));
+}
+
+export async function middleware(req: NextRequest) {
+  const res = NextResponse.next({
+    request: {
+      headers: req.headers,
+    },
+  });
+
+  const supabase = createMiddlewareClient({ req, res });
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session && !isPublicRoute(req.nextUrl.pathname)) {
+    const redirectUrl = req.nextUrl.clone();
+    redirectUrl.pathname = '/sign-in';
+    redirectUrl.searchParams.set('redirectedFrom', req.nextUrl.pathname);
+    return NextResponse.redirect(redirectUrl);
   }
-);
+
+  return res;
+}
 
 export const config = {
   matcher: [

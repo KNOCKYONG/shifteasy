@@ -9,7 +9,7 @@
 - **캐시/레이트리밋**: Upstash Redis
 - **큐/워커**: Cloudflare Queues 또는 Upstash Q
 - **파일 스토리지**: Cloudflare R2
-- **인증**: Clerk (Organization 기반)
+- **인증**: Supabase Auth (Organization 기반)
 - **결제**: Stripe
 - **실시간**: SSE → WebSocket (확장 시)
 - **모니터링**: Sentry + OpenTelemetry
@@ -17,7 +17,7 @@
 ## 2. 멀티테넌시 보안 아키텍처
 
 ### 2.1 테넌트 격리 원칙
-- **tRPC 컨텍스트에서 tenantId 강제 주입** (Clerk 세션/Org에서 파생)
+- **tRPC 컨텍스트에서 tenantId 강제 주입** (Supabase Auth 세션/Org에서 파생)
 - **DB 접근은 scopedDb(tenantId) 헬퍼만 사용** (직접 쿼리 금지)
 - **모든 쿼리/리포지토리 함수에 tenant_id 포함** (타이핑 강제)
 - **DB 유니크 키에 tenant_id 포함** (겹침 방지)
@@ -93,7 +93,7 @@ Job(id, type, payload, status, attempts, next_run_at)
 ### 4.3 Supabase 보안
 - **서비스 키 서버 사이드 전용** (클라이언트 노출 금지)
 - **RLS 미사용 보완**: 뷰/스토어드 프로시저에 tenant_id 강제 바인딩
-- **환경 분리**: Dev/Staging/Prod 분리 (Supabase/Redis/R2/Stripe/Clerk 키 분리)
+- **환경 분리**: Dev/Staging/Prod 분리 (Supabase/Redis/R2/Stripe/Supabase Auth 키 분리)
 
 ## 5. tRPC API 설계
 
@@ -345,7 +345,7 @@ report.exportPdf
 ### Phase 1: 기초 인프라 (1-2주)
 - [ ] Supabase 프로젝트 설정
 - [ ] Drizzle ORM 스키마 정의
-- [ ] Clerk 인증 통합
+- [ ] Supabase Auth 인증 통합
 - [ ] tRPC 라우터 기본 구조
 
 ### Phase 2: 핵심 API (3-4주)

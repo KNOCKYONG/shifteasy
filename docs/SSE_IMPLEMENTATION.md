@@ -754,7 +754,7 @@ import { SSEProvider } from "@/providers/SSEProvider";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ClerkProvider>
+    <SupabaseProvider>
       <html lang="ko" suppressHydrationWarning>
         <body>
           <ErrorBoundary>
@@ -771,7 +771,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </ErrorBoundary>
         </body>
       </html>
-    </ClerkProvider>
+    </SupabaseProvider>
   );
 }
 ```
@@ -1057,7 +1057,7 @@ function ConnectionStatus() {
    const { user } = useCurrentUser();
    console.log('User:', user);  // null이면 문제
    ```
-   **해결**: Clerk 인증 상태 확인, 로그인 필요
+   **해결**: Supabase Auth 인증 상태 확인, 로그인 필요
 
 2. **SSE 엔드포인트 오류**
    ```bash
@@ -1254,7 +1254,7 @@ function ConnectionStatus() {
 
 2. **인증 토큰 만료**
    ```typescript
-   // Clerk 토큰이 만료된 경우
+   // Supabase Auth 토큰이 만료된 경우
    // 해결: 토큰 갱신 후 재연결
    ```
 

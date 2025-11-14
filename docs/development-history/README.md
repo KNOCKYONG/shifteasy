@@ -14,7 +14,7 @@
 2. **[Authentication System Setup](./02-feat: 인증 및 권한 시스템 구현 완료)**
    - 작업일: 2025-09-13
    - 작업자: Developer B
-   - 내용: 인증 및 권한 시스템 구축 (Clerk + RBAC + Rate Limiting)
+   - 내용: 인증 및 권한 시스템 구축 (Supabase Auth + RBAC + Rate Limiting)
 
 ---
 
@@ -33,7 +33,7 @@
 - **Frontend**: Next.js 15, React 19, TypeScript
 - **Backend**: tRPC, Drizzle ORM
 - **Database**: Supabase (PostgreSQL)
-- **Authentication**: Clerk
+- **Authentication**: Supabase Auth
 - **Payment**: Stripe
 - **Cache**: Upstash Redis
 - **File Storage**: Cloudflare R2
@@ -49,7 +49,7 @@
 - [x] 테넌트 격리 시스템
 
 ### Phase 2: 핵심 API (진행 예정)
-- [ ] Clerk 인증 통합
+- [ ] Supabase Auth 인증 통합
 - [ ] 사용자/권한 관리
 - [ ] 스케줄 CRUD
 - [ ] 스왑 워크플로

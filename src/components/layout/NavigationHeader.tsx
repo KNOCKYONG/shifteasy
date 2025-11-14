@@ -9,7 +9,6 @@ import { useEffect, useState } from 'react';
 import { Menu, X, Bell, ChevronDown } from 'lucide-react';
 import { getNavigationForRole, type Role } from '@/lib/permissions';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useUser } from '@clerk/nextjs';
 
 interface NavItem {
   href: string;
@@ -44,7 +43,6 @@ export function NavigationHeader() {
   const [showTeamDropdown, setShowTeamDropdown] = useState(false);
   const [showScheduleDropdown, setShowScheduleDropdown] = useState(false);
   const currentUser = useCurrentUser();
-  const { user: clerkUser } = useUser();
   const [userInfo, setUserInfo] = useState<{ id: string; tenantId: string } | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -65,7 +63,7 @@ export function NavigationHeader() {
   // Fetch user info
   useEffect(() => {
     const fetchUserInfo = async () => {
-      if (!clerkUser) return;
+      if (!currentUser.userId) return;
 
       try {
         const response = await fetch('/api/users/me');
@@ -79,7 +77,7 @@ export function NavigationHeader() {
     };
 
     fetchUserInfo();
-  }, [clerkUser]);
+  }, [currentUser.userId]);
 
   // Function to mark notification as read
   const markNotificationAsRead = async (notificationId: string) => {

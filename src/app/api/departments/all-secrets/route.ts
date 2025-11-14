@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { cookies } from 'next/headers';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { db } from '@/db';
 import { users, departments } from '@/db/schema/tenants';
 import { eq } from 'drizzle-orm';
@@ -13,32 +14,28 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET() {
   try {
-    const { userId } = await auth();
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     await ensureNotificationPreferencesColumn();
 
-    // Get current user
     const [user] = await db
       .select()
       .from(users)
-      .where(eq(users.clerkUserId, userId))
+      .where(eq(users.authUserId, session.user.id))
       .limit(1);
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Check if user is admin or owner
     if (user.role !== 'admin' && user.role !== 'owner') {
       return NextResponse.json(
         { error: 'Forbidden: Admin access required' },
@@ -46,7 +43,6 @@ export async function GET() {
       );
     }
 
-    // Get all departments with their secret codes in the same tenant
     const allDepartments = await db
       .select({
         id: departments.id,
@@ -59,7 +55,7 @@ export async function GET() {
       .orderBy(departments.name);
 
     return NextResponse.json({
-      departments: allDepartments
+      departments: allDepartments,
     });
   } catch (error) {
     console.error('Error fetching all department secrets:', error);

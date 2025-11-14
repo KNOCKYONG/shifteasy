@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
-import { auth, currentUser } from '@clerk/nextjs/server';
+import { cookies } from 'next/headers';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq, and, isNull } from 'drizzle-orm';
@@ -8,48 +9,31 @@ import { TRPCError } from '@trpc/server';
 import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
 
 /**
- * Get the current authenticated user with organization context
+ * Get the current authenticated user with tenant context
  */
 export async function getCurrentUser() {
-  const { userId, orgId } = await auth();
+  const cookieStore = cookies();
+  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  if (!userId) {
-    return null;
-  }
-
-  const clerkUser = await currentUser();
-
-  if (!clerkUser) {
+  if (!session?.user) {
     return null;
   }
 
   await ensureNotificationPreferencesColumn();
 
-  // Get user from database - first try with orgId if available
-  let dbUser;
-  if (orgId) {
-    [dbUser] = await db
-      .select()
-      .from(users)
-      .where(
-        and(
-          eq(users.clerkUserId, userId),
-          eq(users.tenantId, orgId),
-          isNull(users.deletedAt)
-        )
-      );
-  } else {
-    // If no orgId, try to find user by clerkUserId only
-    [dbUser] = await db
-      .select()
-      .from(users)
-      .where(
-        and(
-          eq(users.clerkUserId, userId),
-          isNull(users.deletedAt)
-        )
-      );
-  }
+  const [dbUser] = await db
+    .select()
+    .from(users)
+    .where(
+      and(
+        eq(users.authUserId, session.user.id),
+        isNull(users.deletedAt)
+      )
+    )
+    .limit(1);
 
   if (!dbUser) {
     return null;
@@ -57,7 +41,7 @@ export async function getCurrentUser() {
 
   return {
     ...dbUser,
-    clerkUser,
+    supabaseUser: session.user,
   };
 }
 
@@ -118,11 +102,9 @@ export async function canAccessResource(
   const role = user.role as Role;
   const isOwn = resourceOwnerId === user.id;
 
-  // Build permission strings
   const generalPermission = `${resource}.${action}` as Permission;
   const ownPermission = `${resource}.${action}.own` as Permission;
 
-  // Check permissions
   if (hasPermission(role, generalPermission)) {
     return true;
   }
@@ -132,58 +114,6 @@ export async function canAccessResource(
   }
 
   return false;
-}
-
-/**
- * Sync Clerk user with database
- */
-export async function syncClerkUser(clerkUserId: string, orgId: string) {
-  const clerkUser = await currentUser();
-
-  if (!clerkUser) {
-    throw new Error('Clerk user not found');
-  }
-
-  await ensureNotificationPreferencesColumn();
-
-  // Check if user exists in database
-  const [existingUser] = await db
-    .select()
-    .from(users)
-    .where(
-      and(
-        eq(users.clerkUserId, clerkUserId),
-        eq(users.tenantId, orgId)
-      )
-    );
-
-  if (existingUser) {
-    // Update existing user
-    await db
-      .update(users)
-      .set({
-        email: clerkUser.emailAddresses[0]?.emailAddress || '',
-        name: `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || 'User',
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, existingUser.id));
-
-    return existingUser;
-  } else {
-    // Create new user
-    const [newUser] = await db
-      .insert(users)
-      .values({
-        clerkUserId,
-        tenantId: orgId,
-        email: clerkUser.emailAddresses[0]?.emailAddress || '',
-        name: `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || 'User',
-        role: 'member', // Default role
-      })
-      .returning();
-
-    return newUser;
-  }
 }
 
 /**
@@ -214,7 +144,6 @@ export async function updateUserRole(
 ): Promise<void> {
   await ensureNotificationPreferencesColumn();
 
-  // Check if actor has permission to change roles
   const actor = await db
     .select()
     .from(users)
@@ -232,7 +161,6 @@ export async function updateUserRole(
     });
   }
 
-  // Update the user's role
   await db
     .update(users)
     .set({
@@ -267,5 +195,25 @@ export function requirePermissionForProcedure(permission: Permission) {
         message: `Missing required permission: ${permission}`,
       });
     }
+  };
+}
+
+export type TenantContext = {
+  tenantId: string;
+  userId: string;
+  role: Role;
+};
+
+export async function getCurrentTenantContext(): Promise<TenantContext | null> {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return null;
+  }
+
+  return {
+    tenantId: user.tenantId,
+    userId: user.id,
+    role: user.role as Role,
   };
 }

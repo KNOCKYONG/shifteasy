@@ -3,7 +3,7 @@
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Bell, Info, AlertTriangle, Clock, Calendar, UserCheck, AlertCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useUser } from '@clerk/nextjs';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 interface Notification {
   id: string;
@@ -25,7 +25,7 @@ interface NotificationInbox {
 }
 
 export default function NotificationsPage() {
-  const { user: clerkUser } = useUser();
+  const currentUser = useCurrentUser();
   const [inbox, setInbox] = useState<NotificationInbox | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +33,7 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     const fetchUserInfo = async () => {
-      if (!clerkUser) return;
+      if (!currentUser.userId) return;
 
       try {
         const response = await fetch('/api/users/me');
@@ -47,7 +47,7 @@ export default function NotificationsPage() {
     };
 
     fetchUserInfo();
-  }, [clerkUser]);
+  }, [currentUser.userId]);
 
   useEffect(() => {
     if (userInfo) {

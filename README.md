@@ -66,9 +66,11 @@ psql -c "CREATE DATABASE shifteasy;"
 # Database (Local PostgreSQL)
 DATABASE_URL=postgresql://[YOUR_USERNAME]@localhost:5432/shifteasy
 
-# Authentication (Clerk) - 개발용 테스트 키
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_YWJsZS1tdXN0YW5nLTE1LmNsZXJrLmFjY291bnRzLmRldiQ
-CLERK_SECRET_KEY=sk_test_oa1ZdbWfuYftfCwmEjjP686ruOymIKIUwLhmCeVUpN
+# Authentication (Supabase)
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 # Toss Payments (선택)
 TOSS_SECRET_KEY=live_sk_xxx
@@ -176,7 +178,7 @@ shifteasy/
 │   │   ├── schema/        # Drizzle 스키마 정의
 │   │   └── migrations/    # 마이그레이션 파일
 │   ├── lib/               # 유틸리티 함수
-│   │   ├── auth/          # 인증 관련 (Clerk, RBAC)
+│   │   ├── auth/          # 인증 관련 (Supabase Auth, RBAC)
 │   │   └── db/            # DB 헬퍼 (테넌트 격리)
 │   └── types/             # TypeScript 타입 정의
 ├── docs/
@@ -190,7 +192,7 @@ shifteasy/
 
 - **Frontend**: Next.js 15, React 19, TypeScript
 - **Database**: PostgreSQL + Drizzle ORM
-- **Authentication**: Clerk
+- **Authentication**: Supabase Auth
 - **Styling**: Tailwind CSS
 - **State Management**: TanStack Query
 
@@ -202,16 +204,13 @@ shifteasy/
 
 모든 결제 API는 `tenant:billing` 권한이 있는 사용자(보통 Owner)가 호출할 수 있도록 보호되어 있습니다. 실연동 시에는 토스 콘솔에서 발급받은 키와 웹훅 URL(`/api/webhooks/toss`)을 등록하고, `npm run db:push`로 생성된 `payments`/`subscriptions` 테이블을 사용해 결제 내역을 추적하세요. 자세한 연동 단계는 `docs/payments/toss-payments.md`에서 확인할 수 있습니다.
 
-## 📧 Clerk 이메일 템플릿 커스터마이징
+## 🔐 Supabase 인증 가이드
 
-클라이언트에게 발송되는 Clerk 인증 메일도 ShiftEasy 브랜드에 맞춰 커스터마이징했습니다. 템플릿을 적용하거나 수정하고 싶다면 아래 스크립트를 실행하세요.
+이제 모든 인증 흐름은 Supabase Auth를 사용합니다.
 
-```bash
-# CLERK_SECRET_KEY가 설정돼 있어야 합니다.
-npm run clerk:update-email-template
-```
-
-`scripts/update-clerk-email-template.ts`는 Clerk의 `email_address_verification_code` 템플릿을 PATCH 하여 국문 안내, 브랜드 컬러, CTA 버튼 등이 포함된 HTML 메일로 교체합니다. 메일 제목/본문을 바꾸고 싶으면 스크립트 상단의 `emailSubject`, `emailBody` 값을 편집한 뒤 다시 실행하면 됩니다.
+- 이메일/비밀번호 회원가입 시 Supabase에서 자동으로 인증 메일을 발송합니다.
+- 추가 환경 변수(`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`)가 반드시 설정돼 있어야 합니다.
+- 이메일 템플릿이나 도메인을 변경하려면 [Supabase Dashboard](https://supabase.com/dashboard) → Authentication → Templates에서 직접 수정하세요.
 
 ## 🐛 문제 해결
 

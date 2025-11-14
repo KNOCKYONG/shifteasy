@@ -1,46 +1,45 @@
 'use client';
 
-import { useAuth, useUser } from '@clerk/nextjs';
+import { useSession } from '@supabase/auth-helpers-react';
 import { api } from '@/lib/trpc/client';
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 export function useCurrentUser() {
-  const { isLoaded: authLoaded, userId, orgId } = useAuth();
-  const { isLoaded: userLoaded, user: clerkUser } = useUser();
+  const session = useSession();
+  const userId = session?.user?.id ?? null;
   const queryClient = useQueryClient();
 
-  // Clear cache when userId changes (important for account switching)
   useEffect(() => {
-    if (authLoaded && !userId) {
-      // User logged out - clear all queries
+    if (!userId) {
       queryClient.clear();
     }
-  }, [userId, authLoaded, queryClient]);
+  }, [userId, queryClient]);
 
-  // Get user from database through TRPC
   const { data: currentUserData } = api.tenant.users.current.useQuery(
     undefined,
     {
       enabled: !!userId,
-      // Refetch when window regains focus to ensure fresh data
       refetchOnWindowFocus: true,
-      // Invalidate cache after 1 minute to ensure account switches are detected
       staleTime: 60 * 1000,
     }
   );
 
-  const isLoaded = authLoaded && userLoaded;
+  const isLoaded = session !== undefined;
 
   return {
     isLoaded,
     userId,
-    orgId,
-    clerkUser,
+    orgId: null,
+    supabaseUser: session?.user ?? null,
     dbUser: currentUserData,
     role: currentUserData?.role || 'member',
-    name: currentUserData?.name || clerkUser?.fullName || '',
-    email: currentUserData?.email || clerkUser?.primaryEmailAddress?.emailAddress || '',
+    name:
+      currentUserData?.name ||
+      (session?.user?.user_metadata?.name as string | undefined) ||
+      session?.user?.email ||
+      '',
+    email: currentUserData?.email || session?.user?.email || '',
     tenantPlan: currentUserData?.tenantPlan ?? null,
   };
 }

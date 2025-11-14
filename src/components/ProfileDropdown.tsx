@@ -1,14 +1,14 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useClerk } from '@clerk/nextjs';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { User, LogOut, ChevronDown } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 export function ProfileDropdown() {
-  const { signOut } = useClerk();
+  const supabase = useSupabaseClient();
   const currentUser = useCurrentUser();
   const queryClient = useQueryClient();
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -40,8 +40,8 @@ export function ProfileDropdown() {
       // 3. Clear sessionStorage
       sessionStorage.clear();
 
-      // 4. Sign out from Clerk
-      await signOut();
+      // 4. Sign out from Supabase
+      await supabase.auth.signOut();
 
       // 5. Force full page reload to clear all state
       window.location.href = '/sign-in';

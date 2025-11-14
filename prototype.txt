@@ -188,7 +188,7 @@ export type Schedule = { wardId: string; version: string; assignments: Assignmen
 ## 11) 기술 아키텍처(MVP)
 
 * **프론트:** TypeScript + React + Next.js(App Router) + Tailwind + shadcn/ui + dnd-kit + Zustand(상태) + React Query(데이터).
-* **서버:** Next Route Handlers + Prisma + Postgres(Supabase) + Zod(유효성) + Clerk/NextAuth(SSO 지원).
+* **서버:** Next Route Handlers + Prisma + Postgres(Supabase) + Zod(유효성) + Supabase Auth/NextAuth(SSO 지원).
 * **테스트/품질:** Playwright(핵심 플로우) + Vitest + ESLint/Prettier.
 
 ---

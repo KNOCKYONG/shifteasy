@@ -11,7 +11,7 @@
 
 #### 데이터베이스 유틸리티 (`/src/db/utils.ts`)
 - **데이터 확인 도구**: 사용자, 테넌트, 부서 조회 기능
-- **Clerk 연동 체크**: Clerk 사용자와 DB 사용자 동기화 확인
+- **Supabase Auth 연동 체크**: Supabase Auth 사용자와 DB 사용자 동기화 확인
 - **통계 대시보드**: 전체 데이터 요약 정보 제공
 
 #### 새로운 npm 명령어
@@ -66,12 +66,12 @@ scopedDb.transaction(callback)
 
 ---
 
-### 2. 🔐 Clerk 인증 통합 (`/src/lib/auth/clerk-integration.ts`)
+### 2. 🔐 Supabase Auth 인증 통합 (`/src/lib/auth.ts`)
 
 #### Organization 기반 멀티테넌시
-- **자동 사용자 동기화**: Clerk 사용자 ↔ DB 사용자
+- **자동 사용자 동기화**: Supabase Auth 사용자 ↔ DB 사용자
 - **Organization → Tenant 매핑**: 조직이 테넌트로 자동 변환
-- **역할 동기화**: Clerk 역할 → 앱 역할 자동 매핑
+- **역할 동기화**: Supabase Auth 역할 → 앱 역할 자동 매핑
 
 #### Webhook 이벤트 처리
 ```typescript
@@ -82,7 +82,7 @@ scopedDb.transaction(callback)
 
 #### 헬퍼 함수
 ```typescript
-syncClerkUser() // 현재 사용자 동기화
+syncSupabase AuthUser() // 현재 사용자 동기화
 getCurrentTenantContext() // 테넌트 컨텍스트 획득
 getCurrentScopedDb() // 격리된 DB 인스턴스
 canAccessResource(type, id) // 리소스 접근 권한 확인
@@ -147,7 +147,7 @@ hasAllPermissions([Permission.SCHEDULE_CREATE, Permission.SCHEDULE_PUBLISH])
 ### 4. 🚀 미들웨어 통합 (`/src/middleware.ts`)
 
 #### 인증 플로우
-1. **Clerk 인증 확인**: 로그인 여부
+1. **Supabase Auth 인증 확인**: 로그인 여부
 2. **Organization 확인**: 테넌트 선택 여부
 3. **역할 기반 라우팅**: Admin/Manager/Member별 접근 제어
 4. **헤더 주입**: x-tenant-id, x-user-id, x-user-role
@@ -238,7 +238,7 @@ interface AuthenticatedRequest {
 4. **감사 가능성**: 모든 작업 추적
 
 ### 🔧 기술 스택
-- **인증**: Clerk (Organization 기반)
+- **인증**: Supabase Auth (Organization 기반)
 - **DB 격리**: Drizzle ORM + Custom Wrapper
 - **권한**: RBAC with Decorators
 - **미들웨어**: Next.js Edge Runtime
@@ -303,9 +303,9 @@ if (hasPermission) {
 - [x] scopedDb 헬퍼 완성
 - [x] 모든 DB 쿼리에 tenant_id 강제
 - [x] 테넌트 간 데이터 누출 방지 테스트
-- [x] Clerk 인증 통합 활성화
+- [x] Supabase Auth 인증 통합 활성화
 - [x] Organization 기반 멀티테넌시
-- [x] 사용자 동기화 로직 (syncClerkUser)
+- [x] 사용자 동기화 로직 (syncSupabase AuthUser)
 - [x] RBAC 권한 시스템 구현
 - [x] Owner/Admin/Manager/Member 역할
 - [x] 27개 세분화 권한

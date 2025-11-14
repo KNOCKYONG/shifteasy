@@ -37,7 +37,6 @@ src/db/
 ```bash
 npm run db:check          # 모든 데이터 확인
 npm run db:check:users    # 사용자만 확인
-npm run db:check:clerk    # Clerk 사용자 확인
 npm run db:check:summary  # 데이터 요약
 ```
 

@@ -74,12 +74,12 @@ export const staffRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
 
-      // TODO: Integrate with Clerk to create user
-      const clerkUserId = `clerk_${Date.now()}`;
+      // TODO: Integrate with Supabase to create user
+      const authUserId = `auth_${Date.now()}`;
 
       const [user] = await db.insert(users, {
         ...input,
-        clerkUserId,
+        authUserId,
         status: 'active',
       });
 

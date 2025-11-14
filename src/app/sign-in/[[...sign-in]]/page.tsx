@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSignIn, useUser } from '@clerk/nextjs';
+import { useSupabaseClient, useSession } from '@supabase/auth-helpers-react';
 import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
@@ -13,73 +13,39 @@ export default function SignInPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { isLoaded, signIn, setActive } = useSignIn();
-  const { isSignedIn } = useUser();
+  const supabase = useSupabaseClient();
+  const session = useSession();
 
   // 이미 로그인되어 있으면 대시보드로 리다이렉트
   useEffect(() => {
-    if (isSignedIn) {
+    if (session) {
       router.push('/dashboard');
     }
-  }, [isSignedIn, router]);
+  }, [session, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    if (!isLoaded) {
-      setLoading(false);
-      return;
-    }
-
-    // If already signed in, just redirect
-    if (isSignedIn) {
-      router.push('/dashboard');
-      setLoading(false);
-      return;
-    }
-
     try {
-      // Clerk를 사용하여 로그인
-      const result = await signIn.create({
-        identifier: email,
-        password: password,
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
 
-      if (result.status === 'complete') {
-        await setActive({ session: result.createdSessionId });
-        router.push('/dashboard');
+      if (error) {
+        if (error.message.toLowerCase().includes('invalid login')) {
+          setError('이메일 또는 비밀번호가 올바르지 않습니다.');
+        } else {
+          setError(error.message);
+        }
       } else {
-        // 추가 인증이 필요한 경우 (2FA 등)
-        console.log('Additional auth required:', result);
-        setError('추가 인증이 필요합니다.');
+        router.push('/dashboard');
       }
     } catch (err: unknown) {
       console.error('Sign in error:', err);
-
-      // Clerk 에러 메시지를 한글로 변환
-      const error = err as { errors?: { message?: string }[]; message?: string };
-      if (error.errors?.[0]?.message) {
-        const errorMessage = error.errors[0].message;
-        if (errorMessage.includes('already signed in')) {
-          // 이미 로그인된 경우 대시보드로 리다이렉트
-          router.push('/dashboard');
-          return;
-        } else if (errorMessage.includes('password')) {
-          setError('비밀번호가 올바르지 않습니다.');
-        } else if (errorMessage.includes('Identifier')) {
-          setError('등록되지 않은 이메일입니다.');
-        } else {
-          setError('로그인에 실패했습니다. 다시 시도해주세요.');
-        }
-      } else if (error.message && error.message.includes('already signed in')) {
-        // 이미 로그인된 경우 대시보드로 리다이렉트
-        router.push('/dashboard');
-        return;
-      } else {
-        setError('로그인에 실패했습니다. 다시 시도해주세요.');
-      }
+      setError('로그인에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setLoading(false);
     }
@@ -164,7 +130,7 @@ export default function SignInPage() {
 
             <button
               type="submit"
-              disabled={loading || !isLoaded}
+              disabled={loading}
               className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? '로그인 중...' : '로그인'}

@@ -64,7 +64,7 @@ export const users = pgTable('users', {
   departmentId: uuid('department_id').references(() => departments.id, { onDelete: 'set null' }),
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   teamId: uuid('team_id').references((): any => (require('./teams').teams).id, { onDelete: 'set null' }),
-  clerkUserId: text('clerk_user_id').unique(),
+  authUserId: text('auth_user_id').unique(),
   email: text('email').notNull(),
   name: text('name').notNull(),
   role: text('role').notNull().default('member'), // owner, admin, manager, member
@@ -123,7 +123,7 @@ export const users = pgTable('users', {
 }, (table) => ({
   tenantIdx: index('users_tenant_id_idx').on(table.tenantId),
   emailIdx: index('users_email_idx').on(table.email),
-  clerkUserIdx: index('users_clerk_user_id_idx').on(table.clerkUserId),
+  authUserIdx: index('users_auth_user_id_idx').on(table.authUserId),
   departmentIdx: index('users_department_id_idx').on(table.departmentId),
   teamIdx: index('users_team_id_idx').on(table.teamId),
 }));

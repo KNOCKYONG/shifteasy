@@ -87,7 +87,7 @@
 - **API**: tRPC
 - **Database**: Supabase (PostgreSQL)
 - **ORM**: Drizzle ORM
-- **Auth**: Clerk (임시 비활성화)
+- **Auth**: Supabase Auth (임시 비활성화)
 - **Cache**: Upstash Redis
 
 ### DevOps
@@ -112,12 +112,12 @@
 10. 스케줄 설정 페이지
 
 ### ⚠️ 알려진 이슈
-1. **Clerk 인증 임시 비활성화**: 개발 편의를 위해 임시로 비활성화
+1. **Supabase Auth 인증 임시 비활성화**: 개발 편의를 위해 임시로 비활성화
 2. **Supabase 연결 문제**: 네트워크 이슈로 인한 연결 실패
 3. **TypeScript 경고**: 일부 strict mode 경고 존재
 
 ### 🚀 다음 단계
-1. Clerk 인증 재활성화
+1. Supabase Auth 인증 재활성화
 2. Supabase 연결 문제 해결
 3. 실시간 업데이트 (WebSocket)
 4. 다크 모드 지원

@@ -40,7 +40,7 @@ ShiftEasy 프로젝트의 백엔드 인프라 구축 및 데이터베이스 설�
     - id, name, slug, plan, billing_info, settings
 
 2. **users** - 사용자 정보
-    - id, tenant_id, department_id, clerk_user_id, email, name, role, profile
+    - id, tenant_id, department_id, auth_user_id, email, name, role, profile
 
 3. **departments** - 부서/병동 관리
     - id, tenant_id, name, code, description, settings
@@ -269,7 +269,7 @@ pnpm dev
 
 ## 📝 TODO (다음 단계)
 
-1. [ ] Clerk 인증 시스템 통합
+1. [ ] Supabase Auth 인증 시스템 통합
 2. [ ] Stripe 결제 시스템 연동
 3. [ ] Redis 캐싱 레이어 구현
 4. [ ] SSE 실시간 통신 구현

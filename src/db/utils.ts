@@ -6,7 +6,6 @@
 import { db } from './index';
 import { users, tenants, departments } from './schema/tenants';
 import { like, eq, sql } from 'drizzle-orm';
-import { createClerkClient } from '@clerk/nextjs/server';
 import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
 
 /**
@@ -21,7 +20,7 @@ export async function checkDatabaseUsers() {
         id: users.id,
         email: users.email,
         name: users.name,
-        clerkUserId: users.clerkUserId,
+        authUserId: users.authUserId,
         role: users.role,
         tenantId: users.tenantId,
         departmentId: users.departmentId,
@@ -35,31 +34,6 @@ export async function checkDatabaseUsers() {
     return testUsers;
   } catch (error) {
     console.error('❌ Error checking database users:', error);
-    throw error;
-  }
-}
-
-/**
- * Clerk의 모든 사용자 확인
- */
-export async function checkClerkUsers() {
-  try {
-    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
-    const userList = await clerk.users.getUserList();
-
-    console.log('\n👥 Clerk Users:');
-    const clerkUsers = userList.data.map(user => ({
-      id: user.id,
-      email: user.emailAddresses[0]?.emailAddress,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      createdAt: user.createdAt,
-    }));
-
-    console.table(clerkUsers);
-    return clerkUsers;
-  } catch (error) {
-    console.error('❌ Error checking Clerk users:', error);
     throw error;
   }
 }
@@ -162,10 +136,7 @@ export async function checkAll() {
   await checkDepartments();
   await checkDatabaseUsers();
 
-  // Clerk는 선택적 (환경변수가 있을 때만)
-  if (process.env.CLERK_SECRET_KEY) {
-    await checkClerkUsers();
-  }
+  console.log('\n🔐 Supabase Auth is the source of truth for user credentials.');
 }
 
 // 직접 실행 시
@@ -175,9 +146,6 @@ if (require.main === module) {
   switch (command) {
     case 'users':
       checkDatabaseUsers().then(() => process.exit(0));
-      break;
-    case 'clerk':
-      checkClerkUsers().then(() => process.exit(0));
       break;
     case 'tenants':
       checkTenants().then(() => process.exit(0));

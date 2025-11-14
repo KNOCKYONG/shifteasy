@@ -1,11 +1,16 @@
-import { auth } from '@clerk/nextjs/server';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 import LandingPage from '@/components/landing/LandingPage';
 
 export default async function Home() {
-  const { userId } = await auth();
+  const cookieStore = cookies();
+  const supabase = createServerComponentClient({ cookies: () => cookieStore });
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  if (userId) {
+  if (session?.user) {
     redirect('/dashboard');
   }
 

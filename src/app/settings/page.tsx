@@ -2,14 +2,14 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
 import Image from "next/image";
-import { User, Shield, Bell, Key, Copy, Save, Loader2, AlertCircle, CheckCircle2, Camera } from "lucide-react";
+import { User, Shield, Bell, Key, Copy, Save, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { RoleGuard } from "@/components/auth/RoleGuard";
 import { SecretCodeTab } from "@/app/config/SecretCodeTab";
 import { NotificationPreferencesTab } from "@/components/settings/NotificationPreferencesTab";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 // Force dynamic rendering to prevent build-time errors
 export const dynamic = 'force-dynamic';
@@ -30,7 +30,7 @@ interface CurrentUser {
 function SettingsContent() {
   const { t } = useTranslation(['settings', 'common']);
   const searchParams = useSearchParams();
-  const { user } = useUser();
+  const currentUserHook = useCurrentUser();
   const [activeTab, setActiveTab] = useState<"profile" | "security" | "notifications" | "secretCode" | "department">("profile");
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
@@ -53,7 +53,6 @@ function SettingsContent() {
   const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   // Profile image upload
-  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     const tab = searchParams?.get('tab');
@@ -70,13 +69,13 @@ function SettingsContent() {
     }
   }, [searchParams]);
 
-  // Initialize profile fields when user data loads
   useEffect(() => {
-    if (user) {
-      setFirstName(user.firstName || '');
-      setLastName(user.lastName || '');
+    if (currentUserHook.dbUser?.name) {
+      const [first, ...rest] = currentUserHook.dbUser.name.split(' ');
+      setFirstName(first || '');
+      setLastName(rest.join(' '));
     }
-  }, [user]);
+  }, [currentUserHook.dbUser?.name]);
 
   useEffect(() => {
     // Fetch current user data
@@ -110,54 +109,47 @@ function SettingsContent() {
 
   // Profile update handler
   const handleProfileUpdate = async () => {
-    if (!user) return;
-
     setProfileLoading(true);
     setProfileMessage(null);
 
     try {
-      // Update name
-      await user.update({
-        firstName,
-        lastName,
+      const fullName = [firstName, lastName].filter(Boolean).join(' ') || firstName || lastName;
+      const response = await fetch('/api/users/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: fullName }),
       });
 
-      setProfileMessage({ type: 'success', text: '프로필이 성공적으로 업데이트되었습니다.' });
-      setIsEditingProfile(false);
+      if (!response.ok) {
+        throw new Error('프로필 업데이트에 실패했습니다.');
+      }
 
-      // Reload user data
-      await user.reload();
+      const updated = await response.json();
+      setCurrentUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              name: updated.name,
+            }
+          : prev
+      );
+
+      setProfileMessage({
+        type: 'success',
+        text: '프로필이 성공적으로 업데이트되었습니다.',
+      });
+      setIsEditingProfile(false);
     } catch (error: unknown) {
       console.error('Profile update error:', error);
       setProfileMessage({
         type: 'error',
-        text: (error as { errors?: { message?: string }[] }).errors?.[0]?.message || '프로필 업데이트에 실패했습니다.'
+        text:
+          error instanceof Error
+            ? error.message
+            : '프로필 업데이트에 실패했습니다.',
       });
     } finally {
       setProfileLoading(false);
-    }
-  };
-
-  // Profile image upload handler
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!user || !e.target.files || e.target.files.length === 0) return;
-
-    const file = e.target.files[0];
-    setUploadingImage(true);
-    setProfileMessage(null);
-
-    try {
-      await user.setProfileImage({ file });
-      setProfileMessage({ type: 'success', text: '프로필 이미지가 업데이트되었습니다.' });
-      await user.reload();
-    } catch (error: unknown) {
-      console.error('Image upload error:', error);
-      setProfileMessage({
-        type: 'error',
-        text: (error as { errors?: { message?: string }[] }).errors?.[0]?.message || '이미지 업로드에 실패했습니다.'
-      });
-    } finally {
-      setUploadingImage(false);
     }
   };
 
@@ -345,9 +337,9 @@ function SettingsContent() {
                   <div className="flex items-center gap-4">
                     <div className="relative">
                       <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center overflow-hidden">
-                        {user?.imageUrl ? (
+                        {currentUserHook.dbUser?.profile?.avatar ? (
                           <Image
-                            src={user.imageUrl}
+                            src={currentUserHook.dbUser.profile.avatar}
                             alt="Profile"
                             width={80}
                             height={80}
@@ -357,28 +349,11 @@ function SettingsContent() {
                         ) : (
                           <User className="w-10 h-10 text-gray-400 dark:text-gray-600" />
                         )}
-                        {uploadingImage && (
-                          <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
-                            <Loader2 className="w-6 h-6 text-white animate-spin" />
-                          </div>
-                        )}
                       </div>
-                      {isEditingProfile && (
-                        <label className="absolute bottom-0 right-0 p-1.5 bg-blue-600 dark:bg-blue-500 text-white rounded-full cursor-pointer hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors">
-                          <Camera className="w-4 h-4" />
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleImageUpload}
-                            className="hidden"
-                            disabled={uploadingImage}
-                          />
-                        </label>
-                      )}
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : user?.primaryEmailAddress?.emailAddress}
+                        {currentUserHook.dbUser?.name || currentUserHook.dbUser?.email || '사용자'}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{currentUser?.department || 'No Department'}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">Role: {currentUser?.role || 'member'}</p>
@@ -392,7 +367,7 @@ function SettingsContent() {
                     </label>
                     <input
                       type="email"
-                      value={user?.primaryEmailAddress?.emailAddress || ''}
+                      value={currentUserHook.dbUser?.email || ''}
                       disabled
                       className="w-full px-4 py-2 border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-lg"
                     />
@@ -564,15 +539,16 @@ function SettingsContent() {
                   {/* Additional Security Info */}
                   <div className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
                     <p className="text-sm text-blue-900 dark:text-blue-300">
-                      💡 2단계 인증 등 추가 보안 기능은 Clerk 계정 관리 페이지에서 설정할 수 있습니다.
+                      💡 2단계 인증 등 추가 보안 기능은 Supabase 계정 설정에서
+                      관리할 수 있습니다.
                     </p>
                     <a
-                      href={`https://accounts.clerk.com/sign-in`}
+                      href="https://supabase.com/dashboard"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-block mt-3 px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600"
                     >
-                      Clerk 계정 관리
+                      Supabase 계정 관리
                     </a>
                   </div>
                 </div>

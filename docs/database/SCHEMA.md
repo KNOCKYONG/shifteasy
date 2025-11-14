@@ -110,7 +110,7 @@ CREATE TABLE "users" (
   "tenant_id" uuid NOT NULL REFERENCES "tenants"("id") ON DELETE CASCADE,
   "department_id" uuid REFERENCES "departments"("id") ON DELETE SET NULL,
   "team_id" uuid REFERENCES "teams"("id") ON DELETE SET NULL,
-  "clerk_user_id" text UNIQUE,
+  "auth_user_id" text UNIQUE,
   "email" text NOT NULL,
   "name" text NOT NULL,
   "role" text NOT NULL DEFAULT 'member',  -- owner, admin, manager, member
@@ -127,7 +127,7 @@ CREATE TABLE "users" (
 **Indexes**:
 - `users_tenant_id_idx` on (tenant_id)
 - `users_email_idx` on (email)
-- `users_clerk_user_id_idx` on (clerk_user_id)
+- `users_auth_user_id_idx` on (auth_user_id)
 - `users_department_id_idx` on (department_id)
 - `users_team_id_idx` on (team_id)
 

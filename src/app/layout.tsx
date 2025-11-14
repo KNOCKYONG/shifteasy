@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { ClerkProvider } from "@clerk/nextjs";
+import { cookies } from "next/headers";
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
+import { SupabaseProvider } from "@/components/providers/SupabaseProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { I18nProvider } from "@/components/providers/I18nProvider";
 import { TRPCProvider } from "@/components/providers/trpc-provider";
@@ -16,22 +18,21 @@ export const metadata: Metadata = {
   description: "Intelligent shift scheduling for healthcare, manufacturing, and service industries",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const cookieStore = cookies();
+  const supabase = createServerComponentClient({ cookies: () => cookieStore });
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
   return (
-    <ClerkProvider
-      appearance={{
-        baseTheme: undefined,
-        variables: {
-          colorPrimary: '#2563eb',
-        },
-      }}
-    >
-      <html lang="ko" suppressHydrationWarning>
-        <body className={inter.className}>
+    <html lang="ko" suppressHydrationWarning>
+      <body className={inter.className}>
+        <SupabaseProvider initialSession={session}>
           <ErrorBoundary>
             <TRPCProvider>
               <I18nProvider>
@@ -49,8 +50,8 @@ export default function RootLayout({
               </I18nProvider>
             </TRPCProvider>
           </ErrorBoundary>
-        </body>
-      </html>
-    </ClerkProvider>
+        </SupabaseProvider>
+      </body>
+    </html>
   );
 }// Force rebuild

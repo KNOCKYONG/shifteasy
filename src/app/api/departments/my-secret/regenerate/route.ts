@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { cookies } from 'next/headers';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { db } from '@/db';
 import { users, departments } from '@/db/schema/tenants';
 import { eq, ne, and } from 'drizzle-orm';
@@ -7,7 +8,6 @@ import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotification
 
 export const dynamic = 'force-dynamic';
 
-// Generate a random secret code
 function generateSecretCode(): string {
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let result = '';
@@ -17,8 +17,11 @@ function generateSecretCode(): string {
   return result;
 }
 
-// Check if secret code already exists in any department
-async function isSecretCodeUnique(tenantId: string, secretCode: string, excludeDepartmentId?: string): Promise<boolean> {
+async function isSecretCodeUnique(
+  tenantId: string,
+  secretCode: string,
+  excludeDepartmentId?: string
+): Promise<boolean> {
   let existingDepartments;
 
   if (excludeDepartmentId) {
@@ -49,14 +52,20 @@ async function isSecretCodeUnique(tenantId: string, secretCode: string, excludeD
   return existingDepartments.length === 0;
 }
 
-// Generate unique secret code
-async function generateUniqueSecretCode(tenantId: string, excludeDepartmentId?: string): Promise<string> {
+async function generateUniqueSecretCode(
+  tenantId: string,
+  excludeDepartmentId?: string
+): Promise<string> {
   let attempts = 0;
   const maxAttempts = 10;
 
   while (attempts < maxAttempts) {
     const code = generateSecretCode();
-    const isUnique = await isSecretCodeUnique(tenantId, code, excludeDepartmentId);
+    const isUnique = await isSecretCodeUnique(
+      tenantId,
+      code,
+      excludeDepartmentId
+    );
 
     if (isUnique) {
       return code;
@@ -68,46 +77,41 @@ async function generateUniqueSecretCode(tenantId: string, excludeDepartmentId?: 
   throw new Error('Failed to generate unique secret code after multiple attempts');
 }
 
-/**
- * POST /api/departments/my-secret/regenerate
- * Manager가 자신의 부서 시크릿 코드 재생성
- */
 export async function POST() {
   try {
-    const { userId } = await auth();
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     await ensureNotificationPreferencesColumn();
 
-    // Get current user
     const [user] = await db
       .select()
       .from(users)
-      .where(eq(users.clerkUserId, userId))
+      .where(eq(users.authUserId, session.user.id))
       .limit(1);
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Check if user is manager
-    if (user.role !== 'manager' && user.role !== 'admin' && user.role !== 'owner') {
+    if (
+      user.role !== 'manager' &&
+      user.role !== 'admin' &&
+      user.role !== 'owner'
+    ) {
       return NextResponse.json(
         { error: 'Forbidden: Manager access required' },
         { status: 403 }
       );
     }
 
-    // Check if user has a department
     if (!user.departmentId) {
       return NextResponse.json(
         { error: 'No department assigned' },
@@ -115,10 +119,11 @@ export async function POST() {
       );
     }
 
-    // Generate new unique secret code using user's tenantId
-    const newSecretCode = await generateUniqueSecretCode(user.tenantId, user.departmentId);
+    const newSecretCode = await generateUniqueSecretCode(
+      user.tenantId,
+      user.departmentId
+    );
 
-    // Update department's secret code
     const updatedDepartment = await db
       .update(departments)
       .set({
@@ -142,7 +147,7 @@ export async function POST() {
     return NextResponse.json({
       success: true,
       department: updatedDepartment[0],
-      message: 'Secret code regenerated successfully'
+      message: 'Secret code regenerated successfully',
     });
   } catch (error) {
     console.error('Error regenerating secret code:', error);

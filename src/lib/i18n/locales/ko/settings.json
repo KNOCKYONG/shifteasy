@@ -11,15 +11,15 @@
     "title": "프로필 정보",
     "description": "이름, 이메일, 프로필 사진 등을 관리할 수 있습니다.",
     "email": "이메일",
-    "emailNote": "이메일은 Clerk 계정 설정에서 변경할 수 있습니다.",
+    "emailNote": "이메일은 Supabase 계정 설정에서 변경할 수 있습니다.",
     "name": "이름",
-    "nameNote": "이름은 Clerk 계정 설정에서 변경할 수 있습니다."
+    "nameNote": "이름은 Supabase 계정 설정에서 변경할 수 있습니다."
   },
   "security": {
     "title": "보안 설정",
     "description": "비밀번호와 보안 옵션을 관리하세요.",
-    "clerkNote": "비밀번호 변경, 2단계 인증 설정 등은 Clerk 계정 관리 페이지에서 가능합니다.",
-    "goToClerk": "Clerk 계정 관리"
+    "accountNote": "비밀번호 변경, 2단계 인증 설정 등은 Supabase 계정 관리 페이지에서 가능합니다.",
+    "goToAccount": "Supabase 계정 관리"
   },
   "notifications": {
     "title": "알림 설정",

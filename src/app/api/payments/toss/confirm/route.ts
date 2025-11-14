@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getCurrentTenantContext } from '@/lib/auth/clerk-integration';
+import { getCurrentTenantContext } from '@/lib/auth';
 import { Permission, PermissionChecker } from '@/lib/auth/rbac';
 import { PAYMENT_METHODS, type PaymentMethod } from '@/db/schema/payments';
 import { findPaymentByOrderId, upsertPayment, updatePaymentByOrderId } from '@/lib/payments/payment-service';

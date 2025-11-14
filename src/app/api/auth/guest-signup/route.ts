@@ -1,12 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 import { db } from '@/db';
 import { tenants, departments, users } from '@/db/schema/tenants';
 import { nursePreferences } from '@/db/schema/nurse-preferences';
-import { clerkClient } from '@clerk/nextjs/server';
 import { sql } from 'drizzle-orm';
 import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
 
 export const dynamic = 'force-dynamic';
+
+const supabaseAdmin =
+  process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+    ? createClient(
+        process.env.SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY
+      )
+    : null;
 
 /**
  * 게스트 계정 생성 API
@@ -15,10 +23,16 @@ export const dynamic = 'force-dynamic';
  * - position은 HN으로 설정
  * - employeeId는 GUEST_0000001 형식으로 자동 생성
  * - 14일 Pro 플랜 무료 체험 제공
- * - 이메일 인증을 완료한 Clerk 사용자 ID가 반드시 필요
  */
 export async function POST(request: NextRequest) {
   try {
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { error: 'Supabase 관리자 클라이언트를 초기화할 수 없습니다.' },
+        { status: 500 }
+      );
+    }
+
     const body = await request.json();
     const { email, name, hospitalName, password } = body;
 
@@ -41,59 +55,30 @@ export async function POST(request: NextRequest) {
 
     await ensureNotificationPreferencesColumn();
 
-    const clerk = await clerkClient();
-    let clerkUser;
-    try {
-      clerkUser = await clerk.users.createUser({
-        emailAddress: [normalizedEmail],
+    const { data: createdUser, error: adminError } =
+      await supabaseAdmin.auth.admin.createUser({
+        email: normalizedEmail,
         password,
-        firstName: name,
-        publicMetadata: {
+        email_confirm: true,
+        user_metadata: {
           role: 'manager',
           isGuest: true,
+          hospitalName: sanitizedHospitalName,
         },
       });
-    } catch (clerkError) {
-      console.error('Clerk user creation error (guest):', clerkError);
-      const typedError = clerkError as { errors?: Array<{ code?: string; message?: string }> };
-      const firstError = typedError?.errors?.[0];
 
-      if (firstError?.code === 'form_identifier_exists') {
-        return NextResponse.json(
-          { error: '이미 사용 중인 이메일입니다.' },
-          { status: 400 }
-        );
-      }
-
-      if (firstError?.code === 'form_password_pwned') {
-        return NextResponse.json(
-          { error: '너무 흔한 비밀번호입니다. 다른 비밀번호를 사용해주세요.' },
-          { status: 400 }
-        );
-      }
-
-      if (firstError?.code === 'form_password_length_too_short') {
-        return NextResponse.json(
-          { error: '비밀번호는 8자 이상이어야 합니다.' },
-          { status: 400 }
-        );
-      }
-
-      return NextResponse.json(
-        { error: firstError?.message || '게스트 계정 생성에 실패했습니다.' },
-        { status: 400 }
-      );
+    if (adminError || !createdUser?.user) {
+      const message =
+        adminError?.message || '게스트 계정 생성에 실패했습니다.';
+      return NextResponse.json({ error: message }, { status: 400 });
     }
 
-    // 랜덤 문자열 생성 (8자리)
     const randomString = Math.random().toString(36).substring(2, 10);
     const guestPrefix = `guest_${randomString}`;
 
-    // 14일 후 날짜 계산
     const planExpiresAt = new Date();
     planExpiresAt.setDate(planExpiresAt.getDate() + 14);
 
-    // 1. Tenant 생성 (14일 Pro 플랜)
     const [tenant] = await db
       .insert(tenants)
       .values({
@@ -115,7 +100,6 @@ export async function POST(request: NextRequest) {
       })
       .returning();
 
-    // 2. Department 생성
     const [department] = await db
       .insert(departments)
       .values({
@@ -125,13 +109,11 @@ export async function POST(request: NextRequest) {
         secretCode: guestPrefix,
         settings: {
           minStaff: 1,
-          maxStaff: 50, // Pro 플랜 제한
+          maxStaff: 50,
         },
       })
       .returning();
 
-    // 3. employeeId 생성 (GUEST_0000001 형식)
-    // 현재 최대 GUEST_ employeeId 조회
     const maxEmployeeIdResult = await db
       .select({ employeeId: users.employeeId })
       .from(users)
@@ -141,23 +123,24 @@ export async function POST(request: NextRequest) {
 
     let nextNumber = 1;
     if (maxEmployeeIdResult.length > 0 && maxEmployeeIdResult[0].employeeId) {
-      // GUEST_0000001 형식에서 숫자 부분 추출
-      const currentNumber = parseInt(maxEmployeeIdResult[0].employeeId.replace('GUEST_', ''), 10);
+      const currentNumber = parseInt(
+        maxEmployeeIdResult[0].employeeId.replace('GUEST_', ''),
+        10
+      );
       nextNumber = currentNumber + 1;
     }
 
     const employeeId = `GUEST_${String(nextNumber).padStart(7, '0')}`;
 
-    // 4. User 생성 (데이터베이스에)
     const [user] = await db
       .insert(users)
       .values({
         tenantId: tenant.id,
         departmentId: department.id,
-        clerkUserId: clerkUser.id,
+        authUserId: createdUser.user.id,
         email: normalizedEmail,
-        name: name,
-        employeeId: employeeId,
+        name,
+        employeeId,
         role: 'manager',
         position: 'HN',
         status: 'active',
@@ -168,7 +151,6 @@ export async function POST(request: NextRequest) {
       })
       .returning();
 
-    // 5. 기본 근무 선호도 생성 (게스트는 weekday-only 강제)
     await db.insert(nursePreferences).values({
       tenantId: tenant.id,
       nurseId: user.id,
@@ -200,12 +182,10 @@ export async function POST(request: NextRequest) {
     );
   } catch (error: unknown) {
     console.error('Guest signup error:', error);
-    const clerkError = error as { errors?: Array<{ code?: string }>; message?: string };
-
     return NextResponse.json(
       {
         error: '게스트 계정 생성에 실패했습니다.',
-        details: clerkError?.message ?? 'Unknown error',
+        details: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }
     );

@@ -1,62 +1,9 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import superjson from 'superjson';
-import { auth } from '@clerk/nextjs/server';
-import { db } from '@/db';
-import { eq, and, isNull } from 'drizzle-orm';
-import { users } from '@/db/schema';
-import { syncClerkUser } from '@/lib/auth';
 import { cacheManager } from '@/lib/cache/cache-manager';
-import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
+import type { Context } from './trpc-context';
 
-export const createTRPCContext = async (opts: { req: Request; headers?: Headers }) => {
-  const { req } = opts;
-
-  // Get Clerk authentication info
-  const { userId: clerkUserId, orgId } = await auth();
-
-  let user = null;
-
-  if (clerkUserId && orgId) {
-    await ensureNotificationPreferencesColumn();
-
-    // Sync and get user from database
-    try {
-      user = await syncClerkUser(clerkUserId, orgId);
-    } catch (error) {
-      console.error('Error syncing Clerk user:', error);
-    }
-
-    // If user doesn't exist in database yet, get from database
-    if (!user) {
-      const [dbUser] = await db
-        .select()
-        .from(users)
-        .where(
-          and(
-            eq(users.clerkUserId, clerkUserId),
-            eq(users.tenantId, orgId),
-            isNull(users.deletedAt)
-          )
-        );
-      user = dbUser;
-    }
-  }
-
-  return {
-    db,
-    user,
-    tenantId: orgId || null,
-    clerkUserId: clerkUserId || null,
-    req: {
-      url: req.url,
-      method: req.method,
-      headers: req.headers,
-      ip: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || undefined,
-    },
-  };
-};
-
-const t = initTRPC.context<typeof createTRPCContext>().create({
+const t = initTRPC.context<Context>().create({
   transformer: superjson,
   errorFormatter({ shape, error }) {
     return {
