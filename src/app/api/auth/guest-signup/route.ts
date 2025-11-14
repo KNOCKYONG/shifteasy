@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
         name: `${guestPrefix} ${hospitalName}`,
         slug: guestPrefix,
         secretCode: guestPrefix,
-        plan: 'pro',
+        plan: 'guest',
         settings: {
           timezone: 'Asia/Seoul',
           locale: 'ko',
