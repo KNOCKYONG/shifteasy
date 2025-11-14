@@ -462,7 +462,7 @@ export default function SignUpPage() {
                       type="text"
                       value={hospitalName}
                       onChange={(e) => setHospitalName(e.target.value)}
-                      placeholder="예: 쉬프트이 병원"
+                      placeholder="예: 서울아산병원"
                       required
                       className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
                     />
@@ -724,7 +724,7 @@ export default function SignUpPage() {
                   type="text"
                   value={guestHospitalName}
                   onChange={(e) => setGuestHospitalName(e.target.value)}
-                  placeholder="예: 쉬프트이 병원"
+                  placeholder="예: 서울아산병원"
                   required
                   className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                 />
