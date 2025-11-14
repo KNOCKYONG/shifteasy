@@ -6,6 +6,7 @@ import { useUser } from '@clerk/nextjs';
 import { useTranslation } from 'react-i18next';
 import { Check, Loader2, Shield, CreditCard } from 'lucide-react';
 import { loadTossPayments } from '@tosspayments/payment-sdk';
+import ContactModal from '@/components/landing/ContactModal';
 
 // Plan definitions
 const PLANS = {
@@ -66,12 +67,16 @@ function BillingPageContent() {
   const { user, isLoaded } = useUser();
   const [selectedPlan, setSelectedPlan] = useState<PlanKey>('starter');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const selectedPlanConfig = PLANS[selectedPlan];
   const selectedPlanTranslationBase = `pricing.${selectedPlan}`;
   const selectedPlanName = tLanding(`${selectedPlanTranslationBase}.name`, {
     defaultValue: selectedPlanConfig.name,
   });
-  const selectedPlanHasTrial = selectedPlanConfig.trial;
+  const selectedPlanHasTrial = selectedPlanConfig.trial && selectedPlan === 'professional';
+  const isStarter = selectedPlan === 'starter';
+  const isProfessional = selectedPlan === 'professional';
+  const isEnterprise = selectedPlan === 'enterprise';
 
   // Get plan from URL query param or sessionStorage
   useEffect(() => {
@@ -125,7 +130,7 @@ function BillingPageContent() {
       return;
     }
 
-    if (selectedPlanConfig.trial) return;
+    if (selectedPlanConfig.trial && selectedPlan !== 'professional') return;
 
     setIsProcessing(true);
     try {
@@ -215,6 +220,7 @@ function BillingPageContent() {
             const featuresArray = Array.isArray(translatedFeatures) ? translatedFeatures : plan.features;
             const popularFlag = tLanding(`${translationBase}.popular`, { defaultValue: '' });
             const isPopular = String(popularFlag) === 'true';
+            const showPrice = planKey !== 'enterprise';
 
             return (
               <div
@@ -243,15 +249,17 @@ function BillingPageContent() {
                       {planDescription}
                     </p>
                   )}
-                  <div className="flex items-baseline justify-center gap-2 mb-2">
-                    <span className="text-5xl font-bold text-gray-900">
-                      {priceLabel}
-                    </span>
-                    {priceUnit && (
-                      <span className="text-gray-500">{priceUnit}</span>
-                    )}
-                  </div>
-                  {plan.trial && (
+                  {showPrice && (
+                    <div className="flex items-baseline justify-center gap-2 mb-2">
+                      <span className="text-5xl font-bold text-gray-900">
+                        {priceLabel}
+                      </span>
+                      {priceUnit && (
+                        <span className="text-gray-500">{priceUnit}</span>
+                      )}
+                    </div>
+                  )}
+                  {plan.trial && planKey === 'professional' && (
                     <p className="text-blue-600 font-semibold mt-2">
                       {plan.trialDays}일 무료 체험
                     </p>
@@ -296,7 +304,7 @@ function BillingPageContent() {
                 {selectedPlanName}
               </span>
             </div>
-            {selectedPlanConfig.price > 0 && (
+            {selectedPlan === 'professional' && selectedPlanConfig.price > 0 && (
               <div className="flex items-center justify-between mb-4">
                 <span className="text-gray-700 font-semibold">결제 금액:</span>
                 <span className="text-2xl font-bold text-blue-600">
@@ -304,7 +312,7 @@ function BillingPageContent() {
                 </span>
               </div>
             )}
-            {selectedPlanHasTrial && (
+            {selectedPlan === 'professional' && selectedPlanHasTrial && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-blue-800 text-sm">
                   ✨ {selectedPlanConfig.trialDays}일 무료 체험 후 자동으로 유료 플랜으로 전환됩니다.
@@ -322,21 +330,35 @@ function BillingPageContent() {
 
           {/* Action button */}
           <button
-            onClick={selectedPlanHasTrial ? handleStartTrial : handlePayment}
-            disabled={isProcessing}
+            onClick={() => {
+              if (isStarter) {
+                router.push('/sign-up?guest=true');
+              } else if (isEnterprise) {
+                setIsContactModalOpen(true);
+              } else {
+                handleStartTrial();
+              }
+            }}
+            disabled={isProfessional ? isProcessing : false}
             className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-lg font-semibold text-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            {isProcessing ? (
+            {isProfessional && isProcessing ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
                 처리 중...
               </>
-            ) : selectedPlanHasTrial ? (
-              '무료 체험 시작하기'
-            ) : (
-              '결제하기'
-            )}
+            ) : isStarter ? '시작하기' : isEnterprise ? '문의하기' : '무료 체험 시작하기'}
           </button>
+
+          {isProfessional && (
+            <button
+              onClick={handlePayment}
+              disabled={isProcessing}
+              className="w-full mt-3 border border-blue-600 text-blue-600 py-3 rounded-lg font-semibold text-lg hover:bg-blue-50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              바로 결제하기
+            </button>
+          )}
 
           {/* Terms */}
           <p className="text-xs text-gray-500 text-center mt-4">
@@ -352,6 +374,11 @@ function BillingPageContent() {
           </p>
         </div>
       </div>
+
+      <ContactModal
+        isOpen={isContactModalOpen}
+        onClose={() => setIsContactModalOpen(false)}
+      />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useSignUp } from '@clerk/nextjs';
 import { Mail, Lock, Eye, EyeOff, AlertCircle, User, Key, Building2, Calendar, FileText } from 'lucide-react';
 import Link from 'next/link';
@@ -44,6 +44,7 @@ export default function SignUpPage() {
   const [resendLoading, setResendLoading] = useState(false);
 
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isLoaded, signUp } = useSignUp();
 
   const resetGuestState = () => {
@@ -152,6 +153,15 @@ export default function SignUpPage() {
     setShowGuestForm(false);
     resetGuestState();
   };
+
+  useEffect(() => {
+    const guestMode = searchParams.get('guest');
+    if (guestMode && (guestMode === '1' || guestMode.toLowerCase() === 'true')) {
+      resetGuestState();
+      setShowGuestForm(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // 시크릿 코드 검증
   const handleSecretCodeSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
