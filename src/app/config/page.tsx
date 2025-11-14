@@ -266,7 +266,24 @@ function ConfigPageContent() {
           <div className="mb-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-4 text-sm text-blue-800 dark:text-blue-300">
             3교대(주간/저녁/야간) 패턴을 기준으로 스케줄이 생성되며, 근무 패턴은 변경할 수 없습니다.
           </div>
-          <nav className="flex gap-8">
+
+          {/* Mobile Dropdown */}
+          <div className="md:hidden mb-4">
+            <select
+              value={activeTab}
+              onChange={(e) => setActiveTab(e.target.value as typeof activeTab)}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="preferences">{t('tabs.preferences', { ns: 'config' })}</option>
+              <option value="positions">{t('tabs.positions', { ns: 'config', defaultValue: '직책 관리' })}</option>
+              <option value="shifts">{t('tabs.shifts', { ns: 'config', defaultValue: '근무 타입' })}</option>
+              <option value="careers">{t('tabs.careers', { ns: 'config', defaultValue: '경력 그룹' })}</option>
+              <option value="handoffTemplates">인수인계 템플릿</option>
+            </select>
+          </div>
+
+          {/* Desktop Tabs */}
+          <nav className="hidden md:flex gap-8">
             <button
               onClick={() => setActiveTab("preferences")}
               className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
