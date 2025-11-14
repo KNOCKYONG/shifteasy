@@ -12,6 +12,8 @@ export default function SignUpPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [secretCode, setSecretCode] = useState('');
+  const [isSecretCodeLocked, setIsSecretCodeLocked] = useState(false);
+  const [autoSecretAttempted, setAutoSecretAttempted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
@@ -160,12 +162,23 @@ export default function SignUpPage() {
       resetGuestState();
       setShowGuestForm(true);
     }
+
+    const presetSecret = searchParams.get('secretCode') || searchParams.get('secret');
+    if (presetSecret) {
+      setSecretCode(presetSecret);
+      setIsSecretCodeLocked(true);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+  useEffect(() => {
+    if (isSecretCodeLocked && secretCode && step === 'code' && !autoSecretAttempted) {
+      setAutoSecretAttempted(true);
+      void verifySecretCode(secretCode);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSecretCodeLocked, secretCode, step, autoSecretAttempted]);
 
-  // 시크릿 코드 검증
-  const handleSecretCodeSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const verifySecretCode = async (code: string) => {
     setError('');
     setLoading(true);
 
@@ -173,7 +186,7 @@ export default function SignUpPage() {
       const response = await fetch('/api/auth/validate-secret-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ secretCode }),
+        body: JSON.stringify({ secretCode: code }),
       });
 
       const data = await response.json();
@@ -192,6 +205,16 @@ export default function SignUpPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 시크릿 코드 검증
+  const handleSecretCodeSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!secretCode) {
+      setError('시크릿 코드를 입력해주세요.');
+      return;
+    }
+    await verifySecretCode(secretCode);
   };
 
   // 회원가입
@@ -427,8 +450,14 @@ export default function SignUpPage() {
                     onChange={(e) => setSecretCode(e.target.value)}
                     placeholder="조직 관리자가 제공한 코드 입력"
                     required
+                    readOnly={isSecretCodeLocked}
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
                   />
+                  {isSecretCodeLocked && (
+                    <p className="text-xs text-blue-600 mt-2">
+                      제공된 시크릿 코드가 자동으로 적용되었습니다.
+                    </p>
+                  )}
                 </div>
 
                 {error && (
@@ -438,13 +467,21 @@ export default function SignUpPage() {
                   </div>
                 )}
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? '확인 중...' : '다음'}
-                </button>
+                {!isSecretCodeLocked && (
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? '확인 중...' : '다음'}
+                  </button>
+                )}
+
+                {isSecretCodeLocked && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
+                    시크릿 코드를 확인 중입니다...
+                  </p>
+                )}
               </form>
 
               <div className="mt-4">
