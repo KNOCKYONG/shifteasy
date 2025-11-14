@@ -218,7 +218,7 @@ export function NavigationHeader() {
     }));
 
   // 인증이 필요없는 페이지들 (네비게이션 헤더를 숨김)
-  const publicPages = ['/sign-in', '/sign-up', '/join', '/'];
+  const publicPages = ['/sign-in', '/sign-up', '/join', '/billing', '/'];
   const isPublicPage = publicPages.some(page => pathname === page || (page !== '/' && pathname?.startsWith(page)));
 
   // i18n이 준비되지 않았거나 마운트되지 않았으면 로딩 상태 표시
