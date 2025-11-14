@@ -43,7 +43,7 @@ export default function PricingSection() {
             const features = t(`pricing.${plan}.features`, { returnObjects: true }) as string[];
 
             const isEnterprise = plan === 'enterprise';
-            const planHref = plan === 'starter' ? '/sign-up?guest=true' : '/sign-up?plan=professional';
+            const planHref = plan === 'starter' ? '/sign-up?guest=true' : '/billing?plan=professional';
 
             return (
               <motion.div
