@@ -527,17 +527,19 @@ export function NavigationHeader() {
                     {showScheduleDropdown && (
                       <div className="ml-4 mt-1 space-y-1">
                         {scheduleSubMenuItems.map((subItem) => (
-                          <Link
+                          <button
                             key={subItem.href}
-                            href={subItem.href}
                             onClick={() => {
+                              if (subItem.href) {
+                                router.push(subItem.href);
+                              }
                               setMobileMenuOpen(false);
                               setShowScheduleDropdown(false);
                             }}
                             className="block w-full text-left px-4 py-2 rounded-md text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
                           >
                             {subItem.label}
-                          </Link>
+                          </button>
                         ))}
                       </div>
                     )}

@@ -5,6 +5,7 @@ interface Shift {
   id: string;
   name: string;
   type: string;
+  code?: string;
   color: string;
 }
 
@@ -42,6 +43,7 @@ export const ScheduleStats = React.memo(function ScheduleStats({ schedule, shift
 
       {shifts.map((shift, index) => {
         const count = shiftCounts.get(shift.id) ?? 0;
+        const shiftCode = shift.code || shift.type || shift.id.replace('shift-', '').toUpperCase();
         return (
           <div
             key={`schedule-stats-${shift.id}-${index}`}
@@ -49,7 +51,7 @@ export const ScheduleStats = React.memo(function ScheduleStats({ schedule, shift
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{shift.name}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{shiftCode}</p>
                 <p className="text-2xl font-semibold" style={{ color: shift.color }}>
                   {count}
                 </p>
@@ -58,7 +60,7 @@ export const ScheduleStats = React.memo(function ScheduleStats({ schedule, shift
                 className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold"
                 style={{ backgroundColor: shift.color }}
               >
-                {shift.type[0].toUpperCase()}
+                {shiftCode}
               </div>
             </div>
           </div>

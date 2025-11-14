@@ -437,55 +437,50 @@ export function TodayScheduleBoard({
         </div>
 
         {/* Mobile View - Card Layout */}
-        <div className="md:hidden space-y-4">
+        <div className="md:hidden space-y-2">
           {shiftGroups.length > 0 ? (
             shiftGroups.map((shiftGroup) => (
-              <div key={shiftGroup.shift.code} className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                {/* Shift Header */}
-                <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-200 dark:border-gray-700">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                        {shiftGroup.shift.code}
-                      </span>
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {shiftGroup.shift.name}
-                      </span>
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {shiftGroup.shift.startTime} - {shiftGroup.shift.endTime}
-                    </div>
+              <div key={shiftGroup.shift.code} className="bg-gray-50 dark:bg-gray-800 rounded-lg p-2 border border-gray-200 dark:border-gray-700">
+                {/* Shift Header - Compact */}
+                <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-base font-bold text-gray-900 dark:text-gray-100">
+                      {shiftGroup.shift.code}
+                    </span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {shiftGroup.shift.startTime}-{shiftGroup.shift.endTime}
+                    </span>
                   </div>
                 </div>
 
                 {/* Teams */}
-                <div className="space-y-3">
+                <div className="space-y-1.5">
                   {teams.map((team) => {
                     const shiftEmployees = getEmployeesForTeamAndShift(team.id, shiftGroup.codes);
                     if (shiftEmployees.length === 0) return null;
 
                     return (
                       <div key={team.id}>
-                        {/* Team Header */}
+                        {/* Team Header - Compact */}
                         <div
-                          className="flex items-center gap-2 mb-2 px-3 py-2 rounded-lg text-white font-medium text-sm"
+                          className="flex items-center gap-1.5 mb-1 px-2 py-1 rounded text-white text-xs font-medium"
                           style={{ backgroundColor: team.color }}
                         >
-                          <Users className="w-4 h-4" />
-                          <span>{team.code}{t('today.team')}</span>
-                          <span className="ml-auto text-xs opacity-90">
+                          <Users className="w-3 h-3" />
+                          <span>{team.code}</span>
+                          <span className="ml-auto opacity-90">
                             {shiftEmployees.length}명
                           </span>
                         </div>
 
-                        {/* Employees */}
-                        <div className="space-y-2 pl-2">
+                        {/* Employees - Compact Grid */}
+                        <div className="grid grid-cols-2 gap-1 pl-1">
                           {shiftEmployees.map(({ employee }) => (
                             <div
                               key={employee.id}
-                              className="flex items-center px-3 py-2 bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600"
+                              className="flex items-center px-2 py-1 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600"
                             >
-                              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                              <span className="text-xs text-gray-900 dark:text-gray-100 truncate">
                                 {employee.name}
                               </span>
                             </div>
@@ -498,9 +493,9 @@ export function TodayScheduleBoard({
               </div>
             ))
           ) : (
-            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-              <Clock className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p className="text-sm">{t('today.noShifts')}</p>
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+              <Clock className="w-10 h-10 mx-auto mb-2 opacity-50" />
+              <p className="text-xs">{t('today.noShifts')}</p>
             </div>
           )}
         </div>
