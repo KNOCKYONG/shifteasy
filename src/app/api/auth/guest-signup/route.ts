@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { tenants, departments, users } from '@/db/schema/tenants';
+import { nursePreferences } from '@/db/schema/nurse-preferences';
 import { clerkClient } from '@clerk/nextjs/server';
 import { sql } from 'drizzle-orm';
 import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
@@ -166,6 +167,14 @@ export async function POST(request: NextRequest) {
         },
       })
       .returning();
+
+    // 5. 기본 근무 선호도 생성 (게스트는 weekday-only 강제)
+    await db.insert(nursePreferences).values({
+      tenantId: tenant.id,
+      nurseId: user.id,
+      departmentId: department.id,
+      workPatternType: 'weekday-only',
+    });
 
     return NextResponse.json(
       {
