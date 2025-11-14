@@ -356,10 +356,14 @@ export function TodayScheduleBoard({
                     {/* Shift Label */}
                     <div className="min-w-[80px] md:min-w-[120px] flex-shrink-0">
                       <div
-                        className={`h-full ${shiftGroup.color} dark:bg-gray-800 rounded-lg p-2 md:p-3 flex items-center justify-center border-2 border-gray-200 dark:border-gray-700`}
-                        style={{ minHeight: '80px' }}
+                        className="h-full rounded-lg p-2 md:p-3 flex items-center justify-center border-2"
+                        style={{
+                          minHeight: '80px',
+                          backgroundColor: shiftGroup.shift.color,
+                          borderColor: shiftGroup.shift.color
+                        }}
                       >
-                        <div className="font-bold text-base md:text-lg text-gray-900 dark:text-gray-100 text-center">
+                        <div className="font-bold text-base md:text-lg text-white text-center">
                           {shiftGroup.shift.code}
                         </div>
                       </div>
