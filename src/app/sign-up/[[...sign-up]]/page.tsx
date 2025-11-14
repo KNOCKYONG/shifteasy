@@ -40,6 +40,7 @@ export default function SignUpPage() {
   const [guestConfirmPassword, setGuestConfirmPassword] = useState('');
   const [guestName, setGuestName] = useState('');
   const [guestHospitalName, setGuestHospitalName] = useState('');
+  const [guestDepartmentName, setGuestDepartmentName] = useState('');
   const [guestLoading, setGuestLoading] = useState(false);
   const [showGuestPassword, setShowGuestPassword] = useState(false);
   const [showGuestConfirmPassword, setShowGuestConfirmPassword] = useState(false);
@@ -68,6 +69,7 @@ export default function SignUpPage() {
     setGuestConfirmPassword('');
     setGuestName('');
     setGuestHospitalName('');
+    setGuestDepartmentName('');
     setGuestLoading(false);
     setGuestError('');
   };
@@ -268,9 +270,10 @@ export default function SignUpPage() {
     const trimmedGuestEmail = guestEmail.trim();
     const trimmedGuestName = guestName.trim();
     const trimmedHospitalName = guestHospitalName.trim();
+    const trimmedGuestDepartment = guestDepartmentName.trim();
 
-    if (!trimmedGuestEmail || !trimmedGuestName || !trimmedHospitalName) {
-      setGuestError('병원명, 이름, 이메일을 모두 입력해주세요.');
+    if (!trimmedGuestEmail || !trimmedGuestName || !trimmedHospitalName || !trimmedGuestDepartment) {
+      setGuestError('병원명, 부서명, 이름, 이메일을 모두 입력해주세요.');
       setGuestLoading(false);
       return;
     }
@@ -291,6 +294,7 @@ export default function SignUpPage() {
           password: guestPassword,
           name: trimmedGuestName,
           hospitalName: trimmedHospitalName,
+          departmentName: trimmedGuestDepartment,
         }),
       });
 
@@ -783,6 +787,20 @@ export default function SignUpPage() {
                   value={guestHospitalName}
                   onChange={(e) => setGuestHospitalName(e.target.value)}
                   placeholder="예: 서울아산병원"
+                  required
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <Users className="w-4 h-4 inline mr-1" />
+                  부서명
+                </label>
+                <input
+                  type="text"
+                  value={guestDepartmentName}
+                  onChange={(e) => setGuestDepartmentName(e.target.value)}
+                  placeholder="예: 응급실"
                   required
                   className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                 />

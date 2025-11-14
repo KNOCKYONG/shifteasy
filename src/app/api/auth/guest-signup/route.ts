@@ -34,11 +34,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { email, name, hospitalName, password } = body;
+    const { email, name, hospitalName, departmentName, password } = body;
 
-    if (!email || !name || !hospitalName || !password) {
+    if (!email || !name || !hospitalName || !departmentName || !password) {
       return NextResponse.json(
-        { error: '이메일, 이름, 병원명, 비밀번호를 모두 입력해주세요.' },
+        { error: '이메일, 이름, 병원명, 부서명, 비밀번호를 모두 입력해주세요.' },
         { status: 400 }
       );
     }
@@ -51,6 +51,14 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    const sanitizedDepartmentName = String(departmentName).trim();
+    if (!sanitizedDepartmentName) {
+      return NextResponse.json(
+        { error: '부서명을 입력해주세요.' },
+        { status: 400 }
+      );
+    }
+
     const prefixedHospitalName = `guest-${sanitizedHospitalName}`;
 
     await ensureNotificationPreferencesColumn();
@@ -64,6 +72,7 @@ export async function POST(request: NextRequest) {
           role: 'manager',
           isGuest: true,
           hospitalName: sanitizedHospitalName,
+          departmentName: sanitizedDepartmentName,
         },
       });
 
@@ -104,7 +113,7 @@ export async function POST(request: NextRequest) {
       .insert(departments)
       .values({
         tenantId: tenant.id,
-        name: 'Guest Department',
+        name: sanitizedDepartmentName,
         code: guestPrefix,
         secretCode: guestPrefix,
         settings: {
