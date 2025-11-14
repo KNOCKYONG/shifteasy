@@ -688,16 +688,16 @@ export function EmployeePreferencesModal({
               </div>
               <div>
                 <h2 className="text-2xl font-bold">{employee.name}님의 근무 선호도</h2>
-                <p className="text-blue-100 text-sm mt-1">{employee.role} · {employee.departmentId}</p>
+                <p className="text-blue-100 text-sm mt-1">{employee.role}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={handleRevertChanges}
-                className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-white/15 hover:bg-white/25 rounded-lg transition-colors"
+                className="inline-flex items-center gap-2 p-2 bg-white/15 hover:bg-white/25 rounded-lg transition-colors"
+                title="되돌리기"
               >
                 <RotateCcw className="w-4 h-4" />
-                되돌리기
               </button>
               <button
                 onClick={handleCloseModal}
