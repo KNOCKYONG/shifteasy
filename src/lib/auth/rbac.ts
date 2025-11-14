@@ -4,7 +4,7 @@
  * 역할별 권한 관리 및 접근 제어
  */
 
-import { getCurrentTenantContext } from './auth';
+import { getCurrentTenantContext } from '../auth';
 
 /**
  * 시스템 역할

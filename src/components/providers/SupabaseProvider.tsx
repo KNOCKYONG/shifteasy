@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   SessionContextProvider,
   type SessionContextProviderProps,
@@ -10,7 +10,9 @@ import { createBrowserSupabaseClient } from '@supabase/auth-helpers-nextjs';
 type SupabaseProviderProps = Omit<
   SessionContextProviderProps,
   'supabaseClient'
->;
+> & {
+  children: ReactNode;
+};
 
 export function SupabaseProvider({
   children,

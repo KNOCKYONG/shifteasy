@@ -30,8 +30,21 @@ const ConfirmScheduleSchema = z.object({
   force: z.boolean().optional(), // Force delete conflicting schedules
 });
 
+type ConfirmSchedulePayload = z.infer<typeof ConfirmScheduleSchema>;
+type ScheduleAssignmentInput = ConfirmSchedulePayload['schedule']['assignments'][number];
+type ScheduleRecord = typeof schedules.$inferSelect;
+
+interface ConfirmedSchedule extends ScheduleRecord {
+  assignments: ConfirmSchedulePayload['schedule']['assignments'];
+  revokedAt?: string;
+  revokedBy?: string;
+  validationScore?: number;
+  approvedBy?: string;
+  approverNotes?: string;
+}
+
 // Mock database storage (in production, this would be Supabase)
-const confirmedSchedules = new Map<string, any>();
+const confirmedSchedules = new Map<string, ConfirmedSchedule>();
 
 export async function POST(request: NextRequest) {
   try {
@@ -71,7 +84,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Invalid request data',
-          details: (validationResult.error as any).errors
+          details: validationResult.error.issues,
         },
         { status: 400 }
       );
@@ -168,10 +181,13 @@ export async function POST(request: NextRequest) {
     console.log(`[Confirm] Successfully created and published schedule ${createdSchedule.id} for department ${requestDepartmentId}`);
 
     // Prepare response data
-    const confirmedSchedule = {
+    const confirmedSchedule: ConfirmedSchedule = {
       ...createdSchedule,
       assignments: schedule.assignments,  // Include assignments from request
     };
+
+    const scheduleCacheKey = `${tenantId}:${scheduleId}`;
+    confirmedSchedules.set(scheduleCacheKey, confirmedSchedule);
 
     // Send notifications if requested
     if (notifyEmployees) {
@@ -190,7 +206,7 @@ export async function POST(request: NextRequest) {
       confirmationReport,
       notifications: {
         sent: notifyEmployees || false,
-        employeeCount: new Set(schedule.assignments.map((a: any) => a.employeeId)).size,
+        employeeCount: new Set(schedule.assignments.map((assignment) => assignment.employeeId)).size,
       },
       metadata: {
         confirmedAt: new Date().toISOString(),
@@ -355,7 +371,10 @@ export async function DELETE(request: NextRequest) {
 }
 
 // Helper function to send notifications
-async function sendScheduleNotifications(schedule: any, assignments: any[]) {
+async function sendScheduleNotifications(
+  schedule: ConfirmedSchedule,
+  assignments: ScheduleAssignmentInput[]
+) {
   const uniqueEmployees = new Set(assignments.map(a => a.employeeId));
 
   console.log(`Sending notifications to ${uniqueEmployees.size} employees for schedule ${schedule.id}`);
@@ -440,7 +459,10 @@ async function sendScheduleNotifications(schedule: any, assignments: any[]) {
 }
 
 // Helper function to generate confirmation report
-function generateConfirmationReport(schedule: any, assignments: any[]) {
+function generateConfirmationReport(
+  schedule: ConfirmedSchedule,
+  assignments: ScheduleAssignmentInput[]
+) {
   const employeeStats = new Map<string, number>();
   const shiftStats = new Map<string, number>();
 
@@ -457,7 +479,6 @@ function generateConfirmationReport(schedule: any, assignments: any[]) {
 
   // Calculate coverage
   const totalDays = 7; // Assuming weekly schedule
-  const totalShifts = shiftStats.size;
   const totalAssignments = assignments.length;
   const averageAssignmentsPerEmployee = totalAssignments / employeeStats.size;
 

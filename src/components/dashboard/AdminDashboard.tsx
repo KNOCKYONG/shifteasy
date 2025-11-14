@@ -42,7 +42,7 @@ export function AdminDashboard() {
 
   // Get colleagues working with me on same shifts
   const { data: workmatesData, isLoading: isLoadingWorkmates } = api.schedule.getMyWorkmates.useQuery(
-    { period: workmatesPeriod, groupBy: workmatesGroupBy },
+    undefined,
     {
       staleTime: 2 * 60 * 1000,
       refetchOnWindowFocus: false,

@@ -435,8 +435,9 @@ function SettingsContent() {
                       <button
                         onClick={() => {
                           setIsEditingProfile(false);
-                          setFirstName(user?.firstName || '');
-                          setLastName(user?.lastName || '');
+                          const [defaultFirst, ...defaultLastParts] = (currentUserHook.dbUser?.name || '').split(' ');
+                          setFirstName(defaultFirst || '');
+                          setLastName(defaultLastParts.join(' ') || '');
                           setProfileMessage(null);
                         }}
                         disabled={profileLoading}

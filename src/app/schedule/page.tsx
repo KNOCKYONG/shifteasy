@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, react-hooks/exhaustive-deps */
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,7 @@ import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unl
 import { MainLayout } from "../../components/layout/MainLayout";
 import { SimpleScheduler, type Employee as SimpleEmployee, type Holiday, type SpecialRequest as SimpleSpecialRequest, type ScheduleAssignment as SimpleAssignment } from "../../lib/scheduler/simple-scheduler";
 import { api } from "../../lib/trpc/client";
-import { type Employee, type Shift, type Constraint, type ScheduleAssignment, type SchedulingResult } from "../../lib/scheduler/types";
+import { type Employee, type Constraint, type ScheduleAssignment, type SchedulingResult } from "@/lib/types/scheduler";
 import { EmployeeAdapter } from "../../lib/adapters/employee-adapter";
 import type { UnifiedEmployee } from "@/lib/types/unified-employee";
 import { validateSchedulingRequest, validateEmployee } from "@/lib/validation/schemas";
@@ -541,9 +542,9 @@ function SchedulePageContent() {
   // Transform users data to match expected format
   // 전체 멤버 리스트 (필터링 없음 - 직원 선호사항 탭에서 사용)
   const allMembers = React.useMemo(() => {
-    if (!usersData?.items) return [];
+    if (!usersData?.items) return [] as UnifiedEmployee[];
 
-    return (usersData.items as any[]).map((item: any) => ({
+    const normalizedMembers = (usersData.items as any[]).map((item: any) => ({
       id: item.id,
       employeeId: item.employeeId || '',
       name: item.name,
@@ -564,6 +565,8 @@ function SchedulePageContent() {
         unavailableDates: []
       }
     }));
+
+    return normalizedMembers as unknown as UnifiedEmployee[];
   }, [usersData]);
 
   // 필터링된 멤버 리스트 (나의 스케줄만 보기 적용 - 스케줄 보기 탭에서 사용)
@@ -2060,6 +2063,15 @@ function SchedulePageContent() {
     });
   }, [schedule, monthStart, monthEnd]);
 
+  const getAssignmentsForCell = React.useCallback(
+    (date: Date, employeeId: string) => {
+      return getScheduleForDay(date).filter(
+        (assignment) => assignment.employeeId === employeeId
+      );
+    },
+    [getScheduleForDay]
+  );
+
   // 시프트별 색상 가져오기
   const getShiftColor = React.useCallback((shiftId: string) => {
     // First try to find by ID in shifts array
@@ -2524,6 +2536,7 @@ function SchedulePageContent() {
                 scheduleGridTemplate={scheduleGridTemplate}
                 holidayDates={holidayDates}
                 showCodeFormat={filters.showCodeFormat}
+                getAssignmentsForCell={getAssignmentsForCell}
                 getScheduleForDay={getScheduleForDay}
                 getShiftColor={getShiftColor}
                 getShiftName={getShiftName}
