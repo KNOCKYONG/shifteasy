@@ -11,6 +11,18 @@ import { sseManager } from '@/lib/sse/sseManager';
 import { pushSubscriptionManager } from '@/lib/push/subscription-manager';
 import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
 
+const isVerboseLoggingEnabled = process.env.NODE_ENV !== 'production';
+const logDebug = (...args: Parameters<typeof console.log>) => {
+  if (isVerboseLoggingEnabled) {
+    console.log(...args);
+  }
+};
+const logWarn = (...args: Parameters<typeof console.warn>) => {
+  if (isVerboseLoggingEnabled) {
+    console.warn(...args);
+  }
+};
+
 export type NotificationType =
   | 'schedule_published'
   | 'schedule_updated'
@@ -90,7 +102,7 @@ class NotificationService {
   private static instance: NotificationService;
 
   private constructor() {
-    console.log('[NotificationService] Initialized with Supabase backend');
+    logDebug('[NotificationService] Initialized with Supabase backend');
   }
 
   static getInstance(): NotificationService {
@@ -111,7 +123,7 @@ class NotificationService {
     await ensureNotificationPreferencesColumn();
 
     const startTime = Date.now();
-    console.log(`[NotificationService] sendToUser - Start`, {
+    logDebug(`[NotificationService] sendToUser - Start`, {
       tenantId,
       userId,
       type: notification.type,
@@ -128,13 +140,13 @@ class NotificationService {
 
         // Check if notifications are globally disabled
         if (prefs?.enabled === false) {
-          console.log('[NotificationService] sendToUser - Notifications disabled for user', { userId });
+          logDebug('[NotificationService] sendToUser - Notifications disabled for user', { userId });
           return null;
         }
 
         // Check if this notification type is disabled
         if (prefs?.types && prefs.types[notification.type] === false) {
-          console.log('[NotificationService] sendToUser - Notification type disabled', {
+          logDebug('[NotificationService] sendToUser - Notification type disabled', {
             userId,
             type: notification.type,
           });
@@ -143,7 +155,7 @@ class NotificationService {
 
         // Check quiet hours (except for urgent/critical notifications)
         if (notification.priority !== 'urgent' && isQuietHours(prefs?.quietHours)) {
-          console.log('[NotificationService] sendToUser - Quiet hours active, skipping non-urgent notification', {
+          logDebug('[NotificationService] sendToUser - Quiet hours active, skipping non-urgent notification', {
             userId,
             type: notification.type,
             priority: notification.priority,
@@ -182,7 +194,7 @@ class NotificationService {
       };
 
       const duration = Date.now() - startTime;
-      console.log(`[NotificationService] sendToUser - Success`, {
+      logDebug(`[NotificationService] sendToUser - Success`, {
         notificationId: created.id,
         duration: `${duration}ms`,
         tenantId,
@@ -192,7 +204,7 @@ class NotificationService {
       // Send via SSE for real-time delivery
       try {
         const targetClientIds = sseManager.getClientIdsByUserId(userId);
-        console.log(`[NotificationService] sendToUser - Broadcasting to ${targetClientIds.length} clients for userId ${userId}`);
+        logDebug(`[NotificationService] sendToUser - Broadcasting to ${targetClientIds.length} clients for userId ${userId}`);
 
         sseManager.broadcast({
           type: 'notification',
@@ -202,7 +214,7 @@ class NotificationService {
         }, (clientId) => {
           return targetClientIds.includes(clientId);
         });
-        console.log(`[NotificationService] sendToUser - SSE broadcast sent`, { userId, notificationId: created.id });
+        logDebug(`[NotificationService] sendToUser - SSE broadcast sent`, { userId, notificationId: created.id });
       } catch (sseError) {
         console.error('[NotificationService] sendToUser - SSE broadcast failed', { error: sseError, userId });
       }
@@ -236,7 +248,7 @@ class NotificationService {
     notification: Omit<Notification, 'id' | 'createdAt' | 'tenantId' | 'topic'>
   ): Promise<boolean> {
     const startTime = Date.now();
-    console.log(`[NotificationService] sendToTopic - Start`, {
+    logDebug(`[NotificationService] sendToTopic - Start`, {
       tenantId,
       topic,
       type: notification.type,
@@ -280,13 +292,13 @@ class NotificationService {
           data: fullNotification,
           timestamp: Date.now(),
         });
-        console.log(`[NotificationService] sendToTopic - SSE broadcast sent`, { topic, notificationId: created.id });
+        logDebug(`[NotificationService] sendToTopic - SSE broadcast sent`, { topic, notificationId: created.id });
       } catch (sseError) {
         console.error('[NotificationService] sendToTopic - SSE broadcast failed', { error: sseError, topic });
       }
 
       const duration = Date.now() - startTime;
-      console.log(`[NotificationService] sendToTopic - Success`, {
+      logDebug(`[NotificationService] sendToTopic - Success`, {
         notificationId: created.id,
         duration: `${duration}ms`,
         topic,
@@ -314,7 +326,7 @@ class NotificationService {
     notification: Omit<Notification, 'id' | 'createdAt' | 'tenantId'>
   ): Promise<boolean> {
     const startTime = Date.now();
-    console.log(`[NotificationService] broadcast - Start`, {
+    logDebug(`[NotificationService] broadcast - Start`, {
       tenantId,
       type: notification.type,
       priority: notification.priority,
@@ -356,13 +368,13 @@ class NotificationService {
           data: fullNotification,
           timestamp: Date.now(),
         });
-        console.log(`[NotificationService] broadcast - SSE broadcast sent`, { notificationId: created.id });
+        logDebug(`[NotificationService] broadcast - SSE broadcast sent`, { notificationId: created.id });
       } catch (sseError) {
         console.error('[NotificationService] broadcast - SSE broadcast failed', { error: sseError });
       }
 
       const duration = Date.now() - startTime;
-      console.log(`[NotificationService] broadcast - Success`, {
+      logDebug(`[NotificationService] broadcast - Success`, {
         notificationId: created.id,
         duration: `${duration}ms`,
         tenantId,
@@ -386,7 +398,7 @@ class NotificationService {
    */
   async getUserInbox(tenantId: string, userId: string): Promise<NotificationInbox> {
     const startTime = Date.now();
-    console.log(`[NotificationService] getUserInbox - Start`, { tenantId, userId });
+    logDebug(`[NotificationService] getUserInbox - Start`, { tenantId, userId });
 
     try {
       // Query notifications for this user
@@ -419,7 +431,7 @@ class NotificationService {
       };
 
       const duration = Date.now() - startTime;
-      console.log(`[NotificationService] getUserInbox - Success`, {
+      logDebug(`[NotificationService] getUserInbox - Success`, {
         duration: `${duration}ms`,
         tenantId,
         userId,
@@ -453,7 +465,7 @@ class NotificationService {
    */
   async markAsRead(tenantId: string, userId: string, notificationId: string): Promise<boolean> {
     const startTime = Date.now();
-    console.log(`[NotificationService] markAsRead - Start`, {
+    logDebug(`[NotificationService] markAsRead - Start`, {
       tenantId,
       userId,
       notificationId,
@@ -474,7 +486,7 @@ class NotificationService {
         .limit(1);
 
       if (!notification) {
-        console.warn('[NotificationService] markAsRead - Notification not found or access denied', {
+        logWarn('[NotificationService] markAsRead - Notification not found or access denied', {
           notificationId,
           userId,
           tenantId,
@@ -483,7 +495,7 @@ class NotificationService {
       }
 
       if (notification.readAt) {
-        console.log('[NotificationService] markAsRead - Already read', {
+        logDebug('[NotificationService] markAsRead - Already read', {
           notificationId,
           readAt: notification.readAt,
         });
@@ -497,7 +509,7 @@ class NotificationService {
         .where(eq(notifications.id, notificationId));
 
       const duration = Date.now() - startTime;
-      console.log(`[NotificationService] markAsRead - Success`, {
+      logDebug(`[NotificationService] markAsRead - Success`, {
         duration: `${duration}ms`,
         notificationId,
         userId,
@@ -506,7 +518,7 @@ class NotificationService {
       // Send SSE update
       try {
         const targetClientIds = sseManager.getClientIdsByUserId(userId);
-        console.log(`[NotificationService] markAsRead - Broadcasting to ${targetClientIds.length} clients for userId ${userId}`);
+        logDebug(`[NotificationService] markAsRead - Broadcasting to ${targetClientIds.length} clients for userId ${userId}`);
 
         sseManager.broadcast({
           type: 'notification',
@@ -540,7 +552,7 @@ class NotificationService {
    */
   async clearUserNotifications(tenantId: string, userId: string): Promise<number> {
     const startTime = Date.now();
-    console.log(`[NotificationService] clearUserNotifications - Start`, {
+    logDebug(`[NotificationService] clearUserNotifications - Start`, {
       tenantId,
       userId,
     });
@@ -575,7 +587,7 @@ class NotificationService {
       }
 
       const duration = Date.now() - startTime;
-      console.log(`[NotificationService] clearUserNotifications - Success`, {
+      logDebug(`[NotificationService] clearUserNotifications - Success`, {
         duration: `${duration}ms`,
         tenantId,
         userId,
@@ -604,7 +616,7 @@ class NotificationService {
     userId: string,
     notification: Notification
   ): Promise<void> {
-    console.log(`[NotificationService] sendPushNotification - Start`, {
+    logDebug(`[NotificationService] sendPushNotification - Start`, {
       tenantId,
       userId,
       notificationId: notification.id,
@@ -615,12 +627,12 @@ class NotificationService {
       const subscriptions = pushSubscriptionManager.getUserSubscriptions(tenantId, userId);
 
       if (subscriptions.length === 0) {
-        console.log(`[NotificationService] sendPushNotification - No push subscriptions found`, { userId });
+        logDebug(`[NotificationService] sendPushNotification - No push subscriptions found`, { userId });
         return;
       }
 
       // In production, would send actual push notification
-      console.log(`[NotificationService] sendPushNotification - Would send to ${subscriptions.length} subscriptions`, {
+      logDebug(`[NotificationService] sendPushNotification - Would send to ${subscriptions.length} subscriptions`, {
         userId,
         notificationId: notification.id,
         subscriptionCount: subscriptions.length,

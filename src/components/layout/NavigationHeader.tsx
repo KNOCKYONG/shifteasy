@@ -86,8 +86,6 @@ export function NavigationHeader() {
     if (!userInfo) return;
 
     try {
-      console.log('[NavigationHeader] Marking notification as read:', notificationId);
-
       const response = await fetch('/api/notifications', {
         method: 'PATCH',
         headers: {
@@ -102,8 +100,7 @@ export function NavigationHeader() {
         throw new Error('Failed to mark notification as read');
       }
 
-      const data = await response.json();
-      console.log('[NavigationHeader] Notification marked as read:', data);
+      await response.json();
     } catch (err) {
       console.error('[NavigationHeader] Failed to mark notification as read:', err);
     }
@@ -137,21 +134,16 @@ export function NavigationHeader() {
     loadNotifications();
 
     // Setup SSE for real-time notifications
-    console.log('[NavigationHeader] Setting up SSE connection for userId:', userInfo.id);
     const eventSource = new EventSource(`/api/sse?userId=${userInfo.id}`);
 
-    eventSource.addEventListener('connected', (event) => {
-      console.log('[NavigationHeader] SSE connected:', event.data);
-    });
+    eventSource.addEventListener('connected', () => undefined);
 
-    eventSource.addEventListener('notification', (event) => {
-      console.log('[NavigationHeader] Received notification via SSE:', event.data);
+    eventSource.addEventListener('notification', () => {
       // Reload notifications when new notification arrives
       loadNotifications();
     });
 
-    eventSource.addEventListener('notification_read', (event) => {
-      console.log('[NavigationHeader] Notification marked as read via SSE:', event.data);
+    eventSource.addEventListener('notification_read', () => {
       // Reload notifications when notification is read
       loadNotifications();
     });
@@ -161,7 +153,6 @@ export function NavigationHeader() {
     };
 
     return () => {
-      console.log('[NavigationHeader] Closing SSE connection');
       eventSource.close();
     };
   }, [userInfo]);
@@ -218,7 +209,7 @@ export function NavigationHeader() {
     }));
 
   // 인증이 필요없는 페이지들 (네비게이션 헤더를 숨김)
-  const publicPages = ['/sign-in', '/sign-up', '/join', '/'];
+  const publicPages = ['/sign-in', '/sign-up', '/join', '/billing', '/'];
   const isPublicPage = publicPages.some(page => pathname === page || (page !== '/' && pathname?.startsWith(page)));
 
   // i18n이 준비되지 않았거나 마운트되지 않았으면 로딩 상태 표시

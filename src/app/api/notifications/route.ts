@@ -6,6 +6,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { notificationService } from '@/lib/notifications/notification-service';
 
+const isVerboseLoggingEnabled = process.env.NODE_ENV !== 'production';
+const logDebug = (...args: Parameters<typeof console.log>) => {
+  if (isVerboseLoggingEnabled) {
+    console.log(...args);
+  }
+};
+
 export const dynamic = 'force-dynamic';
 
 const sendNotificationSchema = z.object({
@@ -41,13 +48,13 @@ export async function GET(request: NextRequest) {
   const tenantId = request.headers.get('x-tenant-id') || 'default-tenant';
   const userId = request.headers.get('x-user-id') || 'anonymous';
 
-  console.log('[API /notifications] GET - Start', { tenantId, userId });
+  logDebug('[API /notifications] GET - Start', { tenantId, userId });
 
   try {
     const inbox = await notificationService.getUserInbox(tenantId, userId);
 
     const duration = Date.now() - startTime;
-    console.log('[API /notifications] GET - Success', {
+    logDebug('[API /notifications] GET - Success', {
       duration: `${duration}ms`,
       tenantId,
       userId,
@@ -83,11 +90,11 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now();
   const tenantId = request.headers.get('x-tenant-id') || 'default-tenant';
 
-  console.log('[API /notifications] POST - Start', { tenantId });
+  logDebug('[API /notifications] POST - Start', { tenantId });
 
   try {
     const body = await request.json();
-    console.log('[API /notifications] POST - Request body', {
+    logDebug('[API /notifications] POST - Request body', {
       type: body.type,
       priority: body.priority,
       userId: body.userId,
@@ -100,7 +107,7 @@ export async function POST(request: NextRequest) {
       if (validatedData.userId) {
         // Send to specific user
         const { userId, ...notificationData } = validatedData;
-        console.log('[API /notifications] POST - Sending to user', { userId, type: validatedData.type });
+        logDebug('[API /notifications] POST - Sending to user', { userId, type: validatedData.type });
         return notificationService.sendToUser(
           tenantId,
           userId,
@@ -110,7 +117,7 @@ export async function POST(request: NextRequest) {
 
       if (validatedData.topic) {
         // Send to topic
-        console.log('[API /notifications] POST - Sending to topic', { topic: validatedData.topic, type: validatedData.type });
+        logDebug('[API /notifications] POST - Sending to topic', { topic: validatedData.topic, type: validatedData.type });
         return notificationService.sendToTopic(
           tenantId,
           validatedData.topic,
@@ -119,12 +126,12 @@ export async function POST(request: NextRequest) {
       }
 
       // Broadcast to all
-      console.log('[API /notifications] POST - Broadcasting', { type: validatedData.type });
+      logDebug('[API /notifications] POST - Broadcasting', { type: validatedData.type });
       return notificationService.broadcast(tenantId, validatedData);
     })();
 
     const duration = Date.now() - startTime;
-    console.log('[API /notifications] POST - Success', {
+    logDebug('[API /notifications] POST - Success', {
       duration: `${duration}ms`,
       result: result ? 'created' : 'failed',
     });
@@ -174,7 +181,7 @@ export async function PATCH(request: NextRequest) {
   const tenantId = request.headers.get('x-tenant-id') || 'default-tenant';
   const userId = request.headers.get('x-user-id') || 'anonymous';
 
-  console.log('[API /notifications] PATCH - Start', { tenantId, userId });
+  logDebug('[API /notifications] PATCH - Start', { tenantId, userId });
 
   try {
     const body = await request.json();
@@ -191,13 +198,13 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    console.log('[API /notifications] PATCH - Marking as read', { notificationId, userId });
+    logDebug('[API /notifications] PATCH - Marking as read', { notificationId, userId });
     const success = await notificationService.markAsRead(tenantId, userId, notificationId);
 
     const duration = Date.now() - startTime;
 
     if (!success) {
-      console.warn('[API /notifications] PATCH - Failed to mark as read', {
+      logDebug('[API /notifications] PATCH - Failed to mark as read', {
         duration: `${duration}ms`,
         notificationId,
         userId,
@@ -211,7 +218,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    console.log('[API /notifications] PATCH - Success', {
+    logDebug('[API /notifications] PATCH - Success', {
       duration: `${duration}ms`,
       notificationId,
       userId,

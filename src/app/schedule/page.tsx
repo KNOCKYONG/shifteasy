@@ -230,6 +230,7 @@ function SchedulePageContent() {
   const memberDepartmentId = currentUser.dbUser?.departmentId ?? null;
   const effectiveTenantId = currentUser.dbUser?.tenantId ?? currentUser.orgId ?? '';
   const effectiveUserRole = currentUser.dbUser?.role ?? currentUser.role ?? 'admin';
+  const tenantPlan = currentUser.tenantPlan ?? currentUser.dbUser?.tenantPlan ?? null;
   const headerDepartmentId = memberDepartmentId ?? undefined;
   const isAuthReady = Boolean(currentUserId && effectiveTenantId);
 
@@ -3523,6 +3524,7 @@ function SchedulePageContent() {
           onSave={handlePreferencesSave}
           onClose={handleModalClose}
           initialPreferences={selectedPreferences || undefined}
+          tenantPlan={tenantPlan}
         />
       )}
 

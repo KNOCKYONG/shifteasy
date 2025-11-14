@@ -4,6 +4,13 @@ import { getCurrentUser } from '@/lib/auth';
 import { db } from '@/db';
 import { schedules } from '@/db/schema';
 
+const isVerboseLoggingEnabled = process.env.NODE_ENV !== 'production';
+const logDebug = (...args: Parameters<typeof console.log>) => {
+  if (isVerboseLoggingEnabled) {
+    console.log(...args);
+  }
+};
+
 export const dynamic = 'force-dynamic';
 
 // Request validation schema
@@ -74,7 +81,7 @@ export async function POST(request: NextRequest) {
     // Manager department permission check
     const requestDepartmentId = schedule.departmentId;
 
-    console.log(`[SaveDraft] User ${user.id} (${userRole}) attempting to save draft for department ${requestDepartmentId}`);
+    logDebug(`[SaveDraft] User ${user.id} (${userRole}) attempting to save draft for department ${requestDepartmentId}`);
 
     if (userRole === 'manager') {
       if (!user.departmentId) {
@@ -123,7 +130,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[SaveDraft] Successfully saved draft schedule ${savedSchedule.id} for department ${requestDepartmentId}`);
+    logDebug(`[SaveDraft] Successfully saved draft schedule ${savedSchedule.id} for department ${requestDepartmentId}`);
 
     const response = {
       success: true,

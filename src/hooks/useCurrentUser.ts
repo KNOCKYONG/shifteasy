@@ -41,5 +41,6 @@ export function useCurrentUser() {
     role: currentUserData?.role || 'member',
     name: currentUserData?.name || clerkUser?.fullName || '',
     email: currentUserData?.email || clerkUser?.primaryEmailAddress?.emailAddress || '',
+    tenantPlan: currentUserData?.tenantPlan ?? null,
   };
 }

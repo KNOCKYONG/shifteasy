@@ -50,22 +50,52 @@ export async function POST(request: NextRequest) {
 
       // CSV 데이터 생성
       const headers = ['날짜', '직원', '시프트', '시간'];
-      const rows = scheduleData.assignments.map((assignment: ScheduleAssignment) => {
-        const employee = scheduleData.staff?.find((member: ScheduleStaff) => member.id === assignment.employeeId);
-        const shift = scheduleData.shifts?.find((s: ScheduleShift) => s.id === assignment.shiftId);
-        return [
+      const staffById =
+        scheduleData.staff?.reduce<Map<string, string>>((map, member) => {
+          map.set(member.id, member.name);
+          return map;
+        }, new Map()) ?? new Map<string, string>();
+
+      const shiftById =
+        scheduleData.shifts?.reduce<
+          Map<
+            string,
+            {
+              name: string;
+              time: { start: string; end: string };
+            }
+          >
+        >((map, shift) => {
+          map.set(shift.id, shift);
+          return map;
+        }, new Map()) ?? new Map<
+          string,
+          {
+            name: string;
+            time: { start: string; end: string };
+          }
+        >();
+
+      const formatCell = (value: string) => `"${value.replace(/"/g, '""')}"`;
+      const csvLines = new Array<string>(scheduleData.assignments.length + 1);
+      csvLines[0] = headers.join(',');
+
+      scheduleData.assignments.forEach((assignment, index) => {
+        const shift = shiftById.get(assignment.shiftId);
+        const row = [
           assignment.date,
-          employee?.name || 'Unknown',
-          shift?.name || 'Unknown',
-          shift ? `${shift.time.start} - ${shift.time.end}` : ''
-        ];
+          staffById.get(assignment.employeeId) ?? 'Unknown',
+          shift?.name ?? 'Unknown',
+          shift ? `${shift.time.start} - ${shift.time.end}` : '',
+        ]
+          .map(formatCell)
+          .join(',');
+
+        csvLines[index + 1] = row;
       });
 
       // CSV 문자열 생성
-      const csvContent = [
-        headers.join(','),
-        ...rows.map((row: string[]) => row.map(cell => `"${cell}"`).join(','))
-      ].join('\n');
+      const csvContent = csvLines.join('\n');
 
       // Base64 인코딩
       const base64Data = Buffer.from('\uFEFF' + csvContent).toString('base64');

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useInView } from 'react-intersection-observer';
@@ -152,8 +153,8 @@ export default function HowItWorksSection() {
           transition={{ duration: 0.8, delay: 0.8 }}
           className="mt-16 text-center"
         >
-          <a
-            href="/sign-up"
+          <Link
+            href="/sign-up?plan=professional"
             className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-300 hover:scale-105 hover:shadow-xl"
           >
             {t('hero.ctaPrimary')}
@@ -170,7 +171,7 @@ export default function HowItWorksSection() {
                 d="M13 7l5 5m0 0l-5 5m5-5H6"
               />
             </svg>
-          </a>
+          </Link>
         </motion.div>
       </div>
     </section>
