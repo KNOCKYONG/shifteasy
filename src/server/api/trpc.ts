@@ -4,6 +4,8 @@ import { ZodError } from 'zod';
 import { type Context } from '../trpc-context';
 import { cacheManager } from '@/lib/cache/cache-manager';
 
+const shouldLogPerformance = process.env.NODE_ENV === 'development';
+
 const t = initTRPC.context<Context>().create({
   transformer: superjson,
   errorFormatter({ shape, error }) {
@@ -28,13 +30,13 @@ const performanceMiddleware = t.middleware(async ({ path, type, next }) => {
     const result = await next();
     const duration = Date.now() - start;
 
-    // Log slow queries (>200ms)
-    if (duration > 200) {
+    // Only log slow operations in production, verbose logs stay in dev
+    if (duration > 500) {
       console.warn(`🐌 SLOW ${type}: ${path} took ${duration}ms`);
-    } else if (duration > 100) {
-      console.log(`⚠️  ${type}: ${path} took ${duration}ms`);
-    } else {
-      console.log(`✅ ${type}: ${path} took ${duration}ms`);
+    } else if (shouldLogPerformance && duration > 200) {
+      console.info(`⚠️ ${type}: ${path} took ${duration}ms`);
+    } else if (shouldLogPerformance && duration > 100) {
+      console.debug(`${type}: ${path} took ${duration}ms`);
     }
 
     return result;
@@ -92,11 +94,9 @@ const withCache = (ttl: number = 300) => // Default 5 minutes
       // Try to get from cache
       const cached = await cacheManager.getCachedApiResponse(path, { input, tenantId: ctx.tenantId });
       if (cached) {
-        console.log(`[Cache HIT] ${path}`);
         return cached;
       }
 
-      console.log(`[Cache MISS] ${path}`);
       // Execute the procedure
       const result = await next();
 

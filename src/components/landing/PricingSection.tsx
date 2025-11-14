@@ -42,6 +42,9 @@ export default function PricingSection() {
             const isPopular = t(`pricing.${plan}.popular`) === 'true';
             const features = t(`pricing.${plan}.features`, { returnObjects: true }) as string[];
 
+            const isEnterprise = plan === 'enterprise';
+            const planHref = plan === 'starter' ? '/sign-up?guest=true' : '/sign-up?plan=professional';
+
             return (
               <motion.div
                 key={plan}
@@ -78,19 +81,21 @@ export default function PricingSection() {
                   </p>
 
                   {/* Price */}
-                  <div className="mb-6">
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-5xl font-bold text-gray-900">
-                        {t(`pricing.${plan}.price`)}
-                      </span>
-                      {t(`pricing.${plan}.priceUnit`, { defaultValue: '' }) &&
-                       t(`pricing.${plan}.priceUnit`, { defaultValue: '' }) !== `pricing.${plan}.priceUnit` && (
-                        <span className="text-gray-600">
-                          {t(`pricing.${plan}.priceUnit`)}
+                  {!isEnterprise && (
+                    <div className="mb-6">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-5xl font-bold text-gray-900">
+                          {t(`pricing.${plan}.price`)}
                         </span>
-                      )}
+                        {t(`pricing.${plan}.priceUnit`, { defaultValue: '' }) &&
+                         t(`pricing.${plan}.priceUnit`, { defaultValue: '' }) !== `pricing.${plan}.priceUnit` && (
+                          <span className="text-gray-600">
+                            {t(`pricing.${plan}.priceUnit`)}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Features */}
                   <ul className="space-y-4 mb-8">
@@ -105,7 +110,7 @@ export default function PricingSection() {
                   </ul>
 
                   {/* CTA Button */}
-                  {plan === 'enterprise' ? (
+                  {isEnterprise ? (
                     <button
                       onClick={() => setIsContactModalOpen(true)}
                       className={`block w-full text-center px-6 py-3 rounded-lg font-semibold transition-all duration-300 ${
@@ -118,7 +123,7 @@ export default function PricingSection() {
                     </button>
                   ) : (
                     <Link
-                      href={`/billing?plan=${plan}`}
+                      href={planHref}
                       className={`block w-full text-center px-6 py-3 rounded-lg font-semibold transition-all duration-300 ${
                         isPopular
                           ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 hover:shadow-lg hover:scale-105'

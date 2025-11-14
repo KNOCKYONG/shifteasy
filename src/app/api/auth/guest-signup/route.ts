@@ -19,58 +19,70 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, name, hospitalName, clerkUserId } = body;
+    const { email, name, hospitalName, password } = body;
 
-    if (!email || !name || !hospitalName || !clerkUserId) {
+    if (!email || !name || !hospitalName || !password) {
       return NextResponse.json(
-        { error: '이메일, 이름, 병원명과 인증 정보를 모두 입력해주세요.' },
+        { error: '이메일, 이름, 병원명, 비밀번호를 모두 입력해주세요.' },
         { status: 400 }
       );
     }
 
     const normalizedEmail = email.toLowerCase();
+    const sanitizedHospitalName = String(hospitalName).trim();
+    if (!sanitizedHospitalName) {
+      return NextResponse.json(
+        { error: '병원명을 입력해주세요.' },
+        { status: 400 }
+      );
+    }
+    const prefixedHospitalName = `guest-${sanitizedHospitalName}`;
 
     await ensureNotificationPreferencesColumn();
 
     const clerk = await clerkClient();
-    let verifiedClerkUser;
-
+    let clerkUser;
     try {
-      verifiedClerkUser = await clerk.users.getUser(clerkUserId);
-    } catch (lookupError) {
-      console.error('Clerk user lookup failed:', lookupError);
+      clerkUser = await clerk.users.createUser({
+        emailAddress: [normalizedEmail],
+        password,
+        firstName: name,
+        publicMetadata: {
+          role: 'manager',
+          isGuest: true,
+        },
+      });
+    } catch (clerkError) {
+      console.error('Clerk user creation error (guest):', clerkError);
+      const typedError = clerkError as { errors?: Array<{ code?: string; message?: string }> };
+      const firstError = typedError?.errors?.[0];
+
+      if (firstError?.code === 'form_identifier_exists') {
+        return NextResponse.json(
+          { error: '이미 사용 중인 이메일입니다.' },
+          { status: 400 }
+        );
+      }
+
+      if (firstError?.code === 'form_password_pwned') {
+        return NextResponse.json(
+          { error: '너무 흔한 비밀번호입니다. 다른 비밀번호를 사용해주세요.' },
+          { status: 400 }
+        );
+      }
+
+      if (firstError?.code === 'form_password_length_too_short') {
+        return NextResponse.json(
+          { error: '비밀번호는 8자 이상이어야 합니다.' },
+          { status: 400 }
+        );
+      }
+
       return NextResponse.json(
-        { error: '이메일 인증 정보를 확인할 수 없습니다. 다시 시도해주세요.' },
+        { error: firstError?.message || '게스트 계정 생성에 실패했습니다.' },
         { status: 400 }
       );
     }
-
-    const matchedEmail = verifiedClerkUser.emailAddresses?.find(
-      (addr) => addr.emailAddress?.toLowerCase() === normalizedEmail
-    );
-
-    if (!matchedEmail) {
-      return NextResponse.json(
-        { error: '인증된 이메일 정보와 요청 정보가 일치하지 않습니다.' },
-        { status: 400 }
-      );
-    }
-
-    if (matchedEmail.verification?.status !== 'verified') {
-      return NextResponse.json(
-        { error: '이메일 인증을 완료한 후 다시 시도해주세요.' },
-        { status: 400 }
-      );
-    }
-
-    await clerk.users.updateUser(clerkUserId, {
-      firstName: verifiedClerkUser.firstName || name,
-      publicMetadata: {
-        ...(verifiedClerkUser.publicMetadata || {}),
-        role: 'manager',
-        isGuest: true,
-      },
-    });
 
     // 랜덤 문자열 생성 (8자리)
     const randomString = Math.random().toString(36).substring(2, 10);
@@ -84,19 +96,20 @@ export async function POST(request: NextRequest) {
     const [tenant] = await db
       .insert(tenants)
       .values({
-        name: `${guestPrefix} ${hospitalName}`,
+        name: prefixedHospitalName,
         slug: guestPrefix,
         secretCode: guestPrefix,
         plan: 'guest',
         settings: {
           timezone: 'Asia/Seoul',
           locale: 'ko',
-          maxUsers: 50, // Pro 플랜 제한
-          maxDepartments: 10, // Pro 플랜 제한
-          features: ['ai-scheduling', 'analytics', 'priority-support'], // Pro 플랜 기능
-          signupEnabled: false, // 게스트 계정은 추가 회원가입 불가
-          planExpiresAt: planExpiresAt.toISOString(), // 14일 후 만료
-          isGuestTrial: true, // 게스트 체험판 표시
+          maxUsers: 50,
+          maxDepartments: 10,
+          features: ['ai-scheduling', 'analytics', 'priority-support'],
+          signupEnabled: false,
+          planExpiresAt: planExpiresAt.toISOString(),
+          isGuestTrial: true,
+          originalHospitalName: sanitizedHospitalName,
         },
       })
       .returning();
@@ -140,8 +153,8 @@ export async function POST(request: NextRequest) {
       .values({
         tenantId: tenant.id,
         departmentId: department.id,
-        clerkUserId,
-        email: email,
+        clerkUserId: clerkUser.id,
+        email: normalizedEmail,
         name: name,
         employeeId: employeeId,
         role: 'manager',
@@ -169,7 +182,7 @@ export async function POST(request: NextRequest) {
           departmentId: user.departmentId,
         },
         trial: {
-          plan: 'pro',
+          plan: 'professional',
           expiresAt: planExpiresAt.toISOString(),
           daysRemaining: 14,
         },

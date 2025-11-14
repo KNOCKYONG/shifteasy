@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
         name: hospitalName,
         slug,
         secretCode,
-        plan: 'pro',
+        plan: 'professional',
         settings: {
           timezone: 'Asia/Seoul',
           locale: 'ko',

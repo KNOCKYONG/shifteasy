@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
       hireDate,
       yearsOfService,
       clerkUserId,
+      roleOverride,
     } = await req.json();
 
     // 필수 필드 검증
@@ -97,6 +98,8 @@ export async function POST(req: NextRequest) {
     }
 
     await ensureNotificationPreferencesColumn();
+
+    const requestedRole = roleOverride === 'manager' ? 'manager' : undefined;
 
     // 이메일로 기존 사용자 체크 (같은 테넌트 내에서)
     const existingUser = await db
@@ -182,6 +185,7 @@ export async function POST(req: NextRequest) {
           hireDate: hireDate ? new Date(hireDate) : existingUser[0].hireDate,
           yearsOfService: yearsOfService !== undefined ? yearsOfService : existingUser[0].yearsOfService,
           updatedAt: new Date(),
+          role: requestedRole || existingUser[0].role,
         })
         .where(eq(users.id, existingUser[0].id))
         .returning();
@@ -255,7 +259,7 @@ export async function POST(req: NextRequest) {
           clerkUserId: resolvedClerkUserId,
           email,
           name,
-          role: 'member', // 새 사용자는 기본 member 역할
+          role: requestedRole ?? 'member', // Pro 자가 온보딩 등에서 매니저 권한 부여 가능
           departmentId: assignedDepartmentId, // 부서 설정 (부서 코드 우선)
           status: 'active',
           hireDate: hireDate ? new Date(hireDate) : new Date(),
