@@ -57,7 +57,7 @@ export default function HeroSection() {
             className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16"
           >
             <Link
-              href="/billing?plan=starter"
+              href="/billing?plan=professional"
               className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-blue-600 rounded-lg overflow-hidden transition-all duration-300 hover:bg-blue-700 hover:scale-105 hover:shadow-xl w-full sm:w-auto"
             >
               <span className="relative z-10 flex items-center gap-2">

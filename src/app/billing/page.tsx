@@ -16,10 +16,9 @@ const PLANS = {
     trial: true,
     trialDays: 90,
     features: [
-      'Up to 10 staff members',
-      'Basic schedule management',
-      'Mobile app access',
-      'Email support',
+      '최대 30명까지 멤버 등록',
+      'AI 자동 스케줄링',
+      '팀 선호, 기피 패턴 적용',
     ] as const,
   },
   professional: {
@@ -29,12 +28,14 @@ const PLANS = {
     trial: false,
     trialDays: 0,
     features: [
-      'Up to 50 staff members',
-      'Advanced schedule optimization',
-      'Auto-scheduling with AI',
-      'Team analytics & reports',
-      'Priority support',
-      'Custom notifications',
+      '최대 50명까지 직원 계정',
+      '강화된 AI 자동 스케줄링',
+      '팀 선호, 기피 패턴 적용',
+      '직원별 선호, 기피 패턴 적용',
+      '직원별 일정별 선호 근무 요청 기능',
+      '직원간 일정 변경 요청 기능',
+      '일정 변경 알림 기능',
+      '스케줄 데이터 분석 지원',
     ] as const,
   },
   enterprise: {
@@ -44,13 +45,13 @@ const PLANS = {
     trial: false,
     trialDays: 0,
     features: [
-      'Unlimited staff members',
-      'Multi-location support',
-      'Advanced AI optimization',
-      'Custom integrations',
-      'Dedicated account manager',
-      'SLA guarantee',
-      'On-premise deployment option',
+      '무제한 사용자',
+      '모든 프로페셔널 기능',
+      '맞춤형 근무 규칙',
+      '전용 계정 관리자',
+      'SSO 통합',
+      '24/7 전화 지원',
+      'SLA 보장',
     ] as const,
   },
 } as const;
@@ -58,12 +59,18 @@ const PLANS = {
 type PlanKey = keyof typeof PLANS;
 
 function BillingPageContent() {
-  const { t } = useTranslation('billing');
+  const { t: tBilling } = useTranslation('billing');
+  const { t: tLanding } = useTranslation('landing');
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoaded } = useUser();
   const [selectedPlan, setSelectedPlan] = useState<PlanKey>('starter');
   const [isProcessing, setIsProcessing] = useState(false);
+  const selectedPlanConfig = PLANS[selectedPlan];
+  const selectedPlanTranslationBase = `pricing.${selectedPlan}`;
+  const selectedPlanName = tLanding(`${selectedPlanTranslationBase}.name`, {
+    defaultValue: selectedPlanConfig.name,
+  });
 
   // Get plan from URL query param or sessionStorage
   useEffect(() => {
@@ -100,7 +107,7 @@ function BillingPageContent() {
       router.push('/dashboard?trial=started');
     } catch (error) {
       console.error('Error starting trial:', error);
-      alert(t('errors.trialStart'));
+      alert(tBilling('errors.trialStart'));
     } finally {
       setIsProcessing(false);
     }
@@ -161,7 +168,7 @@ function BillingPageContent() {
       });
     } catch (error) {
       console.error('Payment error:', error);
-      alert(t('errors.paymentFailed'));
+      alert(tBilling('errors.paymentFailed'));
       setIsProcessing(false);
     }
   };
@@ -180,10 +187,10 @@ function BillingPageContent() {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            {t('title', '요금제 선택')}
+            {tBilling('title', '요금제 선택')}
           </h1>
           <p className="text-xl text-gray-600">
-            {t('subtitle', '팀에 맞는 완벽한 플랜을 선택하세요')}
+            {tBilling('subtitle', '팀에 맞는 완벽한 플랜을 선택하세요')}
           </p>
         </div>
 
@@ -193,6 +200,20 @@ function BillingPageContent() {
             const plan = PLANS[planKey];
             const isSelected = selectedPlan === planKey;
             const isFree = plan.price === 0;
+            const translationBase = `pricing.${planKey}`;
+            const planName = tLanding(`${translationBase}.name`, { defaultValue: plan.name });
+            const planDescription = tLanding(`${translationBase}.description`, { defaultValue: '' });
+            const priceLabel = tLanding(`${translationBase}.price`, {
+              defaultValue: isFree ? '무료' : `₩${plan.price.toLocaleString()}`,
+            });
+            const priceUnit = tLanding(`${translationBase}.priceUnit`, { defaultValue: '' });
+            const translatedFeatures = tLanding(`${translationBase}.features`, {
+              returnObjects: true,
+              defaultValue: plan.features as unknown as string[],
+            });
+            const featuresArray = Array.isArray(translatedFeatures) ? translatedFeatures : plan.features;
+            const popularFlag = tLanding(`${translationBase}.popular`, { defaultValue: '' });
+            const isPopular = String(popularFlag) === 'true';
 
             return (
               <div
@@ -203,7 +224,7 @@ function BillingPageContent() {
                 }`}
               >
                 {/* Popular badge */}
-                {planKey === 'professional' && (
+                {isPopular && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
                     <span className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-1 rounded-full text-sm font-semibold shadow-lg">
                       인기 플랜
@@ -214,14 +235,19 @@ function BillingPageContent() {
                 {/* Plan header */}
                 <div className="text-center mb-6">
                   <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                    {plan.name}
+                    {planName}
                   </h3>
-                  <div className="flex items-baseline justify-center gap-2">
+                  {planDescription && (
+                    <p className="text-gray-600 mb-4 min-h-[48px]">
+                      {planDescription}
+                    </p>
+                  )}
+                  <div className="flex items-baseline justify-center gap-2 mb-2">
                     <span className="text-5xl font-bold text-gray-900">
-                      {isFree ? '무료' : `₩${plan.price.toLocaleString()}`}
+                      {priceLabel}
                     </span>
-                    {!isFree && (
-                      <span className="text-gray-500">/월</span>
+                    {priceUnit && (
+                      <span className="text-gray-500">{priceUnit}</span>
                     )}
                   </div>
                   {plan.trial && (
@@ -233,7 +259,7 @@ function BillingPageContent() {
 
                 {/* Features */}
                 <ul className="space-y-4 mb-8">
-                  {plan.features.map((feature, index) => (
+                  {featuresArray.map((feature, index) => (
                     <li key={index} className="flex items-start gap-3">
                       <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
                       <span className="text-gray-700">{feature}</span>
@@ -266,21 +292,21 @@ function BillingPageContent() {
             <div className="flex items-center justify-between mb-4">
               <span className="text-gray-700 font-semibold">선택한 플랜:</span>
               <span className="text-xl font-bold text-gray-900">
-                {PLANS[selectedPlan].name}
+                {selectedPlanName}
               </span>
             </div>
-            {PLANS[selectedPlan].price > 0 && (
+            {selectedPlanConfig.price > 0 && (
               <div className="flex items-center justify-between mb-4">
                 <span className="text-gray-700 font-semibold">결제 금액:</span>
                 <span className="text-2xl font-bold text-blue-600">
-                  ₩{PLANS[selectedPlan].price.toLocaleString()}
+                  ₩{selectedPlanConfig.price.toLocaleString()}
                 </span>
               </div>
             )}
-            {PLANS[selectedPlan].trial && (
+            {selectedPlanConfig.trial && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-blue-800 text-sm">
-                  ✨ {PLANS[selectedPlan].trialDays}일 무료 체험 후 자동으로 유료 플랜으로 전환됩니다.
+                  ✨ {selectedPlanConfig.trialDays}일 무료 체험 후 자동으로 유료 플랜으로 전환됩니다.
                   체험 기간 중 언제든 취소 가능합니다.
                 </p>
               </div>

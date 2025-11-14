@@ -80,7 +80,7 @@ export default function CTASection() {
             className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16"
           >
             <Link
-              href="/billing?plan=starter"
+              href="/billing?plan=professional"
               className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-blue-600 bg-white rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-2xl w-full sm:w-auto"
             >
               <span className="relative z-10 flex items-center gap-2">
