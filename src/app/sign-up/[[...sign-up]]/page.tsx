@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSignUp } from '@clerk/nextjs';
-import { Mail, Lock, Eye, EyeOff, AlertCircle, User, Key, Building2, Calendar, FileText } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, AlertCircle, User, Key, Building2, Calendar, FileText, Copy } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SignUpPage() {
@@ -13,12 +13,12 @@ export default function SignUpPage() {
   const [name, setName] = useState('');
   const [secretCode, setSecretCode] = useState('');
   const [isSecretCodeLocked, setIsSecretCodeLocked] = useState(false);
-  const [autoSecretAttempted, setAutoSecretAttempted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<'code' | 'signup' | 'verify'>('code');
+  const [step, setStep] = useState<'workspace' | 'code' | 'signup' | 'verify' | 'complete'>('code');
+  const [planType, setPlanType] = useState<'standard' | 'professional'>('standard');
   const [tenantInfo, setTenantInfo] = useState<{ id?: string; name?: string; department?: { name: string } } | null>(null);
   const [showGuestForm, setShowGuestForm] = useState(false);
   const [guestEmail, setGuestEmail] = useState('');
@@ -44,10 +44,17 @@ export default function SignUpPage() {
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState('');
   const [resendLoading, setResendLoading] = useState(false);
+  const [workspaceName, setWorkspaceName] = useState('');
+  const [workspaceError, setWorkspaceError] = useState('');
+  const [workspaceLoading, setWorkspaceLoading] = useState(false);
+  const [provisionedSecretCode, setProvisionedSecretCode] = useState('');
+  const [secretCopyMessage, setSecretCopyMessage] = useState('');
+  const [autoSecretAttempted, setAutoSecretAttempted] = useState(false);
 
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isLoaded, signUp } = useSignUp();
+  const isProfessionalPlan = searchParams.get('plan') === 'professional';
 
   const resetGuestState = () => {
     setError('');
@@ -156,6 +163,22 @@ export default function SignUpPage() {
     resetGuestState();
   };
 
+  const handleCompleteContinue = () => {
+    router.push('/sign-in?verified=1');
+  };
+
+  const handleSecretCodeCopy = async () => {
+    const codeToCopy = provisionedSecretCode || secretCode;
+    if (!codeToCopy) return;
+    try {
+      await navigator.clipboard.writeText(codeToCopy);
+      setSecretCopyMessage('시크릿 코드를 복사했습니다.');
+    } catch (err) {
+      console.error('Secret code copy error:', err);
+      setSecretCopyMessage('코드 복사에 실패했습니다. 직접 메모해 주세요.');
+    }
+  };
+
   useEffect(() => {
     const guestMode = searchParams.get('guest');
     if (guestMode && (guestMode === '1' || guestMode.toLowerCase() === 'true')) {
@@ -163,13 +186,23 @@ export default function SignUpPage() {
       setShowGuestForm(true);
     }
 
+    if (isProfessionalPlan) {
+      setPlanType('professional');
+      setStep((prev) => (prev === 'code' ? 'workspace' : prev));
+      setIsSecretCodeLocked(true);
+    } else {
+      setPlanType('standard');
+    }
+
     const presetSecret = searchParams.get('secretCode') || searchParams.get('secret');
     if (presetSecret) {
       setSecretCode(presetSecret);
+      setProvisionedSecretCode(presetSecret);
       setIsSecretCodeLocked(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  }, [searchParams, isProfessionalPlan]);
+
   useEffect(() => {
     if (isSecretCodeLocked && secretCode && step === 'code' && !autoSecretAttempted) {
       setAutoSecretAttempted(true);
@@ -204,6 +237,50 @@ export default function SignUpPage() {
       setError('시크릿 코드 확인 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleWorkspaceSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setWorkspaceError('');
+
+    if (!workspaceName.trim()) {
+      setWorkspaceError('병원명을 입력해주세요.');
+      return;
+    }
+
+    setWorkspaceLoading(true);
+
+    try {
+      const response = await fetch('/api/auth/provision-tenant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hospitalName: workspaceName.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || '워크스페이스 생성에 실패했습니다.');
+      }
+
+      setSecretCode(data.secretCode);
+      setProvisionedSecretCode(data.secretCode);
+      setTenantInfo({
+        id: data.tenantId,
+        name: workspaceName.trim(),
+        department: { name: '기본 부서' },
+      });
+      setPlanType('professional');
+      setIsSecretCodeLocked(true);
+      setStep('signup');
+    } catch (err) {
+      console.error('Workspace creation error:', err);
+      setWorkspaceError(
+        err instanceof Error ? err.message : '워크스페이스 생성 중 오류가 발생했습니다.'
+      );
+    } finally {
+      setWorkspaceLoading(false);
     }
   };
 
@@ -386,6 +463,12 @@ export default function SignUpPage() {
         return;
       }
 
+      if (planType === 'professional' && provisionedSecretCode) {
+        setVerificationMessage('이메일 인증이 완료되었습니다.');
+        setStep('complete');
+        return;
+      }
+
       setVerificationMessage('이메일 인증이 완료되었습니다. 로그인 페이지로 이동합니다.');
       router.push('/sign-in?verified=1');
     } catch (err: unknown) {
@@ -435,7 +518,57 @@ export default function SignUpPage() {
         </div>
 
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg p-8">
-          {step === 'code' ? (
+          {step === 'workspace' ? (
+            <>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">워크스페이스 정보</h2>
+              <form onSubmit={handleWorkspaceSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <Building2 className="w-4 h-4 inline mr-1" />
+                    병원명
+                  </label>
+                  <input
+                    type="text"
+                    value={workspaceName}
+                    onChange={(e) => setWorkspaceName(e.target.value)}
+                    placeholder="예: 쉬프트이 병원"
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
+                  />
+                </div>
+
+                {workspaceError && (
+                  <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />
+                    <p className="text-sm text-red-600 dark:text-red-400">{workspaceError}</p>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={workspaceLoading}
+                  className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {workspaceLoading ? '워크스페이스 생성 중...' : '다음'}
+                </button>
+
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+                  이미 시크릿 코드가 있으신가요?{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep('code');
+                      setPlanType('standard');
+                      setIsSecretCodeLocked(false);
+                    }}
+                    className="text-blue-600 dark:text-blue-400 underline font-semibold"
+                  >
+                    기존 코드 입력하기
+                  </button>
+                </p>
+              </form>
+            </>
+          ) : step === 'code' ? (
             <>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">조직 참여</h2>
               <form onSubmit={handleSecretCodeSubmit} className="space-y-4">
@@ -689,7 +822,7 @@ export default function SignUpPage() {
                 </button>
               </form>
             </>
-          ) : (
+          ) : step === 'verify' ? (
             <>
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">이메일 인증</h2>
@@ -712,7 +845,7 @@ export default function SignUpPage() {
                     inputMode="numeric"
                     autoComplete="one-time-code"
                     required
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800 text-center text-xl tracking-[0.5em]"
+                    className="w-full px-4 py-3 border.border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800 text-center text-xl tracking-[0.5em]"
                   />
                 </div>
 
@@ -750,7 +883,40 @@ export default function SignUpPage() {
                 </button>
               </div>
             </>
-          )}
+          ) : step === 'complete' ? (
+            <>
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">가입 완료</h2>
+                <p className="mt-2 text-gray-600 dark:text-gray-400">
+                  아래 시크릿 코드를 복사하여 팀원들에게 공유하면 조직 참여를 안내할 수 있습니다.
+                </p>
+              </div>
+
+              <div className="text-center space-y-4">
+                <div className="text-3xl font-mono tracking-[0.5em] text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-800 rounded-xl py-4 px-4">
+                  {provisionedSecretCode || secretCode}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSecretCodeCopy}
+                  className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-lg font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <Copy className="w-4 h-4" />
+                  시크릿 코드 복사하기
+                </button>
+                {secretCopyMessage && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{secretCopyMessage}</p>
+                )}
+                <button
+                  type="button"
+                  onClick={handleCompleteContinue}
+                  className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors"
+                >
+                  로그인으로 이동
+                </button>
+              </div>
+            </>
+          ) : null}
 
           <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
             <p className="text-center text-sm text-gray-600 dark:text-gray-400">
