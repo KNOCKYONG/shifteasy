@@ -96,27 +96,11 @@ function BillingPageContent() {
     }
   }, [searchParams, router]);
 
-  const handleStartTrial = async () => {
-    // Redirect to sign-up if not authenticated
-    if (!user) {
-      // Store the current plan in sessionStorage for post-login redirect
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('billing_plan', selectedPlan);
-      }
-      router.push('/sign-up');
-      return;
+  const startProfessionalOnboarding = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('billing_plan', 'professional');
     }
-
-    setIsProcessing(true);
-    try {
-      // For free trial, just redirect to dashboard
-      router.push('/dashboard?trial=started');
-    } catch (error) {
-      console.error('Error starting trial:', error);
-      alert(tBilling('errors.trialStart'));
-    } finally {
-      setIsProcessing(false);
-    }
+    router.push('/sign-up?plan=professional');
   };
 
   const handlePayment = async () => {
@@ -336,7 +320,7 @@ function BillingPageContent() {
               } else if (isEnterprise) {
                 setIsContactModalOpen(true);
               } else {
-                handleStartTrial();
+                startProfessionalOnboarding();
               }
             }}
             disabled={isProfessional ? isProcessing : false}
