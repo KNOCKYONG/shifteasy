@@ -13,6 +13,7 @@ const PUBLIC_ROUTE_PATTERNS = [
   /^\/api\/auth\/provision-tenant$/,
   /^\/api\/auth\/guest-signup$/,
   /^\/api\/schedule\/validate$/,
+  /^\/api\/email\/logo$/,
 ];
 
 function isPublicRoute(pathname: string) {
