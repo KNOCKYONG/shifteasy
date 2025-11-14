@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { api } from '@/trpc/react';
+import { api } from '@/lib/trpc/client';
 import {
   CheckCircle,
   XCircle,
@@ -13,7 +13,6 @@ import {
   Users,
   FileText,
   Download,
-  Filter,
   Search
 } from 'lucide-react';
 
@@ -23,7 +22,7 @@ const statusConfig: Record<StatusType, {
   label: string;
   color: string;
   bgColor: string;
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
 }> = {
   pending: {
     label: '대기',
@@ -232,7 +231,6 @@ export default function ConsultingRequestsPage() {
                     <RequestRow
                       key={request.id}
                       request={request}
-                      onStatusChange={handleStatusChange}
                       onViewDetails={() => setSelectedRequest(request.id)}
                     />
                   ))}
@@ -289,15 +287,26 @@ function FilterButton({
   );
 }
 
+interface RequestRowProps {
+  request: {
+    id: string;
+    companyName: string;
+    contactName: string;
+    phone: string;
+    email: string;
+    industry: string;
+    teamSize: string;
+    status: string;
+    files?: unknown[];
+    createdAt: Date;
+  };
+  onViewDetails: () => void;
+}
+
 function RequestRow({
   request,
-  onStatusChange,
   onViewDetails
-}: {
-  request: any;
-  onStatusChange: (id: string, status: StatusType) => void;
-  onViewDetails: () => void;
-}) {
+}: RequestRowProps) {
   const status = request.status as StatusType;
   const config = statusConfig[status];
   const Icon = config.icon;
@@ -316,7 +325,7 @@ function RequestRow({
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <div className="text-sm text-gray-900">{request.industry}</div>
-        <div className="text-sm text-gray-500">{request.teamSize}명</div>
+        <div className="text-sm text-gray-500">{request.teamSize}</div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
         {request.files?.length || 0}개
@@ -342,17 +351,38 @@ function RequestRow({
   );
 }
 
+interface RequestDetailModalProps {
+  request: {
+    id: string;
+    companyName: string;
+    contactName: string;
+    phone: string;
+    email: string;
+    industry: string;
+    teamSize: string;
+    currentMethod: string;
+    status: string;
+    painPoints: string;
+    specialRequirements: string;
+    additionalNotes?: string | null;
+    files?: Array<{
+      name: string;
+      url: string;
+      size: number;
+      uploadedAt: string;
+    }>;
+    createdAt: Date;
+  };
+  onClose: () => void;
+  onStatusChange: (id: string, status: StatusType) => void;
+}
+
 function RequestDetailModal({
   request,
   onClose,
   onStatusChange
-}: {
-  request: any;
-  onClose: () => void;
-  onStatusChange: (id: string, status: StatusType) => void;
-}) {
+}: RequestDetailModalProps) {
   const status = request.status as StatusType;
-  const config = statusConfig[status];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -401,7 +431,7 @@ function RequestDetailModal({
             <InfoField label="연락처" value={request.phone} icon={Phone} />
             <InfoField label="이메일" value={request.email} icon={Mail} />
             <InfoField label="업종" value={request.industry} />
-            <InfoField label="팀 규모" value={`${request.teamSize}명`} />
+            <InfoField label="팀 규모" value={request.teamSize} />
             <InfoField label="현재 방식" value={request.currentMethod} />
             <InfoField label="신청일" value={new Date(request.createdAt).toLocaleString('ko-KR')} />
           </div>
@@ -410,7 +440,7 @@ function RequestDetailModal({
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-3">첨부 파일 ({request.files?.length || 0}개)</h3>
             <div className="space-y-2">
-              {request.files?.map((file: any, index: number) => (
+              {request.files?.map((file, index: number) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-gray-100 rounded-lg">
                   <div className="flex items-center gap-3">
                     <FileText className="w-5 h-5 text-blue-600" />
@@ -447,7 +477,7 @@ function RequestDetailModal({
   );
 }
 
-function InfoField({ label, value, icon: Icon }: { label: string; value: string; icon?: any }) {
+function InfoField({ label, value, icon: Icon }: { label: string; value: string; icon?: React.ComponentType<{ className?: string }> }) {
   return (
     <div>
       <label className="block text-sm font-semibold text-gray-700 mb-1">{label}</label>

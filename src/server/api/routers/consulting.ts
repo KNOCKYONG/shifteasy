@@ -119,7 +119,14 @@ export const consultingRouter = createTRPCRouter({
       responseNotes: z.string().optional(),
     }))
     .mutation(async ({ input }) => {
-      const updateData: any = {
+      const updateData: {
+        status: string;
+        updatedAt: Date;
+        assignedTo?: string | null;
+        responseNotes?: string | null;
+        contactedAt?: Date;
+        completedAt?: Date;
+      } = {
         status: input.status,
         updatedAt: new Date(),
       };

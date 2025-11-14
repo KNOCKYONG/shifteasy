@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { X, Upload, FileText, CheckCircle, AlertCircle, ArrowRight, ArrowLeft } from 'lucide-react';
-import { api } from '@/trpc/react';
+import { api } from '@/lib/trpc/client';
 
 interface ConsultingRequestModalProps {
   isOpen: boolean;
@@ -132,14 +132,7 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const newFiles = Array.from(e.target.files);
-      addFiles(newFiles);
-    }
-  };
-
-  const addFiles = (newFiles: File[]) => {
+  const addFiles = useCallback((newFiles: File[]) => {
     const validFiles: File[] = [];
     let totalSize = formData.files.reduce((sum, file) => sum + file.size, 0);
     let error = '';
@@ -172,6 +165,13 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
     if (error) {
       setErrors(prev => ({ ...prev, files: error }));
     }
+  }, [formData.files, t]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files);
+      addFiles(newFiles);
+    }
   };
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -190,7 +190,7 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
 
     const droppedFiles = Array.from(e.dataTransfer.files);
     addFiles(droppedFiles);
-  }, [formData.files]);
+  }, [addFiles]);
 
   const removeFile = (index: number) => {
     setFormData(prev => ({
