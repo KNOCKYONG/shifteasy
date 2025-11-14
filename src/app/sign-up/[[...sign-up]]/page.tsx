@@ -455,7 +455,6 @@ export default function SignUpPage() {
                 {planType === 'professional' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      <Building2 className="w-4 h-4 inline mr-1" />
                       병원명
                     </label>
                     <input
@@ -595,9 +594,10 @@ export default function SignUpPage() {
                     type="number"
                     min="0"
                     max="50"
-                    value={yearsOfService}
+                    value={yearsOfService === 0 ? '' : yearsOfService}
                     onChange={(e) => setYearsOfService(parseInt(e.target.value) || 0)}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
+                    placeholder="0"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     현재까지의 총 경력 년수 (예: 3년)
@@ -633,13 +633,15 @@ export default function SignUpPage() {
                   {loading ? '가입 중...' : '회원가입'}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => setStep('code')}
-                  className="w-full py-2 px-4 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 text-sm"
-                >
-                  ← 시크릿 코드 다시 입력
-                </button>
+                {!isProfessionalPlan && (
+                  <button
+                    type="button"
+                    onClick={() => setStep('code')}
+                    className="w-full py-2 px-4 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 text-sm"
+                  >
+                    ← 시크릿 코드 다시 입력
+                  </button>
+                )}
               </form>
             </>
           ) : step === 'verify' ? (
