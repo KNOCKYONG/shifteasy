@@ -17,7 +17,7 @@ export default function SignUpPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<'workspace' | 'code' | 'signup' | 'verify' | 'complete'>('code');
+  const [step, setStep] = useState<'code' | 'signup' | 'verify' | 'complete'>('code');
   const [planType, setPlanType] = useState<'standard' | 'professional'>('standard');
   const [tenantInfo, setTenantInfo] = useState<{ id?: string; name?: string; department?: { name: string } } | null>(null);
   const [showGuestForm, setShowGuestForm] = useState(false);
@@ -44,9 +44,8 @@ export default function SignUpPage() {
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState('');
   const [resendLoading, setResendLoading] = useState(false);
-  const [workspaceName, setWorkspaceName] = useState('');
-  const [workspaceError, setWorkspaceError] = useState('');
-  const [workspaceLoading, setWorkspaceLoading] = useState(false);
+  const [hospitalName, setHospitalName] = useState('');
+  const [hospitalError, setHospitalError] = useState('');
   const [provisionedSecretCode, setProvisionedSecretCode] = useState('');
   const [secretCopyMessage, setSecretCopyMessage] = useState('');
   const [autoSecretAttempted, setAutoSecretAttempted] = useState(false);
@@ -188,10 +187,18 @@ export default function SignUpPage() {
 
     if (isProfessionalPlan) {
       setPlanType('professional');
-      setStep((prev) => (prev === 'code' ? 'workspace' : prev));
+      setStep('signup');
       setIsSecretCodeLocked(true);
+      if (typeof window !== 'undefined') {
+        const storedHospital = sessionStorage.getItem('billing_hospital_name');
+        if (storedHospital) {
+          setHospitalName(storedHospital);
+        }
+      }
     } else {
       setPlanType('standard');
+      setStep('code');
+      setIsSecretCodeLocked(false);
     }
 
     const presetSecret = searchParams.get('secretCode') || searchParams.get('secret');
@@ -240,50 +247,6 @@ export default function SignUpPage() {
     }
   };
 
-  const handleWorkspaceSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setWorkspaceError('');
-
-    if (!workspaceName.trim()) {
-      setWorkspaceError('병원명을 입력해주세요.');
-      return;
-    }
-
-    setWorkspaceLoading(true);
-
-    try {
-      const response = await fetch('/api/auth/provision-tenant', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hospitalName: workspaceName.trim() }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.error || '워크스페이스 생성에 실패했습니다.');
-      }
-
-      setSecretCode(data.secretCode);
-      setProvisionedSecretCode(data.secretCode);
-      setTenantInfo({
-        id: data.tenantId,
-        name: workspaceName.trim(),
-        department: { name: '기본 부서' },
-      });
-      setPlanType('professional');
-      setIsSecretCodeLocked(true);
-      setStep('signup');
-    } catch (err) {
-      console.error('Workspace creation error:', err);
-      setWorkspaceError(
-        err instanceof Error ? err.message : '워크스페이스 생성 중 오류가 발생했습니다.'
-      );
-    } finally {
-      setWorkspaceLoading(false);
-    }
-  };
-
   // 시크릿 코드 검증
   const handleSecretCodeSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -310,6 +273,15 @@ export default function SignUpPage() {
       setError('비밀번호가 일치하지 않습니다.');
       setLoading(false);
       return;
+    }
+
+    if (planType === 'professional') {
+      if (!hospitalName.trim()) {
+        setHospitalError('병원명을 입력해주세요.');
+        setLoading(false);
+        return;
+      }
+      setHospitalError('');
     }
 
     try {
@@ -441,6 +413,52 @@ export default function SignUpPage() {
         return;
       }
 
+      let finalSecretCode = secretCode;
+      let finalTenantId = tenantInfo?.id;
+
+      if (planType === 'professional') {
+        if (!hospitalName.trim()) {
+          setVerificationError('병원명을 입력해주세요.');
+          setVerificationLoading(false);
+          return;
+        }
+
+        try {
+          const provisionResponse = await fetch('/api/auth/provision-tenant', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ hospitalName: hospitalName.trim() }),
+          });
+
+          const provisionData = await provisionResponse.json();
+
+          if (!provisionResponse.ok) {
+            throw new Error(provisionData?.error || '워크스페이스 생성에 실패했습니다.');
+          }
+
+          finalSecretCode = provisionData.secretCode;
+          finalTenantId = provisionData.tenantId;
+          setProvisionedSecretCode(provisionData.secretCode);
+          setTenantInfo({
+            id: provisionData.tenantId,
+            name: hospitalName.trim(),
+            department: { name: '기본 부서' },
+          });
+
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('billing_secret_code', provisionData.secretCode);
+            sessionStorage.setItem('billing_hospital_name', hospitalName.trim());
+          }
+        } catch (provisionError) {
+          console.error('Tenant provisioning error:', provisionError);
+          setVerificationError(
+            provisionError instanceof Error ? provisionError.message : '워크스페이스 생성에 실패했습니다.'
+          );
+          setVerificationLoading(false);
+          return;
+        }
+      }
+
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -448,8 +466,8 @@ export default function SignUpPage() {
           email,
           name,
           password,
-          secretCode,
-          tenantId: tenantInfo?.id,
+          secretCode: finalSecretCode,
+          tenantId: finalTenantId,
           hireDate: hireDate || undefined,
           yearsOfService,
           clerkUserId: createdUserId,
@@ -463,7 +481,11 @@ export default function SignUpPage() {
         return;
       }
 
-      if (planType === 'professional' && provisionedSecretCode) {
+      if (planType === 'professional') {
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('billing_secret_code');
+          sessionStorage.removeItem('billing_hospital_name');
+        }
         setVerificationMessage('이메일 인증이 완료되었습니다.');
         setStep('complete');
         return;
@@ -518,57 +540,7 @@ export default function SignUpPage() {
         </div>
 
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg p-8">
-          {step === 'workspace' ? (
-            <>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">워크스페이스 정보</h2>
-              <form onSubmit={handleWorkspaceSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    <Building2 className="w-4 h-4 inline mr-1" />
-                    병원명
-                  </label>
-                  <input
-                    type="text"
-                    value={workspaceName}
-                    onChange={(e) => setWorkspaceName(e.target.value)}
-                    placeholder="예: 쉬프트이 병원"
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
-                  />
-                </div>
-
-                {workspaceError && (
-                  <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-2">
-                    <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />
-                    <p className="text-sm text-red-600 dark:text-red-400">{workspaceError}</p>
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={workspaceLoading}
-                  className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {workspaceLoading ? '워크스페이스 생성 중...' : '다음'}
-                </button>
-
-                <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-                  이미 시크릿 코드가 있으신가요?{' '}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStep('code');
-                      setPlanType('standard');
-                      setIsSecretCodeLocked(false);
-                    }}
-                    className="text-blue-600 dark:text-blue-400 underline font-semibold"
-                  >
-                    기존 코드 입력하기
-                  </button>
-                </p>
-              </form>
-            </>
-          ) : step === 'code' ? (
+          {step === 'code' ? (
             <>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">조직 참여</h2>
               <form onSubmit={handleSecretCodeSubmit} className="space-y-4">
@@ -651,6 +623,25 @@ export default function SignUpPage() {
               </div>
 
               <form onSubmit={handleSignUpSubmit} className="space-y-4">
+                {planType === 'professional' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      <Building2 className="w-4 h-4 inline mr-1" />
+                      병원명
+                    </label>
+                    <input
+                      type="text"
+                      value={hospitalName}
+                      onChange={(e) => setHospitalName(e.target.value)}
+                      placeholder="예: 쉬프트이 병원"
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
+                    />
+                    {hospitalError && (
+                      <p className="text-sm text-red-600 dark:text-red-400 mt-2">{hospitalError}</p>
+                    )}
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     <User className="w-4 h-4 inline mr-1" />
