@@ -6,6 +6,13 @@ import { validateSecretCode } from '@/lib/auth/secret-code';
 import { createClerkClient } from '@clerk/nextjs/server';
 import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
 
+const isVerboseLoggingEnabled = process.env.NODE_ENV !== 'production';
+const logDebug = (...args: Parameters<typeof console.log>) => {
+  if (isVerboseLoggingEnabled) {
+    console.log(...args);
+  }
+};
+
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
@@ -107,7 +114,7 @@ export async function POST(req: NextRequest) {
 
     if (existingUser.length > 0) {
       // 기존 DB 사용자가 있는 경우 - Clerk 계정만 생성하고 연동
-      console.log('기존 사용자 발견:', existingUser[0].email, '역할:', existingUser[0].role);
+      logDebug('기존 사용자 발견:', existingUser[0].email, '역할:', existingUser[0].role);
 
       // 이미 Clerk 사용자가 있는지 확인
       let resolvedClerkUserId = providedClerkUserId || existingUser[0].clerkUserId || '';
@@ -132,8 +139,8 @@ export async function POST(req: NextRequest) {
           resolvedClerkUserId = clerkUser.id;
         } catch (clerkError: unknown) {
           const typedError = clerkError as { errors?: Array<{ code?: string; message?: string }> };
-          console.log('Clerk user creation error:', clerkError);
-          console.log('Clerk error details:', JSON.stringify(typedError?.errors, null, 2));
+          logDebug('Clerk user creation error:', clerkError);
+          logDebug('Clerk error details:', JSON.stringify(typedError?.errors, null, 2));
 
           // Clerk 사용자가 이미 존재하는 경우
           if (typedError?.errors?.[0]?.code === 'form_identifier_exists') {
@@ -180,7 +187,7 @@ export async function POST(req: NextRequest) {
         .returning();
 
       finalUser = updatedUser;
-      console.log('기존 사용자 업데이트 완료, 권한 유지:', existingUser[0].role);
+      logDebug('기존 사용자 업데이트 완료, 권한 유지:', existingUser[0].role);
 
     } else {
       // 새 사용자인 경우 - 기존 로직대로 생성
@@ -204,8 +211,8 @@ export async function POST(req: NextRequest) {
           resolvedClerkUserId = clerkUser.id;
         } catch (clerkError: unknown) {
           const typedError = clerkError as { errors?: Array<{ code?: string; message?: string }> };
-          console.log('Clerk user creation error:', clerkError);
-          console.log('Clerk error details:', JSON.stringify(typedError?.errors, null, 2));
+          logDebug('Clerk user creation error:', clerkError);
+          logDebug('Clerk error details:', JSON.stringify(typedError?.errors, null, 2));
 
           // Clerk 사용자가 이미 존재하는 경우
           if (typedError?.errors?.[0]?.code === 'form_identifier_exists') {
@@ -257,7 +264,7 @@ export async function POST(req: NextRequest) {
         .returning();
 
       finalUser = newUser;
-      console.log('새 사용자 생성 완료');
+      logDebug('새 사용자 생성 완료');
     }
 
     // 환영 알림 생성 (선택사항)
@@ -277,7 +284,7 @@ export async function POST(req: NextRequest) {
         },
       });
     } catch (notifError) {
-      console.log('Welcome notification skipped:', notifError);
+      logDebug('Welcome notification skipped:', notifError);
     }
 
     return NextResponse.json({
