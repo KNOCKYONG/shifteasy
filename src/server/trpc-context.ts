@@ -1,9 +1,12 @@
 import { type FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { db } from '@/db';
-import { users } from '@/db/schema';
+import { users, tenants } from '@/db/schema';
 import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
 import { eq, and } from 'drizzle-orm';
+
+type DbUser = typeof users.$inferSelect;
+type UserWithTenantPlan = DbUser & { tenantPlan?: string | null };
 
 export async function createTRPCContext(opts?: FetchCreateContextFnOptions) {
   // Get Clerk user
@@ -47,10 +50,22 @@ export async function createTRPCContext(opts?: FetchCreateContextFnOptions) {
       .limit(1);
   }
 
-  const user = dbUser[0] || null;
+  let user: UserWithTenantPlan | null = dbUser[0] || null;
 
   // Use organization ID as tenant ID, or use the user's tenant ID from database
   const tenantId = orgId || user?.tenantId || null;
+
+  if (user && tenantId) {
+    const [tenant] = await db
+      .select({ plan: tenants.plan })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+      .limit(1);
+    user = {
+      ...user,
+      tenantPlan: tenant?.plan ?? null,
+    };
+  }
 
   return {
     db,

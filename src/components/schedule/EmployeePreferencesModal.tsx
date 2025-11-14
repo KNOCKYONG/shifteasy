@@ -13,6 +13,7 @@ interface EmployeePreferencesModalProps {
   onSave: (preferences: ExtendedEmployeePreferences) => void;
   onClose: () => void;
   initialPreferences?: SimplifiedPreferences;
+  tenantPlan?: string | null;
 }
 
 // 근무 패턴 타입 정의
@@ -66,6 +67,7 @@ export function EmployeePreferencesModal({
   onSave,
   onClose,
   initialPreferences,
+  tenantPlan,
 }: EmployeePreferencesModalProps) {
   const getMonthKey = (date: Date) => format(date, 'yyyy-MM');
 
@@ -621,11 +623,21 @@ export function EmployeePreferencesModal({
     });
   };
 
+  const isGuestPlan = tenantPlan === 'guest';
+
   const handleCloseModal = () => {
     const hasPendingPreferenceChanges = preferenceDirtyRef.current;
     const hasPendingShiftChanges = dirtyShiftMonthsRef.current.size > 0;
 
     if (!hasPendingPreferenceChanges && !hasPendingShiftChanges) {
+      onClose();
+      return;
+    }
+
+    if (isGuestPlan) {
+      preferenceDirtyRef.current = false;
+      dirtyShiftMonthsRef.current.clear();
+      alert('근무 선호도 저장은 Professional 플랜부터 이용 가능합니다. 업그레이드 후 다시 시도해주세요.');
       onClose();
       return;
     }
