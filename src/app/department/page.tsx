@@ -45,6 +45,9 @@ type NewMemberInput = {
   departmentId: string;
   employeeId?: string;
   position?: string;
+  phone?: string;
+  joinDate?: string;
+  experienceYears?: number;
 };
 
 const mapModalMemberToNewMember = (member: AddTeamMemberInput): NewMemberInput => ({
@@ -53,6 +56,9 @@ const mapModalMemberToNewMember = (member: AddTeamMemberInput): NewMemberInput =
   role: member.role === 'admin' ? 'admin' : member.role === 'manager' ? 'manager' : 'member',
   departmentId: member.departmentId || 'all',
   position: member.position || undefined,
+  phone: member.phone || undefined,
+  joinDate: member.joinDate || undefined,
+  experienceYears: member.experienceYears,
 });
 
 function TeamManagementPageContent() {
@@ -304,6 +310,9 @@ const departments =
       name: newMember.name,
       role: newMember.role || 'member',
       departmentId: newMember.departmentId !== 'all' ? newMember.departmentId : undefined,
+      phone: newMember.phone,
+      joinDate: newMember.joinDate,
+      yearsOfService: newMember.experienceYears,
     } as Parameters<typeof inviteUserMutation.mutateAsync>[0];
 
     if (newMember.employeeId) {

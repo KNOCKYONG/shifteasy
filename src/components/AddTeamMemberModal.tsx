@@ -12,6 +12,7 @@ interface ModalTeamMember {
   position: string;
   role: "admin" | "manager" | "employee" | "staff";
   joinDate: string;
+  experienceYears?: number;
   avatar?: string;
 }
 
@@ -94,6 +95,7 @@ export function AddTeamMemberModal({ isOpen, onClose, onAdd, departments, curren
       position: formData.position as any,
       role: 'staff', // Always set as staff (member)
       joinDate: formData.joinDate,
+      experienceYears: formData.experienceYears,
     };
 
     onAdd(newMember);

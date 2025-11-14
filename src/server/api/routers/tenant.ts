@@ -141,8 +141,11 @@ export const tenantRouter = createTRPCRouter({
         name: z.string(),
         role: z.enum(['admin', 'manager', 'member']).default('member'),
         departmentId: z.string().optional(),
-        employeeId: z.string(),
+        employeeId: z.string().optional(),
         position: z.string(),
+        phone: z.string().optional(),
+        joinDate: z.string().optional(),
+        yearsOfService: z.number().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         // 매니저 권한 체크
@@ -159,8 +162,61 @@ export const tenantRouter = createTRPCRouter({
             throw new Error('권한이 없습니다. 담당 부서에만 팀원을 추가할 수 있습니다.');
           }
         }
-        // Mock implementation
-        return { success: true };
+        const tenantId = ctx.tenantId;
+        if (!tenantId) {
+          throw new Error('Tenant not found');
+        }
+
+        const normalizedEmail = input.email.toLowerCase();
+
+        const existing = await ctx.db
+          .select({ id: users.id })
+          .from(users)
+          .where(
+            and(
+              eq(users.email, normalizedEmail),
+              eq(users.tenantId, tenantId)
+            )
+          )
+          .limit(1);
+
+        if (existing.length > 0) {
+          throw new Error('이미 해당 이메일로 등록된 팀원이 있습니다.');
+        }
+
+        const resolvedDepartmentId = input.departmentId || ctx.user?.departmentId || null;
+        const generatedEmployeeId =
+          input.employeeId?.trim() ||
+          `EMP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+
+        const joinDateValue = input.joinDate ? new Date(input.joinDate) : null;
+        const hireDate = joinDateValue && !Number.isNaN(joinDateValue.getTime()) ? joinDateValue : new Date();
+
+        const [createdUser] = await ctx.db
+          .insert(users)
+          .values({
+            tenantId,
+            departmentId: resolvedDepartmentId,
+            name: input.name,
+            email: normalizedEmail,
+            role: input.role,
+            employeeId: generatedEmployeeId,
+            position: input.position,
+            status: 'active',
+            profile: input.phone ? { phone: input.phone } : undefined,
+            hireDate,
+            yearsOfService: input.yearsOfService ?? 0,
+          })
+          .returning();
+
+        await ctx.db.insert(nursePreferences).values({
+          tenantId,
+          nurseId: createdUser.id,
+          departmentId: resolvedDepartmentId,
+          workPatternType: 'three-shift',
+        });
+
+        return { success: true, user: createdUser };
       }),
 
     deactivate: protectedProcedure
