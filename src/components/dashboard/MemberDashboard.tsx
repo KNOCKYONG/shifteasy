@@ -86,7 +86,7 @@ export function MemberDashboard() {
       <Card className="p-6">
         <h2 className="text-lg font-semibold mb-4">오늘의 일정</h2>
         <div className="space-y-3">
-          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 bg-gray-50 rounded-lg">
             <div className="flex items-center gap-3">
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
               <div>
@@ -94,7 +94,7 @@ export function MemberDashboard() {
                 <p className="text-sm text-gray-500">08:00 - 16:00</p>
               </div>
             </div>
-            <span className="text-sm text-gray-500">병동 A</span>
+            <span className="text-sm text-gray-500 sm:text-right">병동 A</span>
           </div>
         </div>
       </Card>
@@ -111,7 +111,7 @@ export function MemberDashboard() {
             <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
-        <div className="grid grid-cols-7 gap-2 text-center">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4 text-center">
           {(() => {
             const today = new Date();
             const currentDay = today.getDay(); // 0 (일요일) ~ 6 (토요일)

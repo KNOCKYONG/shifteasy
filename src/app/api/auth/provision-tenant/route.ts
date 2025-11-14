@@ -61,6 +61,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const hospitalName = typeof body.hospitalName === 'string' ? body.hospitalName.trim() : '';
+    const requestedDepartmentName =
+      typeof body.departmentName === 'string' ? body.departmentName.trim() : '';
 
     if (!hospitalName) {
       return NextResponse.json(
@@ -68,6 +70,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    const departmentName = requestedDepartmentName || '기본 부서';
 
     const secretCode = await generateUniqueSecretCode();
     const slugBase = slugifyHospitalName(hospitalName);
@@ -102,21 +105,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await db.insert(departments).values({
-      tenantId: createdTenant.id,
-      name: '기본 부서',
-      code: `${slug}-dept`,
-      settings: {
-        minStaff: 1,
-        maxStaff: 50,
-      },
-    });
+    const [createdDepartment] = await db
+      .insert(departments)
+      .values({
+        tenantId: createdTenant.id,
+        name: departmentName,
+        code: `${slug}-dept`,
+        settings: {
+          minStaff: 1,
+          maxStaff: 50,
+        },
+      })
+      .returning({ id: departments.id });
 
     return NextResponse.json({
       success: true,
       secretCode,
       tenantId: createdTenant.id,
       slug: createdTenant.slug,
+      departmentId: createdDepartment?.id,
+      departmentName,
     });
   } catch (error) {
     console.error('Provision tenant error:', error);

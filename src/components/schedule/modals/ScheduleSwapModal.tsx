@@ -221,65 +221,69 @@ export function ScheduleSwapModal({
                 </div>
               ) : (
                 <div className="bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm max-w-3xl mx-auto">
-                  {/* Calendar Header - Days of Week */}
-                  <div className="grid grid-cols-7 gap-1 mb-1">
-                    {['일', '월', '화', '수', '목', '금', '토'].map((day, idx) => (
-                      <div
-                        key={day}
-                        className={`text-center font-semibold text-xs py-1 ${
-                          idx === 0 ? 'text-red-600 dark:text-red-400' :
-                          idx === 6 ? 'text-blue-600 dark:text-blue-400' :
-                          'text-gray-600 dark:text-gray-400'
-                        }`}
-                      >
-                        {day}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Calendar Grid */}
-                  <div className="grid grid-cols-7 gap-1">
-                    {calendarDays.map((day, idx) => {
-                      if (!day) {
-                        return <div key={`empty-${idx}`} className="aspect-square" />;
-                      }
-
-                      const dateStr = format(day, 'yyyy-MM-dd');
-                      const myShift = myScheduleByDate.get(dateStr);
-                      const dayOfWeek = getDay(day);
-                      const isToday = format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
-
-                      return (
-                        <button
-                          key={dateStr}
-                          onClick={() => myShift && handleMyShiftSelect(myShift)}
-                          disabled={!myShift}
-                          className={`aspect-square p-0.5 rounded-md border transition-all ${
-                            myShift
-                              ? 'border-blue-400 hover:border-blue-600 hover:shadow-md cursor-pointer bg-blue-50 dark:bg-blue-900/20'
-                              : 'border-gray-200 dark:border-gray-700 cursor-not-allowed opacity-30'
-                          } ${isToday ? 'ring-1 ring-blue-500' : ''}`}
-                        >
-                          <div className="h-full flex flex-col items-center justify-center gap-0.5">
-                            <div className={`text-xs font-bold ${
-                              dayOfWeek === 0 ? 'text-red-600' :
-                              dayOfWeek === 6 ? 'text-blue-600' :
-                              'text-gray-700 dark:text-gray-300'
-                            }`}>
-                              {format(day, 'd')}
-                            </div>
-                            {myShift && (
-                              <div
-                                className="text-[10px] px-1 py-0.5 rounded text-white font-bold leading-none"
-                                style={{ backgroundColor: getShiftColor(myShift.shiftId) }}
-                              >
-                                {myShift.shiftName}
-                              </div>
-                            )}
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[360px]">
+                      {/* Calendar Header - Days of Week */}
+                      <div className="grid grid-cols-7 gap-1 mb-1">
+                        {['일', '월', '화', '수', '목', '금', '토'].map((day, idx) => (
+                          <div
+                            key={day}
+                            className={`text-center font-semibold text-xs py-1 ${
+                              idx === 0 ? 'text-red-600 dark:text-red-400' :
+                              idx === 6 ? 'text-blue-600 dark:text-blue-400' :
+                              'text-gray-600 dark:text-gray-400'
+                            }`}
+                          >
+                            {day}
                           </div>
-                        </button>
-                      );
-                    })}
+                        ))}
+                      </div>
+
+                      {/* Calendar Grid */}
+                      <div className="grid grid-cols-7 gap-1">
+                        {calendarDays.map((day, idx) => {
+                          if (!day) {
+                            return <div key={`empty-${idx}`} className="aspect-square" />;
+                          }
+
+                          const dateStr = format(day, 'yyyy-MM-dd');
+                          const myShift = myScheduleByDate.get(dateStr);
+                          const dayOfWeek = getDay(day);
+                          const isToday = format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+
+                          return (
+                            <button
+                              key={dateStr}
+                              onClick={() => myShift && handleMyShiftSelect(myShift)}
+                              disabled={!myShift}
+                              className={`aspect-square p-0.5 rounded-md border transition-all ${
+                                myShift
+                                  ? 'border-blue-400 hover:border-blue-600 hover:shadow-md cursor-pointer bg-blue-50 dark:bg-blue-900/20'
+                                  : 'border-gray-200 dark:border-gray-700 cursor-not-allowed opacity-30'
+                              } ${isToday ? 'ring-1 ring-blue-500' : ''}`}
+                            >
+                              <div className="h-full flex flex-col items-center justify-center gap-0.5">
+                                <div className={`text-xs font-bold ${
+                                  dayOfWeek === 0 ? 'text-red-600' :
+                                  dayOfWeek === 6 ? 'text-blue-600' :
+                                  'text-gray-700 dark:text-gray-300'
+                                }`}>
+                                  {format(day, 'd')}
+                                </div>
+                                {myShift && (
+                                  <div
+                                    className="text-[10px] px-1 py-0.5 rounded text-white font-bold leading-none"
+                                    style={{ backgroundColor: getShiftColor(myShift.shiftId) }}
+                                  >
+                                    {myShift.shiftName}
+                                  </div>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

@@ -10,6 +10,7 @@ import {
   EyeOff,
   AlertCircle,
   User,
+  Users,
   Key,
   Building2,
   Calendar,
@@ -32,7 +33,7 @@ export default function SignUpPage() {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'code' | 'signup' | 'verify'>('code');
   const [planType, setPlanType] = useState<'standard' | 'professional'>('standard');
-  const [tenantInfo, setTenantInfo] = useState<{ id?: string; name?: string; department?: { name: string } } | null>(null);
+  const [tenantInfo, setTenantInfo] = useState<{ id?: string; name?: string; department?: { id?: string; name: string } } | null>(null);
   const [showGuestForm, setShowGuestForm] = useState(false);
   const [guestEmail, setGuestEmail] = useState('');
   const [guestPassword, setGuestPassword] = useState('');
@@ -49,6 +50,8 @@ export default function SignUpPage() {
   const [verificationEmail, setVerificationEmail] = useState('');
   const [hospitalName, setHospitalName] = useState('');
   const [hospitalError, setHospitalError] = useState('');
+  const [departmentName, setDepartmentName] = useState('');
+  const [departmentError, setDepartmentError] = useState('');
   const [provisionedSecretCode, setProvisionedSecretCode] = useState('');
   const [secretCopyMessage, setSecretCopyMessage] = useState('');
   const [autoSecretAttempted, setAutoSecretAttempted] = useState(false);
@@ -102,11 +105,17 @@ export default function SignUpPage() {
         if (storedHospital) {
           setHospitalName(storedHospital);
         }
+        const storedDepartment = sessionStorage.getItem('billing_department_name');
+        if (storedDepartment) {
+          setDepartmentName(storedDepartment);
+        }
       }
     } else {
       setPlanType('standard');
       setStep('code');
       setIsSecretCodeLocked(false);
+      setDepartmentName('');
+      setDepartmentError('');
     }
 
     const presetSecret = searchParams.get('secretCode') || searchParams.get('secret');
@@ -190,6 +199,13 @@ export default function SignUpPage() {
         return;
       }
       setHospitalError('');
+
+      if (!departmentName.trim()) {
+        setDepartmentError('부서명을 입력해주세요.');
+        setLoading(false);
+        return;
+      }
+      setDepartmentError('');
     }
 
     try {
@@ -299,16 +315,25 @@ export default function SignUpPage() {
   const finalizeAccountCreation = async (authUserId: string) => {
     let finalSecretCode = secretCode;
     let finalTenantId = tenantInfo?.id;
+    let finalDepartmentId = tenantInfo?.department?.id;
 
     if (planType === 'professional') {
-      if (!hospitalName.trim()) {
+      const trimmedHospitalName = hospitalName.trim();
+      const trimmedDepartmentName = departmentName.trim();
+      if (!trimmedHospitalName) {
         throw new Error('병원명을 입력해주세요.');
+      }
+      if (!trimmedDepartmentName) {
+        throw new Error('부서명을 입력해주세요.');
       }
 
       const provisionResponse = await fetch('/api/auth/provision-tenant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hospitalName: hospitalName.trim() }),
+        body: JSON.stringify({
+          hospitalName: trimmedHospitalName,
+          departmentName: trimmedDepartmentName,
+        }),
       });
 
       const provisionData = await provisionResponse.json();
@@ -319,16 +344,21 @@ export default function SignUpPage() {
 
       finalSecretCode = provisionData.secretCode;
       finalTenantId = provisionData.tenantId;
+      if (!provisionData.departmentId) {
+        throw new Error('부서를 생성할 수 없습니다.');
+      }
+      finalDepartmentId = provisionData.departmentId;
       setProvisionedSecretCode(provisionData.secretCode);
       setTenantInfo({
         id: provisionData.tenantId,
-        name: hospitalName.trim(),
-        department: { name: '기본 부서' },
+        name: trimmedHospitalName,
+        department: { id: provisionData.departmentId, name: trimmedDepartmentName },
       });
 
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('billing_secret_code', provisionData.secretCode);
-        sessionStorage.setItem('billing_hospital_name', hospitalName.trim());
+        sessionStorage.setItem('billing_hospital_name', trimmedHospitalName);
+        sessionStorage.setItem('billing_department_name', trimmedDepartmentName);
       }
     }
 
@@ -341,6 +371,10 @@ export default function SignUpPage() {
       yearsOfService,
       authUserId,
     };
+
+    if (finalDepartmentId) {
+      signupPayload.departmentId = finalDepartmentId;
+    }
 
     if (planType === 'professional') {
       signupPayload.roleOverride = 'manager';
@@ -439,10 +473,12 @@ export default function SignUpPage() {
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">회원가입</h2>
                 <div className="text-sm text-gray-600 dark:text-gray-400 mt-1 space-y-1">
-                  <p>
-                    <Building2 className="w-4 h-4 inline mr-1" />
-                    {tenantInfo?.name}
-                  </p>
+                  {planType !== 'professional' && tenantInfo?.name && (
+                    <p>
+                      <Building2 className="w-4 h-4 inline mr-1" />
+                      {tenantInfo.name}
+                    </p>
+                  )}
                   {tenantInfo?.department && (
                     <p className="pl-5 text-blue-600 dark:text-blue-400">
                       부서: {tenantInfo.department.name}
@@ -453,22 +489,42 @@ export default function SignUpPage() {
 
               <form onSubmit={handleSignUpSubmit} className="space-y-4">
                 {planType === 'professional' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      병원명
-                    </label>
-                    <input
-                      type="text"
-                      value={hospitalName}
-                      onChange={(e) => setHospitalName(e.target.value)}
-                      placeholder="예: 서울아산병원"
-                      required
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
-                    />
-                    {hospitalError && (
-                      <p className="text-sm text-red-600 dark:text-red-400 mt-2">{hospitalError}</p>
-                    )}
-                  </div>
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <Building2 className="w-4 h-4 inline mr-1" />
+                        병원명
+                      </label>
+                      <input
+                        type="text"
+                        value={hospitalName}
+                        onChange={(e) => setHospitalName(e.target.value)}
+                        placeholder="예: 서울아산병원"
+                        required
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
+                      />
+                      {hospitalError && (
+                        <p className="text-sm text-red-600 dark:text-red-400 mt-2">{hospitalError}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <Users className="w-4 h-4 inline mr-1" />
+                        부서명
+                      </label>
+                      <input
+                        type="text"
+                        value={departmentName}
+                        onChange={(e) => setDepartmentName(e.target.value)}
+                        placeholder="예: 중환자실"
+                        required
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
+                      />
+                      {departmentError && (
+                        <p className="text-sm text-red-600 dark:text-red-400 mt-2">{departmentError}</p>
+                      )}
+                    </div>
+                  </>
                 )}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

@@ -218,7 +218,10 @@ export function TodayScheduleBoard({
               {/* Calendar Popup */}
               {showCalendar && (
                 <div className="absolute top-full right-0 mt-2 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="p-4 min-w-[320px]">
+                  <div
+                    className="p-4"
+                    style={{ width: 'min(360px, calc(100vw - 2rem))' }}
+                  >
                     {/* Calendar Header */}
                     <div className="flex items-center justify-between mb-4">
                       <button
@@ -243,47 +246,51 @@ export function TodayScheduleBoard({
                       </button>
                     </div>
 
-                    {/* Weekday Headers */}
-                    <div className="grid grid-cols-7 gap-1 mb-2">
-                      {(i18n.language === 'ko'
-                        ? ['일', '월', '화', '수', '목', '금', '토']
-                        : i18n.language === 'ja'
-                        ? ['日', '月', '火', '水', '木', '金', '土']
-                        : ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
-                      ).map((day, i) => (
-                        <div key={i} className="text-center text-xs font-medium text-gray-500 dark:text-gray-400 py-1">
-                          {day}
+                    <div className="overflow-x-auto">
+                      <div className="min-w-[320px]">
+                        {/* Weekday Headers */}
+                        <div className="grid grid-cols-7 gap-1 mb-2">
+                          {(i18n.language === 'ko'
+                            ? ['일', '월', '화', '수', '목', '금', '토']
+                            : i18n.language === 'ja'
+                            ? ['日', '月', '火', '水', '木', '金', '土']
+                            : ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
+                          ).map((day, i) => (
+                            <div key={i} className="text-center text-xs font-medium text-gray-500 dark:text-gray-400 py-1">
+                              {day}
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
 
-                    {/* Calendar Days */}
-                    <div className="grid grid-cols-7 gap-1">
-                      {calendarDays.map((day, i) => {
-                        const isCurrentMonth = isSameMonth(day, calendarMonth);
-                        const isSelected = isSameDay(day, today);
-                        const isTodayDate = isToday(day);
+                        {/* Calendar Days */}
+                        <div className="grid grid-cols-7 gap-1">
+                          {calendarDays.map((day, i) => {
+                            const isCurrentMonth = isSameMonth(day, calendarMonth);
+                            const isSelected = isSameDay(day, today);
+                            const isTodayDate = isToday(day);
 
-                        return (
-                          <button
-                            key={i}
-                            onClick={() => handleDateSelect(day)}
-                            disabled={!isCurrentMonth}
-                            className={`
-                              p-2 text-sm rounded-lg transition-all relative
-                              ${!isCurrentMonth ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed' : ''}
-                              ${isSelected ? 'bg-blue-600 text-white font-bold shadow-md scale-105' : ''}
-                              ${!isSelected && isCurrentMonth ? 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300' : ''}
-                              ${isTodayDate && !isSelected ? 'ring-2 ring-blue-400 dark:ring-blue-500' : ''}
-                            `}
-                          >
-                            {format(day, 'd')}
-                            {isTodayDate && !isSelected && (
-                              <span className="absolute bottom-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-blue-600 dark:bg-blue-400 rounded-full"></span>
-                            )}
-                          </button>
-                        );
-                      })}
+                            return (
+                              <button
+                                key={i}
+                                onClick={() => handleDateSelect(day)}
+                                disabled={!isCurrentMonth}
+                                className={`
+                                  p-2 text-sm rounded-lg transition-all relative
+                                  ${!isCurrentMonth ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed' : ''}
+                                  ${isSelected ? 'bg-blue-600 text-white font-bold shadow-md scale-105' : ''}
+                                  ${!isSelected && isCurrentMonth ? 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300' : ''}
+                                  ${isTodayDate && !isSelected ? 'ring-2 ring-blue-400 dark:ring-blue-500' : ''}
+                                `}
+                              >
+                                {format(day, 'd')}
+                                {isTodayDate && !isSelected && (
+                                  <span className="absolute bottom-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-blue-600 dark:bg-blue-400 rounded-full"></span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
 
                     {/* Quick Actions */}

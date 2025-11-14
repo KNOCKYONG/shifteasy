@@ -145,7 +145,10 @@ export function NewRequestModal({
     const emptyDays = Array(startDay).fill(null);
 
     return (
-      <div className="absolute z-10 mt-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4">
+      <div
+        className="absolute z-10 mt-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4"
+        style={{ width: 'min(320px, calc(100vw - 2rem))' }}
+      >
         <div className="flex items-center justify-between mb-4">
           <button
             type="button"
@@ -166,46 +169,50 @@ export function NewRequestModal({
           </button>
         </div>
 
-        <div className="grid grid-cols-7 gap-1 mb-2">
-          {['일', '월', '화', '수', '목', '금', '토'].map(day => (
-            <div key={day} className="text-center text-xs font-medium text-gray-500 dark:text-gray-400 p-2">
-              {day}
+        <div className="overflow-x-auto">
+          <div className="min-w-[280px]">
+            <div className="grid grid-cols-7 gap-1 mb-2">
+              {['일', '월', '화', '수', '목', '금', '토'].map(day => (
+                <div key={day} className="text-center text-xs font-medium text-gray-500 dark:text-gray-400 p-2">
+                  {day}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        <div className="grid grid-cols-7 gap-1">
-          {emptyDays.map((_, idx) => (
-            <div key={`empty-${idx}`} className="p-2" />
-          ))}
-          {days.map(day => {
-            const isSelected = targetDate === format(day, 'yyyy-MM-dd');
-            const isToday = isSameDay(day, new Date());
+            <div className="grid grid-cols-7 gap-1">
+              {emptyDays.map((_, idx) => (
+                <div key={`empty-${idx}`} className="p-2" />
+              ))}
+              {days.map(day => {
+                const isSelected = targetDate === format(day, 'yyyy-MM-dd');
+                const isToday = isSameDay(day, new Date());
 
-            return (
-              <button
-                key={day.toString()}
-                type="button"
-                onClick={() => {
-                  setTargetDate(format(day, 'yyyy-MM-dd'));
-                  setManualDateInput(format(day, 'yyyy.MM.dd'));
-                  setShowCalendar(false);
-                }}
-                className={`p-2 text-sm rounded hover:bg-gray-100 dark:hover:bg-gray-800 ${
-                  isSelected ? 'bg-blue-500 text-white hover:bg-blue-600' : ''
-                } ${isToday ? 'font-bold text-blue-600 dark:text-blue-400' : ''}`}
-              >
-                {format(day, 'd')}
-              </button>
-            );
-          })}
+                return (
+                  <button
+                    key={day.toString()}
+                    type="button"
+                    onClick={() => {
+                      setTargetDate(format(day, 'yyyy-MM-dd'));
+                      setManualDateInput(format(day, 'yyyy.MM.dd'));
+                      setShowCalendar(false);
+                    }}
+                    className={`p-2 text-sm rounded hover:bg-gray-100 dark:hover:bg-gray-800 ${
+                      isSelected ? 'bg-blue-500 text-white hover:bg-blue-600' : ''
+                    } ${isToday ? 'font-bold text-blue-600 dark:text-blue-400' : ''}`}
+                  >
+                    {format(day, 'd')}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
     );
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 px-4">
       <div className="bg-white dark:bg-gray-900 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-between items-center">
           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">새 요청 만들기</h2>

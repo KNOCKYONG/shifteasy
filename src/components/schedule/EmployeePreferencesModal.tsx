@@ -1340,69 +1340,71 @@ export function EmployeePreferencesModal({
               </div>
 
               {/* 캘린더 */}
-              <div className="grid grid-cols-7 gap-2">
-                {/* 요일 헤더 */}
-                {daysOfWeek.map((day, index) => (
-                  <div key={index} className={`text-center text-sm font-medium py-2 ${
-                    index === 0 ? 'text-red-600' : index === 6 ? 'text-blue-600' : 'text-gray-600 dark:text-gray-400'
-                  }`}>
-                    {day}
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                <div className="min-w-[420px] grid grid-cols-7 gap-2">
+                  {/* 요일 헤더 */}
+                  {daysOfWeek.map((day, index) => (
+                    <div key={index} className={`text-center text-sm font-medium py-2 ${
+                      index === 0 ? 'text-red-600' : index === 6 ? 'text-blue-600' : 'text-gray-600 dark:text-gray-400'
+                    }`}>
+                      {day}
+                    </div>
+                  ))}
 
-                {/* 달력 날짜 */}
-                {(() => {
-                  const year = selectedMonth.getFullYear();
-                  const month = selectedMonth.getMonth();
-                  const firstDay = new Date(year, month, 1).getDay();
-                  const daysInMonth = new Date(year, month + 1, 0).getDate();
-                  const days = [];
+                  {/* 달력 날짜 */}
+                  {(() => {
+                    const year = selectedMonth.getFullYear();
+                    const month = selectedMonth.getMonth();
+                    const firstDay = new Date(year, month, 1).getDay();
+                    const daysInMonth = new Date(year, month + 1, 0).getDate();
+                    const days = [];
 
-                  // 빈 칸 추가
-                  for (let i = 0; i < firstDay; i++) {
-                    days.push(<div key={`empty-${i}`} className="aspect-square" />);
-                  }
+                    // 빈 칸 추가
+                    for (let i = 0; i < firstDay; i++) {
+                      days.push(<div key={`empty-${i}`} className="aspect-square" />);
+                    }
 
-                  // 날짜 추가
-                  for (let day = 1; day <= daysInMonth; day++) {
-                    const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                    const currentRequest = shiftRequests[dateKey];
+                    // 날짜 추가
+                    for (let day = 1; day <= daysInMonth; day++) {
+                      const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                      const currentRequest = shiftRequests[dateKey];
 
-                    days.push(
-                      <div key={day} className="relative">
-                        <div className={`aspect-square border border-gray-200 dark:border-slate-600 rounded-lg p-1 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors ${
-                          currentRequest ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                        }`}>
-                          <div className="text-right text-sm text-gray-700 dark:text-gray-300">{day}</div>
-                          {currentRequest && (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <span className="text-base font-bold text-blue-600 dark:text-blue-400">
-                                {currentRequest}
-                              </span>
-                            </div>
-                          )}
+                      days.push(
+                        <div key={day} className="relative">
+                          <div className={`aspect-square border border-gray-200 dark:border-slate-600 rounded-lg p-1 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors ${
+                            currentRequest ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                          }`}>
+                            <div className="text-right text-sm text-gray-700 dark:text-gray-300">{day}</div>
+                            {currentRequest && (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <span className="text-base font-bold text-blue-600 dark:text-blue-400">
+                                  {currentRequest}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          {/* 클릭 시 선택 드롭다운 */}
+                          <select
+                            className="absolute inset-0 opacity-0 cursor-pointer"
+                            value={currentRequest?.replace('^', '') || ''}
+                            onChange={(e) => {
+                              handleShiftRequestSelection(dateKey, e.target.value);
+                            }}
+                          >
+                            <option value="">선택 안함</option>
+                            {customShiftTypes.map((shiftType) => (
+                              <option key={shiftType.code} value={shiftType.code}>
+                                {shiftType.code} ({shiftType.name})
+                              </option>
+                            ))}
+                          </select>
                         </div>
-                        {/* 클릭 시 선택 드롭다운 */}
-                        <select
-                          className="absolute inset-0 opacity-0 cursor-pointer"
-                          value={currentRequest?.replace('^', '') || ''}
-                          onChange={(e) => {
-                            handleShiftRequestSelection(dateKey, e.target.value);
-                          }}
-                        >
-                          <option value="">선택 안함</option>
-                          {customShiftTypes.map((shiftType) => (
-                            <option key={shiftType.code} value={shiftType.code}>
-                              {shiftType.code} ({shiftType.name})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    );
-                  }
+                      );
+                    }
 
-                  return days;
-                })()}
+                    return days;
+                  })()}
+                </div>
               </div>
 
               {/* 범례 */}
