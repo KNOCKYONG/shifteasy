@@ -1,0 +1,81 @@
+{
+  "title": "무료 컨설팅 신청",
+  "steps": {
+    "step1": "기본 정보",
+    "step2": "스케줄 정보",
+    "step3": "상세 정보"
+  },
+  "fields": {
+    "companyName": "회사명 / 팀명",
+    "contactName": "담당자 이름",
+    "phone": "연락처",
+    "email": "이메일",
+    "industry": "업종",
+    "teamSize": "팀 규모",
+    "currentMethod": "현재 스케줄 작성 방식",
+    "files": "스케줄표 파일 첨부",
+    "painPoints": "스케줄 작성 시 불편했던 점",
+    "specialRequirements": "꼭 고려해야 하는 특수 요구사항",
+    "additionalNotes": "기타 문의사항"
+  },
+  "placeholders": {
+    "companyName": "예: (주)쉬프트이지",
+    "contactName": "예: 김철수",
+    "phone": "예: 010-1234-5678",
+    "email": "예: contact@example.com",
+    "industry": "업종을 선택하세요",
+    "teamSize": "팀 규모를 선택하세요",
+    "currentMethod": "현재 사용중인 방식을 선택하세요",
+    "painPoints": "예: 매달 5시간 이상 수작업으로 스케줄을 짜고 있고, 직원들의 휴가 요청을 반영하는 것이 어렵습니다...",
+    "specialRequirements": "예: 간호사 자격증 소지자만 야간 근무 가능, 최소 2명의 베테랑 직원이 항상 근무해야 함...",
+    "additionalNotes": "추가로 문의하실 사항이 있으시면 자유롭게 작성해주세요"
+  },
+  "hints": {
+    "painPoints": "현재 스케줄 작성 시 겪고 계신 어려움이나 시간이 많이 소요되는 부분을 자세히 적어주세요.",
+    "specialRequirements": "스케줄 작성 시 반드시 고려해야 하는 규칙, 자격 요건, 법적 제약 등을 상세히 적어주세요."
+  },
+  "industries": {
+    "healthcare": "의료",
+    "manufacturing": "제조",
+    "service": "서비스",
+    "retail": "유통/소매",
+    "other": "기타"
+  },
+  "teamSizes": {
+    "small": "1-10명 (소규모)",
+    "medium": "11-30명 (중규모)",
+    "large": "31-50명 (대규모)",
+    "enterprise": "51명 이상 (기업)"
+  },
+  "methods": {
+    "excel": "엑셀 (Excel)",
+    "paper": "수기 / 종이",
+    "software": "다른 프로그램",
+    "other": "기타"
+  },
+  "fileUpload": {
+    "description": "최소 {{count}}개월 이상의 스케줄표를 첨부해주세요. (엑셀, PDF, 이미지 등)",
+    "dragDrop": "파일을 드래그하거나 클릭하여 업로드",
+    "formats": "지원 형식: xlsx, xls, csv, pdf, jpg, png",
+    "maxSize": "파일당 최대 10MB, 전체 최대 50MB",
+    "uploaded": "업로드된 파일 ({{count}}개)"
+  },
+  "buttons": {
+    "back": "이전",
+    "next": "다음",
+    "submit": "신청하기",
+    "submitting": "제출 중..."
+  },
+  "errors": {
+    "required": "필수 입력 항목입니다",
+    "invalidEmail": "올바른 이메일 주소를 입력해주세요",
+    "minFiles": "최소 {{count}}개의 파일을 업로드해주세요",
+    "fileTooLarge": "{{name}} 파일이 너무 큽니다. (최대 10MB)",
+    "totalSizeTooLarge": "전체 파일 크기가 50MB를 초과합니다",
+    "submitFailed": "신청 중 오류가 발생했습니다. 다시 시도해주세요."
+  },
+  "success": {
+    "title": "신청이 완료되었습니다!",
+    "message": "담당자가 검토 후 1-2 영업일 내에 연락드리겠습니다. 감사합니다."
+  }
+}

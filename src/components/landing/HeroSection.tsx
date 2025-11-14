@@ -1,12 +1,15 @@
 'use client';
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, Play } from 'lucide-react';
+import { ArrowRight, Sparkles } from 'lucide-react';
 import Link from 'next/link';
+import ConsultingRequestModal from './ConsultingRequestModal';
 
 export default function HeroSection() {
   const { t } = useTranslation('landing');
+  const [isConsultingModalOpen, setIsConsultingModalOpen] = useState(false);
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -19,6 +22,34 @@ export default function HeroSection() {
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-32">
         <div className="text-center">
+          {/* Opening Special Badge */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            className="inline-flex items-center gap-2 px-4 py-2 mb-3 bg-gradient-to-r from-yellow-400 to-orange-400 text-gray-900 rounded-full text-sm font-bold shadow-lg"
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gray-900 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-900"></span>
+            </span>
+            {t('hero.openingSpecial')}
+          </motion.div>
+
+          {/* Urgency Badge */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: 'easeOut', delay: 0.1 }}
+            className="inline-flex items-center gap-2 px-4 py-2 mb-6 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-full text-sm font-semibold shadow-lg"
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+            </span>
+            {t('hero.urgencyBadge')}
+          </motion.div>
+
           {/* Headline */}
           <motion.h1
             initial={{ opacity: 0, y: 30 }}
@@ -67,11 +98,20 @@ export default function HeroSection() {
               <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </Link>
 
-            <button className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg transition-all duration-300 hover:border-blue-600 hover:text-blue-600 hover:shadow-lg w-full sm:w-auto">
-              <Play className="w-5 h-5 mr-2" />
+            <button
+              onClick={() => setIsConsultingModalOpen(true)}
+              className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg transition-all duration-300 hover:border-blue-600 hover:text-blue-600 hover:shadow-lg w-full sm:w-auto"
+            >
+              <Sparkles className="w-5 h-5 mr-2" />
               {t('hero.ctaSecondary')}
             </button>
           </motion.div>
+
+          {/* Consulting Modal */}
+          <ConsultingRequestModal
+            isOpen={isConsultingModalOpen}
+            onClose={() => setIsConsultingModalOpen(false)}
+          />
 
           {/* Trust Badge */}
           <motion.div

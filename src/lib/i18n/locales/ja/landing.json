@@ -3,9 +3,11 @@
     "headline": "AIが解決するシフト管理",
     "subheadline": "医療・製造・サービス業界のためのインテリジェントスケジューリングソリューション",
     "description": "複雑なシフトパターン、人手不足、公平性の問題をAIが自動で解決します。ShiftEasyでスケジュール管理時間を98%短縮しましょう。",
-    "ctaPrimary": "無料で始める",
-    "ctaSecondary": "デモを見る",
-    "trustBadge": "世界中の1,000以上のチームから信頼されています"
+    "ctaPrimary": "3か月無料で始める",
+    "ctaSecondary": "無料コンサルティング申請",
+    "trustBadge": "世界中の1,000以上のチームから信頼されています",
+    "openingSpecial": "🎉 オープン記念 • 先着10チーム限定無料コンサルティング・セットアップ支援",
+    "urgencyBadge": "🔥 先着100チーム限定 • 3か月無料プロプラン"
   },
   "features": {
     "title": "なぜShiftEasyなのか？",
@@ -156,45 +158,69 @@
       "cta": "営業チームに問い合わせ"
     }
   },
+  "demoPreview": {
+    "title": "実際に体験してみてください",
+    "subtitle": "実際のスケジュールボードをクリックして確認してください",
+    "clickToInteract": "クリックして選択",
+    "tryNow": "今すぐ無料で始める",
+    "feature1": {
+      "title": "AI自動生成",
+      "description": "5分で最適なスケジュールを自動生成"
+    },
+    "feature2": {
+      "title": "リアルタイム協働",
+      "description": "シフト交換と休暇申請をリアルタイム処理"
+    },
+    "feature3": {
+      "title": "ルール自動検証",
+      "description": "労働法と内部規定を自動確認"
+    },
+    "feature4": {
+      "title": "スマート通知",
+      "description": "重要な変更を即座に通知"
+    }
+  },
   "cta": {
-    "headline": "先着100チーム限定無料",
+    "headline": "先着100チーム限定 • 3か月無料プロプラン",
     "subheadline": "複雑なスケジュール管理、もう時間を無駄にしないでください",
-    "description": "3か月間の無料トライアルでShiftEasyの強力な機能を体験してください。クレジットカード登録なしですぐに始められます。",
-    "ctaPrimary": "無料で始める",
-    "ctaSecondary": "営業チームに問い合わせ",
+    "description": "プロフェッショナルプランの全機能を3か月間無料で体験してください。クレジットカード登録なしですぐに始められます。",
+    "ctaPrimary": "今すぐ無料で始める",
+    "ctaSecondary": "無料コンサルティング申請",
+    "openingSpecial": "🎉 オープン記念 • 先着10チーム限定無料コンサルティング・セットアップ支援",
+    "urgencyBadge": "⚡ 先着100チーム限定",
+    "limitedTime": "3か月無料プロプラン • 今月限定",
     "trustBadge1": "1,000以上のチーム",
     "trustBadge2": "ISO 27001認証",
     "trustBadge3": "99.9%稼働率",
     "trustBadge4": "GDPR準拠"
   },
   "footer": {
+    "brand": {
+      "description": "AIベースのスマートスケジューリングソリューション"
+    },
     "product": {
       "title": "製品",
       "features": "主要機能",
-      "pricing": "価格",
-      "demo": "デモ",
-      "updates": "アップデート"
+      "pricing": "料金プラン"
     },
     "company": {
       "title": "会社",
       "about": "会社概要",
-      "careers": "採用",
-      "contact": "お問い合わせ",
-      "blog": "ブログ"
+      "careers": "採用情報"
     },
     "support": {
       "title": "サポート",
-      "docs": "ドキュメント",
-      "faq": "よくある質問",
-      "community": "コミュニティ",
-      "status": "サービスステータス"
+      "helpCenter": "ヘルプセンター",
+      "contact": "お問い合わせ"
     },
     "legal": {
       "title": "法的通知",
       "privacy": "プライバシーポリシー",
-      "terms": "利用規約",
-      "security": "セキュリティ"
+      "terms": "利用規約"
     },
-    "copyright": "© 2025 ShiftEasy. All rights reserved."
+    "companyInfo": {
+      "basic": "ShiftEasy株式会社 | 事業者登録番号: 123-45-67890 | メール: contact@shifteasy.app"
+    },
+    "copyright": "© 2025 ShiftEasy Inc. All rights reserved."
   }
 }

@@ -5,7 +5,24 @@ import Link from 'next/link';
 import { Github, Twitter, Linkedin, Mail } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
-const footerSections = ['product', 'company', 'support', 'legal'];
+const footerLinks = {
+  product: [
+    { key: 'features', href: '/help?section=features' },
+    { key: 'pricing', href: '/help?section=pricing' },
+  ],
+  company: [
+    { key: 'about', href: '/help?section=about' },
+    { key: 'careers', href: '/help?section=careers' },
+  ],
+  support: [
+    { key: 'helpCenter', href: '/help?section=help-center' },
+    { key: 'contact', href: '/help?section=contact' },
+  ],
+  legal: [
+    { key: 'privacy', href: '/help?section=privacy' },
+    { key: 'terms', href: '/help?section=terms' },
+  ],
+};
 
 const socialLinks = [
   { icon: Github, href: 'https://github.com', label: 'GitHub' },
@@ -28,7 +45,7 @@ export default function Footer() {
               <span className="text-xl font-bold text-white">ShiftEasy</span>
             </div>
             <p className="text-sm text-gray-400 mb-4">
-              AI 기반 스마트 스케줄링 솔루션
+              {t('footer.brand.description')}
             </p>
             {/* Language Switcher */}
             <div className="mb-4">
@@ -54,38 +71,92 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Footer Links */}
-          {footerSections.map((section) => (
-            <div key={section}>
-              <h3 className="font-semibold text-white mb-4">
-                {t(`footer.${section}.title`)}
-              </h3>
-              <ul className="space-y-3">
-                {['features', 'pricing', 'demo', 'updates'].map((link) => {
-                  const linkKey = `footer.${section}.${link}`;
-                  const linkText = t(linkKey);
+          {/* Product Section */}
+          <div>
+            <h3 className="font-semibold text-white mb-4">
+              {t('footer.product.title')}
+            </h3>
+            <ul className="space-y-3">
+              {footerLinks.product.map((link) => (
+                <li key={link.key}>
+                  <Link
+                    href={link.href}
+                    className="text-sm hover:text-white transition-colors duration-300"
+                  >
+                    {t(`footer.product.${link.key}`)}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
 
-                  if (linkText === linkKey) return null;
+          {/* Company Section */}
+          <div>
+            <h3 className="font-semibold text-white mb-4">
+              {t('footer.company.title')}
+            </h3>
+            <ul className="space-y-3">
+              {footerLinks.company.map((link) => (
+                <li key={link.key}>
+                  <Link
+                    href={link.href}
+                    className="text-sm hover:text-white transition-colors duration-300"
+                  >
+                    {t(`footer.company.${link.key}`)}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
 
-                  return (
-                    <li key={link}>
-                      <Link
-                        href={`/${link}`}
-                        className="text-sm hover:text-white transition-colors duration-300"
-                      >
-                        {linkText}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
+          {/* Support Section */}
+          <div>
+            <h3 className="font-semibold text-white mb-4">
+              {t('footer.support.title')}
+            </h3>
+            <ul className="space-y-3">
+              {footerLinks.support.map((link) => (
+                <li key={link.key}>
+                  <Link
+                    href={link.href}
+                    className="text-sm hover:text-white transition-colors duration-300"
+                  >
+                    {t(`footer.support.${link.key}`)}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Legal Section */}
+          <div>
+            <h3 className="font-semibold text-white mb-4">
+              {t('footer.legal.title')}
+            </h3>
+            <ul className="space-y-3">
+              {footerLinks.legal.map((link) => (
+                <li key={link.key}>
+                  <Link
+                    href={link.href}
+                    className="text-sm hover:text-white transition-colors duration-300"
+                  >
+                    {t(`footer.legal.${link.key}`)}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
 
-        {/* Bottom bar */}
+        {/* Bottom bar with company info */}
         <div className="pt-8 border-t border-gray-800">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            {/* Company Information */}
+            <div className="text-xs text-gray-500">
+              <p>{t('footer.companyInfo.basic')}</p>
+            </div>
+
+            {/* Copyright */}
             <p className="text-sm text-gray-400">
               {t('footer.copyright')}
             </p>

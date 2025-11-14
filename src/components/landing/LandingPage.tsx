@@ -15,6 +15,10 @@ const HowItWorksSection = dynamic(() => import('./HowItWorksSection'), {
   loading: () => <div className="py-20 bg-white" />,
 });
 
+const DemoPreviewSection = dynamic(() => import('./DemoPreviewSection'), {
+  loading: () => <div className="py-20 bg-gradient-to-b from-white to-blue-50" />,
+});
+
 const TestimonialsSection = dynamic(() => import('./TestimonialsSection'), {
   loading: () => <div className="py-20 bg-blue-50" />,
 });
@@ -41,6 +45,7 @@ export default function LandingPage() {
       <FeaturesSection />
       <BenefitsSection />
       <HowItWorksSection />
+      <DemoPreviewSection />
       <TestimonialsSection />
       <PricingSection />
       <CTASection />

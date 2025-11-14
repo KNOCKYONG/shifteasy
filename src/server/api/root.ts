@@ -13,6 +13,7 @@ import { handoffRouter } from './routers/handoff';
 import { teamsRouter } from './routers/teams';
 import { offBalanceRouter } from './routers/off-balance';
 import { paymentsRouter } from './routers/payments';
+import { consultingRouter } from './routers/consulting';
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -29,6 +30,7 @@ export const appRouter = createTRPCRouter({
   teams: teamsRouter,
   offBalance: offBalanceRouter,
   payments: paymentsRouter,
+  consulting: consultingRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -3,9 +3,11 @@
     "headline": "AI-Powered Shift Scheduling Made Simple",
     "subheadline": "Intelligent scheduling solution for healthcare, manufacturing, and service industries",
     "description": "Let AI solve complex shift patterns, staffing shortages, and fairness issues. Reduce scheduling time by 98% with ShiftEasy.",
-    "ctaPrimary": "Start Free",
-    "ctaSecondary": "Watch Demo",
-    "trustBadge": "Trusted by 1,000+ teams worldwide"
+    "ctaPrimary": "Start 3-Month Free Trial",
+    "ctaSecondary": "Request Free Consulting",
+    "trustBadge": "Trusted by 1,000+ teams worldwide",
+    "openingSpecial": "🎉 Grand Opening Special • Free Consulting & Setup Support for First 10 Teams",
+    "urgencyBadge": "🔥 First 100 Teams Only • 3-Month Free Pro Plan"
   },
   "features": {
     "title": "Why ShiftEasy?",
@@ -156,45 +158,69 @@
       "cta": "Contact Sales"
     }
   },
+  "demoPreview": {
+    "title": "Try It Yourself",
+    "subtitle": "Click and explore the actual schedule board",
+    "clickToInteract": "Click to select",
+    "tryNow": "Start Free Now",
+    "feature1": {
+      "title": "AI Auto-Generation",
+      "description": "Optimal schedules generated in 5 minutes"
+    },
+    "feature2": {
+      "title": "Real-time Collaboration",
+      "description": "Handle shift swaps and time-off requests instantly"
+    },
+    "feature3": {
+      "title": "Auto Rule Validation",
+      "description": "Automatically verify labor laws and internal policies"
+    },
+    "feature4": {
+      "title": "Smart Notifications",
+      "description": "Instant alerts for important changes"
+    }
+  },
   "cta": {
-    "headline": "Limited Free Offer for First 100 Teams",
+    "headline": "First 100 Teams Only • 3-Month Free Pro Plan",
     "subheadline": "Stop wasting time on complex schedule management",
-    "description": "Experience ShiftEasy's powerful features with a 3-month free trial. Start immediately without credit card registration.",
-    "ctaPrimary": "Start Free",
-    "ctaSecondary": "Contact Sales",
+    "description": "Experience all Professional Plan features free for 3 months. Start immediately without credit card registration.",
+    "ctaPrimary": "Start Free Now",
+    "ctaSecondary": "Request Free Consulting",
+    "openingSpecial": "🎉 Grand Opening Special • Free Consulting & Setup Support for First 10 Teams",
+    "urgencyBadge": "⚡ First 100 Teams Only",
+    "limitedTime": "3-Month Free Pro Plan • Limited Time This Month",
     "trustBadge1": "1,000+ Teams",
     "trustBadge2": "ISO 27001 Certified",
     "trustBadge3": "99.9% Uptime",
     "trustBadge4": "GDPR Compliant"
   },
   "footer": {
+    "brand": {
+      "description": "AI-Powered Smart Scheduling Solution"
+    },
     "product": {
       "title": "Product",
       "features": "Features",
-      "pricing": "Pricing",
-      "demo": "Demo",
-      "updates": "Updates"
+      "pricing": "Pricing"
     },
     "company": {
       "title": "Company",
       "about": "About Us",
-      "careers": "Careers",
-      "contact": "Contact",
-      "blog": "Blog"
+      "careers": "Careers"
     },
     "support": {
       "title": "Support",
-      "docs": "Documentation",
-      "faq": "FAQ",
-      "community": "Community",
-      "status": "Status"
+      "helpCenter": "Help Center",
+      "contact": "Contact Us"
     },
     "legal": {
       "title": "Legal",
       "privacy": "Privacy Policy",
-      "terms": "Terms of Service",
-      "security": "Security"
+      "terms": "Terms of Service"
     },
-    "copyright": "© 2025 ShiftEasy. All rights reserved."
+    "companyInfo": {
+      "basic": "ShiftEasy Inc. | Business Registration: 123-45-67890 | Email: contact@shifteasy.app"
+    },
+    "copyright": "© 2025 ShiftEasy Inc. All rights reserved."
   }
 }

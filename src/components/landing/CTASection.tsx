@@ -4,9 +4,10 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useInView } from 'react-intersection-observer';
-import { ArrowRight, Shield, Zap, Users, Globe } from 'lucide-react';
+import { ArrowRight, Shield, Zap, Users, Globe, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import ContactModal from './ContactModal';
+import ConsultingRequestModal from './ConsultingRequestModal';
 
 const trustBadges = [
   { key: 'trustBadge1', icon: Users },
@@ -22,6 +23,7 @@ export default function CTASection() {
     threshold: 0.2,
   });
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [isConsultingModalOpen, setIsConsultingModalOpen] = useState(false);
 
   return (
     <section ref={ref} className="relative py-20 lg:py-32 overflow-hidden">
@@ -44,12 +46,32 @@ export default function CTASection() {
             transition={{ duration: 0.8 }}
             className="mb-6"
           >
-            <div className="inline-block mb-4 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full">
-              <span className="text-white font-semibold">⚡ 한정 특별 혜택</span>
+            {/* Opening Special Badge */}
+            <div className="inline-flex items-center gap-3 mb-3 px-5 py-2.5 bg-gradient-to-r from-yellow-400 to-orange-400 text-gray-900 rounded-full shadow-xl">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gray-900 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-gray-900"></span>
+              </span>
+              <span className="font-bold text-base">{t('cta.openingSpecial')}</span>
             </div>
+
+            {/* Urgency Badge */}
+            <div className="inline-flex items-center gap-3 mb-6 px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 rounded-full shadow-xl">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
+              </span>
+              <span className="text-white font-bold text-lg">{t('cta.urgencyBadge')}</span>
+            </div>
+
             <h2 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold text-white mb-4">
               {t('cta.headline')}
             </h2>
+
+            {/* Limited Time Notice */}
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full">
+              <span className="text-white/90 text-sm font-medium">{t('cta.limitedTime')}</span>
+            </div>
           </motion.div>
 
           {/* Subheadline */}
@@ -91,17 +113,24 @@ export default function CTASection() {
             </Link>
 
             <button
-              onClick={() => setIsContactModalOpen(true)}
+              onClick={() => setIsConsultingModalOpen(true)}
               className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white border-2 border-white/50 rounded-lg backdrop-blur-sm transition-all duration-300 hover:border-white hover:bg-white/10 hover:shadow-lg w-full sm:w-auto"
             >
+              <Sparkles className="w-5 h-5 mr-2" />
               {t('cta.ctaSecondary')}
             </button>
           </motion.div>
 
-          {/* Contact Modal */}
+          {/* Contact Modal (keeping for backward compatibility) */}
           <ContactModal
             isOpen={isContactModalOpen}
             onClose={() => setIsContactModalOpen(false)}
+          />
+
+          {/* Consulting Modal */}
+          <ConsultingRequestModal
+            isOpen={isConsultingModalOpen}
+            onClose={() => setIsConsultingModalOpen(false)}
           />
 
           {/* Trust Badges */}

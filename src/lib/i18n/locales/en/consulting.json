@@ -1,0 +1,81 @@
+{
+  "title": "Free Consulting Request",
+  "steps": {
+    "step1": "Basic Info",
+    "step2": "Schedule Info",
+    "step3": "Details"
+  },
+  "fields": {
+    "companyName": "Company / Team Name",
+    "contactName": "Contact Name",
+    "phone": "Phone Number",
+    "email": "Email Address",
+    "industry": "Industry",
+    "teamSize": "Team Size",
+    "currentMethod": "Current Scheduling Method",
+    "files": "Schedule File Attachments",
+    "painPoints": "Pain Points in Schedule Creation",
+    "specialRequirements": "Special Requirements to Consider",
+    "additionalNotes": "Additional Notes"
+  },
+  "placeholders": {
+    "companyName": "e.g., ShiftEasy Inc.",
+    "contactName": "e.g., John Smith",
+    "phone": "e.g., +1-234-567-8900",
+    "email": "e.g., contact@example.com",
+    "industry": "Select your industry",
+    "teamSize": "Select your team size",
+    "currentMethod": "Select current method",
+    "painPoints": "e.g., Spending 5+ hours manually creating schedules each month, difficult to accommodate employee vacation requests...",
+    "specialRequirements": "e.g., Only certified nurses can work night shifts, minimum 2 veteran staff must be present at all times...",
+    "additionalNotes": "Feel free to add any additional questions or comments"
+  },
+  "hints": {
+    "painPoints": "Please describe in detail the difficulties or time-consuming aspects you experience when creating schedules.",
+    "specialRequirements": "Please detail any rules, qualifications, legal constraints, or special considerations that must be followed when creating schedules."
+  },
+  "industries": {
+    "healthcare": "Healthcare",
+    "manufacturing": "Manufacturing",
+    "service": "Service",
+    "retail": "Retail",
+    "other": "Other"
+  },
+  "teamSizes": {
+    "small": "1-10 (Small)",
+    "medium": "11-30 (Medium)",
+    "large": "31-50 (Large)",
+    "enterprise": "51+ (Enterprise)"
+  },
+  "methods": {
+    "excel": "Excel",
+    "paper": "Paper / Manual",
+    "software": "Other Software",
+    "other": "Other"
+  },
+  "fileUpload": {
+    "description": "Please attach at least {{count}} months of schedule files (Excel, PDF, images, etc.)",
+    "dragDrop": "Drag and drop files here or click to upload",
+    "formats": "Supported formats: xlsx, xls, csv, pdf, jpg, png",
+    "maxSize": "Max 10MB per file, 50MB total",
+    "uploaded": "Uploaded files ({{count}})"
+  },
+  "buttons": {
+    "back": "Back",
+    "next": "Next",
+    "submit": "Submit",
+    "submitting": "Submitting..."
+  },
+  "errors": {
+    "required": "This field is required",
+    "invalidEmail": "Please enter a valid email address",
+    "minFiles": "Please upload at least {{count}} files",
+    "fileTooLarge": "File {{name}} is too large (max 10MB)",
+    "totalSizeTooLarge": "Total file size exceeds 50MB",
+    "submitFailed": "An error occurred during submission. Please try again."
+  },
+  "success": {
+    "title": "Request Submitted Successfully!",
+    "message": "Our team will review and contact you within 1-2 business days. Thank you."
+  }
+}

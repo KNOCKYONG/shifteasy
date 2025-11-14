@@ -1,0 +1,81 @@
+{
+  "title": "無料コンサルティング申請",
+  "steps": {
+    "step1": "基本情報",
+    "step2": "スケジュール情報",
+    "step3": "詳細情報"
+  },
+  "fields": {
+    "companyName": "会社名 / チーム名",
+    "contactName": "担当者名",
+    "phone": "電話番号",
+    "email": "メールアドレス",
+    "industry": "業種",
+    "teamSize": "チーム規模",
+    "currentMethod": "現在のスケジュール作成方法",
+    "files": "スケジュール表ファイル添付",
+    "painPoints": "スケジュール作成時の不便な点",
+    "specialRequirements": "必ず考慮すべき特別な要求事項",
+    "additionalNotes": "その他のお問い合わせ"
+  },
+  "placeholders": {
+    "companyName": "例: ShiftEasy株式会社",
+    "contactName": "例: 山田太郎",
+    "phone": "例: 03-1234-5678",
+    "email": "例: contact@example.com",
+    "industry": "業種を選択してください",
+    "teamSize": "チーム規模を選択してください",
+    "currentMethod": "現在使用中の方法を選択してください",
+    "painPoints": "例: 毎月5時間以上手作業でスケジュールを作成しており、従業員の休暇申請を反映するのが困難です...",
+    "specialRequirements": "例: 看護師資格保持者のみ夜勤可能、常にベテラン従業員が最低2名勤務する必要があります...",
+    "additionalNotes": "追加でお問い合わせの内容がございましたら、ご自由にご記入ください"
+  },
+  "hints": {
+    "painPoints": "現在のスケジュール作成で経験されている困難や時間がかかる部分を詳しくご記入ください。",
+    "specialRequirements": "スケジュール作成時に必ず考慮すべき規則、資格要件、法的制約などを詳しくご記入ください。"
+  },
+  "industries": {
+    "healthcare": "医療",
+    "manufacturing": "製造",
+    "service": "サービス",
+    "retail": "流通・小売",
+    "other": "その他"
+  },
+  "teamSizes": {
+    "small": "1-10名（小規模）",
+    "medium": "11-30名（中規模）",
+    "large": "31-50名（大規模）",
+    "enterprise": "51名以上（企業）"
+  },
+  "methods": {
+    "excel": "Excel",
+    "paper": "手書き / 紙",
+    "software": "その他のプログラム",
+    "other": "その他"
+  },
+  "fileUpload": {
+    "description": "最低{{count}}か月以上のスケジュール表を添付してください（Excel、PDF、画像など）",
+    "dragDrop": "ファイルをドラッグまたはクリックしてアップロード",
+    "formats": "対応形式: xlsx, xls, csv, pdf, jpg, png",
+    "maxSize": "ファイルあたり最大10MB、全体最大50MB",
+    "uploaded": "アップロード済みファイル（{{count}}個）"
+  },
+  "buttons": {
+    "back": "前へ",
+    "next": "次へ",
+    "submit": "申請する",
+    "submitting": "送信中..."
+  },
+  "errors": {
+    "required": "必須入力項目です",
+    "invalidEmail": "正しいメールアドレスを入力してください",
+    "minFiles": "最低{{count}}個のファイルをアップロードしてください",
+    "fileTooLarge": "{{name}}ファイルが大きすぎます（最大10MB）",
+    "totalSizeTooLarge": "全体のファイルサイズが50MBを超えています",
+    "submitFailed": "申請中にエラーが発生しました。もう一度お試しください。"
+  },
+  "success": {
+    "title": "申請が完了しました！",
+    "message": "担当者が確認後、1-2営業日以内にご連絡いたします。ありがとうございます。"
+  }
+}
