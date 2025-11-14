@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 const PUBLIC_ROUTE_PATTERNS = [
   /^\/$/,
+  /^\/help(?:\/.*)?$/,
   /^\/sign-in(?:\/.*)?$/,
   /^\/sign-up(?:\/.*)?$/,
   /^\/billing(?:\/.*)?$/,
