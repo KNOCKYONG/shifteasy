@@ -1,10 +1,16 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
-import { createTRPCRouter, protectedProcedure, adminProcedure } from '../trpc';
+import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { scopedDb, createAuditLog } from '@/lib/db-helpers';
-import { schedules, users, departments, nursePreferences, offBalanceLedger, holidays, specialRequests, teams } from '@/db/schema';
-import { eq, and, gte, lte, desc, inArray, isNull, isNotNull, ne, or } from 'drizzle-orm';
+import { schedules, users, departments, offBalanceLedger, holidays, specialRequests, teams } from '@/db/schema';
+import { eq, and, gte, lte, desc, inArray, isNull, ne, or } from 'drizzle-orm';
 import { db } from '@/db';
+import { generateAiSchedule } from '@/lib/scheduler/ai-scheduler';
+import { ScheduleImprover } from '@/lib/scheduler/schedule-improver';
+import type { Assignment, Employee as ImprovementEmployee, ScheduleConstraints } from '@/lib/scheduler/types';
+import { sse } from '@/lib/sse/broadcaster';
+import { notificationService } from '@/lib/notifications/notification-service';
+import { format, subMonths } from 'date-fns';
 
 export const scheduleRouter = createTRPCRouter({
   list: protectedProcedure
@@ -15,6 +21,7 @@ export const scheduleRouter = createTRPCRouter({
       endDate: z.date().optional(),
       limit: z.number().default(10),
       offset: z.number().default(0),
+      includeMetadata: z.boolean().default(false), // Default false for performance
     }))
     .query(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
@@ -50,14 +57,36 @@ export const scheduleRouter = createTRPCRouter({
         conditions.push(lte(schedules.endDate, input.endDate));
       }
 
-      // Get schedules
-      const scheduleResults = await db
-        .select()
-        .from(schedules)
-        .where(and(...conditions))
-        .orderBy(desc(schedules.createdAt))
-        .limit(input.limit)
-        .offset(input.offset);
+      // Conditional metadata inclusion based on includeMetadata flag
+      const scheduleResults = input.includeMetadata
+        ? await db
+            .select()
+            .from(schedules)
+            .where(and(...conditions))
+            .orderBy(desc(schedules.createdAt))
+            .limit(input.limit)
+            .offset(input.offset)
+        : await db
+            .select({
+              id: schedules.id,
+              tenantId: schedules.tenantId,
+              departmentId: schedules.departmentId,
+              startDate: schedules.startDate,
+              endDate: schedules.endDate,
+              status: schedules.status,
+              version: schedules.version,
+              publishedAt: schedules.publishedAt,
+              publishedBy: schedules.publishedBy,
+              deletedFlag: schedules.deletedFlag,
+              createdAt: schedules.createdAt,
+              updatedAt: schedules.updatedAt,
+              metadata: schedules.metadata, // Include metadata but it will be null for list queries
+            })
+            .from(schedules)
+            .where(and(...conditions))
+            .orderBy(desc(schedules.createdAt))
+            .limit(input.limit)
+            .offset(input.offset);
 
       // Get unique department IDs
       const deptIds = [...new Set(scheduleResults.map(s => s.departmentId).filter(Boolean))] as string[];
@@ -134,22 +163,77 @@ export const scheduleRouter = createTRPCRouter({
 
   generate: protectedProcedure
     .input(z.object({
-      name: z.string(),
-      departmentId: z.string().optional(),
-      patternId: z.string().optional(),
+      name: z.string().default('AI Generated Schedule'),
+      departmentId: z.string().min(1),
       startDate: z.date(),
       endDate: z.date(),
-      constraints: z.object({
-        minStaffPerShift: z.number().optional(),
-        maxConsecutiveDays: z.number().optional(),
-        minRestBetweenShifts: z.number().optional(),
-        fairnessWeight: z.number().optional(),
-      }).optional(),
+      employees: z.array(z.object({
+        id: z.string(),
+        name: z.string(),
+        role: z.string(),
+        departmentId: z.string().optional(),
+        teamId: z.string().nullable().optional(),
+        workPatternType: z.enum(['three-shift', 'night-intensive', 'weekday-only']).optional(),
+        preferredShiftTypes: z.record(z.string(), z.number()).optional(),
+        maxConsecutiveDaysPreferred: z.number().optional(),
+        maxConsecutiveNightsPreferred: z.number().optional(),
+        guaranteedOffDays: z.number().optional(),
+      })),
+      shifts: z.array(z.object({
+        id: z.string(),
+        code: z.string().optional(),
+        type: z.enum(['day', 'evening', 'night', 'off', 'leave', 'custom']),
+        name: z.string(),
+        time: z.object({
+          start: z.string(),
+          end: z.string(),
+          hours: z.number(),
+          breakMinutes: z.number().optional(),
+        }),
+        color: z.string(),
+        requiredStaff: z.number().min(0).default(1),
+        minStaff: z.number().optional(),
+        maxStaff: z.number().optional(),
+      })),
+      constraints: z.array(z.object({
+        id: z.string(),
+        name: z.string(),
+        type: z.enum(['hard', 'soft']),
+        category: z.enum(['legal', 'contractual', 'operational', 'preference', 'fairness']),
+        weight: z.number(),
+        active: z.boolean(),
+        config: z.record(z.string(), z.any()).optional(),
+      })).default([]),
+      specialRequests: z.array(z.object({
+        employeeId: z.string(),
+        date: z.string(),
+        requestType: z.string(),
+        shiftTypeCode: z.string().optional(),
+      })).default([]),
+      holidays: z.array(z.object({
+        date: z.string(),
+        name: z.string(),
+      })).default([]),
+      teamPattern: z.object({
+        pattern: z.array(z.string()),
+        avoidPatterns: z.array(z.array(z.string())).optional(),
+      }).nullable().optional(),
+      requiredStaffPerShift: z.record(z.string(), z.number()).optional(),
+      optimizationGoal: z.enum(['fairness', 'preference', 'coverage', 'cost', 'balanced']).default('balanced'),
+      nightIntensivePaidLeaveDays: z.number().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const tenantDb = scopedDb(tenantId);
 
-      // Check permissions: manager can only generate schedules for their department
+      if (!input.employees.length) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: '스케줄을 생성할 직원이 없습니다.',
+        });
+      }
+
+      // Permission checks
       if (ctx.user?.role === 'manager') {
         if (!ctx.user.departmentId) {
           throw new TRPCError({
@@ -157,14 +241,12 @@ export const scheduleRouter = createTRPCRouter({
             message: '부서 정보가 없습니다.',
           });
         }
-        if (input.departmentId && input.departmentId !== ctx.user.departmentId) {
+        if (input.departmentId !== ctx.user.departmentId) {
           throw new TRPCError({
             code: 'FORBIDDEN',
             message: '담당 부서의 스케줄만 생성할 수 있습니다.',
           });
         }
-        // Force departmentId to be the manager's department
-        input.departmentId = ctx.user.departmentId;
       } else if (ctx.user?.role === 'member') {
         throw new TRPCError({
           code: 'FORBIDDEN',
@@ -172,146 +254,121 @@ export const scheduleRouter = createTRPCRouter({
         });
       }
 
-      // TODO: Implement scheduling algorithm
-      // For now, create a draft schedule
-      const [schedule] = await db.insert(schedules, {
+      const previousMonthDate = subMonths(input.startDate, 1);
+      const previousYear = previousMonthDate.getFullYear();
+      const previousMonth = previousMonthDate.getMonth() + 1;
+
+      const previousLedgerRows = await db
+        .select({
+          nurseId: offBalanceLedger.nurseId,
+          allocatedToAccumulation: offBalanceLedger.allocatedToAccumulation,
+          guaranteedOffDays: offBalanceLedger.guaranteedOffDays,
+        })
+        .from(offBalanceLedger)
+        .where(and(
+          eq(offBalanceLedger.tenantId, tenantId),
+          eq(offBalanceLedger.departmentId, input.departmentId),
+          eq(offBalanceLedger.year, previousYear),
+          eq(offBalanceLedger.month, previousMonth),
+        ));
+
+      const previousOffAccruals: Record<string, number> = {};
+      const previousGuaranteedOffDays: Record<string, number> = {};
+      previousLedgerRows.forEach((row) => {
+        if (row.nurseId) {
+          previousOffAccruals[row.nurseId] = Math.max(0, row.allocatedToAccumulation || 0);
+          if (typeof row.guaranteedOffDays === 'number') {
+            previousGuaranteedOffDays[row.nurseId] = row.guaranteedOffDays;
+          }
+        }
+      });
+
+      const employeesWithGuarantees = input.employees.map((emp) => ({
+        ...emp,
+        guaranteedOffDays: emp.guaranteedOffDays ?? previousGuaranteedOffDays[emp.id],
+      }));
+
+      const aiResult = await generateAiSchedule({
+        departmentId: input.departmentId,
+        startDate: input.startDate,
+        endDate: input.endDate,
+        employees: employeesWithGuarantees,
+        shifts: input.shifts,
+        constraints: input.constraints,
+        specialRequests: input.specialRequests,
+        holidays: input.holidays,
+        teamPattern: input.teamPattern ?? null,
+        requiredStaffPerShift: input.requiredStaffPerShift,
+        nightIntensivePaidLeaveDays: input.nightIntensivePaidLeaveDays,
+        previousOffAccruals,
+      });
+
+      const serializedAssignments = aiResult.assignments.map((assignment) => ({
+        ...assignment,
+        date: assignment.date instanceof Date ? assignment.date.toISOString() : assignment.date,
+      }));
+
+      const [schedule] = await tenantDb.insert(schedules, {
         name: input.name,
         departmentId: input.departmentId,
-        patternId: input.patternId,
         startDate: input.startDate,
         endDate: input.endDate,
         status: 'draft',
         metadata: {
-          generatedBy: (ctx.user?.id || 'dev-user-id'),
-          generationMethod: 'manual',
+          generatedBy: ctx.user?.id || 'system',
+          generationMethod: 'ai-engine',
           constraints: input.constraints,
+          assignments: serializedAssignments,
+          stats: aiResult.stats,
+          score: aiResult.score,
+          violations: aiResult.violations,
+          offAccruals: aiResult.offAccruals,
         },
       });
 
       await createAuditLog({
-        tenantId: (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'),
-        actorId: (ctx.user?.id || 'dev-user-id'),
+        tenantId,
+        actorId: ctx.user?.id || 'system',
         action: 'schedule.generated',
         entityType: 'schedule',
         entityId: schedule.id,
         after: schedule,
+        metadata: {
+          computationTime: aiResult.computationTime,
+          iterations: aiResult.iterations,
+        },
       });
 
-      return schedule;
-    }),
+      // ✅ SSE: 스케줄 생성 이벤트 브로드캐스트
+      sse.schedule.generated(schedule.id, {
+        departmentId: input.departmentId,
+        generatedBy: ctx.user?.id || 'system',
+        tenantId,
+      });
 
-
-  // Check for conflicting published schedules
-  checkPublishConflict: protectedProcedure
-    .input(z.object({ scheduleId: z.string() }))
-    .query(async ({ ctx, input }) => {
-      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
-      const db = scopedDb(tenantId);
-      
-      const db = scopedDb(tenantId);
-      
-      
-      const allSchedules = await db.query(schedules, and(
-        eq(schedules.id, input.scheduleId),
-        eq(schedules.tenantId, tenantId)
-      ));
-      
-      if (!allSchedules[0]) throw new TRPCError({ code: 'NOT_FOUND', message: 'Schedule not found' });
-      
-      const schedule = allSchedules[0];
-      const year = schedule.startDate.getFullYear();
-      const month = schedule.startDate.getMonth();
-      
-      const existing = await db.query(schedules, and(
-        eq(schedules.tenantId, schedule.tenantId),
-        eq(schedules.departmentId, schedule.departmentId),
-        eq(schedules.status, 'published'),
-        isNotNull(schedules.publishedAt),
-        ne(schedules.id, input.scheduleId),
-        or(isNull(schedules.deletedFlag), ne(schedules.deletedFlag, 'X'))
-      ));
-      
-      const conflicts = existing.filter((s: any) => 
-        s.startDate.getFullYear() === year && s.startDate.getMonth() === month
-      );
-      
-      return { hasConflict: conflicts.length > 0, existingSchedule: conflicts[0] || null };
-    }),
-
-
-  // Check for conflicting published schedules
-  checkPublishConflict: protectedProcedure
-    .input(z.object({ scheduleId: z.string() }))
-    .query(async ({ ctx, input }) => {
-      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
-      
-      const allSchedules = await db.query(schedules, and(
-        eq(schedules.id, input.scheduleId),
-        eq(schedules.tenantId, tenantId)
-      ));
-      
-      if (!allSchedules[0]) throw new TRPCError({ code: 'NOT_FOUND', message: 'Schedule not found' });
-      
-      const schedule = allSchedules[0];
-      const year = schedule.startDate.getFullYear();
-      const month = schedule.startDate.getMonth();
-      
-      const existing = await db.query(schedules, and(
-        eq(schedules.tenantId, schedule.tenantId),
-        eq(schedules.departmentId, schedule.departmentId),
-        eq(schedules.status, 'published'),
-        isNotNull(schedules.publishedAt),
-        ne(schedules.id, input.scheduleId),
-        or(isNull(schedules.deletedFlag), ne(schedules.deletedFlag, 'X'))
-      ));
-      
-      const conflicts = existing.filter((s: any) => 
-        s.startDate.getFullYear() === year && s.startDate.getMonth() === month
-      );
-      
-      return { hasConflict: conflicts.length > 0, existingSchedule: conflicts[0] || null };
+      return {
+        scheduleId: schedule.id,
+        assignments: serializedAssignments,
+        generationResult: {
+          computationTime: aiResult.computationTime,
+          score: aiResult.score,
+          violations: aiResult.violations,
+          offAccruals: aiResult.offAccruals,
+        },
+      };
     }),
 
   publish: protectedProcedure
     .input(z.object({
       id: z.string(),
-      force: z.boolean().optional(),
-      force: z.boolean().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
+      const tenantDb = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
 
-      const [schedule] = await db.query(schedules, eq(schedules.id, input.id));
+      const [schedule] = await tenantDb.query(schedules, eq(schedules.id, input.id));
 
       if (!schedule) {
         throw new Error('Schedule not found');
-      }
-
-
-      // Force delete conflicting schedules
-      if (input.force) {
-        const year = schedule.startDate.getFullYear();
-        const month = schedule.startDate.getMonth();
-        const existing = await db.query(schedules, and(
-          eq(schedules.tenantId, schedule.tenantId),
-          eq(schedules.departmentId, schedule.departmentId),
-          eq(schedules.status, 'published'),
-          isNotNull(schedules.publishedAt),
-          ne(schedules.id, input.id),
-          or(isNull(schedules.deletedFlag), ne(schedules.deletedFlag, 'X'))
-        ));
-        const conflicts = existing.filter((s: any) => 
-          s.startDate.getFullYear() === year && s.startDate.getMonth() === month
-        );
-        for (const c of conflicts) {
-          await db.update(schedules, { deletedFlag: 'X', updatedAt: new Date() }, eq(schedules.id, c.id));
-          await createAuditLog({
-            tenantId: schedule.tenantId, actorId: (ctx.user?.id || 'dev-user-id'),
-            action: 'schedule.deleted_by_force', entityType: 'schedule', entityId: c.id,
-            after: { deletedFlag: 'X', reason: 'Replaced' }
-          });
-        }
-        console.log(`Deleted ${conflicts.length} conflicting schedule(s)`);
       }
 
       // Check permissions: manager can only publish schedules for their department
@@ -329,7 +386,7 @@ export const scheduleRouter = createTRPCRouter({
         });
       }
 
-      const [updated] = await db.update(
+      const [updated] = await tenantDb.update(
         schedules,
         {
           status: 'published',
@@ -353,56 +410,68 @@ export const scheduleRouter = createTRPCRouter({
       try {
         const tenantId = (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d');
 
+        type ScheduleMetadata = {
+          assignments?: Array<{
+            employeeId: string;
+            shiftType?: string;
+            date: string | Date;
+            [key: string]: unknown;
+          }>;
+          [key: string]: unknown;
+        };
+
         // Get schedule assignments from metadata
-        const assignments = (schedule.metadata as any)?.assignments || [];
+        const metadata = schedule.metadata as ScheduleMetadata;
+        const assignments = metadata?.assignments || [];
 
-        if (assignments.length > 0) {
-          // Get all unique employee IDs from assignments
-          const employeeIds = [...new Set(assignments.map((a: any) => a.employeeId as string))] as string[];
+        if (assignments.length === 0) {
+          console.log('[OffBalance] (TRPC) Skipping ledger update - no assignments in metadata', {
+            tenantId,
+            scheduleId: schedule.id,
+          });
+        } else {
+          const employeeIds = [...new Set(assignments.map((a) => a.employeeId))] as string[];
 
-          // Get nurse preferences for all employees
-          const employeePreferences = await db.query(
-            nursePreferences,
-            and(
-              eq(nursePreferences.tenantId, tenantId),
-              inArray(nursePreferences.nurseId, employeeIds)
-            )
-          );
-
-          // Create a map for quick lookup
-          const preferencesMap = new Map(
-            employeePreferences.map(p => [p.nurseId, p])
-          );
-
-          // Calculate period boundaries
           const periodStart = schedule.startDate;
           const periodEnd = schedule.endDate;
           const year = periodStart.getFullYear();
           const month = periodStart.getMonth() + 1;
 
-          // Process each employee
+          const deleteFilters = [
+            eq(offBalanceLedger.year, year),
+            eq(offBalanceLedger.month, month),
+          ];
+          if (schedule.departmentId) {
+            deleteFilters.push(eq(offBalanceLedger.departmentId, schedule.departmentId));
+          }
+
+          const deletedRows = await tenantDb.hardDelete(offBalanceLedger, and(...deleteFilters));
+
+          console.log('[OffBalance] (TRPC) Cleared previous ledger rows', {
+            tenantId,
+            departmentId: schedule.departmentId,
+            year,
+            month,
+            deletedCount: deletedRows.length,
+            scheduleId: schedule.id,
+          });
+
           const offBalanceRecords = [];
 
           for (const employeeId of employeeIds) {
-            // Count actual OFF days assigned to this employee (using shift code instead of ID)
-            const employeeAssignments = assignments.filter((a: any) => a.employeeId === employeeId);
-            const actualOffDays = employeeAssignments.filter((a: any) =>
+            const employeeAssignments = assignments.filter((a) => a.employeeId === employeeId);
+            const actualOffDays = employeeAssignments.filter((a) =>
               a.shiftType === 'O' || a.shiftType === 'OFF'
             ).length;
 
-            // Calculate guaranteed OFF days for this specific month
-            // TODO: Implement dynamic calculation based on work pattern, holidays, weekends
-            // For now, use a default value of 8 days
             const guaranteedOffDays = 8;
-
-            // Calculate remaining OFF days
             const remainingOffDays = guaranteedOffDays - actualOffDays;
 
-            // Only create ledger record and update balance if there are remaining OFF days
             if (remainingOffDays > 0) {
               offBalanceRecords.push({
                 tenantId,
                 nurseId: employeeId,
+                departmentId: schedule.departmentId,
                 year,
                 month,
                 periodStart,
@@ -410,33 +479,38 @@ export const scheduleRouter = createTRPCRouter({
                 guaranteedOffDays,
                 actualOffDays,
                 remainingOffDays,
-                compensationType: null, // Will be determined by user allocation
+                accumulatedOffDays: remainingOffDays,
+                allocatedToAccumulation: 0,
+                allocatedToAllowance: 0,
+                compensationType: null,
                 status: 'pending',
+                allocationStatus: 'pending',
                 scheduleId: schedule.id,
               });
-
-              // Automatically add remaining OFF days to accumulated balance
-              // User will later allocate between accumulation and allowance
-              const preferences = preferencesMap.get(employeeId);
-              const currentBalance = preferences?.accumulatedOffDays || 0;
-
-              await db.update(
-                nursePreferences,
-                {
-                  accumulatedOffDays: currentBalance + remainingOffDays,
-                  updatedAt: new Date(),
-                },
-                and(
-                  eq(nursePreferences.nurseId, employeeId),
-                  eq(nursePreferences.tenantId, tenantId)
-                )
-              );
             }
           }
 
-          // Bulk insert off-balance ledger records
-          if (offBalanceRecords.length > 0) {
-            await db.insert(offBalanceLedger, offBalanceRecords);
+          if (!offBalanceRecords.length) {
+            console.log('[OffBalance] (TRPC) No remaining OFF days to record', {
+              tenantId,
+              departmentId: schedule.departmentId,
+              year,
+              month,
+              scheduleId: schedule.id,
+              employeeCount: employeeIds.length,
+            });
+          } else {
+            await tenantDb.insert(offBalanceLedger, offBalanceRecords);
+
+            console.log('[OffBalance] (TRPC) Inserted ledger rows', {
+              tenantId,
+              departmentId: schedule.departmentId,
+              year,
+              month,
+              scheduleId: schedule.id,
+              employeeCount: employeeIds.length,
+              insertedCount: offBalanceRecords.length,
+            });
           }
         }
       } catch (error) {
@@ -444,7 +518,33 @@ export const scheduleRouter = createTRPCRouter({
         // Don't fail the publish if off-balance calculation fails
       }
 
-      // TODO: Send notifications to affected users
+      // ✅ SSE: 스케줄 확정 이벤트 브로드캐스트
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+
+      sse.schedule.published(schedule.id, {
+        departmentId: schedule.departmentId || undefined,
+        startDate: schedule.startDate,
+        endDate: schedule.endDate,
+        publishedBy: ctx.user?.id || 'dev-user-id',
+        tenantId,
+      });
+
+      // ✅ 알림: 해당 부서의 모든 사용자에게 알림 전송
+      if (schedule.departmentId) {
+        await notificationService.sendToTopic(
+          tenantId,
+          `department:${schedule.departmentId}`,
+          {
+            type: 'schedule_published',
+            priority: 'high',
+            title: '새로운 스케줄이 확정되었습니다',
+            message: `${format(schedule.startDate, 'yyyy년 M월')} 스케줄이 확정되었습니다.`,
+            actionUrl: '/schedule',
+            departmentId: schedule.departmentId,
+            data: { scheduleId: schedule.id },
+          }
+        );
+      }
 
       return updated;
     }),
@@ -454,10 +554,10 @@ export const scheduleRouter = createTRPCRouter({
       id: z.string(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
+      const tenantDb = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
 
       // Get schedule to check permissions
-      const [schedule] = await db.query(schedules, eq(schedules.id, input.id));
+      const [schedule] = await tenantDb.query(schedules, eq(schedules.id, input.id));
 
       if (!schedule) {
         throw new TRPCError({
@@ -481,7 +581,7 @@ export const scheduleRouter = createTRPCRouter({
         });
       }
 
-      const [updated] = await db.update(
+      const [updated] = await tenantDb.update(
         schedules,
         {
           status: 'archived',
@@ -496,6 +596,12 @@ export const scheduleRouter = createTRPCRouter({
         entityType: 'schedule',
         entityId: input.id,
         after: updated,
+      });
+
+      // ✅ SSE: 스케줄 아카이브 이벤트 브로드캐스트
+      sse.schedule.archived(input.id, {
+        departmentId: schedule.departmentId || undefined,
+        tenantId: ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d',
       });
 
       return updated;
@@ -558,6 +664,12 @@ export const scheduleRouter = createTRPCRouter({
         entityType: 'schedule',
         entityId: input.id,
         before: schedule,
+      });
+
+      // ✅ SSE: 스케줄 삭제 이벤트 브로드캐스트
+      sse.schedule.deleted(input.id, {
+        departmentId: schedule.departmentId || undefined,
+        tenantId,
       });
 
       return { success: true };
@@ -635,8 +747,20 @@ export const scheduleRouter = createTRPCRouter({
         });
       }
 
+      type VersionMetadata = {
+        versionHistory?: Array<{
+          version: number;
+          updatedAt: string;
+          updatedBy: string;
+          reason: string;
+          changes?: unknown;
+        }>;
+        [key: string]: unknown;
+      };
+
       const newVersion = currentSchedule.version + 1;
-      const versionHistory = (currentSchedule.metadata as any)?.versionHistory || [];
+      const metadata = currentSchedule.metadata as VersionMetadata;
+      const versionHistory = metadata?.versionHistory || [];
 
       // Add to version history
       versionHistory.push({
@@ -653,7 +777,7 @@ export const scheduleRouter = createTRPCRouter({
         .set({
           version: newVersion,
           metadata: {
-            ...currentSchedule.metadata as any,
+            ...metadata,
             versionHistory,
           },
           updatedAt: new Date(),
@@ -672,6 +796,14 @@ export const scheduleRouter = createTRPCRouter({
         entityId: input.scheduleId,
         before: currentSchedule,
         after: updated,
+      });
+
+      // ✅ SSE: 스케줄 버전 업데이트 이벤트 브로드캐스트
+      sse.schedule.versionUpdated(input.scheduleId, {
+        version: newVersion,
+        reason: input.reason,
+        changes: input.changes,
+        tenantId,
       });
 
       return updated;
@@ -830,7 +962,7 @@ export const scheduleRouter = createTRPCRouter({
       today.setHours(0, 0, 0, 0);
 
       // Execute queries in parallel
-      const [todaySchedule, pendingSwaps] = await Promise.all([
+      const [todaySchedule] = await Promise.all([
         // Find schedule that includes today (published only, limit 1)
         db
           .select({
@@ -853,21 +985,30 @@ export const scheduleRouter = createTRPCRouter({
           .orderBy(desc(schedules.publishedAt))
           .limit(1)
           .then(rows => rows[0] || null),
-
-        // Get pending swap requests count (if swap table exists)
-        // For now, return empty array - will be implemented when swap feature is ready
-        Promise.resolve([]),
       ]);
+
+      type AssignmentRecord = {
+        employeeId: string;
+        date: string | Date;
+        shiftId?: string | null;
+        shiftType?: string;
+        [key: string]: unknown;
+      };
+
+      type DashboardMetadata = {
+        assignments?: AssignmentRecord[];
+        [key: string]: unknown;
+      };
 
       // Extract today's working count from schedule metadata
       let workingToday = 0;
       if (todaySchedule && todaySchedule.metadata) {
-        const metadata = todaySchedule.metadata as any;
+        const metadata = todaySchedule.metadata as DashboardMetadata;
         const assignments = metadata?.assignments || [];
         const todayStr = today.toISOString().split('T')[0];
 
         // Helper function to identify non-working shifts
-        const isNonWorkingShift = (assignment: any): boolean => {
+        const isNonWorkingShift = (assignment: AssignmentRecord): boolean => {
           if (!assignment.shiftId && !assignment.shiftType) return true; // 빈 배정
 
           const nonWorkingCodes = [
@@ -883,26 +1024,26 @@ export const scheduleRouter = createTRPCRouter({
           const shiftTypeUpper = assignment.shiftType?.toUpperCase();
 
           return (
-            nonWorkingCodes.includes(assignment.shiftId) ||
-            nonWorkingCodes.includes(assignment.shiftType) ||
-            nonWorkingCodes.some(code => code.toUpperCase() === shiftIdUpper) ||
-            nonWorkingCodes.some(code => code.toUpperCase() === shiftTypeUpper)
+            (assignment.shiftId != null && nonWorkingCodes.includes(assignment.shiftId)) ||
+            (assignment.shiftType != null && nonWorkingCodes.includes(assignment.shiftType)) ||
+            (shiftIdUpper != null && nonWorkingCodes.some(code => code.toUpperCase() === shiftIdUpper)) ||
+            (shiftTypeUpper != null && nonWorkingCodes.some(code => code.toUpperCase() === shiftTypeUpper))
           );
         };
 
         // Debug: Log all today's assignments
-        const todayAssignments = assignments.filter((a: any) => {
+        const todayAssignments = assignments.filter((a) => {
           const assignmentDate = new Date(a.date).toISOString().split('T')[0];
           return assignmentDate === todayStr;
         });
 
-        console.log('📊 오늘 전체 배정:', todayAssignments.map((a: any) => ({
+        console.log('📊 오늘 전체 배정:', todayAssignments.map((a) => ({
           employeeId: a.employeeId,
           shiftId: a.shiftId,
           shiftType: a.shiftType,
         })));
 
-        const workingAssignments = todayAssignments.filter((assignment: any) => {
+        const workingAssignments = todayAssignments.filter((assignment) => {
           const isWorking = !isNonWorkingShift(assignment);
           if (!isWorking) {
             console.log('🚫 비근무 제외:', {
@@ -941,7 +1082,6 @@ export const scheduleRouter = createTRPCRouter({
       const conditions = [
         eq(schedules.tenantId, tenantId),
         eq(schedules.status, 'published'),
-          isNotNull(schedules.publishedAt), // Only confirmed schedules
         or(
           isNull(schedules.deletedFlag),
           ne(schedules.deletedFlag, 'X')
@@ -974,11 +1114,21 @@ export const scheduleRouter = createTRPCRouter({
         return [];
       }
 
+      type TodayAssignmentRecord = {
+        date: string | Date;
+        [key: string]: unknown;
+      };
+
+      type TodayMetadata = {
+        assignments?: TodayAssignmentRecord[];
+        [key: string]: unknown;
+      };
+
       // Extract only today's assignments from metadata
-      const metadata = schedule.metadata as any;
+      const metadata = schedule.metadata as TodayMetadata;
       const allAssignments = metadata?.assignments || [];
 
-      const todayAssignments = allAssignments.filter((a: any) => {
+      const todayAssignments = allAssignments.filter((a) => {
         const assignmentDate = new Date(a.date).toISOString().split('T')[0];
         return assignmentDate === targetDateStr;
       });
@@ -1012,7 +1162,6 @@ export const scheduleRouter = createTRPCRouter({
         .where(and(
           eq(schedules.tenantId, tenantId),
           eq(schedules.status, 'published'),
-          isNotNull(schedules.publishedAt), // Only confirmed schedules
           or(
             isNull(schedules.deletedFlag),
             ne(schedules.deletedFlag, 'X')
@@ -1022,17 +1171,47 @@ export const scheduleRouter = createTRPCRouter({
         ))
         .orderBy(desc(schedules.publishedAt));
 
+      type ShiftAssignment = {
+        employeeId: string;
+        date: string | Date;
+        shiftId?: string;
+        [key: string]: unknown;
+      };
+
+      type ShiftType = {
+        code?: string;
+        id?: string;
+        name?: string;
+        startTime?: string;
+        endTime?: string;
+        color?: string;
+        [key: string]: unknown;
+      };
+
+      type UpcomingShiftsMetadata = {
+        assignments?: ShiftAssignment[];
+        shiftTypes?: ShiftType[];
+        [key: string]: unknown;
+      };
+
+      type EnrichedAssignment = ShiftAssignment & {
+        shiftName?: string;
+        startTime?: string;
+        endTime?: string;
+        color?: string;
+      };
+
       // Extract my assignments from all schedules
-      const myShifts: any[] = [];
+      const myShifts: EnrichedAssignment[] = [];
       for (const schedule of scheduleList) {
         if (!schedule.metadata) continue;
 
-        const metadata = schedule.metadata as any;
+        const metadata = schedule.metadata as UpcomingShiftsMetadata;
         const assignments = metadata?.assignments || [];
         const shiftTypes = metadata?.shiftTypes || [];
 
         // Filter assignments for current user within the date range
-        const userAssignments = assignments.filter((a: any) => {
+        const userAssignments = assignments.filter((a) => {
           if (a.employeeId !== currentUserId) return false;
 
           const assignmentDate = new Date(a.date);
@@ -1042,10 +1221,10 @@ export const scheduleRouter = createTRPCRouter({
         // Add shift type information to each assignment
         // Add shift type information to each assignment
         // Add shift type information to each assignment
-        const enrichedAssignments = userAssignments.map((assignment: any) => {
+        const enrichedAssignments = userAssignments.map((assignment) => {
           // Convert shiftId to code format: 'shift-o' -> 'O', 'shift-a' -> 'A'
           const shiftCode = assignment.shiftId?.replace('shift-', '').toUpperCase();
-          const shiftType = shiftTypes.find((st: any) =>
+          const shiftType = shiftTypes.find((st) =>
             st.code === shiftCode || st.id === assignment.shiftId || st.code === assignment.shiftId
           );
 
@@ -1078,24 +1257,41 @@ export const scheduleRouter = createTRPCRouter({
       return myShifts;
     }),
 
-  // Get colleagues working with me this week
+  // Get colleagues working with me on same shifts
   getMyWorkmates: protectedProcedure
-    .query(async ({ ctx }) => {
+    .input(z.object({
+      period: z.enum(['today', 'week', 'month']).default('week'),
+      groupBy: z.enum(['shift', 'department', 'team']).default('shift'),
+    }).optional())
+    .query(async ({ ctx, input }) => {
+      const period = input?.period || 'week';
+      const groupBy = input?.groupBy || 'shift';
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      // Get start of this week (Monday)
-      const startOfWeek = new Date(today);
-      const dayOfWeek = startOfWeek.getDay();
-      const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Adjust to Monday
-      startOfWeek.setDate(startOfWeek.getDate() + diff);
+      let startDate: Date;
+      let endDate: Date;
 
-      // Get end of this week (Sunday)
-      const endOfWeek = new Date(startOfWeek);
-      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      if (period === 'today') {
+        // Today only
+        startDate = new Date(today);
+        endDate = new Date(today);
+      } else if (period === 'week') {
+        // This week (Monday to Sunday)
+        startDate = new Date(today);
+        const dayOfWeek = startDate.getDay();
+        const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        startDate.setDate(startDate.getDate() + diff);
+        endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + 6);
+      } else {
+        // This month
+        startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      }
 
-      // Find schedules that overlap with this week
+      // Find schedules that overlap with the selected period
       const scheduleList = await db
         .select({
           id: schedules.id,
@@ -1111,75 +1307,136 @@ export const scheduleRouter = createTRPCRouter({
             isNull(schedules.deletedFlag),
             ne(schedules.deletedFlag, 'X')
           ),
-          lte(schedules.startDate, endOfWeek),
-          gte(schedules.endDate, startOfWeek)
+          lte(schedules.startDate, endDate),
+          gte(schedules.endDate, startDate)
         ))
         .orderBy(desc(schedules.publishedAt));
 
-      // Get current user's database ID
+      // Get current user's database ID and info
       const currentUserId = ctx.user?.id;
       if (!currentUserId) return { workmates: [], myShifts: [] };
 
+      // Get current user's department and team info
+      const [currentUser] = await db
+        .select({
+          id: users.id,
+          departmentId: users.departmentId,
+          teamId: users.teamId,
+        })
+        .from(users)
+        .where(eq(users.id, currentUserId))
+        .limit(1);
+
+      if (!currentUser) return { workmates: [], myShifts: [] };
+
+      type WorkmateAssignment = {
+        employeeId: string;
+        date: string | Date;
+        shiftId?: string | null;
+        shiftType?: string;
+        [key: string]: unknown;
+      };
+
+      type WorkmateMetadata = {
+        assignments?: WorkmateAssignment[];
+        [key: string]: unknown;
+      };
+
       // Extract assignments from all schedules
-      const myShifts: any[] = [];
-      const allAssignments: any[] = [];
+      const myShifts: WorkmateAssignment[] = [];
+      const allAssignments: WorkmateAssignment[] = [];
 
       for (const schedule of scheduleList) {
         if (!schedule.metadata) continue;
 
-        const metadata = schedule.metadata as any;
+        const metadata = schedule.metadata as WorkmateMetadata;
         const assignments = metadata?.assignments || [];
 
-        // Filter assignments within this week
-        const weekAssignments = assignments.filter((a: any) => {
+        // Filter assignments within the selected period
+        const periodAssignments = assignments.filter((a) => {
           const assignmentDate = new Date(a.date);
-          return assignmentDate >= startOfWeek && assignmentDate <= endOfWeek;
+          return assignmentDate >= startDate && assignmentDate <= endDate;
         });
 
         // Separate my shifts
-        const userAssignments = weekAssignments.filter((a: any) => a.employeeId === currentUserId);
+        const userAssignments = periodAssignments.filter((a) => a.employeeId === currentUserId);
         myShifts.push(...userAssignments);
 
-        allAssignments.push(...weekAssignments);
+        allAssignments.push(...periodAssignments);
       }
 
       // Helper to check if non-working shift
-      const isNonWorkingShift = (assignment: any): boolean => {
+      const isNonWorkingShift = (assignment: WorkmateAssignment): boolean => {
         if (!assignment.shiftId && !assignment.shiftType) return true;
         const nonWorkingCodes = ['off', 'OFF', 'O', 'LEAVE', 'VAC', '연차'];
+        const shiftIdUpper = assignment.shiftId?.toUpperCase();
+        const shiftTypeUpper = assignment.shiftType?.toUpperCase();
         return (
-          nonWorkingCodes.includes(assignment.shiftId) ||
-          nonWorkingCodes.includes(assignment.shiftType) ||
-          nonWorkingCodes.includes(assignment.shiftId?.toUpperCase()) ||
-          nonWorkingCodes.includes(assignment.shiftType?.toUpperCase())
+          (assignment.shiftId != null && nonWorkingCodes.includes(assignment.shiftId)) ||
+          (assignment.shiftType != null && nonWorkingCodes.includes(assignment.shiftType)) ||
+          (shiftIdUpper != null && nonWorkingCodes.includes(shiftIdUpper)) ||
+          (shiftTypeUpper != null && nonWorkingCodes.includes(shiftTypeUpper))
         );
       };
 
-      // Find colleagues who work on the same days as me
-      const workmateMap = new Map<string, { employeeId: string; sharedDays: number }>();
+      // Find colleagues based on groupBy criteria
+      const workmateMap = new Map<string, { employeeId: string; sharedShifts: number }>();
+
+      // Get all employees with their department/team info for filtering
+      const allEmployees = await db
+        .select({
+          id: users.id,
+          departmentId: users.departmentId,
+          teamId: users.teamId,
+        })
+        .from(users)
+        .where(eq(users.tenantId, tenantId));
+
+      const employeeInfoMap = new Map(
+        allEmployees.map(emp => [emp.id, { departmentId: emp.departmentId, teamId: emp.teamId }])
+      );
 
       for (const myShift of myShifts) {
         if (isNonWorkingShift(myShift)) continue;
 
         const myDate = new Date(myShift.date).toISOString().split('T')[0];
+        const myShiftId = myShift.shiftId || myShift.shiftType || '';
 
-        // Find others working on the same day
-        const sameDayWorkers = allAssignments.filter((a: any) => {
+        // Find colleagues based on groupBy criteria
+        const matchingWorkers = allAssignments.filter((a) => {
           if (a.employeeId === currentUserId) return false;
           if (isNonWorkingShift(a)) return false;
 
           const aDate = new Date(a.date).toISOString().split('T')[0];
-          return aDate === myDate;
+          if (aDate !== myDate) return false; // Must be same date
+
+          const employeeInfo = employeeInfoMap.get(a.employeeId);
+          if (!employeeInfo) return false;
+
+          // Apply groupBy filter
+          if (groupBy === 'shift') {
+            // Same shift
+            const aShiftId = a.shiftId || a.shiftType || '';
+            return aShiftId === myShiftId && myShiftId !== '';
+          } else if (groupBy === 'department') {
+            // Same department
+            return employeeInfo.departmentId === currentUser.departmentId && currentUser.departmentId != null;
+          } else if (groupBy === 'team') {
+            // Same team
+            return employeeInfo.teamId === currentUser.teamId && currentUser.teamId != null;
+          }
+
+          return false;
         });
 
-        for (const worker of sameDayWorkers) {
+        for (const worker of matchingWorkers) {
           const existing = workmateMap.get(worker.employeeId);
           if (existing) {
-            existing.sharedDays++;
+            existing.sharedShifts++;
           } else {
             workmateMap.set(worker.employeeId, {
               employeeId: worker.employeeId,
-              sharedDays: 1,
+              sharedShifts: 1,
             });
           }
         }
@@ -1202,15 +1459,138 @@ export const scheduleRouter = createTRPCRouter({
             ))
         : [];
 
-      // Combine with shared days count
+      // Combine with shared shifts count
       const workmates = employees.map(emp => ({
         ...emp,
-        sharedDays: workmateMap.get(emp.id)?.sharedDays || 0,
-      })).sort((a, b) => b.sharedDays - a.sharedDays);
+        sharedShifts: workmateMap.get(emp.id)?.sharedShifts || 0,
+      })).sort((a, b) => b.sharedShifts - a.sharedShifts);
 
       return {
         workmates,
         myShifts: myShifts.filter(s => !isNonWorkingShift(s)),
       };
+    }),
+
+  /**
+   * 🆕 스케줄 개선 엔드포인트
+   * 기존 생성 로직(generate)과 완전히 분리된 최적화 전용 엔드포인트
+   */
+  improveSchedule: protectedProcedure
+    .input(z.object({
+      // 현재 스케줄
+      assignments: z.array(z.object({
+        date: z.string(),
+        employeeId: z.string(),
+        shiftId: z.string().optional(),
+        shiftType: z.string().optional(),
+      })),
+      // 직원 정보
+      employees: z.array(z.object({
+        id: z.string(),
+        name: z.string(),
+        role: z.string().optional(),
+        workPatternType: z.string().optional(),
+        preferences: z.object({
+          workPatternType: z.string().optional(),
+          avoidPatterns: z.array(z.array(z.string())).optional(),
+        }).optional(),
+      })),
+      // 제약 조건
+      constraints: z.object({
+        minStaff: z.number(),
+        maxConsecutiveDays: z.number(),
+        minRestDays: z.number(),
+      }),
+      // 기간
+      period: z.object({
+        startDate: z.string(),
+        endDate: z.string(),
+      }),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+
+      // Permission check
+      if (ctx.user?.role === 'member') {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: '스케줄 개선 권한이 없습니다. 관리자 또는 매니저에게 문의하세요.',
+        });
+      }
+
+      try {
+        // 타입 변환
+        const assignments: Assignment[] = input.assignments.map((a) => ({
+          date: a.date,
+          employeeId: a.employeeId,
+          shiftId: a.shiftId,
+          shiftType: a.shiftType,
+        }));
+
+        const employees: ImprovementEmployee[] = input.employees.map((e) => {
+          // workPatternType 안전하게 변환
+          let workPatternType: 'three-shift' | 'night-intensive' | 'weekday-only' | undefined;
+          if (e.workPatternType === 'three-shift' || e.workPatternType === 'night-intensive' || e.workPatternType === 'weekday-only') {
+            workPatternType = e.workPatternType;
+          }
+
+          return {
+            id: e.id,
+            name: e.name,
+            role: e.role,
+            workPatternType,
+            preferences: e.preferences,
+          };
+        });
+
+        const constraints: ScheduleConstraints = {
+          minStaff: input.constraints.minStaff,
+          maxConsecutiveDays: input.constraints.maxConsecutiveDays,
+          minRestDays: input.constraints.minRestDays,
+        };
+
+        // 개선 실행
+        const improver = new ScheduleImprover(assignments, employees, constraints);
+        const result = await improver.improve();
+
+        if (!result.success) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: result.error || '스케줄 개선 중 오류가 발생했습니다.',
+          });
+        }
+
+        // Audit log
+        await createAuditLog({
+          tenantId,
+          actorId: ctx.user?.id || 'system',
+          action: 'schedule.improved',
+          entityType: 'schedule',
+          entityId: 'improvement-session',
+          metadata: {
+            totalImprovement: result.report.summary.totalImprovement,
+            gradeChange: result.report.summary.gradeChange,
+            iterations: result.report.summary.iterations,
+            processingTime: result.report.summary.processingTime,
+          },
+        });
+
+        // 리포트 반환
+        return {
+          improved: result.improved,
+          report: result.report,
+        };
+      } catch (error) {
+        console.error('Schedule improvement error:', error);
+
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error instanceof Error ? error.message : '스케줄 개선 실패',
+        });
+      }
     }),
 });

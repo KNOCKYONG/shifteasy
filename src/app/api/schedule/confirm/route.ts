@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentUser } from '@/lib/auth';
 import { db } from '@/db';
-import { schedules } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { schedules, offBalanceLedger } from '@/db/schema';
 import { notificationService } from '@/lib/notifications/notification-service';
+import { and, eq } from 'drizzle-orm';
+import type { OffAccrualSummary } from '@/lib/types/scheduler';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +21,7 @@ const ConfirmScheduleSchema = z.object({
       shiftId: z.string(),
       date: z.string(),
       isLocked: z.boolean(),
+      shiftType: z.string().optional(),
     })),
     status: z.enum(['draft', 'published', 'archived']).optional(),
   }),
@@ -27,11 +29,26 @@ const ConfirmScheduleSchema = z.object({
   validationScore: z.number().optional(),
   approverNotes: z.string().optional(),
   notifyEmployees: z.boolean().optional(),
-  force: z.boolean().optional(), // Force delete conflicting schedules
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 // Mock database storage (in production, this would be Supabase)
-const confirmedSchedules = new Map<string, any>();
+type ConfirmScheduleInput = z.infer<typeof ConfirmScheduleSchema>;
+type ScheduleAssignmentPayload = ConfirmScheduleInput['schedule']['assignments'][number];
+type ScheduleRow = typeof schedules.$inferSelect;
+type ConfirmedScheduleRecord = ScheduleRow & {
+  assignments: ScheduleAssignmentPayload[];
+  metadata?: Record<string, unknown> | null;
+  revokedAt?: string;
+  revokedBy?: string;
+};
+type OffBalanceDebugEntry = {
+  message: string;
+  data?: Record<string, unknown>;
+};
+type NotificationResult = Awaited<ReturnType<typeof notificationService.sendToUser>>;
+
+const confirmedSchedules = new Map<string, ConfirmedScheduleRecord>();
 
 export async function POST(request: NextRequest) {
   try {
@@ -71,13 +88,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Invalid request data',
-          details: (validationResult.error as any).errors
+          details: validationResult.error.format()
         },
         { status: 400 }
       );
     }
 
-    const { scheduleId, schedule, scheduleName, validationScore, approverNotes, notifyEmployees, force } = validationResult.data;
+    const { scheduleId, schedule, scheduleName, validationScore, approverNotes, notifyEmployees } = validationResult.data;
+
+    const offAccrualsFromRequest: OffAccrualSummary[] = Array.isArray(body.metadata?.offAccruals)
+      ? (body.metadata.offAccruals as OffAccrualSummary[])
+      : [];
+    const guaranteedOffDaysMap = new Map<string, number>();
+    offAccrualsFromRequest.forEach((entry) => {
+      if (entry && typeof entry.employeeId === 'string' && typeof entry.guaranteedOffDays === 'number') {
+        guaranteedOffDaysMap.set(entry.employeeId, entry.guaranteedOffDays);
+      }
+    });
 
     // ✅ Manager department permission check using request body departmentId
     const requestDepartmentId = schedule.departmentId;
@@ -101,40 +128,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ✅ Force delete conflicting published schedules if requested
-    if (force) {
-      const startDate = new Date(schedule.startDate);
-      const year = startDate.getFullYear();
-      const month = startDate.getMonth();
-
-      // Find existing published schedules for the same department and month
-      const existingSchedules = await db
-        .select()
-        .from(schedules)
-        .where(
-          and(
-            eq(schedules.tenantId, tenantId),
-            eq(schedules.departmentId, requestDepartmentId),
-            eq(schedules.status, 'published')
-          )
-        );
-
-      // Filter by year and month, and soft-delete matches
-      const conflicts = existingSchedules.filter((s) => {
-        const sDate = new Date(s.startDate);
-        return sDate.getFullYear() === year && sDate.getMonth() === month && !s.deletedFlag;
-      });
-
-      for (const conflict of conflicts) {
-        await db
-          .update(schedules)
-          .set({ deletedFlag: 'X', updatedAt: new Date() })
-          .where(eq(schedules.id, conflict.id));
-      }
-
-      console.log(`[Confirm] Force deleted ${conflicts.length} conflicting schedule(s) for ${year}-${month + 1}`);
-    }
-
     // ✅ Create new schedule in DB with auto-generated UUID
     const [createdSchedule] = await db
       .insert(schedules)
@@ -153,6 +146,7 @@ export async function POST(request: NextRequest) {
           approverNotes,
           validationScore,
           assignments: schedule.assignments, // Store assignments in metadata
+          offAccruals: offAccrualsFromRequest,
         },
       })
       .returning();
@@ -168,10 +162,23 @@ export async function POST(request: NextRequest) {
     console.log(`[Confirm] Successfully created and published schedule ${createdSchedule.id} for department ${requestDepartmentId}`);
 
     // Prepare response data
-    const confirmedSchedule = {
+    const confirmedSchedule: ConfirmedScheduleRecord = {
       ...createdSchedule,
       assignments: schedule.assignments,  // Include assignments from request
     };
+    confirmedSchedules.set(`${tenantId}:${scheduleId}`, confirmedSchedule);
+
+    let offBalanceDebug: OffBalanceDebugEntry[] = [];
+    try {
+      offBalanceDebug = await updateOffBalanceAfterConfirmation({
+        tenantId,
+        scheduleRecord: confirmedSchedule,
+        assignments: schedule.assignments,
+        guaranteedOffDaysMap,
+      });
+    } catch (error) {
+      console.error('[Confirm] Failed to update off-balance ledger', error);
+    }
 
     // Send notifications if requested
     if (notifyEmployees) {
@@ -188,9 +195,10 @@ export async function POST(request: NextRequest) {
       success: true,
       confirmedSchedule,
       confirmationReport,
+      offBalanceDebug,
       notifications: {
         sent: notifyEmployees || false,
-        employeeCount: new Set(schedule.assignments.map((a: any) => a.employeeId)).size,
+        employeeCount: new Set(schedule.assignments.map((assignment) => assignment.employeeId)).size,
       },
       metadata: {
         confirmedAt: new Date().toISOString(),
@@ -355,7 +363,10 @@ export async function DELETE(request: NextRequest) {
 }
 
 // Helper function to send notifications
-async function sendScheduleNotifications(schedule: any, assignments: any[]) {
+async function sendScheduleNotifications(
+  schedule: ConfirmedScheduleRecord,
+  assignments: ScheduleAssignmentPayload[]
+) {
   const uniqueEmployees = new Set(assignments.map(a => a.employeeId));
 
   console.log(`Sending notifications to ${uniqueEmployees.size} employees for schedule ${schedule.id}`);
@@ -373,7 +384,7 @@ async function sendScheduleNotifications(schedule: any, assignments: any[]) {
   });
 
   // Send notification to each employee using notificationService directly
-  const notificationPromises = Array.from(uniqueEmployees).map(async (employeeId) => {
+  const notificationPromises = Array.from(uniqueEmployees).map(async (employeeId): Promise<{ employeeId: string; success: boolean }> => {
     const notifStartTime = Date.now();
     console.log(`[Schedule Confirm] Sending notification to employee ${employeeId}`, {
       scheduleId: schedule.id,
@@ -381,7 +392,7 @@ async function sendScheduleNotifications(schedule: any, assignments: any[]) {
     });
 
     try {
-      const result = await notificationService.sendToUser(
+      const result: NotificationResult = await notificationService.sendToUser(
         schedule.tenantId,
         employeeId,
         {
@@ -414,7 +425,7 @@ async function sendScheduleNotifications(schedule: any, assignments: any[]) {
       console.log(`[Schedule Confirm] Notification sent successfully`, {
         employeeId,
         scheduleId: schedule.id,
-        notificationId: result.id,
+        notificationId: result?.id,
         duration: `${duration}ms`,
       });
 
@@ -439,10 +450,175 @@ async function sendScheduleNotifications(schedule: any, assignments: any[]) {
   return results;
 }
 
+const OFF_SHIFT_CODES = new Set(['O', 'OFF']);
+
+function deriveShiftTypeCode(shiftId: string, provided?: string) {
+  if (provided && provided.trim().length > 0) {
+    const upperProvided = provided.trim().toUpperCase();
+    return upperProvided === 'OFF' ? 'O' : upperProvided;
+  }
+
+  if (!shiftId) {
+    return 'CUSTOM';
+  }
+
+  const trimmed = shiftId.trim();
+  const withoutPrefix = trimmed.startsWith('shift-') ? trimmed.slice(6) : trimmed;
+  const upper = withoutPrefix.toUpperCase();
+
+  if (upper === 'OFF') {
+    return 'O';
+  }
+
+  return upper || 'CUSTOM';
+}
+
+async function updateOffBalanceAfterConfirmation({
+  tenantId,
+  scheduleRecord,
+  assignments,
+  guaranteedOffDaysMap,
+}: {
+  tenantId: string;
+  scheduleRecord: ConfirmedScheduleRecord;
+  assignments: ScheduleAssignmentPayload[];
+  guaranteedOffDaysMap?: Map<string, number>;
+}): Promise<OffBalanceDebugEntry[]> {
+  const debugLogs: OffBalanceDebugEntry[] = [];
+  const DEFAULT_GUARANTEED_OFF_DAYS = 8;
+
+  if (!assignments.length) {
+    debugLogs.push({
+      message: 'Skipping update - no assignments in confirmation payload',
+      data: {
+        tenantId,
+        scheduleId: scheduleRecord.id,
+      },
+    });
+    return debugLogs;
+  }
+
+  const employeeIds = [...new Set(assignments.map(a => a.employeeId))];
+  if (employeeIds.length === 0) {
+    debugLogs.push({
+      message: 'Skipping update - no employees derived from assignments',
+      data: {
+        tenantId,
+        scheduleId: scheduleRecord.id,
+      },
+    });
+    return debugLogs;
+  }
+
+  const ledgerRecords: typeof offBalanceLedger.$inferInsert[] = [];
+  const periodStart = new Date(scheduleRecord.startDate);
+  const periodEnd = new Date(scheduleRecord.endDate);
+  const year = periodStart.getFullYear();
+  const month = periodStart.getMonth() + 1;
+
+  const deleteConditions = [
+    eq(offBalanceLedger.tenantId, tenantId),
+    eq(offBalanceLedger.year, year),
+    eq(offBalanceLedger.month, month),
+  ];
+
+  if (scheduleRecord.departmentId) {
+    deleteConditions.push(eq(offBalanceLedger.departmentId, scheduleRecord.departmentId));
+  }
+
+  const deletedRows = await db.delete(offBalanceLedger)
+    .where(and(...deleteConditions))
+    .returning({ id: offBalanceLedger.id });
+
+  debugLogs.push({
+    message: 'Cleared previous ledger rows',
+    data: {
+      tenantId,
+      departmentId: scheduleRecord.departmentId,
+      year,
+      month,
+      deletedCount: deletedRows.length,
+    },
+  });
+
+  for (const employeeId of employeeIds) {
+    const employeeAssignments = assignments.filter(a => a.employeeId === employeeId);
+    const actualOffDays = employeeAssignments.filter(a => {
+      const code = deriveShiftTypeCode(a.shiftId, a.shiftType);
+      return OFF_SHIFT_CODES.has(code);
+    }).length;
+
+    const guaranteedOffDays = guaranteedOffDaysMap?.get(employeeId) ?? DEFAULT_GUARANTEED_OFF_DAYS;
+    const remainingOffDays = Math.max(0, guaranteedOffDays - actualOffDays);
+
+    if (remainingOffDays > 0) {
+      ledgerRecords.push({
+        tenantId,
+        nurseId: employeeId,
+        departmentId: scheduleRecord.departmentId,
+        year,
+        month,
+        periodStart,
+        periodEnd,
+        guaranteedOffDays,
+        actualOffDays,
+        remainingOffDays,
+        accumulatedOffDays: remainingOffDays,
+        allocatedToAccumulation: 0,
+        allocatedToAllowance: 0,
+        compensationType: null,
+        status: 'pending',
+        allocationStatus: 'pending',
+        scheduleId: scheduleRecord.id,
+      });
+    }
+  }
+
+  if (!ledgerRecords.length) {
+    debugLogs.push({
+      message: 'No employees accrued remaining OFF days',
+      data: {
+        tenantId,
+        scheduleId: scheduleRecord.id,
+        departmentId: scheduleRecord.departmentId,
+        year,
+        month,
+        employeeCount: employeeIds.length,
+      },
+    });
+    return debugLogs;
+  }
+
+  await db.insert(offBalanceLedger).values(ledgerRecords);
+
+  debugLogs.push({
+    message: 'Inserted ledger rows',
+    data: {
+      tenantId,
+      scheduleId: scheduleRecord.id,
+      departmentId: scheduleRecord.departmentId,
+      year,
+      month,
+      employeeCount: employeeIds.length,
+      insertedCount: ledgerRecords.length,
+    },
+  });
+
+  return debugLogs;
+}
+
 // Helper function to generate confirmation report
-function generateConfirmationReport(schedule: any, assignments: any[]) {
+function generateConfirmationReport(
+  schedule: ConfirmedScheduleRecord,
+  assignments: ScheduleAssignmentPayload[]
+) {
   const employeeStats = new Map<string, number>();
   const shiftStats = new Map<string, number>();
+  const metadata = (schedule.metadata ?? {}) as {
+    validationScore?: number | string;
+    approverNotes?: string;
+    approvedBy?: string;
+  };
 
   // Calculate statistics
   assignments.forEach(assignment => {
@@ -457,7 +633,6 @@ function generateConfirmationReport(schedule: any, assignments: any[]) {
 
   // Calculate coverage
   const totalDays = 7; // Assuming weekly schedule
-  const totalShifts = shiftStats.size;
   const totalAssignments = assignments.length;
   const averageAssignmentsPerEmployee = totalAssignments / employeeStats.size;
 
@@ -480,9 +655,9 @@ function generateConfirmationReport(schedule: any, assignments: any[]) {
       averagePerDay: (count / totalDays).toFixed(1),
     })),
     validation: {
-      score: schedule.validationScore || 'N/A',
-      approvedBy: schedule.approvedBy,
-      approverNotes: schedule.approverNotes,
+      score: metadata.validationScore ?? 'N/A',
+      approvedBy: metadata.approvedBy ?? schedule.publishedBy ?? 'unknown',
+      approverNotes: metadata.approverNotes,
     },
   };
 }
