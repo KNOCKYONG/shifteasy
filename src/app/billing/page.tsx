@@ -13,8 +13,8 @@ const PLANS = {
     name: 'Starter',
     price: 0,
     billingCycle: 'monthly' as const,
-    trial: true,
-    trialDays: 90,
+    trial: false,
+    trialDays: 0,
     features: [
       '최대 30명까지 멤버 등록',
       'AI 자동 스케줄링',
@@ -25,8 +25,8 @@ const PLANS = {
     name: 'Professional',
     price: 29000,
     billingCycle: 'monthly' as const,
-    trial: false,
-    trialDays: 0,
+    trial: true,
+    trialDays: 90,
     features: [
       '최대 50명까지 직원 계정',
       '강화된 AI 자동 스케줄링',
@@ -71,6 +71,7 @@ function BillingPageContent() {
   const selectedPlanName = tLanding(`${selectedPlanTranslationBase}.name`, {
     defaultValue: selectedPlanConfig.name,
   });
+  const selectedPlanHasTrial = selectedPlanConfig.trial;
 
   // Get plan from URL query param or sessionStorage
   useEffect(() => {
@@ -124,7 +125,7 @@ function BillingPageContent() {
       return;
     }
 
-    if (selectedPlan === 'starter') return;
+    if (selectedPlanConfig.trial) return;
 
     setIsProcessing(true);
     try {
@@ -284,7 +285,7 @@ function BillingPageContent() {
         <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl p-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
             <CreditCard className="w-6 h-6 text-blue-600" />
-            {selectedPlan === 'starter' ? '무료 체험 시작' : '결제 정보'}
+            {selectedPlanHasTrial ? '무료 체험 시작' : '결제 정보'}
           </h2>
 
           {/* Selected plan summary */}
@@ -303,7 +304,7 @@ function BillingPageContent() {
                 </span>
               </div>
             )}
-            {selectedPlanConfig.trial && (
+            {selectedPlanHasTrial && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-blue-800 text-sm">
                   ✨ {selectedPlanConfig.trialDays}일 무료 체험 후 자동으로 유료 플랜으로 전환됩니다.
@@ -321,7 +322,7 @@ function BillingPageContent() {
 
           {/* Action button */}
           <button
-            onClick={selectedPlan === 'starter' ? handleStartTrial : handlePayment}
+            onClick={selectedPlanHasTrial ? handleStartTrial : handlePayment}
             disabled={isProcessing}
             className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-lg font-semibold text-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
@@ -330,7 +331,7 @@ function BillingPageContent() {
                 <Loader2 className="w-5 h-5 animate-spin" />
                 처리 중...
               </>
-            ) : selectedPlan === 'starter' ? (
+            ) : selectedPlanHasTrial ? (
               '무료 체험 시작하기'
             ) : (
               '결제하기'
