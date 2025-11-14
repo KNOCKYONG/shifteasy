@@ -23,9 +23,17 @@ export default function SignUpPage() {
   const [guestPassword, setGuestPassword] = useState('');
   const [guestConfirmPassword, setGuestConfirmPassword] = useState('');
   const [guestName, setGuestName] = useState('');
+  const [guestHospitalName, setGuestHospitalName] = useState('');
   const [guestLoading, setGuestLoading] = useState(false);
   const [showGuestPassword, setShowGuestPassword] = useState(false);
   const [showGuestConfirmPassword, setShowGuestConfirmPassword] = useState(false);
+  const [guestStep, setGuestStep] = useState<'form' | 'verify'>('form');
+  const [guestVerificationCode, setGuestVerificationCode] = useState('');
+  const [guestVerificationError, setGuestVerificationError] = useState('');
+  const [guestVerificationMessage, setGuestVerificationMessage] = useState('');
+  const [guestVerificationLoading, setGuestVerificationLoading] = useState(false);
+  const [guestVerificationEmail, setGuestVerificationEmail] = useState('');
+  const [guestResendLoading, setGuestResendLoading] = useState(false);
   const [hireDate, setHireDate] = useState('');
   const [yearsOfService, setYearsOfService] = useState(0);
   const [verificationCode, setVerificationCode] = useState('');
@@ -37,6 +45,113 @@ export default function SignUpPage() {
 
   const router = useRouter();
   const { isLoaded, signUp } = useSignUp();
+
+  const resetGuestState = () => {
+    setError('');
+    setGuestEmail('');
+    setGuestPassword('');
+    setGuestConfirmPassword('');
+    setGuestName('');
+    setGuestHospitalName('');
+    setGuestStep('form');
+    setGuestVerificationCode('');
+    setGuestVerificationError('');
+    setGuestVerificationMessage('');
+    setGuestVerificationEmail('');
+    setGuestLoading(false);
+    setGuestVerificationLoading(false);
+    setGuestResendLoading(false);
+  };
+
+  const handleGuestVerificationSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setGuestVerificationError('');
+    setGuestVerificationMessage('');
+    setGuestVerificationLoading(true);
+
+    if (!signUp) {
+      setGuestVerificationError('인증 세션을 찾을 수 없습니다. 처음부터 다시 진행해주세요.');
+      setGuestVerificationLoading(false);
+      return;
+    }
+
+    if (!guestVerificationCode) {
+      setGuestVerificationError('이메일로 전송된 인증 코드를 입력해주세요.');
+      setGuestVerificationLoading(false);
+      return;
+    }
+
+    try {
+      const attempt = await signUp.attemptEmailAddressVerification({ code: guestVerificationCode });
+
+      if (attempt.status !== 'complete') {
+        setGuestVerificationError('인증이 완료되지 않았습니다. 코드를 다시 확인해주세요.');
+        setGuestVerificationLoading(false);
+        return;
+      }
+
+      const createdUserId = signUp.createdUserId;
+      if (!createdUserId) {
+        setGuestVerificationError('계정 정보를 확인할 수 없습니다. 다시 시도해주세요.');
+        setGuestVerificationLoading(false);
+        return;
+      }
+
+      const response = await fetch('/api/auth/guest-signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: guestEmail,
+          name: guestName,
+          hospitalName: guestHospitalName,
+          clerkUserId: createdUserId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setGuestVerificationError(data.error || '게스트 계정 생성에 실패했습니다.');
+        setGuestVerificationLoading(false);
+        return;
+      }
+
+      closeGuestForm();
+      router.push('/sign-in?message=guest-created');
+    } catch (err) {
+      console.error('Guest verification error:', err);
+      setGuestVerificationError('게스트 계정 생성 중 오류가 발생했습니다.');
+    } finally {
+      setGuestVerificationLoading(false);
+    }
+  };
+
+  const handleGuestResendVerification = async () => {
+    if (!signUp) {
+      setGuestVerificationError('인증 세션을 찾을 수 없습니다. 처음부터 다시 진행해주세요.');
+      return;
+    }
+
+    setGuestVerificationError('');
+    setGuestResendLoading(true);
+
+    try {
+      await signUp.prepareEmailAddressVerification({
+        strategy: 'email_code',
+      });
+      setGuestVerificationMessage('인증 코드가 다시 전송되었습니다.');
+    } catch (err) {
+      console.error('Guest verification resend error:', err);
+      setGuestVerificationError('인증 코드 다시 보내기에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setGuestResendLoading(false);
+    }
+  };
+
+  const closeGuestForm = () => {
+    setShowGuestForm(false);
+    resetGuestState();
+  };
 
   // 시크릿 코드 검증
   const handleSecretCodeSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -132,6 +247,8 @@ export default function SignUpPage() {
   const handleGuestSignup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
+    setGuestVerificationError('');
+    setGuestVerificationMessage('');
     setGuestLoading(true);
 
     // 비밀번호 확인 검증
@@ -141,30 +258,40 @@ export default function SignUpPage() {
       return;
     }
 
+    if (!isLoaded || !signUp) {
+      setError('인증 서비스를 초기화하는 중입니다. 잠시 후 다시 시도해주세요.');
+      setGuestLoading(false);
+      return;
+    }
+
     try {
-      const response = await fetch('/api/auth/guest-signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: guestEmail,
-          password: guestPassword,
-          name: guestName,
-        }),
+      await signUp.create({
+        emailAddress: guestEmail,
+        password: guestPassword,
       });
 
-      const data = await response.json();
+      await signUp.prepareEmailAddressVerification({
+        strategy: 'email_code',
+      });
 
-      if (!response.ok) {
-        setError(data.error || '게스트 계정 생성에 실패했습니다.');
-        setGuestLoading(false);
-        return;
-      }
-
-      // 게스트 계정 생성 성공 - 로그인 페이지로 이동
-      router.push('/sign-in?message=guest-created');
-    } catch (err) {
+      setGuestVerificationEmail(guestEmail);
+      setGuestVerificationCode('');
+      setGuestVerificationMessage('입력하신 이메일로 인증 코드가 전송되었습니다.');
+      setGuestStep('verify');
+    } catch (err: unknown) {
       console.error('Guest signup error:', err);
-      setError('게스트 계정 생성 중 오류가 발생했습니다.');
+      const clerkError = err as { errors?: Array<{ code?: string; message?: string }> };
+      const firstError = clerkError?.errors?.[0];
+
+      if (firstError?.code === 'form_identifier_exists') {
+        setError('이미 등록된 이메일입니다. 로그인해주세요.');
+      } else if (firstError?.code === 'form_password_pwned') {
+        setError('이 비밀번호는 유출된 기록이 있습니다. 다른 비밀번호를 사용해주세요.');
+      } else if (firstError?.code === 'form_password_length_too_short') {
+        setError('비밀번호는 최소 8자 이상이어야 합니다.');
+      } else {
+        setError(firstError?.message || '게스트 계정 생성 중 오류가 발생했습니다.');
+      }
     } finally {
       setGuestLoading(false);
     }
@@ -313,7 +440,10 @@ export default function SignUpPage() {
               <div className="mt-4">
                 <button
                   type="button"
-                  onClick={() => setShowGuestForm(true)}
+                  onClick={() => {
+                    resetGuestState();
+                    setShowGuestForm(true);
+                  }}
                   className="w-full py-3 px-4 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors"
                 >
                   게스트로 시작하기
@@ -600,14 +730,7 @@ export default function SignUpPage() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">게스트 계정 만들기</h2>
               <button
-                onClick={() => {
-                  setShowGuestForm(false);
-                  setError('');
-                  setGuestEmail('');
-                  setGuestPassword('');
-                  setGuestConfirmPassword('');
-                  setGuestName('');
-                }}
+                onClick={closeGuestForm}
                 className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               >
                 ✕
@@ -616,140 +739,222 @@ export default function SignUpPage() {
 
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
               시크릿 코드 없이 체험 계정을 만들 수 있습니다. 매니저 권한으로 모든 기능을 체험해보세요.
+              이메일 인증을 완료해야 계정이 활성화됩니다.
             </p>
 
-            <form onSubmit={handleGuestSignup} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <User className="w-4 h-4 inline mr-1" />
-                  이름
-                </label>
-                <input
-                  type="text"
-                  value={guestName}
-                  onChange={(e) => setGuestName(e.target.value)}
-                  placeholder="홍길동"
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
-                  autoComplete="name"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <Mail className="w-4 h-4 inline mr-1" />
-                  이메일
-                </label>
-                <input
-                  type="email"
-                  value={guestEmail}
-                  onChange={(e) => setGuestEmail(e.target.value)}
-                  placeholder="guest@example.com"
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
-                  autoComplete="email"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <Lock className="w-4 h-4 inline mr-1" />
-                  비밀번호
-                </label>
-                <div className="relative">
+            {guestStep === 'form' ? (
+              <form onSubmit={handleGuestSignup} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <User className="w-4 h-4 inline mr-1" />
+                    이름
+                  </label>
                   <input
-                    type={showGuestPassword ? 'text' : 'password'}
-                    value={guestPassword}
-                    onChange={(e) => setGuestPassword(e.target.value)}
-                    placeholder="8자 이상"
+                    type="text"
+                    value={guestName}
+                    onChange={(e) => setGuestName(e.target.value)}
+                    placeholder="홍길동"
                     required
-                    minLength={8}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
-                    autoComplete="new-password"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
+                    autoComplete="name"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowGuestPassword(!showGuestPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                  >
-                    {showGuestPassword ? (
-                      <EyeOff className="w-5 h-5" />
-                    ) : (
-                      <Eye className="w-5 h-5" />
-                    )}
-                  </button>
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  비밀번호는 8자 이상이어야 합니다
-                </p>
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <Lock className="w-4 h-4 inline mr-1" />
-                  비밀번호 확인
-                </label>
-                <div className="relative">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <Building2 className="w-4 h-4 inline mr-1" />
+                    병원명
+                  </label>
                   <input
-                    type={showGuestConfirmPassword ? 'text' : 'password'}
-                    value={guestConfirmPassword}
-                    onChange={(e) => setGuestConfirmPassword(e.target.value)}
-                    placeholder="비밀번호를 다시 입력하세요"
+                    type="text"
+                    value={guestHospitalName}
+                    onChange={(e) => setGuestHospitalName(e.target.value)}
+                    placeholder="쉬프트이 병원"
                     required
-                    minLength={8}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
-                    autoComplete="new-password"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowGuestConfirmPassword(!showGuestConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                  >
-                    {showGuestConfirmPassword ? (
-                      <EyeOff className="w-5 h-5" />
-                    ) : (
-                      <Eye className="w-5 h-5" />
-                    )}
-                  </button>
                 </div>
-                {guestConfirmPassword && guestPassword !== guestConfirmPassword && (
-                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                    비밀번호가 일치하지 않습니다
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <Mail className="w-4 h-4 inline mr-1" />
+                    이메일
+                  </label>
+                  <input
+                    type="email"
+                    value={guestEmail}
+                    onChange={(e) => setGuestEmail(e.target.value)}
+                    placeholder="guest@example.com"
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
+                    autoComplete="email"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <Lock className="w-4 h-4 inline mr-1" />
+                    비밀번호
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showGuestPassword ? 'text' : 'password'}
+                      value={guestPassword}
+                      onChange={(e) => setGuestPassword(e.target.value)}
+                      placeholder="8자 이상"
+                      required
+                      minLength={8}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowGuestPassword(!showGuestPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                    >
+                      {showGuestPassword ? (
+                        <EyeOff className="w-5 h-5" />
+                      ) : (
+                        <Eye className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    비밀번호는 8자 이상이어야 합니다
                   </p>
-                )}
-              </div>
-
-              {error && (
-                <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-2">
-                  <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />
-                  <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
                 </div>
-              )}
 
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowGuestForm(false);
-                    setError('');
-                    setGuestEmail('');
-                    setGuestPassword('');
-                    setGuestConfirmPassword('');
-                    setGuestName('');
-                  }}
-                  className="flex-1 py-2 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                >
-                  취소
-                </button>
-                <button
-                  type="submit"
-                  disabled={guestLoading}
-                  className="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {guestLoading ? '생성 중...' : '계정 만들기'}
-                </button>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <Lock className="w-4 h-4 inline mr-1" />
+                    비밀번호 확인
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showGuestConfirmPassword ? 'text' : 'password'}
+                      value={guestConfirmPassword}
+                      onChange={(e) => setGuestConfirmPassword(e.target.value)}
+                      placeholder="비밀번호를 다시 입력하세요"
+                      required
+                      minLength={8}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowGuestConfirmPassword(!showGuestConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                    >
+                      {showGuestConfirmPassword ? (
+                        <EyeOff className="w-5 h-5" />
+                      ) : (
+                        <Eye className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
+                  {guestConfirmPassword && guestPassword !== guestConfirmPassword && (
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                      비밀번호가 일치하지 않습니다
+                    </p>
+                  )}
+                </div>
+
+                {error && (
+                  <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />
+                    <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={closeGuestForm}
+                    className="flex-1 py-2 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={guestLoading}
+                    className="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {guestLoading ? '인증 코드 보내는 중...' : '인증 코드 받기'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div>
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg text-sm text-blue-700 dark:text-blue-200 mb-4">
+                  {(guestVerificationEmail || guestEmail || '입력한 이메일')} 주소로 전송된 6자리 인증 코드를 입력해주세요.
+                </div>
+
+                <form onSubmit={handleGuestVerificationSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      인증 코드
+                    </label>
+                    <input
+                      type="text"
+                      value={guestVerificationCode}
+                      onChange={(e) => setGuestVerificationCode(e.target.value)}
+                      maxLength={6}
+                      placeholder="123456"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      required
+                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800 text-center text-xl tracking-[0.5em]"
+                    />
+                  </div>
+
+                  {guestVerificationError && (
+                    <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-2">
+                      <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />
+                      <p className="text-sm text-red-600 dark:text-red-400">{guestVerificationError}</p>
+                    </div>
+                  )}
+
+                  {guestVerificationMessage && !guestVerificationError && (
+                    <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg text-sm text-green-700 dark:text-green-300">
+                      {guestVerificationMessage}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={guestVerificationLoading}
+                    className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {guestVerificationLoading ? '확인 중...' : '인증 완료'}
+                  </button>
+                </form>
+
+                <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400 space-y-3">
+                  <p>이메일을 받지 못하셨나요?</p>
+                  <button
+                    type="button"
+                    onClick={handleGuestResendVerification}
+                    disabled={guestResendLoading}
+                    className="w-full py-2 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {guestResendLoading ? '재전송 중...' : '인증 코드 다시 받기'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGuestStep('form');
+                      setGuestVerificationCode('');
+                      setGuestVerificationError('');
+                      setGuestVerificationMessage('');
+                      setGuestVerificationEmail('');
+                    }}
+                    className="w-full py-2 px-4 text-gray-700 dark:text-gray-300 font-medium hover:text-gray-900 dark:hover:text-gray-100"
+                  >
+                    정보 수정하기
+                  </button>
+                </div>
               </div>
-            </form>
+            )}
           </div>
         </div>
       )}

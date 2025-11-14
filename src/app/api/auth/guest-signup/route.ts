@@ -14,20 +14,63 @@ export const dynamic = 'force-dynamic';
  * - position은 HN으로 설정
  * - employeeId는 GUEST_0000001 형식으로 자동 생성
  * - 14일 Pro 플랜 무료 체험 제공
+ * - 이메일 인증을 완료한 Clerk 사용자 ID가 반드시 필요
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password, name } = body;
+    const { email, name, hospitalName, clerkUserId } = body;
 
-    if (!email || !password || !name) {
+    if (!email || !name || !hospitalName || !clerkUserId) {
       return NextResponse.json(
-        { error: '이메일, 비밀번호, 이름을 모두 입력해주세요.' },
+        { error: '이메일, 이름, 병원명과 인증 정보를 모두 입력해주세요.' },
         { status: 400 }
       );
     }
 
+    const normalizedEmail = email.toLowerCase();
+
     await ensureNotificationPreferencesColumn();
+
+    const clerk = await clerkClient();
+    let verifiedClerkUser;
+
+    try {
+      verifiedClerkUser = await clerk.users.getUser(clerkUserId);
+    } catch (lookupError) {
+      console.error('Clerk user lookup failed:', lookupError);
+      return NextResponse.json(
+        { error: '이메일 인증 정보를 확인할 수 없습니다. 다시 시도해주세요.' },
+        { status: 400 }
+      );
+    }
+
+    const matchedEmail = verifiedClerkUser.emailAddresses?.find(
+      (addr) => addr.emailAddress?.toLowerCase() === normalizedEmail
+    );
+
+    if (!matchedEmail) {
+      return NextResponse.json(
+        { error: '인증된 이메일 정보와 요청 정보가 일치하지 않습니다.' },
+        { status: 400 }
+      );
+    }
+
+    if (matchedEmail.verification?.status !== 'verified') {
+      return NextResponse.json(
+        { error: '이메일 인증을 완료한 후 다시 시도해주세요.' },
+        { status: 400 }
+      );
+    }
+
+    await clerk.users.updateUser(clerkUserId, {
+      firstName: verifiedClerkUser.firstName || name,
+      publicMetadata: {
+        ...(verifiedClerkUser.publicMetadata || {}),
+        role: 'manager',
+        isGuest: true,
+      },
+    });
 
     // 랜덤 문자열 생성 (8자리)
     const randomString = Math.random().toString(36).substring(2, 10);
@@ -37,23 +80,11 @@ export async function POST(request: NextRequest) {
     const planExpiresAt = new Date();
     planExpiresAt.setDate(planExpiresAt.getDate() + 14);
 
-    // 1. Clerk에 사용자 생성
-    const clerk = await clerkClient();
-    const clerkUser = await clerk.users.createUser({
-      emailAddress: [email],
-      password: password,
-      firstName: name,
-      publicMetadata: {
-        role: 'manager',
-        isGuest: true,
-      },
-    });
-
-    // 2. Tenant 생성 (14일 Pro 플랜)
+    // 1. Tenant 생성 (14일 Pro 플랜)
     const [tenant] = await db
       .insert(tenants)
       .values({
-        name: `Guest Workspace - ${name}`,
+        name: `${guestPrefix} ${hospitalName}`,
         slug: guestPrefix,
         secretCode: guestPrefix,
         plan: 'pro',
@@ -70,7 +101,7 @@ export async function POST(request: NextRequest) {
       })
       .returning();
 
-    // 3. Department 생성
+    // 2. Department 생성
     const [department] = await db
       .insert(departments)
       .values({
@@ -85,7 +116,7 @@ export async function POST(request: NextRequest) {
       })
       .returning();
 
-    // 4. employeeId 생성 (GUEST_0000001 형식)
+    // 3. employeeId 생성 (GUEST_0000001 형식)
     // 현재 최대 GUEST_ employeeId 조회
     const maxEmployeeIdResult = await db
       .select({ employeeId: users.employeeId })
@@ -103,13 +134,13 @@ export async function POST(request: NextRequest) {
 
     const employeeId = `GUEST_${String(nextNumber).padStart(7, '0')}`;
 
-    // 5. User 생성 (데이터베이스에)
+    // 4. User 생성 (데이터베이스에)
     const [user] = await db
       .insert(users)
       .values({
         tenantId: tenant.id,
         departmentId: department.id,
-        clerkUserId: clerkUser.id,
+        clerkUserId,
         email: email,
         name: name,
         employeeId: employeeId,
@@ -148,34 +179,11 @@ export async function POST(request: NextRequest) {
   } catch (error: unknown) {
     console.error('Guest signup error:', error);
     const clerkError = error as { errors?: Array<{ code?: string }>; message?: string };
-    const firstErrorCode = clerkError.errors?.[0]?.code;
-
-    // Clerk 에러 처리
-    if (firstErrorCode === 'form_identifier_exists') {
-      return NextResponse.json(
-        { error: '이미 사용 중인 이메일입니다.' },
-        { status: 400 }
-      );
-    }
-
-    if (firstErrorCode === 'form_password_pwned') {
-      return NextResponse.json(
-        { error: '너무 흔한 비밀번호입니다. 다른 비밀번호를 사용해주세요.' },
-        { status: 400 }
-      );
-    }
-
-    if (firstErrorCode === 'form_param_format_invalid') {
-      return NextResponse.json(
-        { error: '비밀번호는 8자 이상이어야 합니다.' },
-        { status: 400 }
-      );
-    }
 
     return NextResponse.json(
       {
         error: '게스트 계정 생성에 실패했습니다.',
-        details: clerkError.message ?? 'Unknown error',
+        details: clerkError?.message ?? 'Unknown error',
       },
       { status: 500 }
     );
