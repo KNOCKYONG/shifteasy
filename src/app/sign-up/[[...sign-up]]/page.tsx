@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import {
@@ -692,6 +693,15 @@ export default function SignUpPage() {
                 >
                   {loading ? '가입 중...' : '회원가입'}
                 </button>
+
+                {planType === 'professional' && (
+                  <Link
+                    href="/billing?plan=professional"
+                    className="mt-2 inline-flex w-full items-center justify-center rounded-lg border border-blue-600 py-2.5 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-400 dark:border-blue-400 dark:hover:bg-blue-900/20"
+                  >
+                    플랜 변경하기
+                  </Link>
+                )}
 
                 {!isProfessionalPlan && (
                   <button
