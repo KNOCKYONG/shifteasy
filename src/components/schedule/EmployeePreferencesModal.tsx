@@ -1,19 +1,19 @@
 "use client";
-import { useState, useEffect, useRef, useCallback } from "react";
-import { User, X, AlertCircle, Star, ChevronLeft, ChevronRight, Info, CheckCircle, Wallet, Clock, RotateCcw } from "lucide-react";
-import { type Employee, type EmployeePreferences, type ShiftType } from "@/lib/types/scheduler";
-import { validatePattern as validatePatternUtil, describePattern, EXAMPLE_PATTERNS } from "@/lib/utils/pattern-validator";
+import { useState, useEffect } from "react";
+import { User, Heart, Calendar, Clock, Users, Shield, X, Save, AlertCircle, Star, UserCheck, UserMinus, ChevronLeft, ChevronRight, Info, CheckCircle, Edit2, Trash2, Wallet } from "lucide-react";
+import { type Employee, type EmployeePreferences, type ShiftType } from "@/lib/scheduler/types";
+import { validatePattern as validatePatternUtil, describePattern, EXAMPLE_PATTERNS, KEYWORD_DESCRIPTIONS, type ShiftToken } from "@/lib/utils/pattern-validator";
 import { api } from "@/lib/trpc/client";
-import { format, startOfMonth, endOfMonth } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import type { SimplifiedPreferences } from "@/components/department/MyPreferencesPanel";
-import { LottieLoadingOverlay } from "@/components/common/LottieLoadingOverlay";
 
 interface EmployeePreferencesModalProps {
   employee: Employee;
   onSave: (preferences: ExtendedEmployeePreferences) => void;
   onClose: () => void;
+  teamMembers: Employee[];
+  canManageTeams?: boolean; // manager 이상 권한
   initialPreferences?: SimplifiedPreferences;
-  tenantPlan?: string | null;
 }
 
 // 근무 패턴 타입 정의
@@ -66,11 +66,10 @@ export function EmployeePreferencesModal({
   employee,
   onSave,
   onClose,
+  teamMembers,
+  canManageTeams = false,
   initialPreferences,
-  tenantPlan,
 }: EmployeePreferencesModalProps) {
-  const getMonthKey = (date: Date) => format(date, 'yyyy-MM');
-
   const buildInitialPreferences = (source?: SimplifiedPreferences): ExtendedEmployeePreferences => {
     const basePrefs = {
       workPatternType: 'three-shift' as WorkPatternType,
@@ -116,75 +115,31 @@ export function EmployeePreferencesModal({
     } as ExtendedEmployeePreferences;
   };
 
-  const [preferences, setPreferencesState] = useState<ExtendedEmployeePreferences>(() => {
+  const [preferences, setPreferences] = useState<ExtendedEmployeePreferences>(() => {
     return buildInitialPreferences(initialPreferences);
   });
   const [hasHydratedFromInitial, setHasHydratedFromInitial] = useState<boolean>(!!initialPreferences);
-  const initialSnapshotRef = useRef<ExtendedEmployeePreferences>(buildInitialPreferences(initialPreferences));
-  const preferenceDirtyRef = useRef(false);
-  const initialShiftRequestsRef = useRef<Record<string, Record<string, string>>>({});
-  const hasCapturedInitialRequestsRef = useRef<Record<string, boolean>>({});
-  const isRevertingRequestsRef = useRef(false);
-  const shiftRequestDraftsRef = useRef<Record<string, Record<string, string>>>({});
-  const dirtyShiftMonthsRef = useRef<Set<string>>(new Set());
-
-  const areShiftMapsEqual = useCallback((a: Record<string, string>, b: Record<string, string>) => {
-    const keysA = Object.keys(a);
-    const keysB = Object.keys(b);
-    if (keysA.length !== keysB.length) return false;
-    return keysA.every((key) => a[key] === b[key]);
-  }, []);
-
-  const updateDirtyStateForMonth = useCallback((monthKey: string, currentMap: Record<string, string>) => {
-    const initialMap = initialShiftRequestsRef.current[monthKey] || {};
-    if (areShiftMapsEqual(currentMap, initialMap)) {
-      dirtyShiftMonthsRef.current.delete(monthKey);
-    } else {
-      dirtyShiftMonthsRef.current.add(monthKey);
-    }
-  }, [areShiftMapsEqual]);
-
-  const updatePreferences = (
-    updater: ExtendedEmployeePreferences | ((prev: ExtendedEmployeePreferences) => ExtendedEmployeePreferences),
-    options: { markDirty?: boolean } = {}
-  ) => {
-    const { markDirty = true } = options;
-    setPreferencesState((prev) => {
-      const next =
-        typeof updater === 'function'
-          ? (updater as (prev: ExtendedEmployeePreferences) => ExtendedEmployeePreferences)(prev)
-          : updater;
-      if (markDirty) {
-        preferenceDirtyRef.current = true;
-      }
-      return next;
-    });
-  };
 
   useEffect(() => {
-    const snapshot = buildInitialPreferences(initialPreferences);
-    initialSnapshotRef.current = snapshot;
-    preferenceDirtyRef.current = false;
-    updatePreferences(snapshot, { markDirty: false });
+    setPreferences(buildInitialPreferences(initialPreferences));
     setHasHydratedFromInitial(!!initialPreferences);
-    initialShiftRequestsRef.current = {};
-    hasCapturedInitialRequestsRef.current = {};
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employee.id]);
 
   useEffect(() => {
     if (!initialPreferences || hasHydratedFromInitial) {
       return;
     }
-    const snapshot = buildInitialPreferences(initialPreferences);
-    initialSnapshotRef.current = snapshot;
-    preferenceDirtyRef.current = false;
-    updatePreferences(snapshot, { markDirty: false });
+    setPreferences(buildInitialPreferences(initialPreferences));
     setHasHydratedFromInitial(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPreferences, hasHydratedFromInitial]);
 
-  const [activeTab, setActiveTab] = useState<'basic' | 'request' | 'off-balance'>('basic');
+  const [activeTab, setActiveTab] = useState<'basic' | 'personal' | 'request' | 'off-balance'>('basic');
+  const [selectedTeam, setSelectedTeam] = useState<string>((employee as any).teamId || '');
+
+  // employee가 변경될 때 selectedTeam 업데이트
+  useEffect(() => {
+    setSelectedTeam((employee as any).teamId || '');
+  }, [employee.id, (employee as any).teamId]);
   const [customPatternInput, setCustomPatternInput] = useState('');
   const [patternValidation, setPatternValidation] = useState<ReturnType<typeof validatePatternUtil> | null>(null);
   const [showPatternHelp, setShowPatternHelp] = useState(false);
@@ -216,7 +171,6 @@ export function EmployeePreferencesModal({
   // Local state for allocation inputs
   const [allocToAccumulation, setAllocToAccumulation] = useState(0);
   const [allocToAllowance, setAllocToAllowance] = useState(0);
-  const lastAllocationRef = useRef({ accumulation: 0, allowance: 0 });
 
   // Fetch off-balance data
   const { data: offBalance, refetch: refetchOffBalance } = api.offBalance.getByEmployee.useQuery(
@@ -253,23 +207,8 @@ export function EmployeePreferencesModal({
 
   // Update allocation mutation
   const updateAllocationMutation = api.offBalance.updateAllocation.useMutation({
-    onSuccess: async () => {
-      setOffBalanceData((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          preferences: {
-            ...prev.preferences,
-            allocatedToAccumulation: lastAllocationRef.current.accumulation,
-            allocatedToAllowance: lastAllocationRef.current.allowance,
-          },
-        };
-      });
-      await Promise.all([
-        refetchOffBalance(),
-        utils.offBalance.getBulkCurrentBalance.invalidate(),
-        utils.offBalance.getByEmployee.invalidate({ employeeId: employee.id }),
-      ]);
+    onSuccess: () => {
+      refetchOffBalance();
       alert('OFF 배분이 저장되었습니다');
     },
     onError: (error) => {
@@ -279,17 +218,17 @@ export function EmployeePreferencesModal({
 
   // Handle allocation save
   const handleSaveAllocation = () => {
-    lastAllocationRef.current = {
-      accumulation: allocToAccumulation,
-      allowance: allocToAllowance,
-    };
     updateAllocationMutation.mutate({
       employeeId: employee.id,
       allocatedToAccumulation: allocToAccumulation,
       allocatedToAllowance: allocToAllowance,
-      departmentId: employee.departmentId || undefined,
     });
   };
+  const [showEditTeamModal, setShowEditTeamModal] = useState(false);
+  const [editingTeam, setEditingTeam] = useState<any>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingTeam, setDeletingTeam] = useState<any>(null);
+
   // Request 탭을 위한 state
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [shiftRequests, setShiftRequests] = useState<Record<string, string>>({});
@@ -314,6 +253,14 @@ export function EmployeePreferencesModal({
     },
   });
 
+  const updateStaffProfile = api.staff.update.useMutation({
+    onSuccess: async () => {
+      // 캐시 무효화로 UI 자동 업데이트
+      await utils.staff.list.invalidate();
+      await utils.tenant.users.list.invalidate(); // schedule 페이지에서 사용하는 쿼리
+    },
+  });
+
   const deleteShiftRequests = api.specialRequests.deleteByEmployeeAndDateRange.useMutation({
     onSuccess: async () => {
       // 캐시 무효화로 UI 자동 업데이트
@@ -324,38 +271,44 @@ export function EmployeePreferencesModal({
   // Load shift types from shift_types table
   const { data: shiftTypesFromDB } = api.shiftTypes.getAll.useQuery();
 
+  // Teams query and mutations
+  const { data: teams = [], refetch: refetchTeams } = api.teams.getAll.useQuery();
+
+  const updateTeam = api.teams.update.useMutation({
+    onSuccess: async () => {
+      await refetchTeams();
+      setShowEditTeamModal(false);
+      setEditingTeam(null);
+      alert('팀이 수정되었습니다');
+    },
+    onError: (error) => {
+      alert('팀 수정 실패: ' + error.message);
+    },
+  });
+
+  const deleteTeam = api.teams.delete.useMutation({
+    onSuccess: async () => {
+      await refetchTeams();
+      setShowDeleteConfirm(false);
+      setDeletingTeam(null);
+      // If the deleted team was selected, clear selection
+      if (selectedTeam === deletingTeam?.id) {
+        setSelectedTeam('');
+      }
+      alert('팀이 삭제되었습니다');
+    },
+    onError: (error) => {
+      alert('팀 삭제 실패: ' + error.message);
+    },
+  });
+
   // Query to fetch existing special requests for the selected month
-  const {
-    data: existingRequests,
-    isLoading: isRequestDataLoading,
-    isFetching: isRequestDataFetching,
-  } = api.specialRequests.getByDateRange.useQuery({
+  const { data: existingRequests } = api.specialRequests.getByDateRange.useQuery({
     startDate: format(startOfMonth(selectedMonth), 'yyyy-MM-dd'),
     endDate: format(endOfMonth(selectedMonth), 'yyyy-MM-dd'),
     employeeId: employee.id,
     status: 'pending',
   });
-  const isRequestLoadingState = isRequestDataLoading || isRequestDataFetching;
-
-  type ShiftRequestRecord = {
-    date: string;
-    shiftTypeCode: string | null;
-  };
-
-  const buildShiftRequestMap = useCallback((requests?: ShiftRequestRecord[]) => {
-    const requestsMap: Record<string, string> = {};
-
-    if (requests && requests.length > 0) {
-      requests.forEach(req => {
-        const dateKey = req.date;
-        if (req.shiftTypeCode) {
-          requestsMap[dateKey] = req.shiftTypeCode;
-        }
-      });
-    }
-
-    return requestsMap;
-  }, []);
 
   // Load custom shift types from shift_types table with fallback chain
   useEffect(() => {
@@ -395,7 +348,6 @@ export function EmployeePreferencesModal({
         { code: 'E', name: '저녁', startTime: '16:00', endTime: '24:00', color: 'amber', allowOvertime: false },
         { code: 'N', name: '야간', startTime: '00:00', endTime: '08:00', color: 'purple', allowOvertime: false },
         { code: 'O', name: '휴무', startTime: '00:00', endTime: '00:00', color: 'gray', allowOvertime: false },
-        { code: 'V', name: '휴가', startTime: '00:00', endTime: '00:00', color: 'purple', allowOvertime: false },
         { code: 'A', name: '행정', startTime: '09:00', endTime: '18:00', color: 'green', allowOvertime: false },
       ];
     }
@@ -403,129 +355,210 @@ export function EmployeePreferencesModal({
     setCustomShiftTypes(loadedShiftTypes);
   }, [shiftTypesFromDB]);
 
-  // Sync calendar when month changes
+  // Load existing shift requests when data is fetched
   useEffect(() => {
-    const monthKey = getMonthKey(selectedMonth);
-    const draft = shiftRequestDraftsRef.current[monthKey];
-    if (draft) {
-      setShiftRequests({ ...draft });
+    if (existingRequests && existingRequests.length > 0) {
+      const requestsMap: Record<string, string> = {};
+
+      existingRequests.forEach(req => {
+        // Each request now has a single date (not a range)
+        const dateKey = req.date; // Already in 'yyyy-MM-dd' format
+        if (req.shiftTypeCode) {
+          requestsMap[dateKey] = req.shiftTypeCode;
+        }
+      });
+
+      setShiftRequests(requestsMap);
     } else {
-      shiftRequestDraftsRef.current[monthKey] = {};
+      // Clear requests if no data
       setShiftRequests({});
     }
-  }, [selectedMonth]);
-
-  // Load existing shift requests when data is fetched
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (!existingRequests || isRequestDataFetching) {
-      return;
-    }
-
-    const monthKey = getMonthKey(selectedMonth);
-    const map = buildShiftRequestMap(existingRequests);
-
-    if (!hasCapturedInitialRequestsRef.current[monthKey]) {
-      initialShiftRequestsRef.current[monthKey] = map;
-      hasCapturedInitialRequestsRef.current[monthKey] = true;
-
-      if (!dirtyShiftMonthsRef.current.has(monthKey)) {
-        shiftRequestDraftsRef.current[monthKey] = { ...map };
-        setShiftRequests({ ...map });
-        updateDirtyStateForMonth(monthKey, map);
-      } else {
-        // Keep user edits visible; ensure draft exists
-        shiftRequestDraftsRef.current[monthKey] =
-          shiftRequestDraftsRef.current[monthKey] || { ...map };
-      }
-      return;
-    }
-
-    if (isRevertingRequestsRef.current || dirtyShiftMonthsRef.current.has(monthKey)) {
-      isRevertingRequestsRef.current = false;
-      return;
-    }
-
-    initialShiftRequestsRef.current[monthKey] = map;
-    shiftRequestDraftsRef.current[monthKey] = { ...map };
-    setShiftRequests({ ...map });
-    updateDirtyStateForMonth(monthKey, map);
-  }, [existingRequests, selectedMonth, isRequestDataFetching, buildShiftRequestMap, updateDirtyStateForMonth]);
+  }, [existingRequests]);
 
   const daysOfWeek = ['일', '월', '화', '수', '목', '금', '토'];
+  const shiftTypes: { value: ShiftType; label: string; color: string }[] = [
+    { value: 'day', label: '주간', color: 'bg-yellow-100 text-yellow-800' },
+    { value: 'evening', label: '저녁', color: 'bg-purple-100 text-purple-800' },
+    { value: 'night', label: '야간', color: 'bg-indigo-100 text-indigo-800' },
+    { value: 'off', label: '휴무', color: 'bg-gray-100 text-gray-800 dark:text-gray-200' },
+  ];
 
-  const persistShiftRequestsForMonth = async (monthKey: string, snapshot: Record<string, string>) => {
-    const [yearStr, monthStr] = monthKey.split('-');
-    const year = Number(yearStr);
-    const monthIndex = Number(monthStr) - 1;
-    const targetMonth = new Date(year, monthIndex, 1);
+  const handleSave = async () => {
+    // Save team assignment
+    try {
+      await updateStaffProfile.mutateAsync({
+        id: employee.id,
+        teamId: selectedTeam || null,
+      });
+      console.log('✅ Team assignment saved:', selectedTeam);
+    } catch (error) {
+      console.error('❌ Failed to save team assignment:', error);
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+      alert(`⚠️ 팀 배정 저장 실패:\n\n${errorMessage}`);
+      // Continue to save preferences even if team assignment fails
+    }
 
-    await deleteShiftRequests.mutateAsync({
-      employeeId: employee.id,
-      requestType: 'shift_request',
-      startDate: format(startOfMonth(targetMonth), 'yyyy-MM-dd'),
-      endDate: format(endOfMonth(targetMonth), 'yyyy-MM-dd'),
-    });
-    console.log('✅ Existing shift requests deleted for month:', monthKey);
+    // Save preferences to database
+    try {
+      const response = await fetch('/api/preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          preferences: {
+            workPreferences: {
+              workPatternType: preferences.workPatternType,
+              avoidShifts: preferences.avoidShifts || [],
+              preferredPatterns: preferences.preferredPatterns || [], // 개인 선호 패턴
+              avoidPatterns: preferences.avoidPatterns || [], // 개인 기피 패턴
+              maxConsecutiveDays: preferences.maxConsecutiveDays || 5,
+              minRestDays: 2,
+              preferredWorkload: preferences.workLoadPreference === 'light' ? 'light' : preferences.workLoadPreference === 'heavy' ? 'heavy' : 'moderate',
+              weekendPreference: 'neutral',
+              holidayPreference: 'neutral',
+              overtimeWillingness: 'sometimes',
+              offDayPattern: 'flexible',
+            },
+            personalCircumstances: {
+              hasYoungChildren: false,
+              isSingleParent: false,
+              hasCaregivingResponsibilities: false,
+              isStudying: false,
+            },
+            healthConsiderations: {
+              hasChronicCondition: false,
+              needsFrequentBreaks: false,
+              mobilityRestrictions: false,
+              visualImpairment: false,
+              hearingImpairment: false,
+              mentalHealthSupport: false,
+            },
+            commutePreferences: {
+              commuteTime: 30,
+              transportMode: 'car',
+              parkingRequired: false,
+              nightTransportDifficulty: false,
+              weatherSensitive: false,
+              needsTransportAssistance: false,
+              carpoolInterested: false,
+            },
+            teamPreferences: {
+              preferredPartners: preferences.preferredPartners || [],
+              avoidPartners: preferences.avoidPartners || [],
+              mentorshipRole: 'none',
+              languagePreferences: ['korean'],
+              communicationStyle: 'direct',
+              conflictResolution: 'immediate',
+            },
+            professionalDevelopment: {
+              specializations: [],
+              certifications: [],
+              trainingInterests: [],
+              careerGoals: '',
+              preferredDepartments: [],
+              avoidDepartments: [],
+              teachingInterest: false,
+              researchInterest: false,
+              administrativeInterest: false,
+            },
+            specialRequests: {
+              religiousObservances: { needed: false },
+              culturalConsiderations: '',
+              emergencyContact: { name: '', relationship: '', phone: '' },
+              temporaryRequests: [],
+            },
+            priorities: {
+              workLifeBalance: 7,
+              careerGrowth: 5,
+              teamHarmony: 6,
+              incomeMaximization: 4,
+              healthWellbeing: 8,
+              familyTime: 7,
+            },
+          },
+        }),
+      });
 
-    const entries = Object.entries(snapshot);
-    if (entries.length === 0) {
-      console.log('✅ No shift requests to save (all cleared) for', monthKey);
-      initialShiftRequestsRef.current[monthKey] = {};
-      shiftRequestDraftsRef.current[monthKey] = {};
-      updateDirtyStateForMonth(monthKey, {});
+      // Check response status
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      // Parse response
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || '선호도 저장에 실패했습니다.');
+      }
+
+      console.log('✅ Preferences saved to database for employee:', employee.id);
+      console.log('✅ API Response:', result);
+    } catch (error) {
+      console.error('❌ Failed to save preferences:', error);
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+      alert(`❌ 선호도 저장 실패:\n\n${errorMessage}\n\n콘솔을 확인하여 자세한 정보를 확인하세요.`);
+      return; // Don't proceed if preferences save failed
+    }
+
+    // Save preferences to parent component
+    onSave(preferences);
+
+    // Save shift requests to database
+    try {
+      // 1. First, delete all existing shift_request type requests for this employee in the current month
+      await deleteShiftRequests.mutateAsync({
+        employeeId: employee.id,
+        requestType: 'shift_request',
+        startDate: format(startOfMonth(selectedMonth), 'yyyy-MM-dd'),
+        endDate: format(endOfMonth(selectedMonth), 'yyyy-MM-dd'),
+      });
+      console.log('✅ Existing shift requests deleted for month:', format(selectedMonth, 'yyyy-MM'));
+
+      // 2. Then create new requests based on current shiftRequests state
+      if (Object.keys(shiftRequests).length > 0) {
+        // Save each date as an individual request (no grouping)
+        // This ensures only selected dates are saved, not date ranges
+        const dates = Object.keys(shiftRequests);
+
+        // Save each request
+        for (const date of dates) {
+          await createSpecialRequest.mutateAsync({
+            employeeId: employee.id,
+            requestType: 'shift_request',
+            shiftTypeCode: shiftRequests[date],
+            date: date,
+            status: 'pending',
+          });
+        }
+
+        console.log('✅ Shift requests saved successfully:', dates.length, 'individual dates');
+      } else {
+        console.log('✅ No shift requests to save (all cleared)');
+      }
+    } catch (error) {
+      console.error('❌ Failed to save shift requests:', error);
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+      alert(`⚠️ 시프트 요청 저장 실패:\n\n${errorMessage}\n\n선호도는 저장되었지만 시프트 요청은 저장되지 않았습니다.`);
+    }
+  };
+
+  const togglePatternPreference = (pattern: string) => {
+    const current = preferences.preferredPatterns || [];
+
+    // 이미 선택된 경우 제거
+    if (current.includes(pattern)) {
+      setPreferences({
+        ...preferences,
+        preferredPatterns: current.filter(p => p !== pattern),
+      });
       return;
     }
 
-    for (const [date, shiftTypeCode] of entries) {
-      await createSpecialRequest.mutateAsync({
-        employeeId: employee.id,
-        requestType: 'shift_request',
-        shiftTypeCode,
-        date,
-        status: 'pending',
-      });
-    }
-    initialShiftRequestsRef.current[monthKey] = { ...snapshot };
-    shiftRequestDraftsRef.current[monthKey] = { ...snapshot };
-    updateDirtyStateForMonth(monthKey, snapshot);
-    console.log('✅ Shift requests saved successfully:', entries.length, 'dates for', monthKey);
-  };
-
-  const savePendingShiftRequests = async (monthsToSave: string[]) => {
-    await Promise.all(
-      monthsToSave.map(async (monthKey) => {
-        const snapshot = shiftRequestDraftsRef.current[monthKey] || {};
-        await persistShiftRequestsForMonth(monthKey, snapshot);
-      })
-    );
-  };
-
-  const handleShiftRequestSelection = (dateKey: string, selectedValue: string) => {
-    const monthKey = getMonthKey(selectedMonth);
-    setShiftRequests((prev) => {
-      const next = { ...prev };
-      if (selectedValue) {
-        next[dateKey] = `${selectedValue}^`;
-      } else {
-        delete next[dateKey];
-      }
-      shiftRequestDraftsRef.current[monthKey] = next;
-      updateDirtyStateForMonth(monthKey, next);
-      return next;
+    // 패턴 추가
+    setPreferences({
+      ...preferences,
+      preferredPatterns: [...current, pattern],
     });
-  };
-
-  const handleRevertChanges = () => {
-    preferenceDirtyRef.current = false;
-    updatePreferences(initialSnapshotRef.current, { markDirty: false });
-
-    const monthKey = getMonthKey(selectedMonth);
-    const initialRequestsForMonth = initialShiftRequestsRef.current[monthKey] || {};
-    shiftRequestDraftsRef.current[monthKey] = { ...initialRequestsForMonth };
-    isRevertingRequestsRef.current = true;
-    setShiftRequests({ ...initialRequestsForMonth });
-    updateDirtyStateForMonth(monthKey, initialRequestsForMonth);
   };
 
   // 패턴 입력 핸들러 (실시간 검증)
@@ -541,15 +574,8 @@ export function EmployeePreferencesModal({
     }
   };
 
-  const guestPreferenceMessage = '근무 선호 패턴 설정은 Professional 플랜 이상에서 이용할 수 있습니다.';
-  const isGuestPlan = tenantPlan === 'guest';
-
   // 패턴 추가
   const addCustomPattern = () => {
-    if (isGuestPlan) {
-      alert(guestPreferenceMessage);
-      return;
-    }
     if (!patternValidation || !patternValidation.isValid) {
       return;
     }
@@ -562,7 +588,7 @@ export function EmployeePreferencesModal({
       .join('-');
 
     if (!current.includes(patternString)) {
-      updatePreferences({
+      setPreferences({
         ...preferences,
         preferredPatterns: [...current, patternString],
       });
@@ -572,7 +598,7 @@ export function EmployeePreferencesModal({
   };
 
   const removePattern = (pattern: string) => {
-    updatePreferences({
+    setPreferences({
       ...preferences,
       preferredPatterns: (preferences.preferredPatterns || []).filter(p => p !== pattern),
     });
@@ -602,10 +628,6 @@ export function EmployeePreferencesModal({
 
   // 기피 패턴 텍스트를 적용
   const applyAvoidPatternInput = () => {
-    if (isGuestPlan) {
-      alert('기피 패턴 저장은 Professional 플랜 이상에서 이용 가능합니다.');
-      return;
-    }
     if (!avoidPatternValidation || !avoidPatternValidation.isValid) {
       return;
     }
@@ -613,7 +635,7 @@ export function EmployeePreferencesModal({
     // 검증된 토큰을 패턴 배열에 추가
     const newPatternArray = avoidPatternValidation.tokens as string[];
 
-    updatePreferences(prev => ({
+    setPreferences(prev => ({
       ...prev,
       avoidPatterns: [
         ...(prev.avoidPatterns || []),
@@ -628,52 +650,10 @@ export function EmployeePreferencesModal({
 
   // 기피 패턴 삭제
   const removeAvoidPattern = (index: number) => {
-    updatePreferences({
+    setPreferences({
       ...preferences,
       avoidPatterns: (preferences.avoidPatterns || []).filter((_, i) => i !== index),
     });
-  };
-
-  const handleCloseModal = () => {
-    const hasPendingPreferenceChanges = preferenceDirtyRef.current;
-    const hasPendingShiftChanges = dirtyShiftMonthsRef.current.size > 0;
-
-    if (!hasPendingPreferenceChanges && !hasPendingShiftChanges) {
-      onClose();
-      return;
-    }
-
-    if (isGuestPlan) {
-      preferenceDirtyRef.current = false;
-      dirtyShiftMonthsRef.current.clear();
-      alert('근무 선호도 저장은 Professional 플랜부터 이용 가능합니다. 업그레이드 후 다시 시도해주세요.');
-      onClose();
-      return;
-    }
-
-    const shouldSave = window.confirm('변경 사항을 저장하고 창을 닫을까요?\n취소를 누르면 계속 편집할 수 있습니다.');
-    if (!shouldSave) {
-      dirtyShiftMonthsRef.current.clear();
-      onClose();
-      return;
-    }
-
-    if (hasPendingPreferenceChanges) {
-      onSave(preferences);
-      preferenceDirtyRef.current = false;
-    }
-
-    const monthsToSave = Array.from(dirtyShiftMonthsRef.current);
-    dirtyShiftMonthsRef.current.clear();
-
-    if (monthsToSave.length > 0) {
-      savePendingShiftRequests(monthsToSave).catch((error) => {
-        console.error('❌ Failed to save shift requests on close:', error);
-        alert('시프트 요청 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
-      });
-    }
-
-    onClose();
   };
 
   return (
@@ -691,21 +671,12 @@ export function EmployeePreferencesModal({
                 <p className="text-blue-100 text-sm mt-1">{employee.role} · {employee.departmentId}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleRevertChanges}
-                className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-white/15 hover:bg-white/25 rounded-lg transition-colors"
-              >
-                <RotateCcw className="w-4 h-4" />
-                되돌리기
-              </button>
-              <button
-                onClick={handleCloseModal}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
           </div>
         </div>
 
@@ -719,7 +690,7 @@ export function EmployeePreferencesModal({
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as 'basic' | 'request' | 'off-balance')}
+                onClick={() => setActiveTab(tab.id as any)}
                 className={`py-3 px-1 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors ${
                   activeTab === tab.id
                     ? 'border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400'
@@ -748,7 +719,7 @@ export function EmployeePreferencesModal({
                   ].map(option => (
                     <button
                       key={option.value}
-                      onClick={() => updatePreferences({ ...preferences, workPatternType: option.value as WorkPatternType })}
+                      onClick={() => setPreferences({ ...preferences, workPatternType: option.value as WorkPatternType })}
                       className={`p-3 rounded-lg border-2 transition-all text-left ${
                         preferences.workPatternType === option.value
                           ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
@@ -772,6 +743,41 @@ export function EmployeePreferencesModal({
                   )}
                 </h3>
 
+                {/* 기본 패턴 선택 */}
+                <div className="mb-4">
+                  <label className="block text-sm text-gray-600 dark:text-gray-400 mb-2">
+                    일반 패턴 (다중 선택 가능)
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { value: 'D-D-E-E-N-N-OFF', label: '교대 근무', description: '주간 → 저녁 → 야간 순환' },
+                      { value: 'D-D-D-D-D-OFF-OFF', label: '5일 근무', description: '주간 5일 연속 근무' },
+                      { value: 'D-OFF-D-OFF-D-OFF-D', label: '격일 근무', description: '1일 근무, 1일 휴무' },
+                      { value: 'N-N-N-OFF-OFF-OFF-OFF', label: '야간 집중', description: '야간 3일, 4일 휴무' },
+                    ].map(option => {
+                      const isDisabled = preferences.workPatternType !== 'three-shift';
+                      return (
+                        <button
+                          key={option.value}
+                          onClick={() => !isDisabled && togglePatternPreference(option.value)}
+                          disabled={isDisabled}
+                          className={`p-3 rounded-lg border-2 transition-all text-left ${
+                            (preferences.preferredPatterns || []).includes(option.value)
+                              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                              : isDisabled
+                              ? 'border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700/50 cursor-not-allowed opacity-50'
+                              : 'border-gray-200 dark:border-slate-600 hover:border-gray-300 dark:hover:border-slate-500'
+                          }`}
+                        >
+                          <div className="font-medium text-gray-900 dark:text-white">{option.label}</div>
+                          <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{option.description}</div>
+                          <div className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-mono">{option.value}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 {/* 직접 입력 */}
                 <div className="mb-3">
                   <div className="flex items-center justify-between mb-2">
@@ -791,19 +797,28 @@ export function EmployeePreferencesModal({
                   {showPatternHelp && (
                     <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
                       <div className="space-y-2 text-xs">
+                        <div>
+                          <span className="font-semibold text-blue-900 dark:text-blue-300">사용 가능한 키워드:</span>
+                          <div className="mt-1 space-y-1 text-gray-700 dark:text-gray-300">
+                            {Object.entries(KEYWORD_DESCRIPTIONS).map(([token, desc]) => (
+                              <div key={token}>• {desc}</div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="border-t border-blue-200 dark:border-blue-800 pt-2">
                           <span className="font-semibold text-blue-900 dark:text-blue-300">예시:</span>
                           <div className="mt-1 space-y-1 text-gray-700 dark:text-gray-300">
                             {EXAMPLE_PATTERNS.map((ex, idx) => (
                               <div key={idx}>• {ex.pattern} - {ex.description}</div>
                             ))}
                           </div>
+                        </div>
                       </div>
                     </div>
                   )}
 
                   {(() => {
-                    const isDisabled =
-                      preferences.workPatternType !== 'three-shift' || isGuestPlan;
+                    const isDisabled = preferences.workPatternType !== 'three-shift';
                     return (
                       <>
                         {/* 입력 필드 */}
@@ -874,9 +889,7 @@ export function EmployeePreferencesModal({
 
                         {isDisabled && (
                           <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                            {isGuestPlan
-                              ? 'Professional 플랜 업그레이드 후 패턴을 저장할 수 있습니다.'
-                              : '3교대 근무를 선택하면 패턴을 추가할 수 있습니다.'}
+                            3교대 근무를 선택하면 패턴을 추가할 수 있습니다.
                           </div>
                         )}
                       </>
@@ -927,8 +940,7 @@ export function EmployeePreferencesModal({
 
                 {/* 기피 패턴 직접 입력 */}
                 {(() => {
-                  const isDisabled =
-                    preferences.workPatternType !== 'three-shift' || isGuestPlan;
+                  const isDisabled = preferences.workPatternType !== 'three-shift';
                   return (
                     <div className="mb-4 p-4 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
                       <div className="flex items-start gap-2 mb-2">
@@ -954,7 +966,24 @@ export function EmployeePreferencesModal({
                         <div className="mb-3 p-3 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded-md">
                           <div className="text-xs text-red-900 dark:text-red-200 space-y-2">
                             <div>
-                              <p className="font-medium mb-1">예시:</p>
+                              <p className="font-medium mb-1">✅ 유효한 키워드 (OFF 제외):</p>
+                              <div className="grid grid-cols-2 gap-1 ml-2">
+                                <div className="flex items-center gap-1">
+                                  <span className="font-mono font-bold">D:</span>
+                                  <span className="text-gray-700 dark:text-gray-300">주간 근무</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <span className="font-mono font-bold">E:</span>
+                                  <span className="text-gray-700 dark:text-gray-300">저녁 근무</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <span className="font-mono font-bold">N:</span>
+                                  <span className="text-gray-700 dark:text-gray-300">야간 근무</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div>
+                              <p className="font-medium mb-1">📝 예시:</p>
                               <div className="ml-2 space-y-1 text-gray-700 dark:text-gray-300">
                                 <div>• N-D: 야간 직후 주간 금지</div>
                                 <div>• N-N-D: 야간 2일 후 주간 금지</div>
@@ -1031,13 +1060,11 @@ export function EmployeePreferencesModal({
                         </button>
                       </div>
 
-                        {isDisabled && (
-                          <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                            {isGuestPlan
-                              ? 'Professional 플랜 업그레이드 후 기피 패턴을 저장할 수 있습니다.'
-                              : '3교대 근무를 선택하면 기피 패턴을 추가할 수 있습니다.'}
-                          </div>
-                        )}
+                      {isDisabled && (
+                        <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                          3교대 근무를 선택하면 기피 패턴을 추가할 수 있습니다.
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
@@ -1072,13 +1099,16 @@ export function EmployeePreferencesModal({
                   <div className="flex items-start gap-2">
                     <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
                     <div className="text-xs text-amber-800 dark:text-amber-200">
-                      <p className="font-medium mb-1">패턴 우선순위:</p>
+                      <p className="font-medium mb-1">기피 패턴 우선순위:</p>
                       <ul className="list-disc list-inside space-y-1 ml-2">
                         <li>개인 선호 패턴 (최우선)</li>
                         <li>개인 기피 패턴</li>
                         <li>팀 선호 패턴</li>
                         <li>팀 기피 패턴</li>
                       </ul>
+                      <p className="mt-2 text-amber-700 dark:text-amber-300">
+                        * 스케줄 생성 시 이 패턴들이 발생하지 않도록 조정됩니다.
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -1305,13 +1335,7 @@ export function EmployeePreferencesModal({
           )}
 
           {activeTab === 'request' && (
-            <div className="relative">
-              {isRequestLoadingState && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/80 dark:bg-slate-900/80">
-                  <LottieLoadingOverlay message="근무 요청을 불러오는 중입니다..." compact />
-                </div>
-              )}
-              <div className={`space-y-4 ${isRequestLoadingState ? 'opacity-40 pointer-events-none' : ''}`}>
+            <div className="space-y-4">
               {/* 월 선택 */}
               <div className="flex items-center justify-between">
                 <button
@@ -1387,7 +1411,17 @@ export function EmployeePreferencesModal({
                           className="absolute inset-0 opacity-0 cursor-pointer"
                           value={currentRequest?.replace('^', '') || ''}
                           onChange={(e) => {
-                            handleShiftRequestSelection(dateKey, e.target.value);
+                            if (e.target.value) {
+                              // Add "^" suffix to indicate it's a request
+                              setShiftRequests({
+                                ...shiftRequests,
+                                [dateKey]: e.target.value + '^'
+                              });
+                            } else {
+                              const newRequests = {...shiftRequests};
+                              delete newRequests[dateKey];
+                              setShiftRequests(newRequests);
+                            }
                           }}
                         >
                           <option value="">선택 안함</option>
@@ -1414,12 +1448,201 @@ export function EmployeePreferencesModal({
                 ))}
               </div>
             </div>
-            </div>
           )}
 
         </div>
+
+        {/* Footer */}
+        <div className="border-t border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+              <AlertCircle className="w-4 h-4" />
+              <span>모든 정보는 비밀로 유지되며 스케줄 최적화에만 사용됩니다.</span>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleSave}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+              >
+                <Save className="w-4 h-4" />
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
+      {/* Edit Team Modal */}
+      {showEditTeamModal && editingTeam && (
+        <EditTeamModal
+          team={editingTeam}
+          onSave={(updatedTeam) => {
+            if (!updatedTeam.name.trim() || !updatedTeam.code.trim()) {
+              alert('팀 이름과 코드를 입력해주세요');
+              return;
+            }
+            updateTeam.mutate({
+              id: editingTeam.id,
+              name: updatedTeam.name,
+              code: updatedTeam.code,
+              color: updatedTeam.color,
+            });
+          }}
+          onClose={() => {
+            setShowEditTeamModal(false);
+            setEditingTeam(null);
+          }}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && deletingTeam && (
+        <DeleteConfirmDialog
+          teamName={deletingTeam.name}
+          onConfirm={() => {
+            deleteTeam.mutate({ id: deletingTeam.id });
+          }}
+          onCancel={() => {
+            setShowDeleteConfirm(false);
+            setDeletingTeam(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Edit Team Modal Component
+function EditTeamModal({
+  team,
+  onSave,
+  onClose
+}: {
+  team: { id: string; name: string; code: string; color: string };
+  onSave: (team: { name: string; code: string; color: string }) => void;
+  onClose: () => void;
+}) {
+  const [editedTeam, setEditedTeam] = useState({
+    name: team.name,
+    code: team.code,
+    color: team.color,
+  });
+
+  const DEFAULT_COLORS = [
+    '#3B82F6', // blue
+    '#10B981', // green
+    '#F59E0B', // yellow
+    '#EF4444', // red
+    '#8B5CF6', // purple
+    '#EC4899', // pink
+    '#14B8A6', // teal
+    '#F97316', // orange
+  ];
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 p-6 z-10">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white">팀 수정</h3>
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
+              <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+            </button>
+          </div>
+        </div>
+        <div className="p-6">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">팀 이름</label>
+              <input
+                type="text"
+                value={editedTeam.name}
+                onChange={(e) => setEditedTeam({ ...editedTeam, name: e.target.value })}
+                placeholder="A팀"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">팀 코드</label>
+              <input
+                type="text"
+                value={editedTeam.code}
+                onChange={(e) => setEditedTeam({ ...editedTeam, code: e.target.value.toUpperCase() })}
+                placeholder="A"
+                maxLength={10}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">팀 색상</label>
+              <div className="flex flex-wrap gap-3">
+                {DEFAULT_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    onClick={() => setEditedTeam({ ...editedTeam, color })}
+                    className={`w-12 h-12 rounded-full border-2 transition-all ${
+                      editedTeam.color === color
+                        ? 'border-gray-900 dark:border-white scale-110 shadow-lg'
+                        : 'border-gray-300 dark:border-slate-600 hover:scale-105'
+                    }`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-3 p-6 border-t border-gray-200 dark:border-slate-700">
+          <button onClick={onClose} className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-600">취소</button>
+          <button onClick={() => onSave(editedTeam)} disabled={!editedTeam.name.trim() || !editedTeam.code.trim()} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"><Save className="w-4 h-4" />저장</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Delete Confirmation Dialog Component
+function DeleteConfirmDialog({
+  teamName,
+  onConfirm,
+  onCancel
+}: {
+  teamName: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+              <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">팀 삭제</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">이 작업은 되돌릴 수 없습니다</p>
+            </div>
+          </div>
+          <p className="text-gray-700 dark:text-gray-300 mb-6">
+            <span className="font-semibold text-red-600 dark:text-red-400">{teamName}</span> 팀을 삭제하시겠습니까?
+            이 팀에 배정된 직원들의 팀 정보도 함께 제거됩니다.
+          </p>
+          <div className="flex justify-end gap-3">
+            <button onClick={onCancel} className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-600">취소</button>
+            <button onClick={onConfirm} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2">
+              <Trash2 className="w-4 h-4" />
+              삭제
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

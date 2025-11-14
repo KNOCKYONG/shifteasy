@@ -5,14 +5,16 @@ export const dynamic = 'force-dynamic';
 import React, { useState, useEffect, useCallback, Suspense, useDeferredValue } from "react";
 import equal from "fast-deep-equal";
 import { useSearchParams } from "next/navigation";
-import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isWeekend, differenceInCalendarYears } from "date-fns";
-import { Download, Upload, Lock, Wand2, RefreshCcw, FileText, Heart, CheckCircle, MoreVertical, Settings, FolderOpen, Save, Loader2, Sparkles, TrendingUp } from "lucide-react";
+import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isWeekend } from "date-fns";
+import { ko } from "date-fns/locale";
+import { ChevronLeft, ChevronRight, Calendar, Users, Download, Upload, Lock, Unlock, Wand2, RefreshCcw, X, BarChart3, FileText, Clock, Heart, AlertCircle, ListChecks, Edit3, FileSpreadsheet, Package, FileUp, CheckCircle, Zap, MoreVertical, Settings, FolderOpen, ArrowLeftRight, Save } from "lucide-react";
 import { MainLayout } from "../../components/layout/MainLayout";
+import { SimpleScheduler, type Employee as SimpleEmployee, type Holiday, type SpecialRequest as SimpleSpecialRequest, type ScheduleAssignment as SimpleAssignment } from "../../lib/scheduler/simple-scheduler";
 import { api } from "../../lib/trpc/client";
-import { type Employee, type Constraint, type ScheduleAssignment, type SchedulingResult, type OffAccrualSummary } from "@/lib/types/scheduler";
-import type { Assignment } from "@/types/schedule";
+import { type Employee, type Shift, type Constraint, type ScheduleAssignment, type SchedulingResult } from "../../lib/scheduler/types";
 import { EmployeeAdapter } from "../../lib/adapters/employee-adapter";
 import type { UnifiedEmployee } from "@/lib/types/unified-employee";
+import { validateSchedulingRequest, validateEmployee } from "@/lib/validation/schemas";
 import { EmployeePreferencesModal, type ExtendedEmployeePreferences } from "@/components/schedule/EmployeePreferencesModal";
 import { type SimplifiedPreferences } from "@/components/department/MyPreferencesPanel";
 import { toEmployee } from "@/lib/utils/employee-converter";
@@ -21,11 +23,11 @@ import { ImportModal } from "@/components/schedule/modals/ImportModal";
 import { ExportModal } from "@/components/schedule/modals/ExportModal";
 import { ValidationResultsModal } from "@/components/schedule/modals/ValidationResultsModal";
 import { ConfirmationDialog } from "@/components/schedule/modals/ConfirmationDialog";
+import { PublishConflictDialog } from "@/components/schedule/modals/PublishConflictDialog";
+import { ReportModal } from "@/components/schedule/modals/ReportModal";
 import { ManageSchedulesModal } from "@/components/schedule/modals/ManageSchedulesModal";
 import { SwapRequestModal } from "@/components/schedule/modals/SwapRequestModal";
 import { ScheduleSwapModal } from "@/components/schedule/modals/ScheduleSwapModal";
-import { ImprovementResultModal } from "@/components/schedule/modals/ImprovementResultModal";
-import type { ImprovementReport } from "@/lib/scheduler/types";
 import {
   ViewTabs,
   ShiftTypeFilters,
@@ -44,108 +46,12 @@ import { normalizeDate } from "@/lib/utils/date-utils";
 import { useScheduleModals } from "@/hooks/useScheduleModals";
 import { useScheduleFilters, type ScheduleView } from "@/hooks/useScheduleFilters";
 import { ScheduleSkeleton } from "@/components/schedule/ScheduleSkeleton";
-import { LottieLoadingOverlay } from "@/components/common/LottieLoadingOverlay";
-import type { SSEEvent } from "@/lib/sse/events";
-// import { useSSEContext } from "@/providers/SSEProvider";
 
 // 스케줄 페이지에서 사용하는 확장된 ScheduleAssignment 타입
-type SwapShift = {
-  date: string;
-  employeeId: string;
-  employeeName: string;
-  shiftId: string;
-  shiftName: string;
-};
-
-// DB에서 가져온 스케줄 메타데이터 타입
-type ScheduleMetadata = {
-  assignments?: Array<{
-    id?: string;
-    employeeId: string;
-    shiftId: string;
-    date: string | Date;
-    isLocked?: boolean;
-    shiftType?: string;
-  }>;
-  offAccruals?: OffAccrualSummary[];
-  [key: string]: unknown;
-};
-
-// DB에서 가져온 원본 배정 타입
-type DbAssignment = {
-  id?: string;
-  employeeId: string;
-  shiftId: string;
-  date: string | Date;
-  isLocked?: boolean;
-  shiftType?: string;
-};
-
-// Config에서 가져온 시프트 타입
-type ConfigShiftType = {
-  code: string;
-  name: string;
-  startTime: string;
-  endTime: string;
-  color: string;
-  displayOrder?: number;
-};
-
-// 특별 요청 타입
-type SpecialRequest = {
-  employeeId: string;
-  requestType: string;
-  date: string;
-  shiftTypeCode?: string | null;
-};
-
-// 공휴일 타입
-type Holiday = {
-  date: string;
-  name: string;
-};
-
-// 사용자 데이터 타입 (API 응답)
-type UserDataItem = {
-  id: string;
-  employeeId?: string | null;
-  name: string;
-  email: string;
-  role: string;
-  departmentId?: string | null;
-  department?: { name: string } | null;
-  status: string;
-  position?: string | null;
-  hireDate?: Date | string | null;
-  yearsOfService?: number | null;
-  createdAt?: Date;
-  profile?: { phone?: string | null } | null;
-  teamId?: string | null;
-};
-
-const calculateYearsOfService = (user: UserDataItem): number | undefined => {
-  if (typeof user.yearsOfService === 'number' && Number.isFinite(user.yearsOfService)) {
-    return Math.max(0, user.yearsOfService);
-  }
-
-  if (user.hireDate) {
-    const hireDate = new Date(user.hireDate);
-    if (!Number.isNaN(hireDate.getTime())) {
-      return Math.max(0, differenceInCalendarYears(new Date(), hireDate));
-    }
-  }
-
-  return undefined;
-};
-
-// 팀 패턴 타입
-type TeamPattern = {
-  id?: string;
-  patternData?: unknown;
-  defaultPatterns?: string[][];
-  avoidPatterns?: string[][];
-  [key: string]: unknown;
-};
+interface ExtendedScheduleAssignment extends ScheduleAssignment {
+  shiftType?: 'day' | 'evening' | 'night' | 'off' | 'leave' | 'custom';
+  isRequested?: boolean; // 직원이 요청한 근무인지 표시
+}
 
 // 기본 제약조건
 const DEFAULT_CONSTRAINTS: Constraint[] = [
@@ -191,28 +97,6 @@ const DEFAULT_CONSTRAINTS: Constraint[] = [
   },
 ];
 
-const STANDARD_AI_SHIFT_CODES = ['D', 'E', 'N', 'O', 'A'] as const;
-type StandardShiftCode = typeof STANDARD_AI_SHIFT_CODES[number];
-
-const DEFAULT_STANDARD_SHIFT_TYPES: Record<StandardShiftCode, ShiftType> = {
-  D: { code: 'D', name: '주간', startTime: '08:00', endTime: '16:00', color: '#EAB308', allowOvertime: false },
-  E: { code: 'E', name: '저녁', startTime: '16:00', endTime: '24:00', color: '#F59E0B', allowOvertime: false },
-  N: { code: 'N', name: '야간', startTime: '00:00', endTime: '08:00', color: '#6366F1', allowOvertime: false },
-  O: { code: 'O', name: '휴무', startTime: '00:00', endTime: '00:00', color: '#9CA3AF', allowOvertime: false },
-  A: { code: 'A', name: '행정', startTime: '09:00', endTime: '18:00', color: '#10B981', allowOvertime: false },
-};
-
-const DEFAULT_FALLBACK_SHIFT_TYPE: ShiftType = {
-  code: 'X',
-  name: '커스텀',
-  startTime: '09:00',
-  endTime: '18:00',
-  color: '#64748B',
-  allowOvertime: false,
-};
-
-const SELECTED_DEPARTMENT_STORAGE_KEY = 'schedule:last-selected-department';
-
 /**
  * 나이트 집중 근무 후 유급 휴가 추가
  * @param schedule 생성된 스케줄 배열
@@ -223,52 +107,14 @@ const SELECTED_DEPARTMENT_STORAGE_KEY = 'schedule:last-selected-department';
 function SchedulePageContent() {
   const utils = api.useUtils();
   const currentUser = useCurrentUser();
-  const currentUserId = currentUser.dbUser?.id || currentUser.userId || '';
   const userRole = (currentUser.dbUser?.role ?? currentUser.role) as string | undefined;
   const isMember = userRole === 'member';
   const isManager = userRole === 'manager';
   const memberDepartmentId = currentUser.dbUser?.departmentId ?? null;
-  const effectiveTenantId = currentUser.dbUser?.tenantId ?? currentUser.orgId ?? '';
-  const effectiveUserRole = currentUser.dbUser?.role ?? currentUser.role ?? 'admin';
-  const tenantPlan = currentUser.tenantPlan ?? currentUser.dbUser?.tenantPlan ?? null;
-  const headerDepartmentId = memberDepartmentId ?? undefined;
-  const isAuthReady = Boolean(currentUserId && effectiveTenantId);
-
-  const authHeaders = React.useMemo<Record<string, string>>(() => {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    if (currentUserId) {
-      headers['x-user-id'] = currentUserId;
-    }
-    if (effectiveTenantId) {
-      headers['x-tenant-id'] = effectiveTenantId;
-    }
-    if (effectiveUserRole) {
-      headers['x-user-role'] = effectiveUserRole;
-    }
-    if (headerDepartmentId) {
-      headers['x-department-id'] = headerDepartmentId;
-    }
-    return headers;
-  }, [currentUserId, effectiveTenantId, effectiveUserRole, headerDepartmentId]);
-
-  const fetchWithAuth = useCallback((url: RequestInfo | URL, options: RequestInit = {}) => {
-    if (!isAuthReady) {
-      return Promise.reject(new Error('사용자 세션이 아직 준비되지 않았습니다.'));
-    }
-    const mergedHeaders = {
-      ...authHeaders,
-      ...(options.headers as Record<string, string> | undefined),
-    };
-    return fetch(url, {
-      credentials: 'include',
-      ...options,
-      headers: mergedHeaders,
-    });
-  }, [authHeaders, isAuthReady]);
   const canManageSchedules = userRole ? ['admin', 'manager', 'owner'].includes(userRole) : false;
   const canViewStaffPreferences = canManageSchedules && !isMember;
+  const currentUserId = currentUser.userId || "user-1";
+  const currentUserName = currentUser.name || "사용자";
   const searchParams = useSearchParams();
 
   const parseViewParam = (value: string | null): ScheduleView | null => {
@@ -283,7 +129,7 @@ function SchedulePageContent() {
   const dateParam = searchParams.get('date');
   const monthParam = searchParams.get('month');
   const viewParam = parseViewParam(searchParams.get('view'));
-  const defaultView: ScheduleView = 'today';
+  const defaultView: ScheduleView = !canViewStaffPreferences ? 'today' : 'schedule';
   const initialActiveView: ScheduleView = (() => {
     if (!viewParam) return defaultView;
     if (viewParam === 'preferences' && !canViewStaffPreferences) {
@@ -294,41 +140,8 @@ function SchedulePageContent() {
 
   // Custom hooks for state management
   const filters = useScheduleFilters(initialActiveView);
-  const setActiveView = filters.setActiveView;
   const deferredActiveView = useDeferredValue(filters.activeView);
   const modals = useScheduleModals();
-  // SSE context available but not currently used in this component
-  // const { isConnected: isSSEConnected, reconnectAttempt } = useSSEContext();
-  const generateScheduleMutation = api.schedule.generate.useMutation();
-  const deleteMutation = api.schedule.delete.useMutation();
-
-  // 🆕 스케줄 개선 mutation
-  const improveMutation = api.schedule.improveSchedule.useMutation({
-    onSuccess: (data) => {
-      setImprovementReport(data.report);
-      setShowImprovementModal(true);
-      setIsImproving(false);
-    },
-    onError: (error) => {
-      alert(`스케줄 개선 실패: ${error.message}`);
-      setIsImproving(false);
-    },
-  });
-
-  // AI 기능 사용 권한 확인
-  const { data: aiPermission } = api.payments.canUseAIFeatures.useQuery(undefined, {
-    enabled: isAuthReady,
-  });
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof performance === 'undefined' || typeof performance.getEntriesByType !== 'function') {
-      return;
-    }
-    const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
-    if (navEntries?.[0]?.type === 'reload') {
-      setActiveView('today');
-    }
-  }, [setActiveView]);
 
   // Initialize dates from URL parameters
   const getInitialMonth = () => {
@@ -352,32 +165,15 @@ function SchedulePageContent() {
   // Core schedule state (not extracted to hooks due to complex interdependencies)
   const [currentMonth, setCurrentMonth] = useState(getInitialMonth());
   const [schedule, setSchedule] = useState<ScheduleAssignment[]>([]);
-  const [, setOriginalSchedule] = useState<ScheduleAssignment[]>([]); // Setter used for state tracking
+  const [originalSchedule, setOriginalSchedule] = useState<ScheduleAssignment[]>([]); // 원본 스케줄 저장
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const [showConflictDialog, setShowConflictDialog] = useState(false);
+  const [conflictSchedule, setConflictSchedule] = useState<any>(null);
+  const [isCheckingConflict, setIsCheckingConflict] = useState(false);
+  const [forcePublish, setForcePublish] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationResult, setGenerationResult] = useState<SchedulingResult | null>(null);
-  const [offAccrualSummaries, setOffAccrualSummaries] = useState<OffAccrualSummary[]>([]);
-  const [isSavingDraft, setIsSavingDraft] = useState(false);
-  const [isPreparingConfirmation, setIsPreparingConfirmation] = useState(false);
-  const [toolbarAnimatedIn, setToolbarAnimatedIn] = useState(false);
-  const [selectedDepartmentState, setSelectedDepartmentState] = useState<string>('all');
-  const setSelectedDepartment = useCallback((value: string | ((prev: string) => string)) => {
-    setSelectedDepartmentState((prev) => {
-      const nextValue = typeof value === 'function' ? (value as (prev: string) => string)(prev) : value;
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(SELECTED_DEPARTMENT_STORAGE_KEY, nextValue);
-      }
-      return nextValue;
-    });
-  }, []);
-  const selectedDepartment = selectedDepartmentState;
-  const [scheduleName, setScheduleName] = useState('');
-  const [existingScheduleToReplace, setExistingScheduleToReplace] = useState<{
-    id: string;
-    startDate: Date;
-    endDate: Date;
-    publishedAt: Date | null;
-  } | null>(null);
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const [customShiftTypes, setCustomShiftTypes] = useState<ShiftType[]>(() => {
     if (typeof window === 'undefined') {
       return [];
@@ -390,26 +186,9 @@ function SchedulePageContent() {
       return [];
     }
   }); // Config의 근무 타입 데이터
-  const [, setLoadedScheduleId] = useState<string | null>(null); // Setter used for state tracking
+  const [showMyPreferences, setShowMyPreferences] = useState(false);
+  const [loadedScheduleId, setLoadedScheduleId] = useState<string | null>(null); // 이미 로드된 스케줄 ID
   const [selectedDate, setSelectedDate] = useState<Date>(getInitialDate()); // 오늘의 근무 날짜 선택
-  const [careerOverrides, setCareerOverrides] = useState<Record<string, { yearsOfService?: number; hireYear?: number }>>({});
-  const [aiEnabled, setAiEnabled] = useState(false); // AI 스케줄 검토 기능 토글
-
-  // 🆕 스케줄 개선 관련 상태
-  const [isImproving, setIsImproving] = useState(false);
-  const [improvementReport, setImprovementReport] = useState<ImprovementReport | null>(null);
-  const [showImprovementModal, setShowImprovementModal] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    const storedDepartment = window.localStorage.getItem(SELECTED_DEPARTMENT_STORAGE_KEY);
-    if (storedDepartment) {
-      setSelectedDepartmentState((prev) => (prev === storedDepartment ? prev : storedDepartment));
-    }
-  }, []);
-
 
   // 오늘의 근무 탭에서 날짜를 이동하면 해당 월 전체 데이터를 사전 로드
   useEffect(() => {
@@ -424,15 +203,8 @@ function SchedulePageContent() {
   const [showScheduleSwapModal, setShowScheduleSwapModal] = useState(false);
   const [showSwapRequestModal, setShowSwapRequestModal] = useState(false);
   const [swapRequestData, setSwapRequestData] = useState<{
-    myShift: SwapShift;
-    targetShift: SwapShift;
-  } | null>(null);
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const [showEditShiftModal, setShowEditShiftModal] = useState(false);
-  const [editingCell, setEditingCell] = useState<{
-    date: Date;
-    employeeId: string;
-    currentShift?: Assignment | null;
+    myShift: { date: string; employeeId: string; shiftId: string; employeeName: string };
+    targetShift: { date: string; employeeId: string; shiftId: string; employeeName: string };
   } | null>(null);
 
   // Handle URL parameter changes for view
@@ -445,8 +217,7 @@ function SchedulePageContent() {
     }
 
     filters.setActiveView(viewParam);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewParam, canViewStaffPreferences]);
+  }, [viewParam, canViewStaffPreferences, filters.setActiveView]);
 
   // Employee preferences modal state
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -457,6 +228,10 @@ function SchedulePageContent() {
   const daysInMonth = React.useMemo(
     () => eachDayOfInterval({ start: monthStart, end: monthEnd }),
     [monthStart, monthEnd]
+  );
+  const monthlyOvertimeThreshold = React.useMemo(
+    () => 40 * (daysInMonth.length / 7),
+    [daysInMonth.length]
   );
   const scheduleGridTemplate = React.useMemo(
     () => `90px repeat(${daysInMonth.length}, minmax(28px, 1fr))`,
@@ -480,280 +255,19 @@ function SchedulePageContent() {
     return new Set(holidays?.map(h => h.date) || []);
   }, [holidays]);
 
-  // Fetch users from database (shared between views)
-  const userListInput = React.useMemo(() => {
-    return {
-      limit: 100,
-      offset: 0,
-      status: 'active' as const,
-      includeDetails: false,
-      departmentId:
-        !isMember && userRole !== 'manager' && selectedDepartment !== 'all' && selectedDepartment !== 'no-department'
-          ? selectedDepartment
-          : undefined,
-    };
-  }, [isMember, selectedDepartment, userRole]);
-
-  const cachedUsers = utils.tenant.users.list.getData(userListInput);
-  const shouldEnableUsersQuery = filters.activeView === 'preferences' || !cachedUsers;
-
-  const { data: usersData } = api.tenant.users.list.useQuery(
-    userListInput,
-    {
-      enabled: shouldEnableUsersQuery,
-      staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지 (사용자 정보는 잦은 변동이 아님)
-      refetchOnWindowFocus: false,
-    }
-  );
-
-  const resolvedUsersData = usersData ?? cachedUsers;
-
-  const updateTenantUsersCache = useCallback((
-    userId: string,
-    updater: (current: UserDataItem | undefined) => Partial<UserDataItem> | null | undefined
-  ) => {
-    utils.tenant.users.list.setData(userListInput, (previous) => {
-      if (!previous?.items) {
-        return previous;
-      }
-
-      let changed = false;
-      const nextItems = previous.items.map((item) => {
-        if (item.id !== userId) {
-          return item;
-        }
-
-        const patch = updater(item as UserDataItem);
-        if (!patch || Object.keys(patch).length === 0) {
-          return item;
-        }
-
-        changed = true;
-        return {
-          ...item,
-          ...patch,
-        } as typeof item;
-      });
-
-      if (!changed) {
-        return previous;
-      }
-
-      return {
-        ...previous,
-        items: nextItems,
-      };
-    });
-  }, [userListInput, utils]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const handleCareerUpdate: EventListener = (event) => {
-      const customEvent = event as CustomEvent<SSEEvent<'staff.career_updated'>>;
-      const payload = customEvent.detail?.data;
-      if (!payload?.careerInfo) {
-        return;
-      }
-
-      const derivedYears =
-        typeof payload.careerInfo.yearsOfService === 'number'
-          ? Math.max(0, payload.careerInfo.yearsOfService)
-          : typeof payload.careerInfo.hireYear === 'number'
-            ? Math.max(0, new Date().getFullYear() - payload.careerInfo.hireYear)
-            : undefined;
-
-      setCareerOverrides(prev => {
-        const previous = prev[payload.userId];
-        if (
-          previous &&
-          previous.yearsOfService === derivedYears &&
-          previous.hireYear === payload.careerInfo.hireYear
-        ) {
-          return prev;
-        }
-        return {
-          ...prev,
-          [payload.userId]: {
-            yearsOfService: derivedYears,
-            hireYear: payload.careerInfo.hireYear,
-          },
-        };
-      });
-
-      updateTenantUsersCache(payload.userId, () => {
-        if (derivedYears === undefined) {
-          return null;
-        }
-        return { yearsOfService: derivedYears };
-      });
-    };
-
-    window.addEventListener('sse:staff.career_updated', handleCareerUpdate);
-    return () => {
-      window.removeEventListener('sse:staff.career_updated', handleCareerUpdate);
-    };
-  }, [updateTenantUsersCache]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const handleStaffUpdated: EventListener = (event) => {
-      const customEvent = event as CustomEvent<SSEEvent<'staff.updated'>>;
-      const payload = customEvent.detail?.data;
-      if (!payload?.changes) {
-        return;
-      }
-
-      const rawHireDate = payload.changes.hireDate;
-      let hireYear: number | undefined;
-      if (rawHireDate instanceof Date) {
-        hireYear = rawHireDate.getFullYear();
-      } else if (typeof rawHireDate === 'string') {
-        const parsed = new Date(rawHireDate);
-        if (!Number.isNaN(parsed.getTime())) {
-          hireYear = parsed.getFullYear();
-        }
-      }
-
-      const years = typeof payload.changes.yearsOfService === 'number'
-        ? Math.max(0, payload.changes.yearsOfService)
-        : undefined;
-
-      if (hireYear === undefined && years === undefined) {
-        return;
-      }
-
-      setCareerOverrides(prev => ({
-        ...prev,
-        [payload.userId]: {
-          yearsOfService: years ?? prev[payload.userId]?.yearsOfService,
-          hireYear: hireYear ?? prev[payload.userId]?.hireYear,
-        },
-      }));
-
-      updateTenantUsersCache(payload.userId, (current) => {
-        if (!payload.changes) {
-          return null;
-        }
-
-        const changes = payload.changes as Record<string, unknown>;
-        const patch: Partial<UserDataItem> = {};
-
-        if (typeof changes.name === 'string') {
-          patch.name = changes.name;
-        }
-        if (typeof changes.email === 'string') {
-          patch.email = changes.email;
-        }
-        if (typeof changes.role === 'string') {
-          patch.role = changes.role;
-        }
-        if (typeof changes.status === 'string') {
-          patch.status = changes.status;
-        }
-        if (typeof changes.position === 'string' || changes.position === null) {
-          patch.position = changes.position as string | null | undefined;
-        }
-        if (typeof changes.teamId === 'string' || changes.teamId === null) {
-          patch.teamId = changes.teamId as string | null | undefined;
-        }
-        if (changes.departmentId === null || typeof changes.departmentId === 'string') {
-          patch.departmentId = changes.departmentId as string | null | undefined;
-        }
-        if (typeof changes.hireDate === 'string' || changes.hireDate instanceof Date) {
-          patch.hireDate = changes.hireDate as string | Date | undefined;
-        }
-        if (typeof changes.yearsOfService === 'number') {
-          patch.yearsOfService = Math.max(0, changes.yearsOfService);
-        }
-        if (changes.department && typeof changes.department === 'object') {
-          patch.department = {
-            name: (changes.department as { name?: string })?.name ?? current?.department?.name ?? '',
-          };
-        }
-
-        if (changes.profile && typeof changes.profile === 'object') {
-          patch.profile = {
-            ...current?.profile,
-            ...(changes.profile as { phone?: string | null }),
-          };
-        }
-
-        return Object.keys(patch).length > 0 ? patch : null;
-      });
-    };
-
-    window.addEventListener('sse:staff.updated', handleStaffUpdated);
-    return () => {
-      window.removeEventListener('sse:staff.updated', handleStaffUpdated);
-    };
-  }, [updateTenantUsersCache]);
-
-  // ✅ Prefetch all staff preferences (모든 직원의 선호도 미리 불러오기)
-  const { data: allPreferencesMap } = api.preferences.listAll.useQuery(
-    undefined,
-    {
-      enabled: true,
-      staleTime: 5 * 60 * 1000, // 5분 동안 fresh 유지 (선호도는 자주 변경되지 않음)
-      refetchOnWindowFocus: false,
-    }
-  );
-
-  const [shouldPrefetchFullData, setShouldPrefetchFullData] = useState(false);
-  const isScheduleViewActive = deferredActiveView === 'schedule';
-  const isTodayViewActive = deferredActiveView === 'today';
-
-  const requestFullDataPrefetch = useCallback(() => {
-    setShouldPrefetchFullData((prev) => (prev ? prev : true));
-  }, []);
-
-  const handleViewIntent = useCallback((view: ScheduleView) => {
-    if (view === 'schedule') {
-      requestFullDataPrefetch();
-    }
-  }, [requestFullDataPrefetch]);
-
-  useEffect(() => {
-    if (isScheduleViewActive) {
-      requestFullDataPrefetch();
-    }
-  }, [isScheduleViewActive, requestFullDataPrefetch]);
-
-  const shouldLoadFullScheduleData = shouldPrefetchFullData || isScheduleViewActive || isTodayViewActive;
-
-  // ✅ Load full month schedule only when 필요 또는 백그라운드 프리패치
-  const needsFullSchedule = shouldLoadFullScheduleData;
-  const scheduleListQuery = api.schedule.list.useQuery({
+  // ✅ Load full month schedule for all views except preferences (오늘의 근무도 한번에 로드)
+  const needsFullSchedule = filters.activeView !== 'preferences';
+  const { data: savedSchedules } = api.schedule.list.useQuery({
     departmentId: (isManager || isMember) && memberDepartmentId ? memberDepartmentId :
                   selectedDepartment !== 'all' && selectedDepartment !== 'no-department' ? selectedDepartment : undefined,
     status: isMember ? 'published' : undefined, // Members only see published, managers/admins see all including drafts
     startDate: monthStart,
     endDate: monthEnd,
-    includeMetadata: true, // Need full metadata for assignments
   }, {
-    enabled: needsFullSchedule, // 필요한 경우에만 로드
+    enabled: needsFullSchedule, // preferences 뷰가 아닐 때만 로드
     staleTime: 5 * 60 * 1000, // 5분 동안 fresh 유지
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
-  const savedSchedules = scheduleListQuery.data;
-  const isScheduleQueryLoading = shouldLoadFullScheduleData && (
-    scheduleListQuery.status === 'pending' ||
-    (scheduleListQuery.isFetching && !scheduleListQuery.data)
-  );
-  const isTodayViewLoading = isTodayViewActive && isScheduleQueryLoading;
-  const isScheduleViewLoading = isScheduleViewActive && isScheduleQueryLoading;
-  useEffect(() => {
-    if (isScheduleQueryLoading) {
-      setToolbarAnimatedIn(false);
-    } else {
-      setToolbarAnimatedIn(true);
-    }
-  }, [isScheduleQueryLoading]);
 
   // ✅ Derive today's assignments from loaded schedule to avoid 반복 fetch
   const todayAssignments = React.useMemo(() => {
@@ -761,7 +275,6 @@ function SchedulePageContent() {
     const targetDateStr = format(selectedDate, 'yyyy-MM-dd');
     return schedule.filter(assignment => format(assignment.date, 'yyyy-MM-dd') === targetDateStr);
   }, [schedule, selectedDate]);
-  const hasSchedule = schedule.length > 0;
 
   // ✅ Track last loaded schedule ID and updatedAt
   const lastLoadedRef = React.useRef<{ id: string; updatedAt: string } | null>(null);
@@ -777,14 +290,9 @@ function SchedulePageContent() {
     }
 
     if (!savedSchedules || savedSchedules.length === 0) {
-      // No saved schedule, clear cached state only if previously set
-      setLoadedScheduleId((prev) => (prev === null ? prev : null));
+      // No saved schedule, clear loaded ID
+      setLoadedScheduleId(null);
       lastLoadedRef.current = null;
-      setSchedule((prev) => (prev.length === 0 ? prev : []));
-      setOriginalSchedule((prev) => (prev.length === 0 ? prev : []));
-      setIsConfirmed(false);
-      setGenerationResult(null);
-      setOffAccrualSummaries((prev) => (prev.length === 0 ? prev : []));
       return;
     }
 
@@ -801,13 +309,8 @@ function SchedulePageContent() {
     }
 
     if (!currentMonthSchedule) {
-      setLoadedScheduleId((prev) => (prev === null ? prev : null));
+      setLoadedScheduleId(null);
       lastLoadedRef.current = null;
-      setSchedule((prev) => (prev.length === 0 ? prev : []));
-      setOriginalSchedule((prev) => (prev.length === 0 ? prev : []));
-      setIsConfirmed(false);
-      setGenerationResult(null);
-      setOffAccrualSummaries((prev) => (prev.length === 0 ? prev : []));
       return;
     }
 
@@ -819,12 +322,12 @@ function SchedulePageContent() {
     }
 
     // Extract assignments from metadata
-    const metadata = currentMonthSchedule.metadata as ScheduleMetadata;
+    const metadata = currentMonthSchedule.metadata as any;
     const assignments = metadata?.assignments || [];
 
     if (assignments.length > 0) {
       // Convert DB assignments to ScheduleAssignment format
-      const convertedAssignments: ScheduleAssignment[] = assignments.map((a: DbAssignment) => ({
+      const convertedAssignments: ScheduleAssignment[] = assignments.map((a: any) => ({
         id: a.id || `${a.employeeId}-${a.date}`,
         employeeId: a.employeeId,
         shiftId: a.shiftId,
@@ -833,54 +336,16 @@ function SchedulePageContent() {
         shiftType: a.shiftType || 'custom',
       }));
 
-      React.startTransition(() => {
-        setSchedule(convertedAssignments);
-        setOriginalSchedule(convertedAssignments);
-        setOffAccrualSummaries((metadata?.offAccruals as OffAccrualSummary[] | undefined) ?? []);
-        setIsConfirmed(currentMonthSchedule.status === 'published'); // Only confirmed if published
-        setLoadedScheduleId(currentMonthSchedule.id);
-        lastLoadedRef.current = { id: currentMonthSchedule.id, updatedAt: currentUpdatedAt };
-        if (currentMonthSchedule.departmentId && !isMember) {
-          setSelectedDepartment(prev => (
-            prev === currentMonthSchedule.departmentId ? prev : currentMonthSchedule.departmentId!
-          ));
-        }
-        console.log(`✅ Loaded ${convertedAssignments.length} assignments from ${currentMonthSchedule.status} schedule ${currentMonthSchedule.id} (updated: ${currentMonthSchedule.updatedAt})`);
-      });
-    } else {
-      setOffAccrualSummaries([]);
+      setSchedule(convertedAssignments);
+      setOriginalSchedule(convertedAssignments);
+      setIsConfirmed(currentMonthSchedule.status === 'published'); // Only confirmed if published
+      setLoadedScheduleId(currentMonthSchedule.id);
+      lastLoadedRef.current = { id: currentMonthSchedule.id, updatedAt: currentUpdatedAt };
+      console.log(`✅ Loaded ${convertedAssignments.length} assignments from ${currentMonthSchedule.status} schedule ${currentMonthSchedule.id} (updated: ${currentMonthSchedule.updatedAt})`);
     }
-  }, [savedSchedules, monthStart, canManageSchedules, isMember, setSelectedDepartment]);
+  }, [savedSchedules, monthStart, canManageSchedules]);
 
-  const deriveShiftTypeFromId = (shiftId: string) => {
-    if (!shiftId) {
-      return 'CUSTOM';
-    }
-
-    const trimmed = shiftId.trim();
-    const withoutPrefix = trimmed.startsWith('shift-') ? trimmed.slice(6) : trimmed;
-    const upper = withoutPrefix.toUpperCase();
-
-    if (upper === 'OFF') {
-      return 'O';
-    }
-
-    return upper || 'CUSTOM';
-  };
-
-  const currentMonthAssignments = React.useMemo(() => {
-    const targetMonthKey = format(monthStart, 'yyyy-MM');
-    return schedule.filter((assignment) => {
-      const assignmentDate = normalizeDate(assignment.date);
-      return format(assignmentDate, 'yyyy-MM') === targetMonthKey;
-    });
-  }, [schedule, monthStart]);
-
-  const toStableDateISOString = React.useCallback((value: Date | string) => {
-    const date = normalizeDate(value);
-    const stable = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0, 0));
-    return stable.toISOString();
-  }, []);
+  const currentWeek = monthStart;
   const buildSchedulePayload = () => {
     // ✅ Manager/Member는 항상 실제 departmentId 사용
     let actualDepartmentId: string;
@@ -899,19 +364,34 @@ function SchedulePageContent() {
     return {
       id: `schedule-${format(monthStart, 'yyyy-MM')}-${actualDepartmentId}`,
       departmentId: actualDepartmentId,
-      startDate: toStableDateISOString(monthStart),
-      endDate: toStableDateISOString(monthEnd),
-      assignments: currentMonthAssignments.map(assignment => ({
+      startDate: monthStart.toISOString(),
+      endDate: monthEnd.toISOString(),
+      assignments: schedule.map(assignment => ({
         employeeId: assignment.employeeId,
         shiftId: assignment.shiftId,
-        date: toStableDateISOString(assignment.date),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        date: normalizeDate(assignment.date).toISOString(),
         isLocked: (assignment as any).isLocked ?? false,
-        shiftType: deriveShiftTypeFromId(assignment.shiftId),
       })),
       status: 'draft' as const,
     };
   };
+
+  const departmentOptions = React.useMemo(() => {
+    if (isMember) {
+      if (memberDepartmentId) {
+        return [{ id: memberDepartmentId, name: '내 병동' }];
+      }
+      return [{ id: 'no-department', name: '배정된 병동이 없습니다' }];
+    }
+
+    return [
+      { id: 'all', name: '전체' },
+      { id: 'dept-er', name: '응급실' },
+      { id: 'dept-icu', name: '중환자실' },
+      { id: 'dept-or', name: '수술실' },
+      { id: 'dept-ward', name: '일반병동' },
+    ];
+  }, [isMember, memberDepartmentId]);
 
   useEffect(() => {
     if (!isMember) {
@@ -920,7 +400,7 @@ function SchedulePageContent() {
 
     const targetDepartment = memberDepartmentId ?? 'no-department';
     setSelectedDepartment(prev => (prev === targetDepartment ? prev : targetDepartment));
-  }, [isMember, memberDepartmentId, setSelectedDepartment]);
+  }, [isMember, memberDepartmentId]);
 
   // member 권한은 '오늘의 근무' 탭을 기본으로 설정
   useEffect(() => {
@@ -929,8 +409,7 @@ function SchedulePageContent() {
     } else if (!canViewStaffPreferences && filters.activeView === 'preferences') {
       filters.setActiveView('today');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMember, canViewStaffPreferences, filters.activeView]);
+  }, [isMember, canViewStaffPreferences, filters.activeView, filters.setActiveView]);
 
   // Determine which departmentId to use for configs
   const configDepartmentId = React.useMemo(() => {
@@ -950,11 +429,10 @@ function SchedulePageContent() {
     configKey: 'shift_types',
     departmentId: configDepartmentId, // Use department-specific config
   }, {
-    staleTime: 2 * 60 * 60 * 1000, // 2시간 동안 캐시
-    gcTime: 2.5 * 60 * 60 * 1000,
+    staleTime: 30 * 60 * 1000, // 서버 캐시 TTL(30분)과 맞춰 과도한 refetch 방지
+    gcTime: 35 * 60 * 1000, // 캐시도 비슷한 기간 유지
     refetchOnWindowFocus: false,
-    refetchOnMount: true,
-    refetchOnReconnect: true,
+    refetchOnMount: false,
   });
 
   // Load shift config (나이트 집중 근무 유급 휴가 설정 등)
@@ -962,30 +440,14 @@ function SchedulePageContent() {
     configKey: 'shiftConfig',
     departmentId: configDepartmentId, // Use department-specific config
   }, {
-    staleTime: 60 * 60 * 1000, // 1시간 동안 fresh 유지
-    gcTime: 65 * 60 * 1000,
+    staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
-    refetchOnReconnect: true,
-    refetchOnMount: true,
   });
-
-  const nightLeaveSetting = React.useMemo(() => {
-    const shiftConfigValue = (shiftConfigData?.configValue ?? {}) as {
-      preferences?: { nightIntensivePaidLeaveDays?: number };
-      nightIntensivePaidLeaveDays?: number;
-    };
-    return (
-      shiftConfigValue.preferences?.nightIntensivePaidLeaveDays ??
-      shiftConfigValue.nightIntensivePaidLeaveDays ??
-      0
-    );
-  }, [shiftConfigData]);
 
   // Fetch teams from database
   const { data: dbTeams = [] } = api.teams.getAll.useQuery(undefined, {
-    staleTime: 60 * 60 * 1000, // 1시간 동안 fresh 유지
+    staleTime: 10 * 60 * 1000, // 10분 동안 fresh 유지
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
-    refetchOnReconnect: false,
   });
 
   useEffect(() => {
@@ -998,13 +460,13 @@ function SchedulePageContent() {
 
     if (shiftTypesConfig?.configValue && Array.isArray(shiftTypesConfig.configValue) && shiftTypesConfig.configValue.length > 0) {
       // Transform from tenant_configs format to CustomShiftType format
-      const transformedShiftTypes = shiftTypesConfig.configValue.map((st: ConfigShiftType) => ({
+      const transformedShiftTypes = shiftTypesConfig.configValue.map((st: any) => ({
         code: st.code,
         name: st.name,
         startTime: st.startTime,
         endTime: st.endTime,
         color: st.color,
-        allowOvertime: (st as ConfigShiftType & { allowOvertime?: boolean }).allowOvertime ?? false, // Default value for backward compatibility
+        allowOvertime: st.allowOvertime ?? false, // Default value for backward compatibility
       }));
       setCustomShiftTypes(prev => {
         if (equal(prev, transformedShiftTypes)) {
@@ -1035,60 +497,6 @@ function SchedulePageContent() {
     }
   }, [shiftTypesConfig, isLoadingShiftTypesConfig]);
 
-  // Listen for SSE shift type updates to refresh filters immediately
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const handleShiftTypesUpdate = (event: Event) => {
-      const customEvent = event as CustomEvent<SSEEvent<'config.shift_types_updated'>>;
-      const payload = customEvent.detail?.data;
-      if (!payload || !Array.isArray(payload.shiftTypes)) {
-        return;
-      }
-
-      const targetDept = payload.departmentId ?? null;
-      const currentDept = configDepartmentId ?? null;
-      const selectedDeptForView =
-        selectedDepartment !== 'all' && selectedDepartment !== 'no-department'
-          ? selectedDepartment
-          : null;
-
-      const shouldUpdate =
-        targetDept === null ||
-        targetDept === currentDept ||
-        (currentDept === null && targetDept === selectedDeptForView);
-
-      if (shouldUpdate) {
-        const transformedShiftTypes = payload.shiftTypes.map((raw) => {
-          const st = raw as ConfigShiftType;
-          return {
-            code: st?.code ?? '',
-            name: st?.name ?? '',
-            startTime: st?.startTime ?? '00:00',
-            endTime: st?.endTime ?? '00:00',
-            color: st?.color ?? '#A3A3A3',
-            allowOvertime: (st as ConfigShiftType & { allowOvertime?: boolean })?.allowOvertime ?? false,
-          };
-        });
-
-        setCustomShiftTypes(prev => equal(prev, transformedShiftTypes) ? prev : transformedShiftTypes);
-        if (typeof window !== 'undefined') {
-          window.localStorage.setItem('customShiftTypes', JSON.stringify(transformedShiftTypes));
-        }
-      }
-
-      void utils.configs.getByKey.invalidate({
-        configKey: 'shift_types',
-        departmentId: configDepartmentId,
-      });
-    };
-
-    window.addEventListener('sse:config.shift_types_updated', handleShiftTypesUpdate);
-    return () => window.removeEventListener('sse:config.shift_types_updated', handleShiftTypesUpdate);
-  }, [configDepartmentId, selectedDepartment, utils]);
-
   // Convert customShiftTypes to Shift[] format
   const shifts = React.useMemo(() => {
     if (customShiftTypes.length > 0) {
@@ -1101,55 +509,62 @@ function SchedulePageContent() {
     return [];
   }, [customShiftTypes]);
 
-  // Load special requests for the current month
-  const shouldLoadSpecialRequests = shouldLoadFullScheduleData || modals.isPreferencesModalOpen;
+  // Fetch users from database
+  const { data: usersData } = api.tenant.users.list.useQuery(
+    {
+      limit: 100,
+      offset: 0,
+      status: 'active',
+      // member와 manager는 백엔드에서 자동으로 자신의 department로 필터링됨
+      // admin/owner만 departmentId를 명시적으로 전달
+      departmentId:
+        !isMember && userRole !== 'manager' && selectedDepartment !== 'all' && selectedDepartment !== 'no-department'
+          ? selectedDepartment
+          : undefined,
+    },
+    {
+      enabled: true,
+      staleTime: 3 * 60 * 1000, // 3분 동안 fresh 유지 (사용자 정보는 가끔 변경됨)
+      refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
+    }
+  );
 
+  // Load special requests for the current month
   const { data: specialRequestsData } = api.specialRequests.getByDateRange.useQuery({
     startDate: format(monthStart, 'yyyy-MM-dd'),
     endDate: format(monthEnd, 'yyyy-MM-dd'),
   }, {
-    enabled: shouldLoadSpecialRequests,
     staleTime: 2 * 60 * 1000, // 2분 동안 fresh 유지 (요청은 자주 변경될 수 있음)
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
 
   // Transform users data to match expected format
   // 전체 멤버 리스트 (필터링 없음 - 직원 선호사항 탭에서 사용)
-  const allMembers = React.useMemo((): UnifiedEmployee[] => {
-    if (!resolvedUsersData?.items) return [];
+  const allMembers = React.useMemo(() => {
+    if (!usersData?.items) return [];
 
-    return (resolvedUsersData.items as UserDataItem[]).map((item: UserDataItem): UnifiedEmployee => {
-      const override = careerOverrides[item.id];
-      const yearsOfService = override?.yearsOfService ?? calculateYearsOfService(item);
-      const joinDateSource = item.hireDate ?? item.createdAt;
-      const joinDate = joinDateSource ? new Date(joinDateSource).toISOString() : new Date().toISOString();
-
-      return {
-        id: item.id,
-        name: item.name,
-        email: item.email,
-        role: item.role as 'admin' | 'manager' | 'staff',
-        departmentId: item.departmentId || '',
-        department: item.department?.name || '',
-        status: (item.status === 'on_leave' ? 'on-leave' : item.status) as 'active' | 'inactive' | 'on-leave',
-        position: item.position || '',
-        joinDate,
-        yearsOfService,
-        avatar: '',
-        phone: item.profile?.phone || '',
-        teamId: item.teamId || null,
-      };
-    });
-  }, [resolvedUsersData, careerOverrides]);
-
-  const employeeNameMap = React.useMemo(() => {
-    const map: Record<string, string> = {};
-    allMembers.forEach((member) => {
-      const displayName = member.name || '이름 미등록';
-      map[member.id] = displayName;
-    });
-    return map;
-  }, [allMembers]);
+    return (usersData.items as any[]).map((item: any) => ({
+      id: item.id,
+      employeeId: item.employeeId || '',
+      name: item.name,
+      email: item.email,
+      role: item.role as 'admin' | 'manager' | 'staff',
+      departmentId: item.departmentId || '',
+      departmentName: item.department?.name || '',
+      status: item.status as 'active' | 'inactive' | 'on_leave',
+      position: item.position || '',
+      joinedAt: item.createdAt?.toISOString() || new Date().toISOString(),
+      avatar: '',
+      phone: item.profile?.phone || '',
+      skills: item.profile?.skills || [],
+      teamId: item.teamId || null,
+      workSchedule: item.profile?.preferences || {
+        preferredShifts: [],
+        availableDays: [1, 2, 3, 4, 5],
+        unavailableDates: []
+      }
+    }));
+  }, [usersData]);
 
   // 필터링된 멤버 리스트 (나의 스케줄만 보기 적용 - 스케줄 보기 탭에서 사용)
   const filteredMembers = React.useMemo(() => {
@@ -1161,7 +576,7 @@ function SchedulePageContent() {
     }
 
     // "나와 같은 스케줄 보기"를 체크한 경우
-    if ((isMember || isManager) && filters.showSameSchedule && currentUser.dbUser?.id && hasSchedule) {
+    if ((isMember || isManager) && filters.showSameSchedule && currentUser.dbUser?.id && schedule.length > 0) {
       // 현재 사용자가 근무하는 날짜들 추출
       const myWorkDates = new Set(
         schedule
@@ -1185,13 +600,12 @@ function SchedulePageContent() {
     }
 
     return members;
-  }, [allMembers, isMember, isManager, filters.showMyScheduleOnly, filters.showSameSchedule, currentUser.dbUser?.id, schedule, hasSchedule]);
+  }, [allMembers, isMember, isManager, filters.showMyScheduleOnly, filters.showSameSchedule, currentUser.dbUser?.id, schedule]);
 
   const handlePreviousMonth = React.useCallback(() => {
     setCurrentMonth(prev => subMonths(prev, 1));
     setSchedule([]);
     setGenerationResult(null);
-    setOffAccrualSummaries([]);
     setLoadedScheduleId(null); // ✅ Reset to allow loading new month's schedule
   }, []);
 
@@ -1199,7 +613,6 @@ function SchedulePageContent() {
     setCurrentMonth(prev => addMonths(prev, 1));
     setSchedule([]);
     setGenerationResult(null);
-    setOffAccrualSummaries([]);
     setLoadedScheduleId(null); // ✅ Reset to allow loading new month's schedule
   }, []);
 
@@ -1207,8 +620,13 @@ function SchedulePageContent() {
     setCurrentMonth(startOfMonth(new Date()));
     setSchedule([]);
     setGenerationResult(null);
-    setOffAccrualSummaries([]);
     setLoadedScheduleId(null); // ✅ Reset to allow loading current month's schedule
+  }, []);
+
+  const handleDepartmentChange = React.useCallback((deptId: string) => {
+    setSelectedDepartment(deptId);
+    setSchedule([]);
+    setGenerationResult(null);
   }, []);
 
   const handleToggleSwapMode = React.useCallback(() => {
@@ -1217,125 +635,223 @@ function SchedulePageContent() {
 
   const handleCloseGenerationResult = React.useCallback(() => {
     setGenerationResult(null);
-    setOffAccrualSummaries([]);
   }, []);
 
-  const handleScheduleNameChange = (value: string) => {
-    setScheduleName(value);
-  };
-
-  const handleSwapRequest = (myShift: SwapShift, targetShift: SwapShift) => {
-    setSwapRequestData({ myShift, targetShift });
-    setShowSwapRequestModal(true);
-  };
-
-  const handleSwapSubmit = (reason: string) => {
-    console.log('Swap request submitted:', reason, swapRequestData);
-    setShowSwapRequestModal(false);
-    setSwapRequestData(null);
-    alert('교환 요청이 제출되었습니다. 승인 대기 상태입니다.');
-  };
-
-  // Handle employee card click to open preferences modal
-  const handleEmployeeClick = async (member: UnifiedEmployee) => {
-    // 1️⃣ 현재 화면의 데이터로 모달을 연다
-    const employee = toEmployee(member);
-
-    // ✅ 캐시된 선호도 데이터 사용 (API 호출 없음!)
-    const cachedPrefs = allPreferencesMap?.[member.id];
-    if (cachedPrefs) {
-      const simplifiedPrefs: SimplifiedPreferences = {
-        workPatternType: cachedPrefs.workPatternType as 'three-shift' | 'night-intensive' | 'weekday-only' || 'three-shift',
-        preferredPatterns: cachedPrefs.preferredPatterns || [],
-        avoidPatterns: cachedPrefs.avoidPatterns || [],
-      };
-      employee.workPatternType = simplifiedPrefs.workPatternType;
-      setSelectedPreferences(simplifiedPrefs);
-      console.log('✅ Loaded cached preferences for', member.name);
-    } else {
-      console.log('ℹ️ No preferences found for', member.name);
-      setSelectedPreferences(null);
-    }
-
-    setSelectedEmployee(employee);
-    modals.setIsPreferencesModalOpen(true);
-  };
-
-  // ✅ tRPC mutation with Optimistic Update for instant UI feedback
-  const savePreferencesMutation = api.preferences.upsert.useMutation({
-    onMutate: async (newPreferences) => {
-      // 🚀 Cancel outgoing refetches to avoid overwriting optimistic update
-      await utils.preferences.listAll.cancel();
-
-      // Snapshot current state for rollback
-      const previousPreferences = utils.preferences.listAll.getData();
-
-      // 🚀 Optimistically update cache immediately
-      utils.preferences.listAll.setData(undefined, (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          [newPreferences.staffId]: {
-            id: old[newPreferences.staffId]?.id || crypto.randomUUID(),
-            tenantId: old[newPreferences.staffId]?.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d',
-            nurseId: newPreferences.staffId,
-            departmentId: old[newPreferences.staffId]?.departmentId || null,
-            workPatternType: newPreferences.workPatternType || 'three-shift',
-            preferredPatterns: newPreferences.preferredPatterns || [],
-            avoidPatterns: newPreferences.avoidPatterns || [],
-            createdAt: old[newPreferences.staffId]?.createdAt || new Date(),
-            updatedAt: new Date(),
-          },
-        };
-      });
-
-      console.log('🚀 Optimistic update applied instantly');
-
-      return { previousPreferences };
+  // TRPC mutation for saving preferences
+  const savePreferences = api.preferences.upsert.useMutation({
+    onSuccess: async (data) => {
+      console.log('Preferences saved successfully:', data);
+      // Invalidate both users and preferences queries
+      await utils.tenant.users.list.invalidate();
+      await utils.preferences.get.invalidate();
+      // TODO: Show success toast
     },
-    onError: (error, _variables, context) => {
-      // ⏪ Rollback on error
-      if (context?.previousPreferences) {
-        utils.preferences.listAll.setData(undefined, context.previousPreferences);
-        console.log('⏪ Rolled back due to error');
-      }
-      console.error('❌ Error saving preferences:', error);
-      alert('선호도 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
-    },
-    onSuccess: () => {
-      console.log('✅ Preferences saved to server');
-    },
-    onSettled: () => {
-      // Refetch in background to sync with server (non-blocking)
-      void utils.preferences.listAll.invalidate();
+    onError: (error) => {
+      console.error('Failed to save preferences:', error);
+      // TODO: Show error toast
     },
   });
 
+  // Swap request mutation
+  const createSwapRequest = api.swap.create.useMutation({
+    onSuccess: () => {
+      alert('교환 요청이 성공적으로 생성되었습니다. 관리자의 승인을 기다려주세요.');
+      setShowSwapRequestModal(false);
+      setSwapRequestData(null);
+    },
+    onError: (error) => {
+      console.error('Swap request failed:', error);
+      alert(`교환 요청에 실패했습니다: ${error.message}`);
+    },
+  });
+
+  // Handle employee card click to open preferences modal
+  const handleEmployeeClick = async (member: any) => {
+    const mapUserToMember = (userData: any) => ({
+      id: userData.id,
+      employeeId: userData.employeeId || '',
+      name: userData.name,
+      email: userData.email,
+      role: userData.role as 'admin' | 'manager' | 'staff',
+      departmentId: userData.departmentId || '',
+      departmentName: userData.department?.name || '',
+      status: userData.status as 'active' | 'inactive' | 'on_leave',
+      position: userData.position || '',
+      joinedAt: userData.createdAt?.toISOString() || new Date().toISOString(),
+      avatar: '',
+      phone: userData.profile?.phone || '',
+      skills: userData.profile?.skills || [],
+      teamId: userData.teamId || null,
+      workSchedule: userData.profile?.preferences || {
+        preferredShifts: [],
+        availableDays: [1, 2, 3, 4, 5],
+        unavailableDates: []
+      }
+    });
+
+    // 1️⃣ 우선 현재 화면의 데이터를 즉시 사용해 모달을 연다
+    setSelectedEmployee(toEmployee(member));
+    setSelectedPreferences(null);
+    modals.setIsPreferencesModalOpen(true);
+
+    try {
+      const fetchLatestMember = utils.tenant.users.list.fetch({
+        limit: 100,
+        offset: 0,
+        status: 'active',
+        departmentId:
+          !isMember && userRole !== 'manager' && selectedDepartment !== 'all' && selectedDepartment !== 'no-department'
+            ? selectedDepartment
+            : undefined,
+      }).then(freshUsersData => {
+        const latest = freshUsersData?.items?.find((item: any) => item.id === member.id);
+        return latest ? mapUserToMember(latest) : null;
+      }).catch(error => {
+        console.error('Failed to refresh member data:', error);
+        return null;
+      });
+
+      const fetchPreferences = fetch(`/api/preferences?employeeId=${member.id}`)
+        .then(async response => {
+          if (!response.ok) return null;
+          const savedData = await response.json();
+          console.log('Loaded preferences API response for', member.name, ':', savedData);
+          return savedData.success ? (savedData.data as SimplifiedPreferences) : null;
+        })
+        .catch(error => {
+          console.error('Failed to load preferences:', error);
+          return null;
+        });
+
+      const [latestMember, savedPreferences] = await Promise.all([fetchLatestMember, fetchPreferences]);
+
+      const resolvedMember = latestMember || member;
+      const employee = toEmployee(resolvedMember);
+
+      if (savedPreferences) {
+        employee.workPatternType = savedPreferences.workPatternType || employee.workPatternType || 'three-shift';
+        setSelectedPreferences(savedPreferences);
+      }
+
+      setSelectedEmployee(employee);
+    } catch (error) {
+      console.error('Failed to prepare preferences modal:', error);
+    }
+  };
+
   // Handle preferences save
-  const handlePreferencesSave = (preferences: ExtendedEmployeePreferences) => {
+  const handlePreferencesSave = async (preferences: ExtendedEmployeePreferences) => {
     if (!selectedEmployee) return;
 
-    const employeeSnapshot = selectedEmployee;
+    try {
+      // Convert ExtendedEmployeePreferences to SimplifiedPreferences
+      const simplifiedPrefs: SimplifiedPreferences = {
+        workPatternType: preferences.workPatternType || 'three-shift',
+        preferredPatterns: (preferences.preferredPatterns || []).map(p =>
+          typeof p === 'string' ? { pattern: p, preference: 5 } : p
+        ),
+        avoidPatterns: preferences.avoidPatterns || [],
+      };
 
-    console.log('💾 Saving preferences for', employeeSnapshot.name);
+      console.log('Saving preferences for', selectedEmployee.name, ':', simplifiedPrefs);
 
-    // 🚀 Mutate with optimistic update (non-blocking)
-    savePreferencesMutation.mutate({
-      staffId: employeeSnapshot.id,
-      workPatternType: preferences.workPatternType,
-      preferredPatterns: (preferences.preferredPatterns || []).map(p =>
-        typeof p === 'string' ? { pattern: p, preference: 5 } : p
-      ),
-      avoidPatterns: preferences.avoidPatterns,
-    });
+      // Save via REST API
+      const response = await fetch('/api/preferences', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          employeeId: selectedEmployee.id,
+          preferences: simplifiedPrefs,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save preferences');
+      }
+
+      const result = await response.json();
+      console.log('Preferences saved:', result);
+
+      // Show success message
+      alert('선호도가 성공적으로 저장되었습니다!');
+
+      // Close modal
+      modals.setIsPreferencesModalOpen(false);
+      setSelectedEmployee(null);
+      setSelectedPreferences(null);
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+      alert('선호도 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+    }
   };
 
   // Handle modal close
-  const handleModalClose = () => {
+  const handleModalClose = async () => {
+    // 모달을 닫을 때 캐시 무효화하여 업데이트된 employee 데이터 가져오기
+    await utils.tenant.users.list.invalidate();
     modals.setIsPreferencesModalOpen(false);
     setSelectedEmployee(null);
     setSelectedPreferences(null);
-    void utils.tenant.users.list.invalidate();
+  };
+
+  // My Preferences 핸들러 함수들
+  const handleSavePreferences = async (preferences: SimplifiedPreferences) => {
+    try {
+      // API를 통해 저장
+      const response = await fetch('/api/preferences', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          employeeId: currentUserId,
+          preferences,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save preferences');
+      }
+
+      const result = await response.json();
+      console.log('Preferences saved:', result);
+
+      // 성공 알림 (실제로는 토스트 사용 권장)
+      alert('선호도가 성공적으로 저장되었습니다!');
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+      alert('선호도 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+    }
+  };
+
+
+  // 직원별 주간 근무시간 계산
+  const calculateMonthlyHours = (employeeId: string) => {
+    let totalHours = 0;
+    schedule.forEach(assignment => {
+      if (assignment.employeeId === employeeId) {
+        const assignmentDate = normalizeDate(assignment.date);
+        if (assignmentDate < monthStart || assignmentDate > monthEnd) {
+          return;
+        }
+        const shift = shifts.find(s => s.id === assignment.shiftId);
+        if (shift) {
+          totalHours += shift.time.hours;
+        }
+      }
+    });
+    return totalHours;
+  };
+
+  // 제약 위반 확인
+  const hasViolations = (employeeId: string) => {
+    if (!generationResult) return false;
+    return generationResult.violations.some(v =>
+      v.message?.includes(employeeId) ||
+      (v as any).employeeId === employeeId
+    );
   };
 
   // ✅ OPTIMIZED: Pre-compute shift ID to name mapping to avoid repeated .find() calls
@@ -1428,151 +944,30 @@ function SchedulePageContent() {
   );
 
   // Fetch off-balance data for all displayed employees
-  const shouldLoadOffBalance = (
-    (shouldLoadFullScheduleData && displayMemberIds.length > 0) ||
-    modals.isPreferencesModalOpen
-  );
-
-  const offBalanceDepartmentId = React.useMemo(() => {
-    if (isManager || isMember) {
-      return memberDepartmentId || undefined;
-    }
-    if (selectedDepartment !== 'all' && selectedDepartment !== 'no-department') {
-      return selectedDepartment;
-    }
-    return undefined;
-  }, [isManager, isMember, memberDepartmentId, selectedDepartment]);
-
   const { data: offBalanceData } = api.offBalance.getBulkCurrentBalance.useQuery({
     employeeIds: displayMemberIds,
-    departmentId: offBalanceDepartmentId,
   }, {
-    enabled: shouldLoadOffBalance,
+    enabled: displayMemberIds.length > 0,
   });
 
   // Convert off-balance data to Map for easy lookup
-  type OffBalanceEntry = {
-    accumulatedOffDays: number;
-    allocatedToAccumulation: number;
-    allocatedToAllowance: number;
-    allocationStatus?: string | null;
-    departmentId?: string | null;
-    pendingExtraOffDays?: number;
-  };
-
   const offBalanceMap = React.useMemo(() => {
-    const map = new Map<string, OffBalanceEntry>();
+    const map = new Map<string, {
+      accumulatedOffDays: number;
+      allocatedToAccumulation: number;
+      allocatedToAllowance: number;
+    }>();
     if (offBalanceData) {
       offBalanceData.forEach(item => {
         map.set(item.nurseId, {
           accumulatedOffDays: item.accumulatedOffDays || 0,
           allocatedToAccumulation: item.allocatedToAccumulation || 0,
           allocatedToAllowance: item.allocatedToAllowance || 0,
-          allocationStatus: item.allocationStatus,
-          departmentId: item.departmentId,
         });
       });
     }
-    if (offAccrualSummaries.length > 0) {
-      offAccrualSummaries.forEach(record => {
-        const entry = map.get(record.employeeId) || {
-          accumulatedOffDays: 0,
-          allocatedToAccumulation: 0,
-          allocatedToAllowance: 0,
-          allocationStatus: 'pending',
-          departmentId: offBalanceDepartmentId ?? null,
-        };
-        entry.pendingExtraOffDays = (entry.pendingExtraOffDays || 0) + record.extraOffDays;
-        map.set(record.employeeId, entry);
-      });
-    }
     return map;
-  }, [offBalanceData, offAccrualSummaries, offBalanceDepartmentId]);
-
-  const recomputeOffAccrualSummaries = React.useCallback((): OffAccrualSummary[] => {
-    if (currentMonthAssignments.length === 0) {
-      return [];
-    }
-
-    const dateRange = eachDayOfInterval({ start: monthStart, end: monthEnd });
-    if (dateRange.length === 0) {
-      return [];
-    }
-
-    const restDayCount = dateRange.reduce((count, date) => {
-      const key = format(date, 'yyyy-MM-dd');
-      if (isWeekend(date) || holidayDates.has(key)) {
-        return count + 1;
-      }
-      return count;
-    }, 0);
-
-    const baseGuarantee = Math.max(restDayCount, Math.max(4, Math.floor(dateRange.length / 7)));
-    const carryOverMap = new Map<string, number>();
-    (offBalanceData ?? []).forEach((entry) => {
-      const remainingOffDays =
-        (entry as { remainingOffDays?: number }).remainingOffDays;
-      carryOverMap.set(
-        entry.nurseId,
-        Math.max(
-          0,
-          entry.allocatedToAccumulation ??
-            entry.accumulatedOffDays ??
-            remainingOffDays ??
-            0
-        )
-      );
-    });
-
-    const memberMap = new Map(filteredMembers.map(member => [member.id, member]));
-    const offCounts = new Map<string, number>();
-    const employeeIds = new Set<string>();
-
-    currentMonthAssignments.forEach((assignment) => {
-      employeeIds.add(assignment.employeeId);
-      const shiftCode =
-        (assignment.shiftType?.toUpperCase() ?? deriveShiftTypeFromId(assignment.shiftId)) || 'CUSTOM';
-      if (shiftCode === 'O' || shiftCode === 'OFF') {
-        offCounts.set(assignment.employeeId, (offCounts.get(assignment.employeeId) ?? 0) + 1);
-      }
-    });
-
-    const summaries: OffAccrualSummary[] = [];
-    employeeIds.forEach((employeeId) => {
-      const member = memberMap.get(employeeId);
-      const workPatternType =
-        member?.simplifiedPreferences?.workPatternType ??
-        member?.workPatternType ??
-        'three-shift';
-      const nightLeaveDays =
-        workPatternType === 'night-intensive' ? Math.max(0, nightLeaveSetting) : 0;
-      const carryOver = carryOverMap.get(employeeId) ?? 0;
-      const guaranteedOffDays = baseGuarantee + nightLeaveDays + carryOver;
-      const actualOffDays = offCounts.get(employeeId) ?? 0;
-
-      summaries.push({
-        employeeId,
-        guaranteedOffDays,
-        actualOffDays,
-        extraOffDays: Math.max(0, guaranteedOffDays - actualOffDays),
-      });
-    });
-
-    console.log('[OffBalance] Recomputed off accrual summaries', {
-      employeeCount: summaries.length,
-      baseGuarantee,
-    });
-
-    return summaries;
-  }, [
-    currentMonthAssignments,
-    filteredMembers,
-    offBalanceData,
-    holidayDates,
-    nightLeaveSetting,
-    monthStart,
-    monthEnd,
-  ]);
+  }, [offBalanceData]);
 
   // Validate current schedule
   const handleValidateSchedule = async () => {
@@ -1589,7 +984,7 @@ function SchedulePageContent() {
 
       // Fetch nurse_preferences for all employees
       console.log('🔍 Fetching nurse_preferences for validation...');
-      const preferencesResponse = await fetchWithAuth('/api/preferences');
+      const preferencesResponse = await fetch('/api/preferences');
       const preferencesData = await preferencesResponse.json();
 
       console.log('📦 Preferences data:', preferencesData);
@@ -1611,11 +1006,12 @@ function SchedulePageContent() {
 
       console.log('✅ Employees with preferences:', employeesWithPreferences.length);
 
-      // Use regular fetch for public validate endpoint (no auth required)
       const response = await fetch('/api/schedule/validate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-user-id': 'user-1', // 임시 사용자 ID
+          'x-tenant-id': 'default-tenant',
         },
         body: JSON.stringify({
           schedule: schedulePayload,
@@ -1677,13 +1073,12 @@ function SchedulePageContent() {
       }
 
       // Convert assignments to ScheduleAssignment format
-      const convertedAssignments: ScheduleAssignment[] = assignments.map((a: DbAssignment) => ({
-        id: a.id || `${a.employeeId}-${a.date}`,
+      const convertedAssignments: ScheduleAssignment[] = assignments.map((a: any) => ({
+        id: `${a.employeeId}-${a.date}`,
         employeeId: a.employeeId,
         shiftId: a.shiftId,
         date: new Date(a.date),
         isLocked: a.isLocked || false,
-        shiftType: a.shiftType,
       }));
 
       // Update schedule state
@@ -1711,80 +1106,51 @@ function SchedulePageContent() {
     }
   };
 
-  const handleManagerCellClick = useCallback((
-    date: Date,
-    employeeId: string,
-    assignment: { employeeId: string; shiftId: string; isSwapRequested?: boolean } | null
-  ) => {
+  // Check for publish conflicts before showing confirmation dialog
+  const handlePublishClick = async () => {
     if (!canManageSchedules) {
-      return;
-    }
-    setEditingCell({
-      date,
-      employeeId,
-      currentShift: assignment as Assignment ?? undefined,
-    });
-    setShowEditShiftModal(true);
-  }, [canManageSchedules]);
-
-  const handleShiftChange = (newShiftId: string) => {
-    if (!editingCell) return;
-    const targetDate = format(editingCell.date, 'yyyy-MM-dd');
-    setSchedule(prev => prev.map((assignment) => {
-      const assignmentDate = format(new Date(assignment.date), 'yyyy-MM-dd');
-      if (assignment.employeeId === editingCell.employeeId && assignmentDate === targetDate) {
-        return { ...assignment, shiftId: newShiftId };
-      }
-      return assignment;
-    }));
-    setShowEditShiftModal(false);
-    setEditingCell(null);
-  };
-
-  const handleConfirmToggle = async () => {
-    let validDepartmentId: string | null = selectedDepartment;
-
-    if (selectedDepartment === 'all' || selectedDepartment === 'no-department') {
-      if (isMember || isManager) {
-        validDepartmentId = currentUser.dbUser?.departmentId || null;
-      } else {
-        alert('스케줄을 확정하려면 부서를 선택해주세요.');
-        return;
-      }
-    }
-
-    if (!validDepartmentId) {
-      alert('부서 정보가 없습니다.');
+      alert('스케줄 확정 권한이 없습니다.');
       return;
     }
 
-    setIsPreparingConfirmation(true);
-    modals.setShowConfirmDialog(true);
+    // Get the scheduleId from the buildSchedulePayload
+    const schedulePayload = buildSchedulePayload();
+    const scheduleId = schedulePayload.id;
+
+    if (!scheduleId) {
+      alert('확정할 스케줄이 없습니다.');
+      return;
+    }
+
+    setIsCheckingConflict(true);
 
     try {
-      const existingCheck = await utils.schedule.checkExisting.fetch({
-        departmentId: validDepartmentId,
-        startDate: monthStart,
-        endDate: endOfMonth(monthStart),
-      });
+      // Check for conflicts using tRPC API
+      const result = await utils.schedule.checkPublishConflict.fetch({ scheduleId });
 
-      if (existingCheck.hasExisting && existingCheck.schedules.length > 0) {
-        const existingSchedule = existingCheck.schedules[0];
-        setExistingScheduleToReplace({
-          id: existingSchedule.id,
-          startDate: new Date(existingSchedule.startDate),
-          endDate: new Date(existingSchedule.endDate),
-          publishedAt: existingSchedule.publishedAt ? new Date(existingSchedule.publishedAt) : null,
-        });
+      if (result.hasConflict && result.existingSchedule) {
+        // Show conflict dialog
+        setConflictSchedule(result.existingSchedule);
+        setShowConflictDialog(true);
       } else {
-        setExistingScheduleToReplace(null);
+        // No conflict, proceed with normal confirmation dialog
+        modals.setShowConfirmDialog(true);
       }
     } catch (error) {
-      console.error('Error checking existing schedules:', error);
-      setExistingScheduleToReplace(null);
+      console.error('Error checking publish conflict:', error);
+      // On error, proceed with normal flow
+      modals.setShowConfirmDialog(true);
     } finally {
-      setIsPreparingConfirmation(false);
+      setIsCheckingConflict(false);
     }
+  };
+
+  // Handle conflict dialog confirmation
+  const handleConflictConfirm = () => {
+    setShowConflictDialog(false);
+    setForcePublish(true);
+    // Show the normal confirmation dialog, but with force flag set
+    modals.setShowConfirmDialog(true);
   };
 
   // Confirm and publish schedule
@@ -1820,28 +1186,18 @@ function SchedulePageContent() {
     modals.setIsConfirming(true);
 
     try {
-      // Delete existing schedule if present
-      if (existingScheduleToReplace) {
-        try {
-          await deleteMutation.mutateAsync({ id: existingScheduleToReplace.id });
-          console.log(`✅ Deleted existing schedule: ${existingScheduleToReplace.id}`);
-        } catch (deleteError) {
-          console.error(`❌ Failed to delete existing schedule:`, deleteError);
-          alert(`기존 스케줄 삭제 실패: ${deleteError instanceof Error ? deleteError.message : '알 수 없는 오류'}`);
-          modals.setIsConfirming(false);
-          return;
-        }
-      }
-
       const schedulePayload = buildSchedulePayload();
-      const ensuredOffAccruals = recomputeOffAccrualSummaries();
-      setOffAccrualSummaries(ensuredOffAccruals);
 
       // 스케줄 명이 입력되지 않은 경우 기본값 설정
       const finalScheduleName = scheduleName.trim() || `${format(monthStart, 'yyyy년 M월')} 스케줄`;
 
-      const response = await fetchWithAuth('/api/schedule/confirm', {
+      const response = await fetch('/api/schedule/confirm', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': 'user-1', // 임시 사용자 ID
+          'x-tenant-id': 'default-tenant',
+        },
         body: JSON.stringify({
           scheduleId: schedulePayload.id,
           schedule: schedulePayload,
@@ -1849,11 +1205,11 @@ function SchedulePageContent() {
           month: format(monthStart, 'yyyy-MM-dd'),
           departmentId: validDepartmentId,
           notifyEmployees: true,
+          force: forcePublish, // Pass force flag to delete conflicting schedules
           metadata: {
-            createdBy: currentUserId,
+            createdBy: 'user-1', // 임시 사용자 ID
             createdAt: new Date().toISOString(),
             validationScore: modals.validationScore,
-            offAccruals: ensuredOffAccruals,
           },
         }),
       });
@@ -1861,25 +1217,13 @@ function SchedulePageContent() {
       const result = await response.json();
 
       if (result.success) {
-        if (Array.isArray(result.offBalanceDebug)) {
-          result.offBalanceDebug.forEach((entry: { message?: string; data?: Record<string, unknown> }) => {
-            const msg = entry?.message || 'OffBalance debug';
-            const data = entry?.data ?? {};
-            // eslint-disable-next-line no-console
-            console.log(`[OffBalance] ${msg}`, data);
-          });
-        }
-
+        setScheduleStatus('confirmed');
+        setIsConfirmed(true);
         modals.setShowConfirmDialog(false);
         setScheduleName(''); // 스케줄 명 초기화
-        setExistingScheduleToReplace(null); // Clear existing schedule state
 
-        // ✅ Invalidate related queries to refresh UI immediately
-        await Promise.all([
-          utils.schedule.invalidate(),
-          utils.offBalance.getBulkCurrentBalance.invalidate(),
-          utils.offBalance.getByEmployee.invalidate(),
-        ]);
+        // ✅ Invalidate schedule cache to reload from DB
+        await utils.schedule.list.invalidate();
 
         alert('스케줄이 확정되었습니다!\n직원들에게 알림이 발송되었습니다.');
       } else {
@@ -1890,6 +1234,7 @@ function SchedulePageContent() {
       alert('스케줄 확정 중 오류가 발생했습니다.');
     } finally {
       modals.setIsConfirming(false);
+      setForcePublish(false); // Reset force flag
     }
   };
 
@@ -1926,12 +1271,14 @@ function SchedulePageContent() {
 
     console.log(`📋 Saving draft schedule to department: ${validDepartmentId}`);
 
-    setIsSavingDraft(true);
     try {
       const schedulePayload = buildSchedulePayload();
 
-      const response = await fetchWithAuth('/api/schedule/save-draft', {
+      const response = await fetch('/api/schedule/save-draft', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           schedule: schedulePayload,
           month: format(monthStart, 'yyyy-MM-dd'),
@@ -1940,7 +1287,6 @@ function SchedulePageContent() {
           metadata: {
             createdBy: currentUserId,
             createdAt: new Date().toISOString(),
-            offAccruals: offAccrualSummaries,
           },
         }),
       });
@@ -1972,9 +1318,6 @@ function SchedulePageContent() {
       console.error('Save draft error:', error);
       alert('임시 저장 중 오류가 발생했습니다.');
     }
-    finally {
-      setIsSavingDraft(false);
-    }
   };
 
   const handleGenerateSchedule = async () => {
@@ -1990,32 +1333,40 @@ function SchedulePageContent() {
 
     setIsGenerating(true);
     setGenerationResult(null);
-    setOffAccrualSummaries([]);
 
     try {
+      // 0. customShiftTypes 확인 (비어있으면 다시 로드)
       let activeCustomShiftTypes = customShiftTypes;
       if (!activeCustomShiftTypes || activeCustomShiftTypes.length === 0) {
+        console.warn('⚠️ customShiftTypes가 비어있음, DB/localStorage에서 재로드 시도');
+        // Try to reload from tenant_configs
         if (shiftTypesConfig?.configValue && Array.isArray(shiftTypesConfig.configValue) && shiftTypesConfig.configValue.length > 0) {
-          activeCustomShiftTypes = shiftTypesConfig.configValue.map((st: ConfigShiftType) => ({
+          // Transform from tenant_configs format
+          activeCustomShiftTypes = shiftTypesConfig.configValue.map((st: any) => ({
             code: st.code,
             name: st.name,
             startTime: st.startTime,
             endTime: st.endTime,
             color: st.color,
-            allowOvertime: (st as ConfigShiftType & { allowOvertime?: boolean }).allowOvertime ?? false,
+            allowOvertime: st.allowOvertime ?? false,
           }));
+          console.log('✅ tenant_configs에서 재로드:', activeCustomShiftTypes);
         } else {
-          const savedShiftTypes = typeof window !== 'undefined' ? window.localStorage.getItem('customShiftTypes') : null;
+          // Try localStorage
+          const savedShiftTypes = localStorage.getItem('customShiftTypes');
           if (savedShiftTypes) {
             try {
               activeCustomShiftTypes = JSON.parse(savedShiftTypes);
+              console.log('✅ localStorage에서 재로드:', activeCustomShiftTypes);
             } catch (error) {
-              console.error('Failed to parse cached shift types:', error);
+              console.error('❌ localStorage 파싱 실패:', error);
             }
           }
         }
 
+        // If still empty, use default shift types
         if (!activeCustomShiftTypes || activeCustomShiftTypes.length === 0) {
+          console.warn('⚠️ customShiftTypes를 로드할 수 없음, 기본값 사용');
           activeCustomShiftTypes = [
             { code: 'D', name: '주간', startTime: '08:00', endTime: '16:00', color: '#EAB308', allowOvertime: false },
             { code: 'E', name: '저녁', startTime: '16:00', endTime: '24:00', color: '#F59E0B', allowOvertime: false },
@@ -2025,47 +1376,86 @@ function SchedulePageContent() {
           ];
         }
       }
+      console.log('📋 활성 customShiftTypes:', activeCustomShiftTypes.map((st: any) => ({ code: st.code, name: st.name })));
 
-      activeCustomShiftTypes = activeCustomShiftTypes ?? [];
+      // 0.1. Config 설정 불러오기 (나이트 집중 근무 유급 휴가 설정 포함)
+      let nightIntensivePaidLeaveDays = 0;
+      try {
+        if (shiftConfigData) {
+          const config = shiftConfigData.configValue as any;
+          nightIntensivePaidLeaveDays = config.preferences?.nightIntensivePaidLeaveDays || 0;
+        } else {
+          const savedConfig = localStorage.getItem('shiftConfig');
+          if (savedConfig) {
+            const config = JSON.parse(savedConfig);
+            nightIntensivePaidLeaveDays = config.preferences?.nightIntensivePaidLeaveDays || 0;
+          }
+        }
+        if (nightIntensivePaidLeaveDays > 0) {
+          console.log(`⚙️ 나이트 집중 근무 유급 휴가: ${nightIntensivePaidLeaveDays}일/월`);
+        }
+      } catch (error) {
+        console.warn('⚠️ Failed to load config, using default values:', error);
+      }
 
-      const preferencesResponse = await fetchWithAuth('/api/preferences');
+      // 1. 모든 직원의 선호도 가져오기
+      const preferencesResponse = await fetch('/api/preferences');
       const preferencesData = await preferencesResponse.json();
       const preferencesMap = new Map<string, SimplifiedPreferences>();
+
       if (preferencesData.success && preferencesData.data) {
         Object.entries(preferencesData.data).forEach(([employeeId, prefs]) => {
           preferencesMap.set(employeeId, prefs as SimplifiedPreferences);
         });
       }
 
-    const inferredDepartmentId =
-      currentUser.dbUser?.departmentId ||
-      memberDepartmentId ||
-      (filteredMembers[0]?.departmentId ?? '') ||
-      selectedDepartment ||
-      '';
+      console.log(`✅ ${preferencesMap.size}명의 선호도 로드 완료`);
 
-    if (!inferredDepartmentId) {
-      alert('해당 계정에 부서가 연결되어 있지 않아 스케줄을 생성할 수 없습니다. 관리자에게 문의하세요.');
-      setIsGenerating(false);
-      return;
-    }
-
-      let teamPattern: TeamPattern | null = null;
+      // 1.5. 부서별 team pattern 가져오기 (fallback용)
+      let teamPattern: any = null;
       try {
-        const teamPatternResponse = await fetch(`/api/department-patterns?departmentId=${inferredDepartmentId}`);
-        const teamPatternData = await teamPatternResponse.json() as TeamPattern & { pattern?: TeamPattern; defaultPattern?: TeamPattern };
-        teamPattern = teamPatternData.pattern || teamPatternData.defaultPattern || teamPatternData;
+        // 선택된 부서 또는 첫 번째 직원의 부서로 team pattern 조회
+        const targetDepartmentId = selectedDepartment === 'all'
+          ? filteredMembers[0]?.departmentId
+          : selectedDepartment;
+
+        console.log(`🔍 부서 패턴 조회 시작: departmentId=${targetDepartmentId}`);
+
+        if (targetDepartmentId) {
+          const teamPatternResponse = await fetch(`/api/department-patterns?departmentId=${targetDepartmentId}`);
+          const teamPatternData = await teamPatternResponse.json();
+          console.log(`📦 부서 패턴 API 응답:`, teamPatternData);
+
+          teamPattern = teamPatternData.pattern || teamPatternData.defaultPattern || teamPatternData;
+          console.log(`📊 최종 teamPattern:`, {
+            requiredStaffDay: teamPattern?.requiredStaffDay,
+            requiredStaffEvening: teamPattern?.requiredStaffEvening,
+            requiredStaffNight: teamPattern?.requiredStaffNight,
+            defaultPatterns: teamPattern?.defaultPatterns,
+            avoidPatterns: teamPattern?.avoidPatterns,
+          });
+
+          if (teamPatternData.pattern) {
+            console.log(`✅ 부서 패턴 로드: D=${teamPattern.requiredStaffDay}, E=${teamPattern.requiredStaffEvening}, N=${teamPattern.requiredStaffNight} (부서: ${targetDepartmentId})`);
+          } else {
+            console.warn(`⚠️ 부서 패턴 없음 - 기본값 사용 (부서: ${targetDepartmentId})`);
+          }
+        } else {
+          console.warn(`⚠️ targetDepartmentId가 없음`);
+        }
       } catch (error) {
-        console.warn('Failed to load department pattern:', error);
+        console.warn('⚠️ Failed to load team pattern, will use default preferences:', error);
       }
 
+      // 1.8. Special requests 가져오기 (Request 탭에서 저장한 shift requests)
       let simpleSpecialRequests: Array<{
         employeeId: string;
         requestType: string;
         date: string;
-        shiftTypeCode?: string;
+        shiftTypeCode?: string | null;
       }> = [];
       try {
+        // tRPC endpoint를 직접 호출
         const specialRequestsResponse = await fetch(
           `/api/trpc/specialRequests.getApprovedForScheduling?batch=1&input=${encodeURIComponent(JSON.stringify({
             "0": {
@@ -2076,32 +1466,75 @@ function SchedulePageContent() {
             }
           }))}`
         );
-        const specialRequestsData = await specialRequestsResponse.json() as Array<{ result?: { data?: { json?: SpecialRequest[] } } }>;
+        const specialRequestsData = await specialRequestsResponse.json();
+
         if (specialRequestsData && specialRequestsData[0]?.result?.data?.json) {
-          simpleSpecialRequests = specialRequestsData[0].result.data.json.map((req: SpecialRequest) => ({
+          const approvedRequests = specialRequestsData[0].result.data.json;
+          console.log(`✅ Loaded ${approvedRequests.length} approved shift requests`);
+
+          // SimpleScheduler의 SpecialRequest 형식으로 변환 (date 필드 사용)
+          simpleSpecialRequests = approvedRequests.map((req: any) => ({
             employeeId: req.employeeId,
             requestType: req.requestType,
-            date: req.date,
-            shiftTypeCode: req.shiftTypeCode ?? undefined,
+            date: req.date, // 단일 date 필드 사용
+            shiftTypeCode: req.shiftTypeCode || null,
           }));
+
+          console.log(`✅ ${simpleSpecialRequests.length}개의 특별 요청 로드 완료`);
         }
       } catch (error) {
-        console.warn('Failed to load special requests:', error);
+        console.warn('⚠️ Failed to load special requests:', error);
       }
 
+      // 2. MockTeamMember를 UnifiedEmployee로 변환
+      let prefsFoundCount = 0;
+      let teamPatternUsedCount = 0;
+      let defaultUsedCount = 0;
+
       const unifiedEmployees: UnifiedEmployee[] = filteredMembers.map(member => {
-        const comprehensivePrefs = preferencesMap.get(member.id);
+        let comprehensivePrefs = preferencesMap.get(member.id);
+
+        // preferencesMap에 값이 있는지 확인
+        if (comprehensivePrefs) {
+          prefsFoundCount++;
+        } else if (teamPattern) {
+          // team pattern을 기반으로 기본 선호도 생성
+          comprehensivePrefs = undefined;
+          teamPatternUsedCount++;
+        } else {
+          // team pattern도 없으면 완전 기본값 사용
+          defaultUsedCount++;
+        }
+
         return EmployeeAdapter.fromMockToUnified(member, comprehensivePrefs);
       });
 
+      console.log(`📊 선호도 출처: 개인설정 ${prefsFoundCount}명, 팀패턴 ${teamPatternUsedCount}명, 기본값 ${defaultUsedCount}명`);
+
+      // 3. UnifiedEmployee를 스케줄러용 Employee로 변환 및 검증
       const employees: Employee[] = [];
+      const validationErrors: string[] = [];
+
       for (const unified of unifiedEmployees) {
         const employee = EmployeeAdapter.toSchedulerEmployee(unified);
-        employees.push(employee);
+        const validation = validateEmployee(employee);
+
+        if (validation.success) {
+          employees.push(employee);
+        } else {
+          validationErrors.push(`${unified.name}: ${validation.errors?.join(', ')}`);
+        }
       }
 
+      if (validationErrors.length > 0) {
+        console.error('Employee validation errors:', validationErrors);
+        alert(`일부 직원 데이터에 문제가 있습니다:\n${validationErrors.slice(0, 3).join('\n')}`);
+      }
+
+      // 4. Holidays 가져오기 + 주말 자동 추가
       let holidays: Array<{ date: string; name: string }> = [];
       try {
+        // DB에서 공휴일 로드
         const holidaysResponse = await fetch(
           `/api/trpc/holidays.getByDateRange?batch=1&input=${encodeURIComponent(JSON.stringify({
             "0": {
@@ -2112,398 +1545,319 @@ function SchedulePageContent() {
             }
           }))}`
         );
-        const holidaysData = await holidaysResponse.json() as Array<{ result?: { data?: { json?: Holiday[] } } }>;
+        const holidaysData = await holidaysResponse.json();
         if (holidaysData && holidaysData[0]?.result?.data?.json) {
-          holidays = holidaysData[0].result.data.json.map((h: Holiday) => ({
+          holidays = holidaysData[0].result.data.json.map((h: any) => ({
             date: h.date,
-            name: h.name,
+            name: h.name
           }));
         }
       } catch (error) {
-        console.warn('Failed to load holidays from DB:', error);
+        console.warn('⚠️ Failed to load holidays from DB:', error);
       }
 
+      // 주말을 holiday로 자동 추가 (주말 = 최소 인원만 배치)
       const allDaysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
-      allDaysInMonth.forEach(day => {
-        if (isWeekend(day)) {
-          const dateStr = format(day, 'yyyy-MM-dd');
-          if (!holidays.find(h => h.date === dateStr)) {
-            holidays.push({
-              date: dateStr,
-              name: day.getDay() === 0 ? '일요일' : '토요일',
-            });
-          }
-        }
-      });
-
-      let teamPatternPayload: { pattern: string[]; avoidPatterns?: string[][] } | null = null;
-      if (teamPattern?.defaultPatterns?.length) {
-        teamPatternPayload = {
-          pattern: teamPattern.defaultPatterns[0] || ['D', 'D', 'E', 'E', 'N', 'N', 'OFF', 'OFF'],
-          avoidPatterns: teamPattern?.avoidPatterns || [],
-        };
-      } else if (Array.isArray(teamPattern?.pattern)) {
-        teamPatternPayload = {
-          pattern: teamPattern.pattern,
-          avoidPatterns: teamPattern?.avoidPatterns || [],
-        };
-      }
-
-      const requiredStaffPerShift = teamPattern
-        ? (() => {
-            const baseMap: Record<string, number> = teamPattern.requiredStaffByShift
-              ? { ...teamPattern.requiredStaffByShift }
-              : {
-                  D: (teamPattern.requiredStaffDay as number) || 5,
-                  E: (teamPattern.requiredStaffEvening as number) || 4,
-                  N: (teamPattern.requiredStaffNight as number) || 3,
-                };
-            ['D', 'E', 'N'].forEach((code, index) => {
-              if (typeof baseMap[code] !== 'number') {
-                baseMap[code] = [5, 4, 3][index];
-              }
-            });
-            return baseMap;
-          })()
-        : undefined;
-
-      const configShiftOverrides = new Map<string, ShiftType>();
-      if (shiftTypesConfig?.configValue && Array.isArray(shiftTypesConfig.configValue)) {
-        shiftTypesConfig.configValue.forEach((st: ConfigShiftType) => {
-          const normalizedCode = typeof st.code === 'string' ? st.code.toUpperCase() : '';
-          if (!normalizedCode) return;
-          configShiftOverrides.set(normalizedCode, {
-            code: normalizedCode,
-            name: st.name,
-            startTime: st.startTime,
-            endTime: st.endTime,
-            color: st.color,
-            allowOvertime: (st as ConfigShiftType & { allowOvertime?: boolean }).allowOvertime ?? false,
+      const weekendDays = allDaysInMonth.filter(day => isWeekend(day));
+      weekendDays.forEach(day => {
+        const dateStr = format(day, 'yyyy-MM-dd');
+        if (!holidays.find(h => h.date === dateStr)) {
+          holidays.push({
+            date: dateStr,
+            name: day.getDay() === 0 ? '일요일' : '토요일'
           });
-        });
-      }
-
-      const shiftCodeSet = new Set<string>(STANDARD_AI_SHIFT_CODES);
-      const registerShiftCode = (raw?: string | null) => {
-        if (typeof raw !== 'string') return;
-        const normalized = raw.trim().toUpperCase();
-        if (!normalized) return;
-        shiftCodeSet.add(normalized);
-      };
-
-      if (requiredStaffPerShift) {
-        Object.keys(requiredStaffPerShift).forEach(registerShiftCode);
-      }
-      teamPattern?.defaultPatterns?.forEach(pattern => pattern.forEach(registerShiftCode));
-      const legacyPattern = (teamPattern as { pattern?: string[] } | null)?.pattern;
-      legacyPattern?.forEach(registerShiftCode);
-      teamPattern?.avoidPatterns?.forEach(pattern => pattern.forEach(registerShiftCode));
-      activeCustomShiftTypes?.forEach(st => registerShiftCode(st.code));
-      configShiftOverrides.forEach((_, code) => registerShiftCode(code));
-
-      const orderedShiftCodes: string[] = [];
-      STANDARD_AI_SHIFT_CODES.forEach(code => orderedShiftCodes.push(code));
-      const additionalCodes = Array.from(shiftCodeSet).filter(code => !STANDARD_AI_SHIFT_CODES.includes(code as StandardShiftCode));
-      additionalCodes.sort();
-      additionalCodes.forEach(code => orderedShiftCodes.push(code));
-
-      const generationShiftTypes: ShiftType[] = [];
-      orderedShiftCodes.forEach(code => {
-        const normalized = code.toUpperCase();
-        if (configShiftOverrides.has(normalized)) {
-          generationShiftTypes.push(configShiftOverrides.get(normalized)!);
-          return;
         }
-        const fallbackShift = activeCustomShiftTypes?.find(
-          shift => typeof shift.code === 'string' && shift.code.toUpperCase() === normalized
-        );
-        if (fallbackShift) {
-          generationShiftTypes.push({ ...fallbackShift, code: normalized });
-          return;
-        }
-        if (DEFAULT_STANDARD_SHIFT_TYPES[normalized as StandardShiftCode]) {
-          generationShiftTypes.push(DEFAULT_STANDARD_SHIFT_TYPES[normalized as StandardShiftCode]);
-          return;
-        }
-        generationShiftTypes.push({
-          ...DEFAULT_FALLBACK_SHIFT_TYPE,
-          code: normalized,
-          name: normalized,
-        });
       });
 
-      let generationShifts = convertShiftTypesToShifts(generationShiftTypes);
-      if (generationShifts.length === 0) {
-        generationShifts = convertShiftTypesToShifts(STANDARD_AI_SHIFT_CODES.map(code => DEFAULT_STANDARD_SHIFT_TYPES[code]));
-      }
+      console.log(`✅ 휴일 ${holidays.length}개 (공휴일 ${holidays.length - weekendDays.length}개 + 주말 ${weekendDays.length}개)`);
 
-      const payload = {
-        name: `AI 스케줄 - ${format(monthStart, 'yyyy-MM')}`,
-        departmentId: inferredDepartmentId,
-        startDate: monthStart,
-        endDate: monthEnd,
-        employees,
-        shifts: generationShifts,
-        constraints: DEFAULT_CONSTRAINTS,
-        specialRequests: simpleSpecialRequests,
-        holidays,
-        teamPattern: teamPatternPayload,
-        requiredStaffPerShift,
-        optimizationGoal: 'balanced' as const,
-        nightIntensivePaidLeaveDays: nightLeaveSetting,
-      };
-
-      const result = await generateScheduleMutation.mutateAsync(payload);
-      let normalizedAssignments: ScheduleAssignment[] = result.assignments.map((assignment: DbAssignment) => ({
-        ...assignment,
-        date: new Date(assignment.date),
-        id: assignment.id || `${assignment.employeeId}-${assignment.date}`,
-        isLocked: assignment.isLocked || false,
+      // 5. SimpleScheduler용 Employee 변환
+      const simpleEmployees = employees.map(emp => ({
+        id: emp.id,
+        name: emp.name,
+        role: emp.role as 'RN' | 'CN' | 'SN' | 'NA',
+        workPatternType: emp.workPatternType,
+        preferredShiftTypes: emp.preferredShiftTypes,
+        maxConsecutiveDaysPreferred: emp.maxConsecutiveDaysPreferred,
+        maxConsecutiveNightsPreferred: emp.maxConsecutiveNightsPreferred,
       }));
 
-      // AI 검토 기능이 활성화되어 있고 권한이 있는 경우 AI 검토 실행
-      if (aiEnabled && aiPermission?.canUse) {
-        try {
-          const { reviewScheduleWithAI } = await import('@/lib/ai/openai-client');
+      // 🔍 디버깅: 직원 workPatternType 분포 확인
+      const empPatternDistribution: Record<string, string[]> = {
+        'weekday-only': [],
+        'three-shift': [],
+        'night-intensive': [],
+        'undefined': [],
+      };
+      simpleEmployees.forEach(emp => {
+        const pattern = emp.workPatternType || 'undefined';
+        if (!empPatternDistribution[pattern]) {
+          empPatternDistribution[pattern] = [];
+        }
+        empPatternDistribution[pattern].push(emp.name);
+      });
+      console.log('📋 직원 근무 패턴 분류:');
+      Object.entries(empPatternDistribution).forEach(([pattern, names]) => {
+        if (names.length > 0) {
+          console.log(`   ${pattern} (${names.length}명): ${names.slice(0, 5).join(', ')}${names.length > 5 ? ` 외 ${names.length - 5}명` : ''}`);
+        }
+      });
 
-          const aiReviewResult = await reviewScheduleWithAI({
-            schedule: {
-              employees: employees.map(emp => ({
-                id: emp.id,
-                name: emp.name,
-                role: emp.role,
-                preferences: {
-                  workPatternType: emp.workPatternType,
-                },
-              })),
-              assignments: normalizedAssignments.map(a => ({
-                date: format(a.date, 'yyyy-MM-dd'),
-                employeeId: a.employeeId,
-                shiftId: a.shiftId,
-                shiftType: a.shiftType,
-              })),
-              constraints: {
-                minStaff: requiredStaffPerShift ? Math.min(...Object.values(requiredStaffPerShift)) : undefined,
-                maxConsecutiveDays: 6,
-                minRestDays: 1,
-              },
-            },
-            period: {
-              startDate: format(monthStart, 'yyyy-MM-dd'),
-              endDate: format(monthEnd, 'yyyy-MM-dd'),
-            },
-          });
+      // 6. SimpleSchedulerConfig 생성
+      const schedulerConfig = {
+        year: currentMonth.getFullYear(),
+        month: currentMonth.getMonth() + 1, // 1-12
+        employees: simpleEmployees,
+        holidays: holidays,
+        specialRequests: simpleSpecialRequests,
+        teamPattern: teamPattern?.defaultPatterns ? {
+          pattern: teamPattern.defaultPatterns[0] || ['D', 'D', 'E', 'E', 'N', 'N', 'OFF', 'OFF']
+        } : undefined,
+        requiredStaffPerShift: teamPattern ? {
+          D: teamPattern.requiredStaffDay || 5,
+          E: teamPattern.requiredStaffEvening || 4,
+          N: teamPattern.requiredStaffNight || 3,
+        } : { D: 5, E: 4, N: 3 },
+        avoidPatterns: teamPattern?.avoidPatterns || [], // 기피 근무 패턴
+      };
 
-          // AI 개선 제안이 있는 경우 사용자에게 표시
-          if (aiReviewResult.analysis.qualityScore < 80 && aiReviewResult.suggestions.length > 0) {
-            const shouldApply = confirm(
-              `AI 분석 결과:\n` +
-              `품질 점수: ${aiReviewResult.analysis.qualityScore}/100\n\n` +
-              `주요 문제점:\n${aiReviewResult.analysis.issues.slice(0, 3).map(i => `- ${i.description}`).join('\n')}\n\n` +
-              `AI가 ${aiReviewResult.suggestions.length}개의 개선 제안을 제공했습니다.\n` +
-              `개선된 스케줄을 적용하시겠습니까?`
-            );
+      console.log(`📋 스케줄러 설정: ${schedulerConfig.employees.length}명, 필요인원 D${schedulerConfig.requiredStaffPerShift.D}/E${schedulerConfig.requiredStaffPerShift.E}/N${schedulerConfig.requiredStaffPerShift.N}`);
+      console.log(`🚫 기피 패턴 설정:`, schedulerConfig.avoidPatterns?.length || 0, '개', schedulerConfig.avoidPatterns);
 
-            if (shouldApply && aiReviewResult.improvedSchedule) {
-              // AI가 제안한 개선된 스케줄 적용
-              normalizedAssignments = aiReviewResult.improvedSchedule.assignments.map((assignment) => ({
-                employeeId: assignment.employeeId,
-                date: new Date(assignment.date),
-                shiftId: assignment.shiftId || '',
-                shiftType: assignment.shiftType,
-                id: `${assignment.employeeId}-${assignment.date}`,
-                isLocked: false,
-              }));
+      // 7. 스케줄 생성
+      const scheduler = new SimpleScheduler(schedulerConfig);
+      const scheduleAssignments = await scheduler.generate();
+
+      console.log(`✅ Generated ${scheduleAssignments.length} schedule assignments`);
+
+      // 8. SimpleScheduler 결과를 기존 형식으로 변환
+      console.log(`🔍 activeCustomShiftTypes:`, activeCustomShiftTypes.map((st: any) => ({ code: st.code, name: st.name })));
+
+      // 먼저 special requests Map 생성 (빠른 조회용)
+      const specialRequestsLookup = new Map<string, string>();
+      simpleSpecialRequests.forEach(req => {
+        if (req.requestType === 'shift_request' && req.shiftTypeCode) {
+          const key = `${req.employeeId}-${req.date}`;
+          // shiftTypeCode에서 ^ 제거하고 대문자로 (예: 'd^' -> 'D')
+          const cleanCode = req.shiftTypeCode.replace('^', '').toUpperCase();
+          specialRequestsLookup.set(key, cleanCode);
+        }
+      });
+
+      // 변환 전 시프트 분포 확인
+      const preConversionDistribution = scheduleAssignments.reduce((acc, a) => {
+        acc[a.shift] = (acc[a.shift] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      console.log(`📊 변환 전 시프트 분포 (SimpleScheduler 출력):`, preConversionDistribution);
+
+      const convertedAssignments: ExtendedScheduleAssignment[] = scheduleAssignments.map(assignment => {
+        // activeCustomShiftTypes에서 shift code로 shiftId 찾기
+        let shiftId = 'O'; // Default to OFF code
+        let shiftType: ExtendedScheduleAssignment['shiftType'] = 'off';
+
+        if (assignment.shift === 'OFF') {
+          // OFF: activeCustomShiftTypes에서 "O" 코드를 찾거나 기본 'O' 사용
+          const offShiftType = activeCustomShiftTypes.find((st: any) =>
+            st.code.toUpperCase() === 'O' || st.code.toUpperCase() === 'OFF'
+          );
+          if (offShiftType) {
+            shiftId = offShiftType.code.toUpperCase();
+          } else {
+            shiftId = 'O'; // Fallback to OFF code
+          }
+          shiftType = 'off';
+        } else if (assignment.shift === 'A') {
+          // 행정 근무 (평일 행정 업무) - 대소문자 구분 없이
+          const adminShiftType = activeCustomShiftTypes.find((st: any) => st.code.toUpperCase() === 'A');
+          if (adminShiftType) {
+            shiftId = adminShiftType.code.toUpperCase();
+            shiftType = 'custom';
+          } else {
+            // A 타입이 없으면 shift-a로 (D와 구분 필요)
+            shiftId = 'A';
+            shiftType = 'custom';
+          }
+        } else {
+          // D, E, N 시프트 - 대소문자 구분 없이 매칭
+          const matchingShiftType = activeCustomShiftTypes.find((st: any) =>
+            st.code.toUpperCase() === assignment.shift.toUpperCase()
+          );
+          if (matchingShiftType) {
+            shiftId = matchingShiftType.code.toUpperCase();
+          } else {
+            // activeCustomShiftTypes에 없으면 기본 shiftId 생성
+            shiftId = assignment.shift.toUpperCase();
+          }
+          shiftType = ((): ExtendedScheduleAssignment['shiftType'] => {
+            switch (assignment.shift) {
+              case 'D':
+                return 'day';
+              case 'E':
+                return 'evening';
+              case 'N':
+                return 'night';
+              default:
+                return 'custom';
             }
-          }
-        } catch (aiError) {
-          console.error('AI 스케줄 검토 중 오류:', aiError);
-          // AI 검토 실패 시에도 원래 스케줄은 사용
-          alert('AI 검토 중 오류가 발생했지만, 기본 스케줄은 생성되었습니다.');
+          })();
         }
+
+        // Check if this assignment matches a special request
+        const requestKey = `${assignment.employeeId}-${assignment.date}`;
+        const requestedShift = specialRequestsLookup.get(requestKey);
+        const isRequested = requestedShift === assignment.shift;
+
+        return {
+          id: `${assignment.employeeId}-${assignment.date}`,
+          employeeId: assignment.employeeId,
+          shiftId,
+          date: new Date(assignment.date),
+          isLocked: false,
+          shiftType,
+          isRequested, // 직원이 요청한 근무인지 표시
+        };
+      });
+
+      // 요청 반영 통계 로그
+      const requestedCount = convertedAssignments.filter(a => a.isRequested).length;
+      if (requestedCount > 0) {
+        console.log(`✨ ${requestedCount}개의 직원 요청이 스케줄에 반영되었습니다!`);
       }
 
-      setSchedule(normalizedAssignments);
-      setOriginalSchedule(normalizedAssignments);
-      setIsConfirmed(false);
-      setLoadedScheduleId(result.scheduleId);
-      if (result.generationResult) {
-        setGenerationResult({
-          success: true,
-          schedule: undefined,
-          violations: result.generationResult.violations,
-          score: result.generationResult.score,
-          iterations: 0,
-          computationTime: result.generationResult.computationTime,
-          offAccruals: result.generationResult.offAccruals,
-        });
-        setOffAccrualSummaries(result.generationResult.offAccruals ?? []);
-      } else {
-        setGenerationResult(null);
-        setOffAccrualSummaries([]);
+      // 변환 후 시프트 분포 확인
+      try {
+        const convertedDistribution = convertedAssignments.reduce((acc, a) => {
+          const key = a.shiftId;
+          acc[key] = (acc[key] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+        console.log(`📊 변환 후 시프트 분포:`, convertedDistribution);
+      } catch (error) {
+        console.error('❌ 변환 후 분포 계산 에러:', error);
       }
 
-      // AI로 생성한 경우 자동 임시저장
-      if (aiEnabled && aiPermission?.canUse) {
-        try {
-          const saveDraftResponse = await fetchWithAuth('/api/schedule/save-draft', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              schedule: {
-                departmentId: inferredDepartmentId,
-                startDate: format(monthStart, 'yyyy-MM-dd'),
-                endDate: format(monthEnd, 'yyyy-MM-dd'),
-                assignments: normalizedAssignments.map(a => ({
-                  employeeId: a.employeeId,
-                  shiftId: a.shiftId,
-                  date: format(a.date, 'yyyy-MM-dd'),
-                  isLocked: a.isLocked,
-                  shiftType: a.shiftType,
-                })),
-              },
-              name: `AI 생성 - ${format(monthStart, 'yyyy년 MM월')}`,
-              metadata: {
-                aiGenerated: true,
-                generatedAt: new Date().toISOString(),
-              },
-            }),
-          });
+      setSchedule(convertedAssignments);
+      setOriginalSchedule(convertedAssignments); // 원본 저장
+      setGenerationResult(null); // SimpleScheduler는 result 객체를 반환하지 않음
+      setLoadedScheduleId(null); // ✅ Clear loaded ID since this is a newly generated schedule
+      filters.setActiveView('schedule'); // 스케줄 생성 후 스케줄 뷰로 전환
 
-          if (saveDraftResponse.ok) {
-            const saveData = await saveDraftResponse.json();
-            console.log('AI 생성 스케줄 자동 임시저장 완료:', saveData);
-            // 스케줄 목록 갱신
-            await utils.schedule.invalidate();
-          }
-        } catch (saveError) {
-          console.error('자동 임시저장 실패:', saveError);
-          // 임시저장 실패해도 스케줄 생성은 성공했으므로 에러를 무시
-        }
-      }
+      console.log('✅ Schedule generated successfully:', {
+        assignments: convertedAssignments.length,
+        employees: simpleEmployees.length,
+        specialRequests: simpleSpecialRequests.length,
+      });
     } catch (error) {
-      console.error('AI schedule generation failed:', error);
-      alert('스케줄 생성 중 오류가 발생했습니다. 다시 시도해주세요.');
+      console.error('Schedule generation error:', error);
+      alert('스케줄 생성 중 오류가 발생했습니다.');
     } finally {
       setIsGenerating(false);
     }
   };
 
-  // 🆕 스케줄 개선 핸들러
-  const handleImproveSchedule = async () => {
+  const handleConfirmToggle = () => {
     if (!canManageSchedules) {
-      alert('스케줄 개선 권한이 없습니다.');
+      alert('스케줄 잠금 상태를 변경할 권한이 없습니다.');
       return;
     }
 
-    if (schedule.length === 0) {
-      alert('개선할 스케줄이 없습니다. 먼저 스케줄을 생성해주세요.');
+    if (!isConfirmed && schedule.length === 0) {
+      alert('확정할 스케줄이 없습니다.');
       return;
     }
+    setIsConfirmed(!isConfirmed);
+  };
 
-    setIsImproving(true);
+  // Additional local state not covered by hooks
+  const [scheduleStatus, setScheduleStatus] = useState<'draft' | 'confirmed'>('draft');
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [scheduleName, setScheduleName] = useState<string>(''); // 스케줄 명 상태 추가
 
-    try {
-      // 기존 스케줄을 API에 전달할 형식으로 변환
-      const assignments = schedule.map((a) => ({
-        date: format(a.date, 'yyyy-MM-dd'),
-        employeeId: a.employeeId,
-        shiftId: a.shiftId,
-        shiftType: a.shiftType,
-      }));
+  // Memoize schedule name change handler to prevent unnecessary re-renders
+  const handleScheduleNameChange = useCallback((name: string) => {
+    setScheduleName(name);
+  }, []);
 
-      // 직원 정보 준비
-      const employees = filteredMembers.map((member) => {
-        const memberWithPrefs = member as UnifiedEmployee & {
-          preferences?: {
-            workPatternType?: string;
-            avoidPatterns?: string[][];
-          };
+  // Manager 셀 편집 관련 상태
+  const [showEditShiftModal, setShowEditShiftModal] = useState(false);
+  const [editingCell, setEditingCell] = useState<{ date: Date; employeeId: string; currentShift: any } | null>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = () => setShowMoreMenu(false);
+    if (showMoreMenu) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [showMoreMenu]);
+
+  useEffect(() => {
+    if (!canManageSchedules && showMoreMenu) {
+      setShowMoreMenu(false);
+    }
+  }, [canManageSchedules, showMoreMenu]);
+
+  // Swap 관련 핸들러
+  const handleSwapRequest = React.useCallback((
+    myShift: { date: string; employeeId: string; shiftId: string; employeeName: string },
+    targetShift: { date: string; employeeId: string; shiftId: string; employeeName: string }
+  ) => {
+    setSwapRequestData({ myShift, targetShift });
+    setShowScheduleSwapModal(false);
+    setShowSwapRequestModal(true);
+  }, []);
+
+  const handleSwapSubmit = (reason: string) => {
+    if (!swapRequestData) return;
+
+    createSwapRequest.mutate({
+      date: swapRequestData.myShift.date,
+      requesterShiftId: swapRequestData.myShift.shiftId,
+      targetUserId: swapRequestData.targetShift.employeeId,
+      targetShiftId: swapRequestData.targetShift.shiftId,
+      reason,
+    });
+  };
+
+  // Manager 셀 편집 핸들러
+  const handleManagerCellClick = React.useCallback((date: Date, employeeId: string, assignment: any) => {
+    if (!isManager) return; // manager 권한 확인
+
+    setEditingCell({ date, employeeId, currentShift: assignment });
+    setShowEditShiftModal(true);
+  }, [isManager]);
+
+  // 근무 변경 처리
+  const handleShiftChange = (newShiftId: string) => {
+    if (!editingCell) return;
+
+    const { date, employeeId, currentShift } = editingCell;
+
+    // 기존 근무 제거 또는 변경
+    setSchedule(prevSchedule => {
+      const updatedSchedule = prevSchedule.filter(
+        a => !(format(a.date, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd') && a.employeeId === employeeId)
+      );
+
+      // OFF가 아닌 경우에만 새 근무 추가
+      if (newShiftId !== 'off') {
+        const newAssignment: ScheduleAssignment = {
+          employeeId,
+          shiftId: newShiftId,
+          date: date,
+          isLocked: false,
         };
+        updatedSchedule.push(newAssignment);
+      }
 
-        return {
-          id: member.id,
-          name: member.name,
-          role: member.role || '일반',
-          workPatternType: member.workPatternType,
-          preferences: memberWithPrefs.preferences
-            ? {
-                workPatternType: memberWithPrefs.preferences.workPatternType,
-                avoidPatterns: memberWithPrefs.preferences.avoidPatterns,
-              }
-            : undefined,
-        };
-      });
+      return updatedSchedule;
+    });
 
-      // 제약 조건 준비
-      const constraints = {
-        minStaff: 5, // 기본값, 필요시 teamPattern에서 가져오기
-        maxConsecutiveDays: 6,
-        minRestDays: 1,
-      };
-
-      // 개선 실행
-      await improveMutation.mutateAsync({
-        assignments,
-        employees,
-        constraints,
-        period: {
-          startDate: format(monthStart, 'yyyy-MM-dd'),
-          endDate: format(monthEnd, 'yyyy-MM-dd'),
-        },
-      });
-    } catch (error) {
-      console.error('Schedule improvement error:', error);
-      // mutation onError에서 이미 처리됨
-    }
+    setShowEditShiftModal(false);
+    setEditingCell(null);
   };
 
-  // 개선 적용 핸들러
-  const handleApplyImprovement = () => {
-    if (!improvementReport) return;
-
-    // API 응답에서 improved 배정을 가져옴
-    const improved = (improveMutation.data as { improved?: unknown })?.improved as Array<{
-      date: string;
-      employeeId: string;
-      shiftId?: string;
-      shiftType?: string;
-    }> | undefined;
-
-    if (!improved) {
-      alert('개선된 스케줄 데이터를 찾을 수 없습니다.');
-      return;
-    }
-
-    // 개선된 스케줄 적용
-    const improvedAssignments: ScheduleAssignment[] = improved.map((a) => ({
-      employeeId: a.employeeId,
-      date: new Date(a.date),
-      shiftId: a.shiftId || '',
-      shiftType: a.shiftType,
-      id: `${a.employeeId}-${a.date}`,
-      isLocked: false,
-    }));
-
-    setSchedule(improvedAssignments);
-    setShowImprovementModal(false);
-
-    // 성공 메시지
-    const gradeChange = `${improvementReport.summary.gradeChange.from} → ${improvementReport.summary.gradeChange.to}`;
-    alert(
-      `✨ 스케줄이 개선되었습니다!\n\n` +
-        `등급: ${gradeChange}\n` +
-        `개선 점수: +${improvementReport.summary.totalImprovement.toFixed(1)}점`
-    );
-  };
-
-  // 개선 취소 핸들러
-  const handleRejectImprovement = () => {
-    setShowImprovementModal(false);
-    setImprovementReport(null);
-  };
 
   const handleImport = async () => {
     if (!canManageSchedules) {
@@ -2533,9 +1887,9 @@ function SchedulePageContent() {
         for (let i = 1; i < lines.length; i++) {
           if (lines[i].trim()) {
             const values = lines[i].split(',');
-            const assignment: Record<string, string> = {};
+            const assignment: any = {};
             headers.forEach((header, index) => {
-              assignment[header.trim()] = values[index]?.trim() || '';
+              assignment[header.trim()] = values[index]?.trim();
             });
 
             // CSV 데이터를 ScheduleAssignment 형식으로 변환
@@ -2557,12 +1911,9 @@ function SchedulePageContent() {
       // 가져온 데이터 적용
       if (importData.assignments && Array.isArray(importData.assignments)) {
         // 날짜 문자열을 Date 객체로 변환
-        const processedAssignments: ScheduleAssignment[] = importData.assignments.map((a: ScheduleAssignment) => ({
-          employeeId: a.employeeId,
-          shiftId: a.shiftId,
+        const processedAssignments = importData.assignments.map((a: any) => ({
+          ...a,
           date: typeof a.date === 'string' ? new Date(a.date) : a.date,
-          isLocked: a.isLocked || false,
-          shiftType: a.shiftType,
         }));
 
         setSchedule(processedAssignments);
@@ -2571,9 +1922,6 @@ function SchedulePageContent() {
         // 결과 정보가 있으면 적용
         if (importData.result) {
           setGenerationResult(importData.result);
-          setOffAccrualSummaries(importData.result.offAccruals ?? []);
-        } else {
-          setOffAccrualSummaries([]);
         }
 
         // 확정 상태가 있으면 적용
@@ -2621,8 +1969,13 @@ function SchedulePageContent() {
 
     modals.setIsExporting(true);
     try {
-      const response = await fetchWithAuth('/api/report/generate', {
+      const response = await fetch('/api/report/generate', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-id': 'default-tenant', // 실제 환경에서는 적절한 테넌트 ID 사용
+          'x-user-id': 'user-1', // 임시 사용자 ID
+        },
         body: JSON.stringify({
           reportType: 'schedule',
           format: exportFormat,
@@ -2696,47 +2049,16 @@ function SchedulePageContent() {
   };
 
   // 날짜별 스케줄 그룹화
-  const scheduleByDate = React.useMemo(() => {
-    const map = new Map<string, ScheduleAssignment[]>();
-    schedule.forEach((assignment) => {
-      const assignmentDate = normalizeDate(assignment.date);
-      if (assignmentDate < monthStart || assignmentDate > monthEnd) return;
-      const key = format(assignmentDate, 'yyyy-MM-dd');
-      if (!map.has(key)) {
-        map.set(key, []);
-      }
-      map.get(key)!.push(assignment);
-    });
-    return map;
-  }, [schedule, monthStart, monthEnd]);
-
   const getScheduleForDay = React.useCallback((date: Date) => {
-    const key = format(normalizeDate(date), 'yyyy-MM-dd');
-    return scheduleByDate.get(key) ?? [];
-  }, [scheduleByDate]);
-
-  const scheduleByDateAndEmployee = React.useMemo(() => {
-    const map = new Map<string, ScheduleAssignment[]>();
-    scheduleByDate.forEach((assignments, dateKey) => {
-      assignments.forEach((assignment) => {
-        const key = `${dateKey}|${assignment.employeeId}`;
-        if (!map.has(key)) {
-          map.set(key, []);
-        }
-        map.get(key)!.push(assignment);
-      });
+    return schedule.filter(assignment => {
+      const assignmentDate = normalizeDate(assignment.date);
+      return (
+        assignmentDate >= monthStart &&
+        assignmentDate <= monthEnd &&
+        format(assignmentDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+      );
     });
-    return map;
-  }, [scheduleByDate]);
-
-  const getAssignmentsForCell = React.useCallback(
-    (date: Date, employeeId: string) => {
-      const dateKey = format(normalizeDate(date), 'yyyy-MM-dd');
-      const key = `${dateKey}|${employeeId}`;
-      return scheduleByDateAndEmployee.get(key) ?? [];
-    },
-    [scheduleByDateAndEmployee]
-  );
+  }, [schedule, monthStart, monthEnd]);
 
   // 시프트별 색상 가져오기
   const getShiftColor = React.useCallback((shiftId: string) => {
@@ -2824,7 +2146,7 @@ function SchedulePageContent() {
   const specialRequestsMap = React.useMemo(() => {
     const map = new Map<string, string>();
     if (specialRequestsData) {
-      specialRequestsData.forEach((req: SpecialRequest) => {
+      specialRequestsData.forEach((req: any) => {
         if (req.requestType === 'shift_request' && req.shiftTypeCode) {
           const key = `${req.employeeId}-${req.date}`;
           map.set(key, req.shiftTypeCode);
@@ -2935,155 +2257,73 @@ function SchedulePageContent() {
         </div>
         )}
         {/* Simplified Schedule Action Toolbar - Only for managers */}
-{canManageSchedules && (
-        <div
-          className={`bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6 transition-all duration-500 ease-out transform ${
-            toolbarAnimatedIn ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'
-          }`}
-        >
-            <div className="flex items-center justify-between">
-                {/* Primary Actions */}
-                <div className="flex flex-wrap items-center gap-2">
-                  {isScheduleQueryLoading && (
-                    <div className="flex items-center gap-2 px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>스케줄 데이터를 불러오는 중입니다...</span>
-                    </div>
-                  )}
-
+        {canManageSchedules && (
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
+          <div className="flex items-center justify-between">
+            {canManageSchedules && (
+              <>
+                {/* Primary Actions - Only Essential Buttons */}
+                <div className="flex items-center gap-2">
+                  {/* AI Generate Button - Primary Action */}
                   {!isMember && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={handleGenerateSchedule}
-                        disabled={isGenerating}
-                        className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg ${
-                          isGenerating
-                            ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
-                            : "text-white bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
-                        }`}
-                      >
-                        {isGenerating ? (
-                          <>
-                            <RefreshCcw className="w-4 h-4 animate-spin" />
-                            생성 중...
-                          </>
-                        ) : (
-                          <>
-                            <Wand2 className="w-4 h-4" />
-                            스케줄 생성
-                          </>
-                        )}
-                      </button>
-
-                      {/* AI Toggle */}
-                      <button
-                        onClick={() => {
-                          if (!aiPermission?.canUse) {
-                            alert(aiPermission?.reason || '유료 플랜 구독이 필요합니다.');
-                            return;
-                          }
-                          setAiEnabled(!aiEnabled);
-                        }}
-                        disabled={isGenerating}
-                        className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
-                          aiEnabled && aiPermission?.canUse
-                            ? "bg-purple-50 dark:bg-purple-900/20 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300"
-                            : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                        } disabled:opacity-50 disabled:cursor-not-allowed`}
-                        title={aiPermission?.canUse ? (aiEnabled ? "AI 검토 ON" : "AI 검토 OFF") : "유료 플랜 구독 필요"}
-                      >
-                        <Sparkles className={`w-4 h-4 ${aiEnabled && aiPermission?.canUse ? "text-purple-600 dark:text-purple-400" : "text-gray-400"}`} />
-                        <span className="text-xs">AI</span>
-                        {!aiPermission?.canUse && (
-                          <span className="ml-1 text-xs">🔒</span>
-                        )}
-                      </button>
-
-                      {/* 🆕 개선 버튼 */}
-                      <button
-                        onClick={handleImproveSchedule}
-                        disabled={!hasSchedule || isImproving}
-                        className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
-                          !hasSchedule || isImproving
-                            ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
-                            : "text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md hover:shadow-lg"
-                        }`}
-                        title={hasSchedule ? "스케줄 최적화" : "개선할 스케줄이 없습니다"}
-                      >
-                        {isImproving ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            개선 중...
-                          </>
-                        ) : (
-                          <>
-                            <TrendingUp className="w-4 h-4" />
-                            개선
-                          </>
-                        )}
-                      </button>
-                    </div>
+                    <button
+                      onClick={handleGenerateSchedule}
+                      disabled={isGenerating}
+                      className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg ${
+                        isGenerating
+                          ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
+                          : "text-white bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
+                      }`}
+                    >
+                      {isGenerating ? (
+                        <>
+                          <RefreshCcw className="w-4 h-4 animate-spin" />
+                          생성 중...
+                        </>
+                      ) : (
+                        <>
+                          <Wand2 className="w-4 h-4" />
+                          AI 스케줄 생성
+                        </>
+                      )}
+                    </button>
                   )}
 
-                  <button
-                    onClick={handleValidateSchedule}
-                    disabled={modals.isValidating || !hasSchedule}
-                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-70 disabled:cursor-not-allowed"
-                    title={hasSchedule ? "스케줄 검증" : "검증할 스케줄이 없습니다"}
-                  >
-                    {modals.isValidating ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span className="hidden sm:inline">검증 중...</span>
-                        <span className="sm:hidden">진행중</span>
-                      </>
-                    ) : (
-                      <>
+                  {/* Quick Actions for existing schedule */}
+                  {schedule.length > 0 && (
+                    <>
+                      <button
+                        onClick={handleValidateSchedule}
+                        disabled={modals.isValidating}
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        title="스케줄 검증"
+                      >
                         <CheckCircle className="w-4 h-4" />
                         <span className="hidden sm:inline">검증</span>
-                      </>
-                    )}
-                  </button>
+                      </button>
 
-                  <button
-                    onClick={handleSaveDraft}
-                    disabled={isSavingDraft || !hasSchedule}
-                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 dark:text-blue-400 rounded-lg border border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-70 disabled:cursor-not-allowed"
-                    title={hasSchedule ? "스케줄 임시 저장 (멤버에게는 보이지 않음)" : "저장할 스케줄이 없습니다"}
-                  >
-                    {isSavingDraft ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span className="hidden sm:inline">저장 중...</span>
-                        <span className="sm:hidden">저장</span>
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4" />
-                        <span className="hidden sm:inline">임시 저장</span>
-                      </>
-                    )}
-                  </button>
+                      {canManageSchedules && (
+                        <button
+                          onClick={handleSaveDraft}
+                          className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 dark:text-blue-400 rounded-lg border border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                          title="스케줄 임시 저장 (멤버에게는 보이지 않음)"
+                        >
+                          <Save className="w-4 h-4" />
+                          <span className="hidden sm:inline">임시 저장</span>
+                        </button>
+                      )}
 
-                  <button
-                    onClick={handleConfirmToggle}
-                    disabled={isPreparingConfirmation || !hasSchedule}
-                    className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-70 disabled:cursor-not-allowed"
-                    title={hasSchedule ? "스케줄 확정" : "확정할 스케줄이 없습니다"}
-                  >
-                    {isPreparingConfirmation ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span className="hidden sm:inline">확인 중...</span>
-                        <span className="sm:hidden">대기</span>
-                      </>
-                    ) : (
-                      <>
+                      <button
+                        onClick={handlePublishClick}
+                        disabled={scheduleStatus === 'confirmed' || isCheckingConflict}
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="스케줄 확정"
+                      >
                         <Lock className="w-4 h-4" />
-                        <span className="hidden sm:inline">확정</span>
-                      </>
-                    )}
-                  </button>
+                        <span className="hidden sm:inline">{isCheckingConflict ? '확인 중...' : '확정'}</span>
+                      </button>
+                    </>
+                  )}
                 </div>
 
                 {/* More Options Menu */}
@@ -3097,7 +2337,7 @@ function SchedulePageContent() {
                     <Upload className="w-4 h-4" />
                   </button>
 
-                  {hasSchedule && (
+                  {schedule.length > 0 && (
                     <button
                       onClick={() => modals.setShowExportModal(true)}
                       className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
@@ -3129,7 +2369,7 @@ function SchedulePageContent() {
                     {/* Dropdown Menu */}
                     {showMoreMenu && (
                       <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
-                        {hasSchedule && (
+                        {schedule.length > 0 && (
                           <>
                             {generationResult && (
                               <>
@@ -3155,15 +2395,10 @@ function SchedulePageContent() {
                             handleConfirmToggle();
                             setShowMoreMenu(false);
                           }}
-                          disabled={isPreparingConfirmation}
-                          className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                          className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
                         >
-                          {isPreparingConfirmation ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Lock className="w-4 h-4" />
-                          )}
-                          스케줄 확정
+                          {isConfirmed ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                          {isConfirmed ? "스케줄 해제" : "스케줄 잠금"}
                         </button>
 
                         <button
@@ -3180,13 +2415,10 @@ function SchedulePageContent() {
                     )}
                   </div>
                 </div>
-            </div>
+              </>
+            )}
         </div>
-        )}
-        {!isScheduleQueryLoading && !hasSchedule && (
-          <div className="mb-6 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30 p-4 text-sm text-gray-600 dark:text-gray-400">
-            이 달에는 저장된 스케줄이 없습니다. 상단의 스케줄 생성이나 가져오기 버튼을 사용해 새 스케줄을 만들어주세요.
-          </div>
+        </div>
         )}
 
         {/* View Tabs */}
@@ -3194,7 +2426,6 @@ function SchedulePageContent() {
           activeView={filters.activeView}
           canViewStaffPreferences={canViewStaffPreferences}
           onViewChange={filters.setActiveView}
-          onViewIntent={handleViewIntent}
         />
 
         {/* Preferences View */}
@@ -3207,17 +2438,13 @@ function SchedulePageContent() {
 
         {/* Today View */}
         {deferredActiveView === 'today' && (
-          isTodayViewLoading ? (
-            <LottieLoadingOverlay message="오늘의 근무 데이터를 불러오는 중입니다..." compact />
-          ) : (
-            <TodayScheduleBoard
-              employees={allMembers}
-              assignments={todayAssignments}
-              shiftTypes={customShiftTypes}
-              today={selectedDate}
-              onDateChange={setSelectedDate}
-            />
-          )
+          <TodayScheduleBoard
+            employees={allMembers}
+            assignments={todayAssignments}
+            shiftTypes={customShiftTypes}
+            today={selectedDate}
+            onDateChange={setSelectedDate}
+          />
         )}
 
         {/* Schedule View */}
@@ -3272,7 +2499,7 @@ function SchedulePageContent() {
           selectedShiftTypesSize={filters.selectedShiftTypes.size}
           isMember={isMember}
           swapMode={false}
-          hasSchedule={hasSchedule}
+          hasSchedule={schedule.length > 0}
           onPreviousMonth={handlePreviousMonth}
           onThisMonth={handleThisMonth}
           onNextMonth={handleNextMonth}
@@ -3289,57 +2516,50 @@ function SchedulePageContent() {
         <div>
           {/* Main Schedule View */}
           <div>
-            {isScheduleViewLoading ? (
-              <LottieLoadingOverlay message="스케줄 데이터를 불러오는 중입니다..." />
+            {filters.viewMode === 'grid' ? (
+              <ScheduleGridView
+                daysInMonth={daysInMonth}
+                displayMembers={displayMembers}
+                selectedShiftTypesSize={filters.selectedShiftTypes.size}
+                scheduleGridTemplate={scheduleGridTemplate}
+                holidayDates={holidayDates}
+                showCodeFormat={filters.showCodeFormat}
+                getScheduleForDay={getScheduleForDay}
+                getShiftColor={getShiftColor}
+                getShiftName={getShiftName}
+                getShiftCode={getShiftCode}
+                enableSwapMode={false}
+                currentUserId={currentUser.dbUser?.id}
+                selectedSwapCell={null}
+                onCellClick={isManager ? handleManagerCellClick : undefined}
+                enableManagerEdit={isManager}
+                offBalanceData={offBalanceMap}
+                showOffBalance={true}
+              />
             ) : (
-              <>
-                {filters.viewMode === 'grid' ? (
-                  <ScheduleGridView
-                    daysInMonth={daysInMonth}
-                    displayMembers={displayMembers}
-                    selectedShiftTypesSize={filters.selectedShiftTypes.size}
-                    scheduleGridTemplate={scheduleGridTemplate}
-                    holidayDates={holidayDates}
-                    showCodeFormat={filters.showCodeFormat}
-                    getScheduleForDay={getScheduleForDay}
-                    getAssignmentsForCell={getAssignmentsForCell}
-                    getShiftColor={getShiftColor}
-                    getShiftName={getShiftName}
-                    getShiftCode={getShiftCode}
-                    enableSwapMode={false}
-                    currentUserId={currentUser.dbUser?.id}
-                    selectedSwapCell={null}
-                    onCellClick={isManager ? handleManagerCellClick : undefined}
-                    enableManagerEdit={isManager}
-                    offBalanceData={offBalanceMap}
-                    showOffBalance={true}
-                  />
-                ) : (
-                  <ScheduleCalendarView
-                    currentMonth={currentMonth}
-                    displayMembers={displayMembers}
-                    holidayDates={holidayDates}
-                    showSameSchedule={filters.showSameSchedule}
-                    showCodeFormat={filters.showCodeFormat}
-                    currentUser={currentUser}
-                    getScheduleForDay={getScheduleForDay}
-                    getShiftColor={getShiftColor}
-                    getShiftName={getShiftName}
-                    getShiftCode={getShiftCode}
-                    onCellClick={isManager ? handleManagerCellClick : undefined}
-                    enableManagerEdit={isManager}
-                  />
-                )}
-
-                {/* Stats */}
-                <div className="mt-6">
-                  <ScheduleStats
-                    schedule={schedule}
-                    shifts={shifts}
-                  />
-                </div>
-              </>
+              <ScheduleCalendarView
+                currentMonth={currentMonth}
+                displayMembers={displayMembers}
+                holidayDates={holidayDates}
+                showSameSchedule={filters.showSameSchedule}
+                showCodeFormat={filters.showCodeFormat}
+                currentUser={currentUser}
+                getScheduleForDay={getScheduleForDay}
+                getShiftColor={getShiftColor}
+                getShiftName={getShiftName}
+                getShiftCode={getShiftCode}
+                onCellClick={isManager ? handleManagerCellClick : undefined}
+                enableManagerEdit={isManager}
+              />
             )}
+
+            {/* Stats */}
+            <div className="mt-6">
+              <ScheduleStats
+                schedule={schedule}
+                shifts={shifts}
+              />
+            </div>
           </div>
         </div>
           </>
@@ -3365,6 +2585,12 @@ function SchedulePageContent() {
         isConfirmed={isConfirmed}
       />
 
+      {/* 스케줄링 리포트 모달 */}
+      <ReportModal
+        isOpen={modals.showReport}
+        onClose={() => modals.setShowReport(false)}
+        generationResult={generationResult}
+      />
 
       {/* 스케줄 관리 모달 */}
       <ManageSchedulesModal
@@ -3375,7 +2601,6 @@ function SchedulePageContent() {
           setSchedule([]);
           setLoadedScheduleId(null);
           setGenerationResult(null);
-          setOffAccrualSummaries([]);
           setIsConfirmed(false); // Reset confirmed state
         }}
         onScheduleLoad={handleLoadSchedule}
@@ -3387,16 +2612,6 @@ function SchedulePageContent() {
         onClose={() => modals.setShowValidationResults(false)}
         validationScore={modals.validationScore}
         validationIssues={modals.validationIssues}
-        employeeNameMap={employeeNameMap}
-      />
-
-      {/* 🆕 Improvement Result Modal */}
-      <ImprovementResultModal
-        isOpen={showImprovementModal}
-        onClose={handleRejectImprovement}
-        report={improvementReport}
-        onApply={handleApplyImprovement}
-        onReject={handleRejectImprovement}
       />
 
       {/* Schedule Confirmation Dialog */}
@@ -3405,12 +2620,19 @@ function SchedulePageContent() {
         onClose={() => modals.setShowConfirmDialog(false)}
         onConfirm={handleConfirmSchedule}
         isConfirming={modals.isConfirming}
-        isCheckingConflicts={isPreparingConfirmation}
         validationScore={modals.validationScore}
         scheduleName={scheduleName}
         onScheduleNameChange={handleScheduleNameChange}
         defaultScheduleName={`${format(monthStart, 'yyyy년 M월')} 스케줄`}
-        existingSchedule={existingScheduleToReplace}
+      />
+
+      {/* Publish Conflict Dialog */}
+      <PublishConflictDialog
+        isOpen={showConflictDialog}
+        onClose={() => setShowConflictDialog(false)}
+        onConfirm={handleConflictConfirm}
+        isConfirming={false}
+        existingSchedule={conflictSchedule}
       />
 
       {/* Swap Request Modal */}
@@ -3470,7 +2692,7 @@ function SchedulePageContent() {
                   </span>
                   님의 {format(editingCell.date, 'M월 d일')} 근무
                 </p>
-                {editingCell.currentShift && editingCell.currentShift.shiftId && (
+                {editingCell.currentShift && (
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     현재: {getShiftName(editingCell.currentShift.shiftId)}
                   </p>
@@ -3521,10 +2743,11 @@ function SchedulePageContent() {
       {modals.isPreferencesModalOpen && selectedEmployee && (
         <EmployeePreferencesModal
           employee={selectedEmployee}
+          teamMembers={filteredMembers.map(toEmployee)}
           onSave={handlePreferencesSave}
           onClose={handleModalClose}
+          canManageTeams={canManageSchedules}
           initialPreferences={selectedPreferences || undefined}
-          tenantPlan={tenantPlan}
         />
       )}
 
