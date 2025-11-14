@@ -541,8 +541,15 @@ export function EmployeePreferencesModal({
     }
   };
 
+  const guestPreferenceMessage = '근무 선호 패턴 설정은 Professional 플랜 이상에서 이용할 수 있습니다.';
+  const isGuestPlan = tenantPlan === 'guest';
+
   // 패턴 추가
   const addCustomPattern = () => {
+    if (isGuestPlan) {
+      alert(guestPreferenceMessage);
+      return;
+    }
     if (!patternValidation || !patternValidation.isValid) {
       return;
     }
@@ -595,6 +602,10 @@ export function EmployeePreferencesModal({
 
   // 기피 패턴 텍스트를 적용
   const applyAvoidPatternInput = () => {
+    if (isGuestPlan) {
+      alert('기피 패턴 저장은 Professional 플랜 이상에서 이용 가능합니다.');
+      return;
+    }
     if (!avoidPatternValidation || !avoidPatternValidation.isValid) {
       return;
     }
@@ -622,8 +633,6 @@ export function EmployeePreferencesModal({
       avoidPatterns: (preferences.avoidPatterns || []).filter((_, i) => i !== index),
     });
   };
-
-  const isGuestPlan = tenantPlan === 'guest';
 
   const handleCloseModal = () => {
     const hasPendingPreferenceChanges = preferenceDirtyRef.current;
@@ -793,7 +802,8 @@ export function EmployeePreferencesModal({
                   )}
 
                   {(() => {
-                    const isDisabled = preferences.workPatternType !== 'three-shift';
+                    const isDisabled =
+                      preferences.workPatternType !== 'three-shift' || isGuestPlan;
                     return (
                       <>
                         {/* 입력 필드 */}
@@ -864,7 +874,9 @@ export function EmployeePreferencesModal({
 
                         {isDisabled && (
                           <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                            3교대 근무를 선택하면 패턴을 추가할 수 있습니다.
+                            {isGuestPlan
+                              ? 'Professional 플랜 업그레이드 후 패턴을 저장할 수 있습니다.'
+                              : '3교대 근무를 선택하면 패턴을 추가할 수 있습니다.'}
                           </div>
                         )}
                       </>
@@ -915,7 +927,8 @@ export function EmployeePreferencesModal({
 
                 {/* 기피 패턴 직접 입력 */}
                 {(() => {
-                  const isDisabled = preferences.workPatternType !== 'three-shift';
+                  const isDisabled =
+                    preferences.workPatternType !== 'three-shift' || isGuestPlan;
                   return (
                     <div className="mb-4 p-4 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
                       <div className="flex items-start gap-2 mb-2">
@@ -1018,11 +1031,13 @@ export function EmployeePreferencesModal({
                         </button>
                       </div>
 
-                      {isDisabled && (
-                        <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                          3교대 근무를 선택하면 기피 패턴을 추가할 수 있습니다.
-                        </div>
-                      )}
+                        {isDisabled && (
+                          <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                            {isGuestPlan
+                              ? 'Professional 플랜 업그레이드 후 기피 패턴을 저장할 수 있습니다.'
+                              : '3교대 근무를 선택하면 기피 패턴을 추가할 수 있습니다.'}
+                          </div>
+                        )}
                     </div>
                   );
                 })()}
