@@ -2,9 +2,22 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useSignUp } from '@clerk/nextjs';
-import { Mail, Lock, Eye, EyeOff, AlertCircle, User, Key, Building2, Calendar, FileText, Copy } from 'lucide-react';
-import Link from 'next/link';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import {
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  User,
+  Key,
+  Building2,
+  Calendar,
+  FileText,
+  Copy,
+  CheckCircle2,
+  X,
+} from 'lucide-react';
 
 export default function SignUpPage() {
   const [email, setEmail] = useState('');
@@ -17,7 +30,7 @@ export default function SignUpPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<'code' | 'signup' | 'verify' | 'complete'>('code');
+  const [step, setStep] = useState<'code' | 'signup' | 'verify'>('code');
   const [planType, setPlanType] = useState<'standard' | 'professional'>('standard');
   const [tenantInfo, setTenantInfo] = useState<{ id?: string; name?: string; department?: { name: string } } | null>(null);
   const [showGuestForm, setShowGuestForm] = useState(false);
@@ -32,12 +45,8 @@ export default function SignUpPage() {
   const [guestError, setGuestError] = useState('');
   const [hireDate, setHireDate] = useState('');
   const [yearsOfService, setYearsOfService] = useState(0);
-  const [verificationCode, setVerificationCode] = useState('');
-  const [verificationError, setVerificationError] = useState('');
   const [verificationMessage, setVerificationMessage] = useState('');
-  const [verificationLoading, setVerificationLoading] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState('');
-  const [resendLoading, setResendLoading] = useState(false);
   const [hospitalName, setHospitalName] = useState('');
   const [hospitalError, setHospitalError] = useState('');
   const [provisionedSecretCode, setProvisionedSecretCode] = useState('');
@@ -46,7 +55,8 @@ export default function SignUpPage() {
 
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isLoaded, signUp } = useSignUp();
+  const supabase = useSupabaseClient();
+  const isLoaded = !!supabase;
   const isProfessionalPlan = searchParams.get('plan') === 'professional';
 
   const resetGuestState = () => {
@@ -62,10 +72,6 @@ export default function SignUpPage() {
   const closeGuestForm = () => {
     setShowGuestForm(false);
     resetGuestState();
-  };
-
-  const handleCompleteContinue = () => {
-    router.push('/sign-in?verified=1');
   };
 
   const handleSecretCodeCopy = async () => {
@@ -187,41 +193,51 @@ export default function SignUpPage() {
     }
 
     try {
-      if (!signUp) {
-        setError('인증 서비스를 초기화하는 중입니다. 잠시 후 다시 시도해주세요.');
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo:
+            typeof window !== 'undefined'
+              ? `${window.location.origin}/verify-email`
+              : undefined,
+          data: {
+            name,
+          },
+        },
+      });
+
+      if (signUpError) {
+        if (signUpError.message.toLowerCase().includes('already registered')) {
+          setError('이미 등록된 이메일입니다. 로그인해주세요.');
+        } else if (
+          signUpError.message.toLowerCase().includes('password should be at least')
+        ) {
+          setError('비밀번호는 최소 8자 이상이어야 합니다.');
+        } else {
+          setError(signUpError.message || '회원가입 중 오류가 발생했습니다.');
+        }
         setLoading(false);
         return;
       }
 
-      // Clerk 인스턴스에서 name 필드가 비활성화되어 있어서 이메일과 비밀번호만 전송
-      await signUp.create({
-        emailAddress: email,
-        password,
-      });
+      const createdUserId = data.user?.id;
+      if (!createdUserId) {
+        setError('사용자 정보를 생성할 수 없습니다. 다시 시도해주세요.');
+        setLoading(false);
+        return;
+      }
 
-      await signUp.prepareEmailAddressVerification({
-        strategy: 'email_code',
-      });
+      await finalizeAccountCreation(createdUserId);
 
       setVerificationEmail(email);
-      setVerificationCode('');
-      setVerificationError('');
-      setVerificationMessage('입력하신 이메일로 인증 코드가 전송되었습니다.');
+      setVerificationMessage(
+        '입력하신 이메일로 인증 링크를 전송했습니다. 받은 메일에서 인증을 완료해주세요.'
+      );
       setStep('verify');
     } catch (err: unknown) {
       console.error('Sign up error:', err);
-      const clerkError = err as { errors?: Array<{ code?: string; message?: string }> };
-      const firstError = clerkError?.errors?.[0];
-
-      if (firstError?.code === 'form_identifier_exists') {
-        setError('이미 등록된 이메일입니다. 로그인해주세요.');
-      } else if (firstError?.code === 'form_password_pwned') {
-        setError('이 비밀번호는 유출된 기록이 있습니다. 다른 비밀번호를 사용해주세요.');
-      } else if (firstError?.code === 'form_password_length_too_short') {
-        setError('비밀번호는 최소 8자 이상이어야 합니다.');
-      } else {
-        setError(firstError?.message || '회원가입 중 오류가 발생했습니다.');
-      }
+      setError('회원가입 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
@@ -232,6 +248,16 @@ export default function SignUpPage() {
     e.preventDefault();
     setGuestLoading(true);
     setGuestError('');
+
+    const trimmedGuestEmail = guestEmail.trim();
+    const trimmedGuestName = guestName.trim();
+    const trimmedHospitalName = guestHospitalName.trim();
+
+    if (!trimmedGuestEmail || !trimmedGuestName || !trimmedHospitalName) {
+      setGuestError('병원명, 이름, 이메일을 모두 입력해주세요.');
+      setGuestLoading(false);
+      return;
+    }
 
     // 비밀번호 확인 검증
     if (guestPassword !== guestConfirmPassword) {
@@ -245,10 +271,10 @@ export default function SignUpPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: guestEmail,
+          email: trimmedGuestEmail,
           password: guestPassword,
-          name: guestName,
-          hospitalName: guestHospitalName,
+          name: trimmedGuestName,
+          hospitalName: trimmedHospitalName,
         }),
       });
 
@@ -264,179 +290,75 @@ export default function SignUpPage() {
       router.push('/sign-in?message=guest-created');
     } catch (err: unknown) {
       console.error('Guest signup error:', err);
-      const clerkError = err as { errors?: Array<{ code?: string; message?: string }> };
-      const firstError = clerkError?.errors?.[0];
-
-      if (firstError?.code === 'form_identifier_exists') {
-        setGuestError('이미 등록된 이메일입니다. 로그인해주세요.');
-      } else if (firstError?.code === 'form_password_pwned') {
-        setGuestError('이 비밀번호는 유출된 기록이 있습니다. 다른 비밀번호를 사용해주세요.');
-      } else if (firstError?.code === 'form_password_length_too_short') {
-        setGuestError('비밀번호는 최소 8자 이상이어야 합니다.');
-      } else {
-        setGuestError(firstError?.message || '게스트 계정 생성 중 오류가 발생했습니다.');
-      }
+      setGuestError('게스트 계정을 생성하는 중 문제가 발생했습니다.');
+    } finally {
       setGuestLoading(false);
     }
   };
 
-  const handleVerificationSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setVerificationError('');
-    setVerificationMessage('');
-    setVerificationLoading(true);
+  const finalizeAccountCreation = async (authUserId: string) => {
+    let finalSecretCode = secretCode;
+    let finalTenantId = tenantInfo?.id;
 
-    if (!signUp) {
-      setVerificationError('인증 세션을 찾을 수 없습니다. 처음부터 다시 진행해주세요.');
-      setVerificationLoading(false);
-      return;
-    }
-
-    if (!verificationCode) {
-      setVerificationError('이메일로 전송된 인증 코드를 입력해주세요.');
-      setVerificationLoading(false);
-      return;
-    }
-
-    try {
-      const attempt = await signUp.attemptEmailAddressVerification({ code: verificationCode });
-
-      if (attempt.status !== 'complete') {
-        setVerificationError('인증이 완료되지 않았습니다. 코드를 다시 확인해주세요.');
-        setVerificationLoading(false);
-        return;
+    if (planType === 'professional') {
+      if (!hospitalName.trim()) {
+        throw new Error('병원명을 입력해주세요.');
       }
 
-      const createdUserId = signUp.createdUserId;
-      if (!createdUserId) {
-        setVerificationError('계정 정보를 확인할 수 없습니다. 다시 시도해주세요.');
-        setVerificationLoading(false);
-        return;
-      }
-
-      let finalSecretCode = secretCode;
-      let finalTenantId = tenantInfo?.id;
-
-      if (planType === 'professional') {
-        if (!hospitalName.trim()) {
-          setVerificationError('병원명을 입력해주세요.');
-          setVerificationLoading(false);
-          return;
-        }
-
-        try {
-          const provisionResponse = await fetch('/api/auth/provision-tenant', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ hospitalName: hospitalName.trim() }),
-          });
-
-          const provisionData = await provisionResponse.json();
-
-          if (!provisionResponse.ok) {
-            throw new Error(provisionData?.error || '워크스페이스 생성에 실패했습니다.');
-          }
-
-          finalSecretCode = provisionData.secretCode;
-          finalTenantId = provisionData.tenantId;
-          setProvisionedSecretCode(provisionData.secretCode);
-          setTenantInfo({
-            id: provisionData.tenantId,
-            name: hospitalName.trim(),
-            department: { name: '기본 부서' },
-          });
-
-          if (typeof window !== 'undefined') {
-            sessionStorage.setItem('billing_secret_code', provisionData.secretCode);
-            sessionStorage.setItem('billing_hospital_name', hospitalName.trim());
-          }
-        } catch (provisionError) {
-          console.error('Tenant provisioning error:', provisionError);
-          setVerificationError(
-            provisionError instanceof Error ? provisionError.message : '워크스페이스 생성에 실패했습니다.'
-          );
-          setVerificationLoading(false);
-          return;
-        }
-      }
-
-      const signupPayload: Record<string, unknown> = {
-        email,
-        name,
-        password,
-        secretCode: finalSecretCode,
-        tenantId: finalTenantId,
-        hireDate: hireDate || undefined,
-        yearsOfService,
-        clerkUserId: createdUserId,
-      };
-
-      if (planType === 'professional') {
-        signupPayload.roleOverride = 'manager';
-      }
-
-      const response = await fetch('/api/auth/signup', {
+      const provisionResponse = await fetch('/api/auth/provision-tenant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(signupPayload),
+        body: JSON.stringify({ hospitalName: hospitalName.trim() }),
       });
 
+      const provisionData = await provisionResponse.json();
+
+      if (!provisionResponse.ok) {
+        throw new Error(provisionData?.error || '워크스페이스 생성에 실패했습니다.');
+      }
+
+      finalSecretCode = provisionData.secretCode;
+      finalTenantId = provisionData.tenantId;
+      setProvisionedSecretCode(provisionData.secretCode);
+      setTenantInfo({
+        id: provisionData.tenantId,
+        name: hospitalName.trim(),
+        department: { name: '기본 부서' },
+      });
+
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('billing_secret_code', provisionData.secretCode);
+        sessionStorage.setItem('billing_hospital_name', hospitalName.trim());
+      }
+    }
+
+    const signupPayload: Record<string, unknown> = {
+      email,
+      name,
+      secretCode: finalSecretCode,
+      tenantId: finalTenantId,
+      hireDate: hireDate || undefined,
+      yearsOfService,
+      authUserId,
+    };
+
+    if (planType === 'professional') {
+      signupPayload.roleOverride = 'manager';
+    }
+
+    const response = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(signupPayload),
+    });
+
+    if (!response.ok) {
       const data = await response.json();
-      if (!response.ok) {
-        setVerificationError(data.error || '회원가입에 실패했습니다.');
-        setVerificationLoading(false);
-        return;
-      }
-
-      if (planType === 'professional') {
-        if (typeof window !== 'undefined') {
-          sessionStorage.removeItem('billing_secret_code');
-          sessionStorage.removeItem('billing_hospital_name');
-        }
-        setVerificationMessage('이메일 인증이 완료되었습니다.');
-        setStep('complete');
-        return;
-      }
-
-      setVerificationMessage('이메일 인증이 완료되었습니다. 로그인 페이지로 이동합니다.');
-      router.push('/sign-in?verified=1');
-    } catch (err: unknown) {
-      console.error('Verification error:', err);
-      const clerkError = err as { errors?: Array<{ code?: string; message?: string }> };
-      const firstError = clerkError?.errors?.[0];
-
-      if (firstError?.code === 'verification_failed') {
-        setVerificationError('인증 코드가 올바르지 않습니다.');
-      } else if (firstError?.code === 'expired') {
-        setVerificationError('인증 코드가 만료되었습니다. 다시 전송해주세요.');
-      } else {
-        setVerificationError(firstError?.message || '이메일 인증 중 오류가 발생했습니다.');
-      }
-    } finally {
-      setVerificationLoading(false);
+      throw new Error(data.error || '회원가입에 실패했습니다.');
     }
   };
 
-  const handleResendVerification = async () => {
-    if (!signUp) {
-      setVerificationError('인증 세션을 찾을 수 없습니다.');
-      return;
-    }
 
-    setVerificationError('');
-    setVerificationMessage('');
-    setResendLoading(true);
-
-    try {
-      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
-      setVerificationMessage('새로운 인증 코드를 전송했습니다.');
-    } catch (err) {
-      console.error('Resend verification error:', err);
-      setVerificationError('인증 코드를 다시 보내는 중 오류가 발생했습니다.');
-    } finally {
-      setResendLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
@@ -696,8 +618,8 @@ export default function SignUpPage() {
                     <div className="text-sm text-blue-800 dark:text-blue-300">
                       <p className="font-medium mb-1">📧 이메일 인증이 필요합니다</p>
                       <p className="text-xs text-blue-700 dark:text-blue-400">
-                        회원가입 버튼을 누르시면 입력하신 이메일로 6자리 인증 코드가 전송됩니다.
-                        이메일을 확인하여 인증을 완료해주세요.
+                        회원가입 버튼을 누르면 입력하신 이메일로 인증 링크가 전송됩니다.
+                        링크를 눌러 인증을 완료한 뒤 다시 로그인해주세요.
                       </p>
                     </div>
                   </div>
@@ -722,137 +644,92 @@ export default function SignUpPage() {
             </>
           ) : step === 'verify' ? (
             <>
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">이메일 인증</h2>
-                <p className="mt-2 text-gray-600 dark:text-gray-400">
-                  {(verificationEmail || email || '입력한 이메일')} 주소로 전송된 6자리 인증 코드를 입력해주세요.
-                </p>
-              </div>
-
-              <form onSubmit={handleVerificationSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    인증 코드
-                  </label>
-                  <input
-                    type="text"
-                    value={verificationCode}
-                    onChange={(e) => setVerificationCode(e.target.value)}
-                    maxLength={6}
-                    placeholder="123456"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    required
-                    className="w-full px-4 py-3 border.border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800 text-center text-xl tracking-[0.5em]"
-                  />
-                </div>
-
-                {verificationError && (
-                  <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-2">
-                    <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />
-                    <p className="text-sm text-red-600 dark:text-red-400">{verificationError}</p>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">이메일 인증 안내</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                입력하신 이메일({verificationEmail || email})로 인증 링크를 전송했습니다.
+                메일을 확인하고 인증을 완료하신 뒤 로그인해 주세요.
+              </p>
+              <div className="space-y-4">
+                {verificationMessage && (
+                  <div className="p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg flex items-start gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5" />
+                    <p className="text-sm text-green-600 dark:text-green-400">{verificationMessage}</p>
                   </div>
                 )}
-
-                {verificationMessage && !verificationError && (
-                  <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg text-sm text-green-700 dark:text-green-300">
-                    {verificationMessage}
+                {provisionedSecretCode && (
+                  <div className="space-y-2 rounded-lg border border-dashed border-blue-300 bg-blue-50/70 p-4 dark:border-blue-700 dark:bg-blue-900/20">
+                    <p className="text-sm font-medium text-blue-900 dark:text-blue-200">
+                      새 워크스페이스 시크릿 코드
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 rounded-lg bg-white px-3 py-2 text-center text-lg font-semibold tracking-widest text-blue-700 dark:bg-gray-950 dark:text-blue-300">
+                        {provisionedSecretCode}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={handleSecretCodeCopy}
+                        className="rounded-lg border border-blue-200 bg-white/80 p-2 text-blue-600 transition hover:bg-blue-600 hover:text-white dark:border-blue-700 dark:bg-gray-950"
+                      >
+                        <Copy className="h-4 w-4" />
+                        <span className="sr-only">시크릿 코드 복사</span>
+                      </button>
+                    </div>
+                    <p className="text-xs text-blue-700 dark:text-blue-300">
+                      이 코드를 팀과 공유하면 새 워크스페이스에 동료를 초대할 수 있습니다.
+                    </p>
+                    {secretCopyMessage && (
+                      <p className="text-xs text-gray-600 dark:text-gray-400">{secretCopyMessage}</p>
+                    )}
                   </div>
                 )}
-
                 <button
-                  type="submit"
-                  disabled={verificationLoading}
-                  className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => router.push('/sign-in')}
+                  className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
                 >
-                  {verificationLoading ? '확인 중...' : '인증 완료'}
-                </button>
-              </form>
-
-              <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400 space-y-3">
-                <p>이메일을 받지 못하셨나요?</p>
-                <button
-                  type="button"
-                  onClick={handleResendVerification}
-                  disabled={resendLoading}
-                  className="w-full py-2 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {resendLoading ? '재전송 중...' : '인증 코드 다시 받기'}
-                </button>
-              </div>
-            </>
-          ) : step === 'complete' ? (
-            <>
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">가입 완료</h2>
-                <p className="mt-2 text-gray-600 dark:text-gray-400">
-                  아래 시크릿 코드를 복사하여 팀원들에게 공유하면 조직 참여를 안내할 수 있습니다.
-                </p>
-              </div>
-
-              <div className="text-center space-y-4">
-                <div className="text-3xl font-mono tracking-[0.5em] text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-800 rounded-xl py-4 px-4">
-                  {provisionedSecretCode || secretCode}
-                </div>
-                <button
-                  type="button"
-                  onClick={handleSecretCodeCopy}
-                  className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-lg font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                >
-                  <Copy className="w-4 h-4" />
-                  시크릿 코드 복사하기
-                </button>
-                {secretCopyMessage && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{secretCopyMessage}</p>
-                )}
-                <button
-                  type="button"
-                  onClick={handleCompleteContinue}
-                  className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors"
-                >
-                  로그인으로 이동
+                  로그인 페이지로 이동
                 </button>
               </div>
             </>
           ) : null}
-
-          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <p className="text-center text-sm text-gray-600 dark:text-gray-400">
-              이미 계정이 있으신가요?{' '}
-              <Link
-                href="/sign-in"
-                className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
-              >
-                로그인
-              </Link>
-            </p>
-          </div>
         </div>
-
-        <p className="mt-8 text-center text-sm text-gray-500 dark:text-gray-600">
-          © 2025 ShiftEasy. All rights reserved.
-        </p>
       </div>
 
-      {/* 게스트 계정 생성 모달 */}
       {showGuestForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-md w-full p-8">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">게스트 계정 만들기</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-900">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">게스트 체험 계정 만들기</h3>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  시크릿 코드 없이도 임시 워크스페이스를 생성해 제품을 체험할 수 있습니다.
+                </p>
+              </div>
               <button
+                type="button"
                 onClick={closeGuestForm}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                className="rounded-full p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800"
+                aria-label="체험 계정 닫기"
               >
-                ✕
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-              시크릿 코드 없이 매니저 권한 게스트 계정을 바로 만들 수 있습니다. 이메일 인증 절차 없이 즉시 로그인할 수 있어요.
-            </p>
+            <form onSubmit={handleGuestSignup} className="mt-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <Building2 className="w-4 h-4 inline mr-1" />
+                  병원명
+                </label>
+                <input
+                  type="text"
+                  value={guestHospitalName}
+                  onChange={(e) => setGuestHospitalName(e.target.value)}
+                  placeholder="예: 쉬프트이 병원"
+                  required
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                />
+              </div>
 
-            <form onSubmit={handleGuestSignup} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   <User className="w-4 h-4 inline mr-1" />
@@ -864,23 +741,7 @@ export default function SignUpPage() {
                   onChange={(e) => setGuestName(e.target.value)}
                   placeholder="홍길동"
                   required
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
-                  autoComplete="name"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <Building2 className="w-4 h-4 inline mr-1" />
-                  병원명
-                </label>
-                <input
-                  type="text"
-                  value={guestHospitalName}
-                  onChange={(e) => setGuestHospitalName(e.target.value)}
-                  placeholder="쉬프트이 병원"
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                 />
               </div>
 
@@ -895,7 +756,7 @@ export default function SignUpPage() {
                   onChange={(e) => setGuestEmail(e.target.value)}
                   placeholder="guest@example.com"
                   required
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                   autoComplete="email"
                 />
               </div>
@@ -910,22 +771,18 @@ export default function SignUpPage() {
                     type={showGuestPassword ? 'text' : 'password'}
                     value={guestPassword}
                     onChange={(e) => setGuestPassword(e.target.value)}
-                    placeholder="8자 이상"
+                    placeholder="8자 이상, 영문+숫자+특수문자"
                     required
                     minLength={8}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2 pr-10 text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                     autoComplete="new-password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowGuestPassword(!showGuestPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                   >
-                    {showGuestPassword ? (
-                      <EyeOff className="w-5 h-5" />
-                    ) : (
-                      <Eye className="w-5 h-5" />
-                    )}
+                    {showGuestPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
               </div>
@@ -943,25 +800,19 @@ export default function SignUpPage() {
                     placeholder="비밀번호 다시 입력"
                     required
                     minLength={8}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800"
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2 pr-10 text-gray-900 shadow-sm focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                     autoComplete="new-password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowGuestConfirmPassword(!showGuestConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                   >
-                    {showGuestConfirmPassword ? (
-                      <EyeOff className="w-5 h-5" />
-                    ) : (
-                      <Eye className="w-5 h-5" />
-                    )}
+                    {showGuestConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
                 {guestConfirmPassword && guestPassword !== guestConfirmPassword && (
-                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                    비밀번호가 일치하지 않습니다
-                  </p>
+                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">비밀번호가 일치하지 않습니다</p>
                 )}
               </div>
 
@@ -976,7 +827,7 @@ export default function SignUpPage() {
                 <button
                   type="button"
                   onClick={closeGuestForm}
-                  className="flex-1 py-2 px-4 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  className="flex-1 py-2 px-4 border border-gray-300 text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
                 >
                   취소
                 </button>

@@ -8,10 +8,10 @@
 
 ## 📋 작업 개요
 
-ShiftEasy 프로젝트의 인증 및 권한 시스템을 구축했습니다. Clerk를 통한 인증, RBAC(Role-Based Access Control) 시스템, Rate Limiting, 그리고 감사 로그 시스템을 완성했습니다.
+ShiftEasy 프로젝트의 인증 및 권한 시스템을 구축했습니다. Supabase Auth를 통한 인증, RBAC(Role-Based Access Control) 시스템, Rate Limiting, 그리고 감사 로그 시스템을 완성했습니다.
 
 ### 기술 스택
-- **Authentication**: Clerk (Organization 기반)
+- **Authentication**: Supabase Auth (Organization 기반)
 - **Authorization**: Custom RBAC System
 - **Rate Limiting**: Upstash Redis
 - **Audit Logging**: Custom implementation with PostgreSQL
@@ -20,7 +20,7 @@ ShiftEasy 프로젝트의 인증 및 권한 시스템을 구축했습니다. Cle
 
 ## 🔐 구현된 시스템
 
-### 1. Clerk 인증 통합
+### 1. Supabase Auth 인증 통합
 - Organization 기반 멀티테넌시
 - 자동 사용자 동기화
 - 세션 관리
@@ -166,7 +166,7 @@ ShiftEasy 프로젝트의 인증 및 권한 시스템을 구축했습니다. Cle
 ```
 src/
 ├── app/
-│   └── layout.tsx              # ClerkProvider 설정
+│   └── layout.tsx              # SupabaseProvider 설정
 ├── middleware.ts                # 인증 미들웨어 & Rate limiting
 ├── lib/
 │   ├── auth.ts                 # 인증 헬퍼 함수
@@ -174,19 +174,19 @@ src/
 │   ├── rate-limit.ts           # Rate limiting 설정
 │   └── audit-log.ts            # 감사 로그 시스템
 └── server/
-    └── trpc.ts                 # Clerk 통합된 tRPC context
+    └── trpc.ts                 # Supabase Auth 통합된 tRPC context
 ```
 
 ---
 
 ## 🔧 설정 및 사용법
 
-### Clerk 설정
+### Supabase Auth 설정
 ```typescript
 // layout.tsx
-<ClerkProvider>
+<SupabaseProvider>
   {children}
-</ClerkProvider>
+</SupabaseProvider>
 ```
 
 ### 권한 체크
@@ -244,12 +244,13 @@ await createAuditLog({
 ## ⚠️ 주의사항
 
 1. **환경 변수 설정 필요**:
-    - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
-    - `CLERK_SECRET_KEY`
+    - `NEXT_PUBLIC_SUPABASE_URL`
+    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+    - `SUPABASE_SERVICE_ROLE_KEY`
     - `UPSTASH_REDIS_REST_URL`
     - `UPSTASH_REDIS_REST_TOKEN`
 
-2. **Clerk Dashboard 설정**:
+2. **Supabase Auth Dashboard 설정**:
     - Organization 기능 활성화
     - 웹훅 설정 (선택사항)
 
@@ -261,7 +262,7 @@ await createAuditLog({
 
 ## 📊 완료 기준 달성
 
-- ✅ **Clerk 인증 플로우 완성**
+- ✅ **Supabase Auth 인증 플로우 완성**
 - ✅ **4개 역할 권한 매트릭스** (Owner, Admin, Manager, Member)
 - ✅ **Rate limiting 구현** (7개 타입별 차별화)
 - ✅ **감사 로그 시스템** (모든 중요 작업 추적)
@@ -278,7 +279,7 @@ await createAuditLog({
 
 ## 📝 TODO (다음 단계)
 
-1. [ ] Clerk 웹훅 처리 구현
+1. [ ] Supabase Auth 웹훅 처리 구현
 2. [ ] SSO(Single Sign-On) 설정
 3. [ ] MFA(Multi-Factor Authentication) 활성화
 4. [ ] 권한 관리 UI 구현

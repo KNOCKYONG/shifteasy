@@ -21,7 +21,6 @@ import {
 } from './types';
 import {
   calculateMetricsWithDetails,
-  calculateGrade,
   assessImprovementPotential,
 } from './metrics';
 
@@ -358,11 +357,11 @@ export class ScheduleImprover {
 
     // 과근무/과소근무 직원 찾기
     const overworked = Array.from(workDays.entries())
-      .filter(([_, days]) => days > avg + 1.5)
+      .filter(([, days]) => days > avg + 1.5)
       .map(([id]) => id);
 
     const underworked = Array.from(workDays.entries())
-      .filter(([_, days]) => days < avg - 1.5)
+      .filter(([, days]) => days < avg - 1.5)
       .map(([id]) => id);
 
     if (overworked.length === 0 || underworked.length === 0) {
@@ -437,9 +436,7 @@ export class ScheduleImprover {
     };
 
     const NIGHT_INTENSIVE_RECOVERY_MIN_STREAK = 3;
-    const NIGHT_INTENSIVE_MIN_RECOVERY_DAYS = 2;
     const NIGHT_BLOCK_MIN_NON_PREF = 2;
-    const NIGHT_BLOCK_RECOVERY_DAYS = 2;
 
     // ========================================================================
     // 1. 직원별 제약 검증
@@ -615,7 +612,7 @@ export class ScheduleImprover {
       });
 
       // 각 날짜별로 필수 인원 체크
-      for (const [date, shifts] of dailyShifts) {
+      for (const shifts of dailyShifts.values()) {
         for (const [shiftCode, required] of Object.entries(
           this.constraints.requiredStaffPerShift
         )) {
@@ -632,7 +629,7 @@ export class ScheduleImprover {
     // 3. 기피 패턴 검증
     // ========================================================================
     if (this.constraints.avoidPatterns && this.constraints.avoidPatterns.length > 0) {
-      for (const [employeeId, assignments] of employeeSchedules) {
+      for (const assignments of employeeSchedules.values()) {
         const sorted = [...assignments].sort((a, b) =>
           a.date.localeCompare(b.date)
         );
