@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useMemo } from 'react';
-import { X, Trash2, Calendar, AlertCircle, Loader2 } from 'lucide-react';
+import { X, Trash2, Calendar, AlertCircle, Loader2, Sparkles } from 'lucide-react';
 import { format, getYear, getMonth } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { api } from '@/lib/trpc/client';
@@ -239,6 +239,13 @@ export function ManageSchedulesModal({ isOpen, onClose, onScheduleDeleted, onSch
                           <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${statusBadge.className}`}>
                             {statusBadge.text}
                           </span>
+                          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                          {(schedule.metadata as any)?.aiGenerated && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
+                              <Sparkles className="w-3 h-3" />
+                              AI 생성
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex flex-col gap-2 text-sm text-gray-600 dark:text-gray-400">

@@ -6,6 +6,8 @@ import { schedules, users, departments, offBalanceLedger, holidays, specialReque
 import { eq, and, gte, lte, desc, inArray, isNull, ne, or } from 'drizzle-orm';
 import { db } from '@/db';
 import { generateAiSchedule } from '@/lib/scheduler/ai-scheduler';
+import { ScheduleImprover } from '@/lib/scheduler/schedule-improver';
+import type { Assignment, Employee as ImprovementEmployee, ScheduleConstraints } from '@/lib/scheduler/types';
 import { sse } from '@/lib/sse/broadcaster';
 import { notificationService } from '@/lib/notifications/notification-service';
 import { format, subMonths } from 'date-fns';
@@ -1467,5 +1469,128 @@ export const scheduleRouter = createTRPCRouter({
         workmates,
         myShifts: myShifts.filter(s => !isNonWorkingShift(s)),
       };
+    }),
+
+  /**
+   * 🆕 스케줄 개선 엔드포인트
+   * 기존 생성 로직(generate)과 완전히 분리된 최적화 전용 엔드포인트
+   */
+  improveSchedule: protectedProcedure
+    .input(z.object({
+      // 현재 스케줄
+      assignments: z.array(z.object({
+        date: z.string(),
+        employeeId: z.string(),
+        shiftId: z.string().optional(),
+        shiftType: z.string().optional(),
+      })),
+      // 직원 정보
+      employees: z.array(z.object({
+        id: z.string(),
+        name: z.string(),
+        role: z.string().optional(),
+        workPatternType: z.string().optional(),
+        preferences: z.object({
+          workPatternType: z.string().optional(),
+          avoidPatterns: z.array(z.array(z.string())).optional(),
+        }).optional(),
+      })),
+      // 제약 조건
+      constraints: z.object({
+        minStaff: z.number(),
+        maxConsecutiveDays: z.number(),
+        minRestDays: z.number(),
+      }),
+      // 기간
+      period: z.object({
+        startDate: z.string(),
+        endDate: z.string(),
+      }),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+
+      // Permission check
+      if (ctx.user?.role === 'member') {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: '스케줄 개선 권한이 없습니다. 관리자 또는 매니저에게 문의하세요.',
+        });
+      }
+
+      try {
+        // 타입 변환
+        const assignments: Assignment[] = input.assignments.map((a) => ({
+          date: a.date,
+          employeeId: a.employeeId,
+          shiftId: a.shiftId,
+          shiftType: a.shiftType,
+        }));
+
+        const employees: ImprovementEmployee[] = input.employees.map((e) => {
+          // workPatternType 안전하게 변환
+          let workPatternType: 'three-shift' | 'night-intensive' | 'weekday-only' | undefined;
+          if (e.workPatternType === 'three-shift' || e.workPatternType === 'night-intensive' || e.workPatternType === 'weekday-only') {
+            workPatternType = e.workPatternType;
+          }
+
+          return {
+            id: e.id,
+            name: e.name,
+            role: e.role,
+            workPatternType,
+            preferences: e.preferences,
+          };
+        });
+
+        const constraints: ScheduleConstraints = {
+          minStaff: input.constraints.minStaff,
+          maxConsecutiveDays: input.constraints.maxConsecutiveDays,
+          minRestDays: input.constraints.minRestDays,
+        };
+
+        // 개선 실행
+        const improver = new ScheduleImprover(assignments, employees, constraints);
+        const result = await improver.improve();
+
+        if (!result.success) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: result.error || '스케줄 개선 중 오류가 발생했습니다.',
+          });
+        }
+
+        // Audit log
+        await createAuditLog({
+          tenantId,
+          actorId: ctx.user?.id || 'system',
+          action: 'schedule.improved',
+          entityType: 'schedule',
+          entityId: 'improvement-session',
+          metadata: {
+            totalImprovement: result.report.summary.totalImprovement,
+            gradeChange: result.report.summary.gradeChange,
+            iterations: result.report.summary.iterations,
+            processingTime: result.report.summary.processingTime,
+          },
+        });
+
+        // 리포트 반환
+        return {
+          improved: result.improved,
+          report: result.report,
+        };
+      } catch (error) {
+        console.error('Schedule improvement error:', error);
+
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error instanceof Error ? error.message : '스케줄 개선 실패',
+        });
+      }
     }),
 });

@@ -12,6 +12,7 @@ import { shiftTypesRouter } from './routers/shift-types';
 import { handoffRouter } from './routers/handoff';
 import { teamsRouter } from './routers/teams';
 import { offBalanceRouter } from './routers/off-balance';
+import { paymentsRouter } from './routers/payments';
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -27,6 +28,7 @@ export const appRouter = createTRPCRouter({
   handoff: handoffRouter,
   teams: teamsRouter,
   offBalance: offBalanceRouter,
+  payments: paymentsRouter,
 });
 
 export type AppRouter = typeof appRouter;

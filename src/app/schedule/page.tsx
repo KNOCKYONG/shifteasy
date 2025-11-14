@@ -6,7 +6,7 @@ import React, { useState, useEffect, useCallback, Suspense, useDeferredValue } f
 import equal from "fast-deep-equal";
 import { useSearchParams } from "next/navigation";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isWeekend, differenceInCalendarYears } from "date-fns";
-import { Download, Upload, Lock, Wand2, RefreshCcw, FileText, Heart, CheckCircle, MoreVertical, Settings, FolderOpen, Save, Loader2 } from "lucide-react";
+import { Download, Upload, Lock, Wand2, RefreshCcw, FileText, Heart, CheckCircle, MoreVertical, Settings, FolderOpen, Save, Loader2, Sparkles, TrendingUp } from "lucide-react";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { api } from "../../lib/trpc/client";
 import { type Employee, type Constraint, type ScheduleAssignment, type SchedulingResult, type OffAccrualSummary } from "@/lib/types/scheduler";
@@ -24,6 +24,8 @@ import { ConfirmationDialog } from "@/components/schedule/modals/ConfirmationDia
 import { ManageSchedulesModal } from "@/components/schedule/modals/ManageSchedulesModal";
 import { SwapRequestModal } from "@/components/schedule/modals/SwapRequestModal";
 import { ScheduleSwapModal } from "@/components/schedule/modals/ScheduleSwapModal";
+import { ImprovementResultModal } from "@/components/schedule/modals/ImprovementResultModal";
+import type { ImprovementReport } from "@/lib/scheduler/types";
 import {
   ViewTabs,
   ShiftTypeFilters,
@@ -299,6 +301,24 @@ function SchedulePageContent() {
   const generateScheduleMutation = api.schedule.generate.useMutation();
   const deleteMutation = api.schedule.delete.useMutation();
 
+  // 🆕 스케줄 개선 mutation
+  const improveMutation = api.schedule.improveSchedule.useMutation({
+    onSuccess: (data) => {
+      setImprovementReport(data.report);
+      setShowImprovementModal(true);
+      setIsImproving(false);
+    },
+    onError: (error) => {
+      alert(`스케줄 개선 실패: ${error.message}`);
+      setIsImproving(false);
+    },
+  });
+
+  // AI 기능 사용 권한 확인
+  const { data: aiPermission } = api.payments.canUseAIFeatures.useQuery(undefined, {
+    enabled: isAuthReady,
+  });
+
   useEffect(() => {
     if (typeof window === 'undefined' || typeof performance === 'undefined' || typeof performance.getEntriesByType !== 'function') {
       return;
@@ -372,6 +392,12 @@ function SchedulePageContent() {
   const [, setLoadedScheduleId] = useState<string | null>(null); // Setter used for state tracking
   const [selectedDate, setSelectedDate] = useState<Date>(getInitialDate()); // 오늘의 근무 날짜 선택
   const [careerOverrides, setCareerOverrides] = useState<Record<string, { yearsOfService?: number; hireYear?: number }>>({});
+  const [aiEnabled, setAiEnabled] = useState(false); // AI 스케줄 검토 기능 토글
+
+  // 🆕 스케줄 개선 관련 상태
+  const [isImproving, setIsImproving] = useState(false);
+  const [improvementReport, setImprovementReport] = useState<ImprovementReport | null>(null);
+  const [showImprovementModal, setShowImprovementModal] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -2227,12 +2253,74 @@ function SchedulePageContent() {
       };
 
       const result = await generateScheduleMutation.mutateAsync(payload);
-      const normalizedAssignments: ScheduleAssignment[] = result.assignments.map((assignment: DbAssignment) => ({
+      let normalizedAssignments: ScheduleAssignment[] = result.assignments.map((assignment: DbAssignment) => ({
         ...assignment,
         date: new Date(assignment.date),
         id: assignment.id || `${assignment.employeeId}-${assignment.date}`,
         isLocked: assignment.isLocked || false,
       }));
+
+      // AI 검토 기능이 활성화되어 있고 권한이 있는 경우 AI 검토 실행
+      if (aiEnabled && aiPermission?.canUse) {
+        try {
+          const { reviewScheduleWithAI } = await import('@/lib/ai/openai-client');
+
+          const aiReviewResult = await reviewScheduleWithAI({
+            schedule: {
+              employees: employees.map(emp => ({
+                id: emp.id,
+                name: emp.name,
+                role: emp.role,
+                preferences: {
+                  workPatternType: emp.workPatternType,
+                },
+              })),
+              assignments: normalizedAssignments.map(a => ({
+                date: format(a.date, 'yyyy-MM-dd'),
+                employeeId: a.employeeId,
+                shiftId: a.shiftId,
+                shiftType: a.shiftType,
+              })),
+              constraints: {
+                minStaff: requiredStaffPerShift ? Math.min(...Object.values(requiredStaffPerShift)) : undefined,
+                maxConsecutiveDays: 6,
+                minRestDays: 1,
+              },
+            },
+            period: {
+              startDate: format(monthStart, 'yyyy-MM-dd'),
+              endDate: format(monthEnd, 'yyyy-MM-dd'),
+            },
+          });
+
+          // AI 개선 제안이 있는 경우 사용자에게 표시
+          if (aiReviewResult.analysis.qualityScore < 80 && aiReviewResult.suggestions.length > 0) {
+            const shouldApply = confirm(
+              `AI 분석 결과:\n` +
+              `품질 점수: ${aiReviewResult.analysis.qualityScore}/100\n\n` +
+              `주요 문제점:\n${aiReviewResult.analysis.issues.slice(0, 3).map(i => `- ${i.description}`).join('\n')}\n\n` +
+              `AI가 ${aiReviewResult.suggestions.length}개의 개선 제안을 제공했습니다.\n` +
+              `개선된 스케줄을 적용하시겠습니까?`
+            );
+
+            if (shouldApply && aiReviewResult.improvedSchedule) {
+              // AI가 제안한 개선된 스케줄 적용
+              normalizedAssignments = aiReviewResult.improvedSchedule.assignments.map((assignment) => ({
+                employeeId: assignment.employeeId,
+                date: new Date(assignment.date),
+                shiftId: assignment.shiftId || '',
+                shiftType: assignment.shiftType,
+                id: `${assignment.employeeId}-${assignment.date}`,
+                isLocked: false,
+              }));
+            }
+          }
+        } catch (aiError) {
+          console.error('AI 스케줄 검토 중 오류:', aiError);
+          // AI 검토 실패 시에도 원래 스케줄은 사용
+          alert('AI 검토 중 오류가 발생했지만, 기본 스케줄은 생성되었습니다.');
+        }
+      }
 
       setSchedule(normalizedAssignments);
       setOriginalSchedule(normalizedAssignments);
@@ -2253,14 +2341,168 @@ function SchedulePageContent() {
         setGenerationResult(null);
         setOffAccrualSummaries([]);
       }
+
+      // AI로 생성한 경우 자동 임시저장
+      if (aiEnabled && aiPermission?.canUse) {
+        try {
+          const saveDraftResponse = await fetchWithAuth('/api/schedule/save-draft', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              schedule: {
+                departmentId: inferredDepartmentId,
+                startDate: format(monthStart, 'yyyy-MM-dd'),
+                endDate: format(monthEnd, 'yyyy-MM-dd'),
+                assignments: normalizedAssignments.map(a => ({
+                  employeeId: a.employeeId,
+                  shiftId: a.shiftId,
+                  date: format(a.date, 'yyyy-MM-dd'),
+                  isLocked: a.isLocked,
+                  shiftType: a.shiftType,
+                })),
+              },
+              name: `AI 생성 - ${format(monthStart, 'yyyy년 MM월')}`,
+              metadata: {
+                aiGenerated: true,
+                generatedAt: new Date().toISOString(),
+              },
+            }),
+          });
+
+          if (saveDraftResponse.ok) {
+            const saveData = await saveDraftResponse.json();
+            console.log('AI 생성 스케줄 자동 임시저장 완료:', saveData);
+            // 스케줄 목록 갱신
+            await utils.schedule.invalidate();
+          }
+        } catch (saveError) {
+          console.error('자동 임시저장 실패:', saveError);
+          // 임시저장 실패해도 스케줄 생성은 성공했으므로 에러를 무시
+        }
+      }
     } catch (error) {
       console.error('AI schedule generation failed:', error);
-      alert('AI 스케줄 생성 중 오류가 발생했습니다. 다시 시도해주세요.');
+      alert('스케줄 생성 중 오류가 발생했습니다. 다시 시도해주세요.');
     } finally {
       setIsGenerating(false);
     }
   };
 
+  // 🆕 스케줄 개선 핸들러
+  const handleImproveSchedule = async () => {
+    if (!canManageSchedules) {
+      alert('스케줄 개선 권한이 없습니다.');
+      return;
+    }
+
+    if (schedule.length === 0) {
+      alert('개선할 스케줄이 없습니다. 먼저 스케줄을 생성해주세요.');
+      return;
+    }
+
+    setIsImproving(true);
+
+    try {
+      // 기존 스케줄을 API에 전달할 형식으로 변환
+      const assignments = schedule.map((a) => ({
+        date: format(a.date, 'yyyy-MM-dd'),
+        employeeId: a.employeeId,
+        shiftId: a.shiftId,
+        shiftType: a.shiftType,
+      }));
+
+      // 직원 정보 준비
+      const employees = filteredMembers.map((member) => {
+        const memberWithPrefs = member as UnifiedEmployee & {
+          preferences?: {
+            workPatternType?: string;
+            avoidPatterns?: string[][];
+          };
+        };
+
+        return {
+          id: member.id,
+          name: member.name,
+          role: member.role || '일반',
+          workPatternType: member.workPatternType,
+          preferences: memberWithPrefs.preferences
+            ? {
+                workPatternType: memberWithPrefs.preferences.workPatternType,
+                avoidPatterns: memberWithPrefs.preferences.avoidPatterns,
+              }
+            : undefined,
+        };
+      });
+
+      // 제약 조건 준비
+      const constraints = {
+        minStaff: 5, // 기본값, 필요시 teamPattern에서 가져오기
+        maxConsecutiveDays: 6,
+        minRestDays: 1,
+      };
+
+      // 개선 실행
+      await improveMutation.mutateAsync({
+        assignments,
+        employees,
+        constraints,
+        period: {
+          startDate: format(monthStart, 'yyyy-MM-dd'),
+          endDate: format(monthEnd, 'yyyy-MM-dd'),
+        },
+      });
+    } catch (error) {
+      console.error('Schedule improvement error:', error);
+      // mutation onError에서 이미 처리됨
+    }
+  };
+
+  // 개선 적용 핸들러
+  const handleApplyImprovement = () => {
+    if (!improvementReport) return;
+
+    // API 응답에서 improved 배정을 가져옴
+    const improved = (improveMutation.data as { improved?: unknown })?.improved as Array<{
+      date: string;
+      employeeId: string;
+      shiftId?: string;
+      shiftType?: string;
+    }> | undefined;
+
+    if (!improved) {
+      alert('개선된 스케줄 데이터를 찾을 수 없습니다.');
+      return;
+    }
+
+    // 개선된 스케줄 적용
+    const improvedAssignments: ScheduleAssignment[] = improved.map((a) => ({
+      employeeId: a.employeeId,
+      date: new Date(a.date),
+      shiftId: a.shiftId || '',
+      shiftType: a.shiftType,
+      id: `${a.employeeId}-${a.date}`,
+      isLocked: false,
+    }));
+
+    setSchedule(improvedAssignments);
+    setShowImprovementModal(false);
+
+    // 성공 메시지
+    const gradeChange = `${improvementReport.summary.gradeChange.from} → ${improvementReport.summary.gradeChange.to}`;
+    alert(
+      `✨ 스케줄이 개선되었습니다!\n\n` +
+        `등급: ${gradeChange}\n` +
+        `개선 점수: +${improvementReport.summary.totalImprovement.toFixed(1)}점`
+    );
+  };
+
+  // 개선 취소 핸들러
+  const handleRejectImprovement = () => {
+    setShowImprovementModal(false);
+    setImprovementReport(null);
+  };
 
   const handleImport = async () => {
     if (!canManageSchedules) {
@@ -2709,27 +2951,77 @@ function SchedulePageContent() {
                   )}
 
                   {!isMember && (
-                    <button
-                      onClick={handleGenerateSchedule}
-                      disabled={isGenerating}
-                      className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg ${
-                        isGenerating
-                          ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
-                          : "text-white bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
-                      }`}
-                    >
-                      {isGenerating ? (
-                        <>
-                          <RefreshCcw className="w-4 h-4 animate-spin" />
-                          생성 중...
-                        </>
-                      ) : (
-                        <>
-                          <Wand2 className="w-4 h-4" />
-                          AI 스케줄 생성
-                        </>
-                      )}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleGenerateSchedule}
+                        disabled={isGenerating}
+                        className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg ${
+                          isGenerating
+                            ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
+                            : "text-white bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
+                        }`}
+                      >
+                        {isGenerating ? (
+                          <>
+                            <RefreshCcw className="w-4 h-4 animate-spin" />
+                            생성 중...
+                          </>
+                        ) : (
+                          <>
+                            <Wand2 className="w-4 h-4" />
+                            스케줄 생성
+                          </>
+                        )}
+                      </button>
+
+                      {/* AI Toggle */}
+                      <button
+                        onClick={() => {
+                          if (!aiPermission?.canUse) {
+                            alert(aiPermission?.reason || '유료 플랜 구독이 필요합니다.');
+                            return;
+                          }
+                          setAiEnabled(!aiEnabled);
+                        }}
+                        disabled={isGenerating}
+                        className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                          aiEnabled && aiPermission?.canUse
+                            ? "bg-purple-50 dark:bg-purple-900/20 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300"
+                            : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        title={aiPermission?.canUse ? (aiEnabled ? "AI 검토 ON" : "AI 검토 OFF") : "유료 플랜 구독 필요"}
+                      >
+                        <Sparkles className={`w-4 h-4 ${aiEnabled && aiPermission?.canUse ? "text-purple-600 dark:text-purple-400" : "text-gray-400"}`} />
+                        <span className="text-xs">AI</span>
+                        {!aiPermission?.canUse && (
+                          <span className="ml-1 text-xs">🔒</span>
+                        )}
+                      </button>
+
+                      {/* 🆕 개선 버튼 */}
+                      <button
+                        onClick={handleImproveSchedule}
+                        disabled={!hasSchedule || isImproving}
+                        className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                          !hasSchedule || isImproving
+                            ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
+                            : "text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md hover:shadow-lg"
+                        }`}
+                        title={hasSchedule ? "스케줄 최적화" : "개선할 스케줄이 없습니다"}
+                      >
+                        {isImproving ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            개선 중...
+                          </>
+                        ) : (
+                          <>
+                            <TrendingUp className="w-4 h-4" />
+                            개선
+                          </>
+                        )}
+                      </button>
+                    </div>
                   )}
 
                   <button
@@ -2892,7 +3184,7 @@ function SchedulePageContent() {
         )}
         {!isScheduleQueryLoading && !hasSchedule && (
           <div className="mb-6 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30 p-4 text-sm text-gray-600 dark:text-gray-400">
-            이 달에는 저장된 스케줄이 없습니다. 상단의 AI 스케줄 생성이나 가져오기 버튼을 사용해 새 스케줄을 만들어주세요.
+            이 달에는 저장된 스케줄이 없습니다. 상단의 스케줄 생성이나 가져오기 버튼을 사용해 새 스케줄을 만들어주세요.
           </div>
         )}
 
@@ -3095,6 +3387,15 @@ function SchedulePageContent() {
         validationScore={modals.validationScore}
         validationIssues={modals.validationIssues}
         employeeNameMap={employeeNameMap}
+      />
+
+      {/* 🆕 Improvement Result Modal */}
+      <ImprovementResultModal
+        isOpen={showImprovementModal}
+        onClose={handleRejectImprovement}
+        report={improvementReport}
+        onApply={handleApplyImprovement}
+        onReject={handleRejectImprovement}
       />
 
       {/* Schedule Confirmation Dialog */}
