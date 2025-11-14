@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, protectedProcedure, adminProcedure } from '../trpc';
@@ -209,6 +208,43 @@ export const scheduleRouter = createTRPCRouter({
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
       const db = scopedDb(tenantId);
       
+      const db = scopedDb(tenantId);
+      
+      
+      const allSchedules = await db.query(schedules, and(
+        eq(schedules.id, input.scheduleId),
+        eq(schedules.tenantId, tenantId)
+      ));
+      
+      if (!allSchedules[0]) throw new TRPCError({ code: 'NOT_FOUND', message: 'Schedule not found' });
+      
+      const schedule = allSchedules[0];
+      const year = schedule.startDate.getFullYear();
+      const month = schedule.startDate.getMonth();
+      
+      const existing = await db.query(schedules, and(
+        eq(schedules.tenantId, schedule.tenantId),
+        eq(schedules.departmentId, schedule.departmentId),
+        eq(schedules.status, 'published'),
+        isNotNull(schedules.publishedAt),
+        ne(schedules.id, input.scheduleId),
+        or(isNull(schedules.deletedFlag), ne(schedules.deletedFlag, 'X'))
+      ));
+      
+      const conflicts = existing.filter((s: any) => 
+        s.startDate.getFullYear() === year && s.startDate.getMonth() === month
+      );
+      
+      return { hasConflict: conflicts.length > 0, existingSchedule: conflicts[0] || null };
+    }),
+
+
+  // Check for conflicting published schedules
+  checkPublishConflict: protectedProcedure
+    .input(z.object({ scheduleId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      
       const allSchedules = await db.query(schedules, and(
         eq(schedules.id, input.scheduleId),
         eq(schedules.tenantId, tenantId)
@@ -239,6 +275,7 @@ export const scheduleRouter = createTRPCRouter({
   publish: protectedProcedure
     .input(z.object({
       id: z.string(),
+      force: z.boolean().optional(),
       force: z.boolean().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
