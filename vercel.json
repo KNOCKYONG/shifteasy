@@ -3,11 +3,5 @@
   "outputDirectory": ".next",
   "framework": "nextjs",
   "installCommand": "npm install --legacy-peer-deps --include=dev",
-  "functions": {
-    ".next/server/app/**/*.js": {
-      "memory": 512,
-      "maxDuration": 10
-    }
-  },
   "regions": ["icn1"]
 }
