@@ -534,12 +534,14 @@ export function NavigationHeader() {
                           <button
                             key={subItem.href || subItem.label}
                             type="button"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
                               if (subItem.href) {
                                 router.push(subItem.href);
+                                setMobileMenuOpen(false);
+                                setShowScheduleDropdown(false);
                               }
-                              setMobileMenuOpen(false);
-                              setShowScheduleDropdown(false);
                             }}
                             className="block w-full text-left px-4 py-2 rounded-md text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
                           >
@@ -597,7 +599,9 @@ export function NavigationHeader() {
                         <button
                           key={subItem.value || subItem.href}
                           type="button"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
                             if (subItem.href) {
                               router.push(subItem.href);
                             } else {
