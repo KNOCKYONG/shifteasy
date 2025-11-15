@@ -36,6 +36,19 @@ export function GenerateScheduleModal({
   const [isLoading, setIsLoading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
+  // Get shift color from customShiftTypes
+  const getShiftColor = (shiftCode: string): string => {
+    const shiftType = customShiftTypes.find(st =>
+      st.code.toUpperCase() === shiftCode.toUpperCase()
+    );
+
+    if (shiftType && shiftType.color) {
+      return shiftType.color;
+    }
+
+    return '#9CA3AF'; // default gray
+  };
+
   // Fetch department pattern
   const { data: departmentPattern } = api.departmentPatterns.getByDepartment.useQuery(
     { departmentId: departmentId || '' },
@@ -210,7 +223,7 @@ export function GenerateScheduleModal({
                   >
                     <div
                       className="w-3 h-3 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: shiftType?.color || '#9CA3AF' }}
+                      style={{ backgroundColor: getShiftColor(req.shiftCode) }}
                     />
                     <div className="flex-1">
                       <div className="text-sm font-medium text-gray-900 dark:text-white">
