@@ -3,6 +3,7 @@
 export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useCallback, Suspense, useDeferredValue } from "react";
+import dynamicImport from "next/dynamic";
 import equal from "fast-deep-equal";
 import { useSearchParams } from "next/navigation";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isWeekend, differenceInCalendarYears } from "date-fns";
@@ -13,19 +14,22 @@ import { type Employee, type Constraint, type ScheduleAssignment, type Schedulin
 import type { Assignment } from "@/types/schedule";
 import { EmployeeAdapter } from "../../lib/adapters/employee-adapter";
 import type { UnifiedEmployee } from "@/lib/types/unified-employee";
-import { EmployeePreferencesModal, type ExtendedEmployeePreferences } from "@/components/schedule/EmployeePreferencesModal";
+import { type ExtendedEmployeePreferences } from "@/components/schedule/EmployeePreferencesModal";
 import { type SimplifiedPreferences } from "@/components/department/MyPreferencesPanel";
 import { toEmployee } from "@/lib/utils/employee-converter";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { ImportModal } from "@/components/schedule/modals/ImportModal";
-import { ExportModal } from "@/components/schedule/modals/ExportModal";
-import { ValidationResultsModal } from "@/components/schedule/modals/ValidationResultsModal";
-import { ConfirmationDialog } from "@/components/schedule/modals/ConfirmationDialog";
-import { ManageSchedulesModal } from "@/components/schedule/modals/ManageSchedulesModal";
-import { SwapRequestModal } from "@/components/schedule/modals/SwapRequestModal";
-import { ScheduleSwapModal } from "@/components/schedule/modals/ScheduleSwapModal";
-import { ImprovementResultModal } from "@/components/schedule/modals/ImprovementResultModal";
 import type { ImprovementReport } from "@/lib/scheduler/types";
+
+// Dynamic imports for heavy modal components to reduce initial bundle size
+const EmployeePreferencesModal = dynamicImport(() => import("@/components/schedule/EmployeePreferencesModal").then(mod => ({ default: mod.EmployeePreferencesModal })), { ssr: false });
+const ImportModal = dynamicImport(() => import("@/components/schedule/modals/ImportModal").then(mod => ({ default: mod.ImportModal })), { ssr: false });
+const ExportModal = dynamicImport(() => import("@/components/schedule/modals/ExportModal").then(mod => ({ default: mod.ExportModal })), { ssr: false });
+const ValidationResultsModal = dynamicImport(() => import("@/components/schedule/modals/ValidationResultsModal").then(mod => ({ default: mod.ValidationResultsModal })), { ssr: false });
+const ConfirmationDialog = dynamicImport(() => import("@/components/schedule/modals/ConfirmationDialog").then(mod => ({ default: mod.ConfirmationDialog })), { ssr: false });
+const ManageSchedulesModal = dynamicImport(() => import("@/components/schedule/modals/ManageSchedulesModal").then(mod => ({ default: mod.ManageSchedulesModal })), { ssr: false });
+const SwapRequestModal = dynamicImport(() => import("@/components/schedule/modals/SwapRequestModal").then(mod => ({ default: mod.SwapRequestModal })), { ssr: false });
+const ScheduleSwapModal = dynamicImport(() => import("@/components/schedule/modals/ScheduleSwapModal").then(mod => ({ default: mod.ScheduleSwapModal })), { ssr: false });
+const ImprovementResultModal = dynamicImport(() => import("@/components/schedule/modals/ImprovementResultModal").then(mod => ({ default: mod.ImprovementResultModal })), { ssr: false });
 import {
   ViewTabs,
   ShiftTypeFilters,
@@ -1109,7 +1113,7 @@ function SchedulePageContent() {
     endDate: format(monthEnd, 'yyyy-MM-dd'),
   }, {
     enabled: shouldLoadSpecialRequests,
-    staleTime: 2 * 60 * 1000, // 2분 동안 fresh 유지 (요청은 자주 변경될 수 있음)
+    staleTime: 5 * 60 * 1000, // 5분 동안 fresh 유지 (요청은 자주 변경될 수 있음)
     refetchOnWindowFocus: false, // 탭 전환 시 refetch 비활성화
   });
 

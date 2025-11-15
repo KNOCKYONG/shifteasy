@@ -23,13 +23,13 @@ export function AdminDashboard() {
 
   // Optimized dashboard data query - single request with caching
   const { data: dashboardData, isLoading } = api.schedule.getDashboardData.useQuery(undefined, {
-    staleTime: 2 * 60 * 1000, // 2 minutes cache
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
     refetchOnWindowFocus: false,
   });
 
   // Get my upcoming shifts (next 7 days)
   const { data: upcomingShifts, isLoading: isLoadingShifts } = api.schedule.getMyUpcomingShifts.useQuery(undefined, {
-    staleTime: 2 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 
@@ -44,7 +44,7 @@ export function AdminDashboard() {
   const { data: workmatesData, isLoading: isLoadingWorkmates } = api.schedule.getMyWorkmates.useQuery(
     undefined,
     {
-      staleTime: 2 * 60 * 1000,
+      staleTime: 5 * 60 * 1000,
       refetchOnWindowFocus: false,
     }
   );

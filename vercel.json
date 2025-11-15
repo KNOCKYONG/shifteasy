@@ -2,5 +2,16 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "framework": "nextjs",
-  "installCommand": "npm install --legacy-peer-deps --include=dev"
+  "installCommand": "npm install --legacy-peer-deps --include=dev",
+  "functions": {
+    "api/**/*.{js,ts}": {
+      "memory": 512,
+      "maxDuration": 10
+    },
+    "app/**/*.{js,ts}": {
+      "memory": 512,
+      "maxDuration": 10
+    }
+  },
+  "regions": ["icn1"]
 }
