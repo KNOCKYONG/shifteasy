@@ -41,11 +41,13 @@ export default function LandingPage() {
       {/* Hero Section - Always visible immediately */}
       <HeroSection />
 
+      {/* Demo Preview Section - Right after hero */}
+      <DemoPreviewSection />
+
       {/* Other sections - Lazy loaded */}
       <FeaturesSection />
       <BenefitsSection />
       <HowItWorksSection />
-      <DemoPreviewSection />
       <TestimonialsSection />
       <PricingSection />
       <CTASection />
