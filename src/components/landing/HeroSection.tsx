@@ -47,11 +47,11 @@ export default function HeroSection() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: 'easeOut' }}
-            className="inline-flex items-center gap-2 px-4 py-2 mb-3 bg-yellow-400 text-gray-900 rounded-full text-sm font-bold shadow-md"
+            className="inline-flex items-center gap-2 px-4 py-2 mb-3 bg-gradient-to-r from-[#F97316] to-[#FB923C] text-white rounded-full text-sm font-bold shadow-md"
           >
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gray-900 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-900"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
             </span>
             {t('hero.openingSpecial')}
           </motion.div>
@@ -75,7 +75,7 @@ export default function HeroSection() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: 'easeOut' }}
-            className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold text-gray-900 mb-6 leading-tight"
+            className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold text-[#0F172A] mb-6 leading-tight"
           >
             {t('hero.headline')}
           </motion.h1>
@@ -85,7 +85,7 @@ export default function HeroSection() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2, ease: 'easeOut' }}
-            className="text-xl sm:text-2xl lg:text-3xl text-gray-600 mb-4"
+            className="text-xl sm:text-2xl lg:text-3xl text-[#64748B] mb-4"
           >
             {t('hero.subheadline')}
           </motion.p>
@@ -95,7 +95,7 @@ export default function HeroSection() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.3, ease: 'easeOut' }}
-            className="text-base sm:text-lg lg:text-xl text-gray-500 mb-12 max-w-3xl mx-auto"
+            className="text-base sm:text-lg lg:text-xl text-[#64748B] mb-12 max-w-3xl mx-auto whitespace-pre-line"
           >
             {t('hero.description')}
           </motion.p>
@@ -119,7 +119,7 @@ export default function HeroSection() {
 
             <button
               onClick={() => setIsConsultingModalOpen(true)}
-              className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-gray-700 bg-white border-2 border-gray-300 rounded-lg transition-all duration-300 hover:border-blue-600 hover:text-blue-600 hover:shadow-lg w-full sm:w-auto"
+              className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-[#2563EB] bg-white border-2 border-[#2563EB] rounded-lg transition-all duration-300 hover:bg-[#DBEAFE] hover:shadow-lg w-full sm:w-auto"
             >
               <Sparkles className="w-5 h-5 mr-2" />
               {t('hero.ctaSecondary')}

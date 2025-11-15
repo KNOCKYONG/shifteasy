@@ -9,22 +9,22 @@ const features = [
   {
     icon: Brain,
     key: 'feature1',
-    gradient: 'from-blue-500 to-cyan-500',
+    gradient: 'from-[#2563EB] to-[#1D4ED8]',
   },
   {
     icon: Users,
     key: 'feature2',
-    gradient: 'from-purple-500 to-pink-500',
+    gradient: 'from-[#F97316] to-[#FB923C]',
   },
   {
     icon: ShieldCheck,
     key: 'feature3',
-    gradient: 'from-orange-500 to-red-500',
+    gradient: 'from-[#1D4ED8] to-[#2563EB]',
   },
   {
     icon: Globe,
     key: 'feature4',
-    gradient: 'from-green-500 to-emerald-500',
+    gradient: 'from-[#FB923C] to-[#F97316]',
   },
 ];
 
@@ -102,7 +102,7 @@ export default function FeaturesSection() {
           initial={{ opacity: 0, scaleX: 0 }}
           animate={inView ? { opacity: 1, scaleX: 1 } : {}}
           transition={{ duration: 1, delay: 0.8 }}
-          className="mt-20 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full max-w-md mx-auto"
+          className="mt-20 h-1 bg-gradient-to-r from-[#2563EB] via-[#1D4ED8] to-[#F97316] rounded-full max-w-md mx-auto"
         />
       </div>
     </section>

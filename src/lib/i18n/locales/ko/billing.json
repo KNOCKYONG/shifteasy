@@ -8,7 +8,7 @@
       "trial": "90일 무료 체험",
       "features": {
         "members": "최대 10명의 팀원",
-        "scheduling": "기본 스케줄 관리",
+        "scheduling": "기본 근무표 관리",
         "mobile": "모바일 앱 접근",
         "support": "이메일 지원"
       }
@@ -20,8 +20,8 @@
       "popular": "인기 플랜",
       "features": {
         "members": "최대 50명의 팀원",
-        "optimization": "고급 스케줄 최적화",
-        "ai": "AI 자동 스케줄링",
+        "optimization": "고급 근무표 최적화",
+        "ai": "AI 자동 근무표 생성",
         "analytics": "팀 분석 및 리포트",
         "support": "우선 지원",
         "notifications": "맞춤 알림"

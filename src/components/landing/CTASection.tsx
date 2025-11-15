@@ -28,7 +28,7 @@ export default function CTASection() {
   return (
     <section ref={ref} className="relative py-20 lg:py-32 overflow-hidden">
       {/* Gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#2563EB] to-[#1D4ED8]" />
 
       {/* Animated background pattern */}
       <div className="absolute inset-0 opacity-10">
@@ -47,16 +47,16 @@ export default function CTASection() {
             className="mb-6"
           >
             {/* Opening Special Badge */}
-            <div className="inline-flex items-center gap-3 mb-3 px-5 py-2.5 bg-gradient-to-r from-yellow-400 to-orange-400 text-gray-900 rounded-full shadow-xl">
+            <div className="inline-flex items-center gap-3 mb-3 px-5 py-2.5 bg-gradient-to-r from-[#F97316] to-[#FB923C] text-white rounded-full shadow-xl">
               <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gray-900 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-gray-900"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
               </span>
               <span className="font-bold text-base">{t('cta.openingSpecial')}</span>
             </div>
 
             {/* Urgency Badge */}
-            <div className="inline-flex items-center gap-3 mb-6 px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 rounded-full shadow-xl">
+            <div className="inline-flex items-center gap-3 mb-6 px-6 py-3 bg-gradient-to-r from-[#F97316] to-[#FB923C] rounded-full shadow-xl">
               <span className="relative flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
@@ -103,13 +103,13 @@ export default function CTASection() {
           >
             <Link
               href="/billing?plan=professional"
-              className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-blue-600 bg-white rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-2xl w-full sm:w-auto"
+              className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-[#2563EB] bg-white rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-2xl w-full sm:w-auto"
             >
               <span className="relative z-10 flex items-center gap-2">
                 {t('cta.ctaPrimary')}
                 <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
               </span>
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-purple-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="absolute inset-0 bg-gradient-to-r from-[#DBEAFE] to-[#DBEAFE] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </Link>
 
             <button

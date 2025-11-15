@@ -1,11 +1,11 @@
 {
   "app": {
     "name": "ShiftEasy",
-    "title": "ShiftEasy - 스마트한 근무 스케줄 관리"
+    "title": "ShiftEasy - 스마트한 근무표 관리"
   },
   "nav": {
     "dashboard": "대시보드",
-    "schedule": "스케줄",
+    "schedule": "근무표",
     "team": "부서 관리",
     "config": "설정"
   },
@@ -18,7 +18,7 @@
     "assignmentDesc": "부서 내 팀 구성과 배정을 관리합니다"
   },
   "scheduleMenu": {
-    "management": "스케줄 관리",
+    "management": "근무표 관리",
     "settings": "설정"
   },
   "buttons": {

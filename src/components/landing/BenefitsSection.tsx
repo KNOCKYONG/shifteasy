@@ -15,12 +15,12 @@ const industries = [
   {
     key: 'manufacturing',
     icon: Factory,
-    color: 'purple',
+    color: 'orange',
   },
   {
     key: 'service',
     icon: Store,
-    color: 'green',
+    color: 'blueAlt',
   },
 ];
 
@@ -34,27 +34,27 @@ export default function BenefitsSection() {
 
   const colorMap: Record<string, { bg: string; text: string; gradient: string; border: string }> = {
     blue: {
-      bg: 'bg-blue-100',
-      text: 'text-blue-600',
-      gradient: 'from-blue-500 to-cyan-500',
-      border: 'border-blue-500',
+      bg: 'bg-[#DBEAFE]',
+      text: 'text-[#2563EB]',
+      gradient: 'from-[#2563EB] to-[#1D4ED8]',
+      border: 'border-[#2563EB]',
     },
-    purple: {
-      bg: 'bg-purple-100',
-      text: 'text-purple-600',
-      gradient: 'from-purple-500 to-pink-500',
-      border: 'border-purple-500',
+    orange: {
+      bg: 'bg-[#FED7AA]',
+      text: 'text-[#F97316]',
+      gradient: 'from-[#F97316] to-[#FB923C]',
+      border: 'border-[#F97316]',
     },
-    green: {
-      bg: 'bg-green-100',
-      text: 'text-green-600',
-      gradient: 'from-green-500 to-emerald-500',
-      border: 'border-green-500',
+    blueAlt: {
+      bg: 'bg-[#DBEAFE]',
+      text: 'text-[#1D4ED8]',
+      gradient: 'from-[#1D4ED8] to-[#2563EB]',
+      border: 'border-[#1D4ED8]',
     },
   };
 
   return (
-    <section ref={ref} className="py-20 lg:py-32 bg-gradient-to-br from-gray-50 to-gray-100">
+    <section ref={ref} className="py-20 lg:py-32 bg-[#F8FAFC]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <motion.div
