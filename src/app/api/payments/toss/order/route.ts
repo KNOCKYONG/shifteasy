@@ -5,6 +5,7 @@ import { Permission, PermissionChecker } from '@/lib/auth/rbac';
 import { upsertPayment } from '@/lib/payments/payment-service';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 10;
 
 const CreateOrderSchema = z.object({
   orderId: z.string().min(3).optional(),

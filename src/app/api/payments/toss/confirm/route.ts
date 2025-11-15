@@ -7,6 +7,7 @@ import { findPaymentByOrderId, upsertPayment, updatePaymentByOrderId } from '@/l
 import { TossPaymentsError, confirmTossPayment, isTossConfigured, mapTossStatusToPayment } from '@/lib/payments/toss';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 10;
 
 const ConfirmSchema = z.object({
   paymentKey: z.string().min(3),

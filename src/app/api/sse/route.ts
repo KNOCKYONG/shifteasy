@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { sseManager } from '@/lib/sse/sseManager';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 10;
 
 export async function GET(req: NextRequest) {
   // 클라이언트 ID 생성 (실제로는 인증된 사용자 ID 사용)

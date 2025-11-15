@@ -7,6 +7,7 @@ import { eq } from 'drizzle-orm';
 import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 10;
 
 /**
  * GET /api/departments/all-secrets

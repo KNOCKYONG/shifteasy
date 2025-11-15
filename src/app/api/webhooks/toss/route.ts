@@ -17,6 +17,7 @@ type TossWebhookPayload = {
 };
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 10;
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {

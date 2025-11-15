@@ -7,6 +7,7 @@ import { eq } from 'drizzle-orm';
 import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 10;
 
 // Default tenant ID (나중에 인증 시스템에서 가져와야 함)
 const DEFAULT_TENANT_ID = '3760b5ec-462f-443c-9a90-4a2b2e295e9d';

@@ -7,6 +7,7 @@ import { sql } from 'drizzle-orm';
 import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 10;
 
 const supabaseAdmin =
   process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY

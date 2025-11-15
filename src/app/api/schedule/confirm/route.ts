@@ -8,6 +8,7 @@ import { and, eq } from 'drizzle-orm';
 import type { OffAccrualSummary } from '@/lib/types/scheduler';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 10;
 
 // Request validation schema
 const ConfirmScheduleSchema = z.object({

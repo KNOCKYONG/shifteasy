@@ -9,6 +9,7 @@ import {
 import type { Shift } from '@/lib/types/scheduler';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 10;
 
 const ACCESS_CONTROL_HEADERS =
   'Content-Type, x-tenant-id, x-user-id, x-user-role, x-department-id';

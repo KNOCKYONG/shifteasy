@@ -12,6 +12,7 @@ const logDebug = (...args: Parameters<typeof console.log>) => {
 };
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 10;
 
 // Request validation schema
 const SaveDraftSchema = z.object({

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateSecretCode } from '@/lib/auth/secret-code';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 10;
 
 export async function POST(req: NextRequest) {
   try {
