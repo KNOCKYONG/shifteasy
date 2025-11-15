@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { X, Check, Users, Calendar } from 'lucide-react';
 import { api } from '@/lib/trpc/client';
 
-interface DepartmentPattern {
+export interface DepartmentPattern {
   id: string;
   tenantId?: string;
   departmentId: string;

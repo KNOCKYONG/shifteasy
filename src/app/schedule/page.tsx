@@ -32,6 +32,8 @@ const ScheduleSwapModal = dynamicImport(() => import("@/components/schedule/moda
 const ImprovementResultModal = dynamicImport(() => import("@/components/schedule/modals/ImprovementResultModal").then(mod => ({ default: mod.ImprovementResultModal })), { ssr: false });
 const SelectConfigPresetModal = dynamicImport(() => import("@/components/config/SelectConfigPresetModal").then(mod => ({ default: mod.SelectConfigPresetModal })), { ssr: false });
 const SelectPatternModal = dynamicImport(() => import("@/components/config/SelectPatternModal").then(mod => ({ default: mod.SelectPatternModal })), { ssr: false });
+import type { ConfigPreset } from '@/components/config/SelectConfigPresetModal';
+import type { DepartmentPattern } from '@/components/config/SelectPatternModal';
 import {
   ViewTabs,
   ShiftTypeFilters,
@@ -444,8 +446,8 @@ function SchedulePageContent() {
   // 프리셋/패턴 선택 모달 상태
   const [showPresetSelectionModal, setShowPresetSelectionModal] = useState(false);
   const [showPatternSelectionModal, setShowPatternSelectionModal] = useState(false);
-  const [selectedConfigPreset, setSelectedConfigPreset] = useState<any | null>(null);
-  const [selectedDepartmentPattern, setSelectedDepartmentPattern] = useState<any | null>(null);
+  const [selectedConfigPreset, setSelectedConfigPreset] = useState<ConfigPreset | null>(null);
+  const [selectedDepartmentPattern, setSelectedDepartmentPattern] = useState<DepartmentPattern | null>(null);
 
   // Handle URL parameter changes for view
   useEffect(() => {
@@ -2005,13 +2007,13 @@ function SchedulePageContent() {
     setShowPresetSelectionModal(true);
   };
 
-  const handlePresetSelect = (preset: any | null) => {
+  const handlePresetSelect = (preset: ConfigPreset | null) => {
     setSelectedConfigPreset(preset);
     // After preset selection, show pattern selection modal
     setShowPatternSelectionModal(true);
   };
 
-  const handlePatternSelect = (pattern: any | null) => {
+  const handlePatternSelect = (pattern: DepartmentPattern | null) => {
     setSelectedDepartmentPattern(pattern);
     // Proceed with actual schedule generation
     void handleGenerateSchedule();
