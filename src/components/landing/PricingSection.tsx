@@ -56,7 +56,7 @@ export default function PricingSection() {
                 {/* Popular badge */}
                 {isPopular && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 z-10">
-                    <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-1 rounded-full text-sm font-semibold flex items-center gap-1 shadow-lg">
+                    <div className="bg-blue-600 text-white px-4 py-1 rounded-full text-sm font-semibold flex items-center gap-1 shadow-lg">
                       <Star className="w-4 h-4" fill="currentColor" />
                       인기
                     </div>
@@ -115,7 +115,7 @@ export default function PricingSection() {
                       onClick={() => setIsContactModalOpen(true)}
                       className={`block w-full text-center px-6 py-3 rounded-lg font-semibold transition-all duration-300 ${
                         isPopular
-                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 hover:shadow-lg hover:scale-105'
+                          ? 'bg-blue-600 text-white hover:from-blue-700 hover:to-purple-700 hover:shadow-lg hover:scale-105'
                           : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
                       }`}
                     >
@@ -126,7 +126,7 @@ export default function PricingSection() {
                       href={planHref}
                       className={`block w-full text-center px-6 py-3 rounded-lg font-semibold transition-all duration-300 ${
                         isPopular
-                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 hover:shadow-lg hover:scale-105'
+                          ? 'bg-blue-600 text-white hover:from-blue-700 hover:to-purple-700 hover:shadow-lg hover:scale-105'
                           : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
                       }`}
                     >
