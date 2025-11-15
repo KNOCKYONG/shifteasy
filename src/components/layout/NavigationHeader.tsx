@@ -531,23 +531,21 @@ export function NavigationHeader() {
                     {showScheduleDropdown && (
                       <div className="ml-4 mt-1 space-y-1">
                         {scheduleSubMenuItems.map((subItem) => (
-                          <button
+                          <Link
                             key={subItem.href || subItem.label}
+                            href={subItem.href ?? '#'}
                             onClick={(e) => {
                               e.preventDefault();
-                              e.stopPropagation();
-                              const href = subItem.href;
-                              if (href) {
-                                console.log('Navigating to:', href);
-                                router.push(href);
-                                setMobileMenuOpen(false);
-                                setShowScheduleDropdown(false);
+                              if (subItem.href) {
+                                router.push(subItem.href);
                               }
+                              setMobileMenuOpen(false);
+                              setShowScheduleDropdown(false);
                             }}
                             className="block w-full text-left px-4 py-2 rounded-md text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
                           >
                             {subItem.label}
-                          </button>
+                          </Link>
                         ))}
                       </div>
                     )}
@@ -597,9 +595,11 @@ export function NavigationHeader() {
                   {showTeamDropdown && (
                     <div className="ml-4 mt-1 space-y-1">
                       {teamSubMenuItems.map((subItem) => (
-                        <button
+                        <Link
                           key={subItem.value || subItem.href}
-                          onClick={() => {
+                          href={subItem.href ?? `/department?tab=${subItem.value}`}
+                          onClick={(e) => {
+                            e.preventDefault();
                             if (subItem.href) {
                               router.push(subItem.href);
                             } else {
@@ -608,10 +608,10 @@ export function NavigationHeader() {
                             setMobileMenuOpen(false);
                             setShowTeamDropdown(false);
                           }}
-                          className="w-full text-left px-4 py-2 rounded-md text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+                          className="block w-full text-left px-4 py-2 rounded-md text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
                         >
                           {subItem.label}
-                        </button>
+                        </Link>
                       ))}
                     </div>
                   )}
