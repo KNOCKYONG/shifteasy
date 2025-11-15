@@ -5,7 +5,7 @@ import { Clock, Users, ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
 import { format, addDays, subDays, isToday, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, startOfWeek, endOfWeek } from 'date-fns';
 import { ko as koLocale, enUS as enLocale, ja as jaLocale } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
-import { type ShiftType, SHIFT_COLOR_MAP } from '@/lib/utils/shift-utils';
+import { type ShiftType } from '@/lib/utils/shift-utils';
 import { api } from '@/lib/trpc/client';
 
 interface Employee {
@@ -99,14 +99,10 @@ export function TodayScheduleBoard({
       return timeA - timeB;
     });
 
-  // Helper function to convert color name to hex
+  // Helper function to ensure color is hex (fallback to gray)
   const getHexColor = (color: string): string => {
-    // If already hex, return as is
-    if (color.startsWith('#')) {
-      return color;
-    }
-    // Otherwise, lookup in color map
-    return SHIFT_COLOR_MAP[color] || SHIFT_COLOR_MAP.gray;
+    // All colors should be hex now, but fallback to gray if not
+    return color && color.startsWith('#') ? color : '#6B7280';
   };
 
   // Create shift groups dynamically from today's shift types

@@ -16,7 +16,7 @@ export function ColorPicker({ color, onChange, presetColors }: ColorPickerProps)
   // Default preset colors matching D, E, N, A, O, V
   const defaultPresets = [
     '#3b82f6', // blue - D
-    '#f59e0b', // amber - E
+    '#fb923c', // orange - E
     '#6366f1', // indigo - N
     '#10b981', // green - A
     '#6b7280', // gray - O

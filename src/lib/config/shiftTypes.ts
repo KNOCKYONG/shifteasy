@@ -21,56 +21,15 @@ export interface ConfigurableShiftType {
 // Default shift types (fallback) with distinct hex colors
 const DEFAULT_SHIFT_TYPES: ConfigurableShiftType[] = [
   { code: 'D', name: '주간 근무', startTime: '07:00', endTime: '15:00', color: '#3b82f6', allowOvertime: false }, // blue
-  { code: 'E', name: '저녁 근무', startTime: '15:00', endTime: '23:00', color: '#f59e0b', allowOvertime: false }, // amber
+  { code: 'E', name: '저녁 근무', startTime: '15:00', endTime: '23:00', color: '#fb923c', allowOvertime: false }, // orange
   { code: 'N', name: '야간 근무', startTime: '23:00', endTime: '07:00', color: '#6366f1', allowOvertime: true }, // indigo
   { code: 'A', name: '행정 근무', startTime: '09:00', endTime: '18:00', color: '#10b981', allowOvertime: false }, // green
   { code: 'O', name: '휴무', startTime: '00:00', endTime: '00:00', color: '#6b7280', allowOvertime: false }, // gray
   { code: 'V', name: '휴가', startTime: '00:00', endTime: '00:00', color: '#a855f7', allowOvertime: false }, // purple
 ];
 
-// Color mapping for Tailwind CSS classes
-const COLOR_MAP: Record<string, { bg: string; border: string; text: string }> = {
-  blue: {
-    bg: "bg-blue-50 dark:bg-blue-900/10",
-    border: "border-blue-200 dark:border-blue-900/30",
-    text: "text-blue-700 dark:text-blue-300"
-  },
-  green: {
-    bg: "bg-green-50 dark:bg-green-900/10",
-    border: "border-green-200 dark:border-green-900/30",
-    text: "text-green-700 dark:text-green-300"
-  },
-  amber: {
-    bg: "bg-amber-50 dark:bg-amber-900/10",
-    border: "border-amber-200 dark:border-amber-900/30",
-    text: "text-amber-700 dark:text-amber-300"
-  },
-  red: {
-    bg: "bg-red-50 dark:bg-red-900/10",
-    border: "border-red-200 dark:border-red-900/30",
-    text: "text-red-700 dark:text-red-300"
-  },
-  purple: {
-    bg: "bg-purple-50 dark:bg-purple-900/10",
-    border: "border-purple-200 dark:border-purple-900/30",
-    text: "text-purple-700 dark:text-purple-300"
-  },
-  indigo: {
-    bg: "bg-indigo-50 dark:bg-indigo-900/10",
-    border: "border-indigo-200 dark:border-indigo-900/30",
-    text: "text-indigo-700 dark:text-indigo-300"
-  },
-  pink: {
-    bg: "bg-pink-50 dark:bg-pink-900/10",
-    border: "border-pink-200 dark:border-pink-900/30",
-    text: "text-pink-700 dark:text-pink-300"
-  },
-  gray: {
-    bg: "bg-gray-50 dark:bg-gray-900/10",
-    border: "border-gray-200 dark:border-gray-700",
-    text: "text-gray-500 dark:text-gray-400"
-  },
-};
+// Default gray color for fallback
+const DEFAULT_GRAY_HEX = '#6b7280';
 
 /**
  * Get shift types from configs (supports department-level override)
@@ -182,31 +141,34 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
 
 /**
  * Get colors for a shift type
- * Returns color object suitable for inline styles or Tailwind classes
+ * Returns color object suitable for inline styles (hex only)
  */
 export async function getShiftColors(
   code: string,
   tenantId: string = DEFAULT_TENANT_ID,
   departmentId?: string
-): Promise<{ bg: string; border: string; text: string; hex?: string }> {
+): Promise<{ bg: string; border: string; text: string; hex: string }> {
   const shiftType = await getShiftType(code, tenantId, departmentId);
-  if (!shiftType) return COLOR_MAP.gray;
+  const hexColor = shiftType?.color || DEFAULT_GRAY_HEX;
 
-  // If color is a hex code, return inline style values
-  if (shiftType.color.startsWith('#')) {
-    const rgb = hexToRgb(shiftType.color);
-    if (rgb) {
-      return {
-        bg: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.1)`,
-        border: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.3)`,
-        text: shiftType.color,
-        hex: shiftType.color
-      };
-    }
+  const rgb = hexToRgb(hexColor);
+  if (!rgb) {
+    // Fallback to default gray if hex parsing fails
+    const defaultRgb = hexToRgb(DEFAULT_GRAY_HEX)!;
+    return {
+      bg: `rgba(${defaultRgb.r}, ${defaultRgb.g}, ${defaultRgb.b}, 0.1)`,
+      border: `rgba(${defaultRgb.r}, ${defaultRgb.g}, ${defaultRgb.b}, 0.3)`,
+      text: DEFAULT_GRAY_HEX,
+      hex: DEFAULT_GRAY_HEX
+    };
   }
 
-  // Legacy color name support
-  return COLOR_MAP[shiftType.color] || COLOR_MAP.gray;
+  return {
+    bg: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.1)`,
+    border: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.3)`,
+    text: hexColor,
+    hex: hexColor
+  };
 }
 
 /**
@@ -218,22 +180,24 @@ export async function getShiftOptions(
 ) {
   const shiftTypes = await getShiftTypes(tenantId, departmentId);
   return shiftTypes.map(shift => {
+    const hexColor = shift.color || DEFAULT_GRAY_HEX;
+    const rgb = hexToRgb(hexColor);
+
     let colors;
-    // Handle hex colors
-    if (shift.color.startsWith('#')) {
-      const rgb = hexToRgb(shift.color);
-      if (rgb) {
-        colors = {
-          bg: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.1)`,
-          border: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.3)`,
-          text: shift.color
-        };
-      } else {
-        colors = COLOR_MAP.gray;
-      }
+    if (rgb) {
+      colors = {
+        bg: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.1)`,
+        border: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.3)`,
+        text: hexColor
+      };
     } else {
-      // Legacy color name support
-      colors = COLOR_MAP[shift.color] || COLOR_MAP.gray;
+      // Fallback to default gray
+      const defaultRgb = hexToRgb(DEFAULT_GRAY_HEX)!;
+      colors = {
+        bg: `rgba(${defaultRgb.r}, ${defaultRgb.g}, ${defaultRgb.b}, 0.1)`,
+        border: `rgba(${defaultRgb.r}, ${defaultRgb.g}, ${defaultRgb.b}, 0.3)`,
+        text: DEFAULT_GRAY_HEX
+      };
     }
 
     return {
@@ -241,7 +205,7 @@ export async function getShiftOptions(
       label: shift.name.split(' ')[0] || shift.name, // Get first word for short label
       fullName: shift.name,
       colors,
-      hex: shift.color.startsWith('#') ? shift.color : undefined,
+      hex: hexColor,
       startTime: shift.startTime,
       endTime: shift.endTime,
       allowOvertime: shift.allowOvertime,
