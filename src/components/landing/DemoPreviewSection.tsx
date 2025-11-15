@@ -8,30 +8,46 @@ import Link from 'next/link';
 
 // 풍부한 목업 데이터
 const mockStaffData = [
-  { id: 1, name: '샘플 A', position: '수간호사', email: 'sample.a@example.com', phone: '010-0000-0000', status: 'active', role: 'manager', yearsOfService: 10, hireYear: 2015, avatar: null },
-  { id: 2, name: '샘플 B', position: '간호사', email: 'sample.b@example.com', phone: '010-0000-0000', status: 'active', role: 'member', yearsOfService: 5, hireYear: 2020, avatar: null },
-  { id: 3, name: '샘플 C', position: '간호사', email: 'sample.c@example.com', phone: '010-0000-0000', status: 'active', role: 'member', yearsOfService: 3, hireYear: 2022, avatar: null },
-  { id: 4, name: '샘플 D', position: '신규 간호사', email: 'sample.d@example.com', phone: '010-0000-0000', status: 'active', role: 'member', yearsOfService: 1, hireYear: 2024, avatar: null },
-  { id: 5, name: '샘플 E', position: '간호사', email: 'sample.e@example.com', phone: '010-0000-0000', status: 'on_leave', role: 'member', yearsOfService: 4, hireYear: 2021, avatar: null },
-  { id: 6, name: '샘플 F', position: '파트타임 간호사', email: 'sample.f@example.com', phone: '010-0000-0000', status: 'active', role: 'member', yearsOfService: 2, hireYear: 2023, avatar: null },
-  { id: 7, name: '샘플 G', position: '간호사', email: 'sample.g@example.com', phone: '010-0000-0000', status: 'active', role: 'member', yearsOfService: 6, hireYear: 2019, avatar: null },
-  { id: 8, name: '샘플 H', position: '간호사', email: 'sample.h@example.com', phone: '010-0000-0000', status: 'active', role: 'member', yearsOfService: 7, hireYear: 2018, avatar: null },
-  { id: 9, name: '샘플 I', position: '수간호사', email: 'sample.i@example.com', phone: '010-0000-0000', status: 'active', role: 'manager', yearsOfService: 12, hireYear: 2013, avatar: null },
-  { id: 10, name: '샘플 J', position: '간호사', email: 'sample.j@example.com', phone: '010-0000-0000', status: 'active', role: 'member', yearsOfService: 4, hireYear: 2021, avatar: null },
-  { id: 11, name: '샘플 K', position: '신규 간호사', email: 'sample.k@example.com', phone: '010-0000-0000', status: 'active', role: 'member', yearsOfService: 1, hireYear: 2024, avatar: null },
-  { id: 12, name: '샘플 L', position: '파트타임 간호사', email: 'sample.l@example.com', phone: '010-0000-0000', status: 'active', role: 'member', yearsOfService: 3, hireYear: 2022, avatar: null },
+  { id: 1, name: '김수연', position: '수간호사', email: 'kim.suyeon@hospital.com', phone: '010-1234-5678', status: 'active', role: 'manager', yearsOfService: 10, hireYear: 2015, avatar: null },
+  { id: 2, name: '이지은', position: '간호사', email: 'lee.jieun@hospital.com', phone: '010-2345-6789', status: 'active', role: 'member', yearsOfService: 5, hireYear: 2020, avatar: null },
+  { id: 3, name: '박민준', position: '간호사', email: 'park.minjun@hospital.com', phone: '010-3456-7890', status: 'active', role: 'member', yearsOfService: 3, hireYear: 2022, avatar: null },
+  { id: 4, name: '최서윤', position: '신규 간호사', email: 'choi.seoyun@hospital.com', phone: '010-4567-8901', status: 'active', role: 'member', yearsOfService: 1, hireYear: 2024, avatar: null },
+  { id: 5, name: '정하은', position: '간호사', email: 'jung.haeun@hospital.com', phone: '010-5678-9012', status: 'on_leave', role: 'member', yearsOfService: 4, hireYear: 2021, avatar: null },
+  { id: 6, name: '강민지', position: '파트타임 간호사', email: 'kang.minji@hospital.com', phone: '010-6789-0123', status: 'active', role: 'member', yearsOfService: 2, hireYear: 2023, avatar: null },
+  { id: 7, name: '윤서준', position: '간호사', email: 'yoon.seojun@hospital.com', phone: '010-7890-1234', status: 'active', role: 'member', yearsOfService: 6, hireYear: 2019, avatar: null },
+  { id: 8, name: '한지우', position: '간호사', email: 'han.jiwoo@hospital.com', phone: '010-8901-2345', status: 'active', role: 'member', yearsOfService: 7, hireYear: 2018, avatar: null },
+  { id: 9, name: '임채원', position: '수간호사', email: 'lim.chaewon@hospital.com', phone: '010-9012-3456', status: 'active', role: 'manager', yearsOfService: 12, hireYear: 2013, avatar: null },
+  { id: 10, name: '송예진', position: '간호사', email: 'song.yejin@hospital.com', phone: '010-0123-4567', status: 'active', role: 'member', yearsOfService: 4, hireYear: 2021, avatar: null },
+  { id: 11, name: '오태양', position: '신규 간호사', email: 'oh.taeyang@hospital.com', phone: '010-1122-3344', status: 'active', role: 'member', yearsOfService: 1, hireYear: 2024, avatar: null },
+  { id: 12, name: '배수아', position: '파트타임 간호사', email: 'bae.sua@hospital.com', phone: '010-2233-4455', status: 'active', role: 'member', yearsOfService: 3, hireYear: 2022, avatar: null },
 ];
 
 // 근무표 목업 데이터 - 2025년 1월 기준 (31일)
+// 현실적인 3교대 로테이션 패턴: 주간(D) → 저녁(E) → 야간(N) → 휴무(OFF) 사이클
 const mockScheduleData = [
-  { id: 1, name: '샘플 A', position: '수간호사', shifts: ['D', 'D', 'D', 'D', 'D', 'OFF', 'OFF', 'E', 'E', 'E', 'E', 'E', 'OFF', 'OFF', 'N', 'N', 'N', 'N', 'N', 'OFF', 'OFF', 'D', 'D', 'D', 'D', 'D', 'OFF', 'OFF', 'E', 'E', 'E'] },
-  { id: 2, name: '샘플 B', position: '간호사', shifts: ['E', 'E', 'E', 'E', 'E', 'OFF', 'OFF', 'N', 'N', 'N', 'N', 'N', 'OFF', 'OFF', 'D', 'D', 'D', 'D', 'D', 'OFF', 'OFF', 'E', 'E', 'E', 'E', 'E', 'OFF', 'OFF', 'N', 'N', 'N'] },
-  { id: 3, name: '샘플 C', position: '간호사', shifts: ['N', 'N', 'N', 'N', 'N', 'OFF', 'OFF', 'D', 'D', 'D', 'D', 'D', 'OFF', 'OFF', 'E', 'E', 'E', 'E', 'E', 'OFF', 'OFF', 'N', 'N', 'N', 'N', 'N', 'OFF', 'OFF', 'D', 'D', 'D'] },
-  { id: 4, name: '샘플 D', position: '신규 간호사', shifts: ['D', 'D', 'D', 'OFF', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'OFF', 'E', 'E', 'E', 'E', 'E', 'OFF', 'OFF', 'N', 'N', 'N', 'N', 'N', 'OFF', 'OFF', 'D', 'D', 'D', 'D', 'D', 'OFF'] },
-  { id: 5, name: '샘플 E', position: '간호사', shifts: ['OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF'] },
-  { id: 6, name: '샘플 F', position: '파트타임', shifts: ['E', 'OFF', 'E', 'OFF', 'E', 'OFF', 'E', 'OFF', 'E', 'OFF', 'E', 'OFF', 'E', 'OFF', 'E', 'OFF', 'E', 'OFF', 'E', 'OFF', 'E', 'OFF', 'E', 'OFF', 'E', 'OFF', 'E', 'OFF', 'E', 'OFF', 'E'] },
-  { id: 7, name: '샘플 G', position: '간호사', shifts: ['OFF', 'OFF', 'N', 'N', 'N', 'N', 'N', 'OFF', 'OFF', 'D', 'D', 'D', 'D', 'D', 'OFF', 'OFF', 'E', 'E', 'E', 'E', 'E', 'OFF', 'OFF', 'N', 'N', 'N', 'N', 'N', 'OFF', 'OFF', 'D'] },
-  { id: 8, name: '샘플 H', position: '간호사', shifts: ['D', 'D', 'D', 'D', 'OFF', 'OFF', 'D', 'E', 'E', 'E', 'E', 'E', 'OFF', 'OFF', 'N', 'N', 'N', 'N', 'N', 'OFF', 'OFF', 'D', 'D', 'D', 'D', 'D', 'OFF', 'OFF', 'E', 'E', 'E'] },
+  // 김수연 (수간호사, 24일 근무): D 시작, 표준 로테이션
+  { id: 1, name: '김수연', position: '수간호사', shifts: ['D', 'D', 'D', 'D', 'OFF', 'E', 'E', 'E', 'E', 'OFF', 'N', 'N', 'N', 'OFF', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'E', 'E', 'E', 'OFF', 'N', 'N', 'N', 'OFF', 'OFF', 'D', 'D'] },
+
+  // 이지은 (간호사, 23일 근무): E 시작, OFF 2일로 시작
+  { id: 2, name: '이지은', position: '간호사', shifts: ['OFF', 'OFF', 'E', 'E', 'E', 'E', 'OFF', 'N', 'N', 'N', 'OFF', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'E', 'E', 'E', 'E', 'OFF', 'N', 'N', 'N', 'OFF', 'OFF', 'D', 'D', 'D', 'D'] },
+
+  // 박민준 (간호사, 23일 근무): E 시작, 짧은 주기
+  { id: 3, name: '박민준', position: '간호사', shifts: ['E', 'E', 'E', 'OFF', 'N', 'N', 'N', 'OFF', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'E', 'E', 'E', 'E', 'OFF', 'N', 'N', 'N', 'OFF', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'E', 'E'] },
+
+  // 최서윤 (신규, 22일 근무): 주간 위주, 야간 적음
+  { id: 4, name: '최서윤', position: '신규 간호사', shifts: ['D', 'D', 'D', 'D', 'OFF', 'OFF', 'D', 'D', 'D', 'OFF', 'E', 'E', 'E', 'E', 'OFF', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'E', 'E', 'E', 'OFF', 'N', 'N', 'N', 'OFF', 'OFF', 'D'] },
+
+  // 정하은 (휴가 중, 5일 근무 + 연차): 초반 근무 후 연차
+  { id: 5, name: '정하은', position: '간호사', shifts: ['OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'D', 'D', 'D', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', '연차', '연차', '연차', '연차', '연차', '연차', '연차', '연차', '연차', '연차'] },
+
+  // 강민지 (파트타임, 15일 근무): 저녁 위주, 불규칙
+  { id: 6, name: '강민지', position: '파트타임', shifts: ['OFF', 'E', 'E', 'OFF', 'OFF', 'E', 'E', 'E', 'OFF', 'OFF', 'E', 'E', 'OFF', 'OFF', 'E', 'E', 'E', 'OFF', 'OFF', 'E', 'E', 'OFF', 'OFF', 'E', 'E', 'E', 'OFF', 'OFF', 'E', 'E', 'OFF'] },
+
+  // 윤서준 (간호사, 24일 근무): N 시작, 야간 비중 높음
+  { id: 7, name: '윤서준', position: '간호사', shifts: ['N', 'N', 'N', 'OFF', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'E', 'E', 'E', 'E', 'OFF', 'N', 'N', 'N', 'OFF', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'E', 'E', 'E', 'OFF', 'N', 'N'] },
+
+  // 한지우 (간호사, 23일 근무): D 시작, OFF 후 시작
+  { id: 8, name: '한지우', position: '간호사', shifts: ['OFF', 'D', 'D', 'D', 'D', 'OFF', 'E', 'E', 'E', 'E', 'OFF', 'N', 'N', 'N', 'OFF', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'E', 'E', 'E', 'OFF', 'N', 'N', 'N', 'OFF', 'OFF', 'D'] },
 ];
 
 type StatusFilter = 'all' | 'active' | 'on-leave' | 'manager' | 'part-time';
@@ -93,6 +109,7 @@ export default function DemoPreviewSection() {
       case 'E': return '#F59E0B'; // Evening - 저녁
       case 'N': return '#6366F1'; // Night - 야간
       case 'OFF': return '#9CA3AF'; // Off - 휴무
+      case '연차': return '#10B981'; // Annual Leave - 연차
       default: return '#64748B';
     }
   };
