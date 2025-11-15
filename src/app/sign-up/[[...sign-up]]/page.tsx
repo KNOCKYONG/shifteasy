@@ -46,6 +46,9 @@ export default function SignUpPage() {
   const [showGuestPassword, setShowGuestPassword] = useState(false);
   const [showGuestConfirmPassword, setShowGuestConfirmPassword] = useState(false);
   const [guestError, setGuestError] = useState('');
+  const [guestTermsAgreed, setGuestTermsAgreed] = useState(false);
+  const [guestPrivacyAgreed, setGuestPrivacyAgreed] = useState(false);
+  const [guestMarketingAgreed, setGuestMarketingAgreed] = useState(false);
   const [hireDate, setHireDate] = useState('');
   const [yearsOfService, setYearsOfService] = useState(0);
   const [verificationMessage, setVerificationMessage] = useState('');
@@ -73,6 +76,9 @@ export default function SignUpPage() {
     setGuestDepartmentName('');
     setGuestLoading(false);
     setGuestError('');
+    setGuestTermsAgreed(false);
+    setGuestPrivacyAgreed(false);
+    setGuestMarketingAgreed(false);
   };
 
   const closeGuestForm = () => {
@@ -282,6 +288,13 @@ export default function SignUpPage() {
     // 비밀번호 확인 검증
     if (guestPassword !== guestConfirmPassword) {
       setGuestError('비밀번호가 일치하지 않습니다.');
+      setGuestLoading(false);
+      return;
+    }
+
+    // 필수 약관 동의 검증
+    if (!guestTermsAgreed || !guestPrivacyAgreed) {
+      setGuestError('필수 약관에 모두 동의해주세요.');
       setGuestLoading(false);
       return;
     }
@@ -902,6 +915,54 @@ export default function SignUpPage() {
                 )}
               </div>
 
+              {/* 약관 동의 */}
+              <div className="space-y-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    id="guest-terms"
+                    checked={guestTermsAgreed}
+                    onChange={(e) => setGuestTermsAgreed(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
+                  />
+                  <label htmlFor="guest-terms" className="text-sm text-gray-700 dark:text-gray-300">
+                    <span className="text-red-500">*</span>{' '}
+                    <a href="/terms" target="_blank" className="text-blue-600 hover:underline dark:text-blue-400">
+                      이용약관
+                    </a>
+                    에 동의합니다 (필수)
+                  </label>
+                </div>
+                <div className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    id="guest-privacy"
+                    checked={guestPrivacyAgreed}
+                    onChange={(e) => setGuestPrivacyAgreed(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
+                  />
+                  <label htmlFor="guest-privacy" className="text-sm text-gray-700 dark:text-gray-300">
+                    <span className="text-red-500">*</span>{' '}
+                    <a href="/privacy" target="_blank" className="text-blue-600 hover:underline dark:text-blue-400">
+                      개인정보 수집 및 이용
+                    </a>
+                    에 동의합니다 (필수)
+                  </label>
+                </div>
+                <div className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    id="guest-marketing"
+                    checked={guestMarketingAgreed}
+                    onChange={(e) => setGuestMarketingAgreed(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
+                  />
+                  <label htmlFor="guest-marketing" className="text-sm text-gray-700 dark:text-gray-300">
+                    마케팅 정보 수신 및 활용에 동의합니다 (선택)
+                  </label>
+                </div>
+              </div>
+
               {guestError && (
                 <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-2">
                   <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />
@@ -913,7 +974,7 @@ export default function SignUpPage() {
                 <button
                   type="button"
                   onClick={closeGuestForm}
-                  className="flex-1 py-2 px-4 border border-gray-300 text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                  className="flex-1 py-2 px-4 border border-gray-300 rounded-lg text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
                 >
                   취소
                 </button>
@@ -924,6 +985,19 @@ export default function SignUpPage() {
                 >
                   {guestLoading ? '계정 생성 중...' : '게스트 계정 만들기'}
                 </button>
+              </div>
+
+              {/* 로그인 링크 */}
+              <div className="mt-4 text-center">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  이미 계정이 있으신가요?{' '}
+                  <Link
+                    href="/sign-in"
+                    className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium hover:underline"
+                  >
+                    로그인하기
+                  </Link>
+                </p>
               </div>
             </form>
           </div>
