@@ -82,7 +82,7 @@ function ConfigPageContent() {
     name: '',
     startTime: '09:00',
     endTime: '17:00',
-    color: 'blue',
+    color: '#3b82f6', // default blue hex color
     allowOvertime: false
   });
   const [editingShiftType, setEditingShiftType] = useState<string | null>(null);

@@ -18,14 +18,14 @@ export interface ConfigurableShiftType {
   allowOvertime: boolean;
 }
 
-// Default shift types (fallback)
+// Default shift types (fallback) with distinct hex colors
 const DEFAULT_SHIFT_TYPES: ConfigurableShiftType[] = [
-  { code: 'D', name: '주간 근무', startTime: '07:00', endTime: '15:00', color: 'blue', allowOvertime: false },
-  { code: 'E', name: '저녁 근무', startTime: '15:00', endTime: '23:00', color: 'amber', allowOvertime: false },
-  { code: 'N', name: '야간 근무', startTime: '23:00', endTime: '07:00', color: 'indigo', allowOvertime: true },
-  { code: 'A', name: '행정 근무', startTime: '09:00', endTime: '18:00', color: 'green', allowOvertime: false },
-  { code: 'O', name: '휴무', startTime: '00:00', endTime: '00:00', color: 'gray', allowOvertime: false },
-  { code: 'V', name: '휴가', startTime: '00:00', endTime: '00:00', color: 'purple', allowOvertime: false },
+  { code: 'D', name: '주간 근무', startTime: '07:00', endTime: '15:00', color: '#3b82f6', allowOvertime: false }, // blue
+  { code: 'E', name: '저녁 근무', startTime: '15:00', endTime: '23:00', color: '#f59e0b', allowOvertime: false }, // amber
+  { code: 'N', name: '야간 근무', startTime: '23:00', endTime: '07:00', color: '#6366f1', allowOvertime: true }, // indigo
+  { code: 'A', name: '행정 근무', startTime: '09:00', endTime: '18:00', color: '#10b981', allowOvertime: false }, // green
+  { code: 'O', name: '휴무', startTime: '00:00', endTime: '00:00', color: '#6b7280', allowOvertime: false }, // gray
+  { code: 'V', name: '휴가', startTime: '00:00', endTime: '00:00', color: '#a855f7', allowOvertime: false }, // purple
 ];
 
 // Color mapping for Tailwind CSS classes
@@ -169,16 +169,43 @@ export async function getShiftType(
 }
 
 /**
+ * Convert hex color to RGB values
+ */
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : null;
+}
+
+/**
  * Get colors for a shift type
+ * Returns color object suitable for inline styles or Tailwind classes
  */
 export async function getShiftColors(
   code: string,
   tenantId: string = DEFAULT_TENANT_ID,
   departmentId?: string
-): Promise<{ bg: string; border: string; text: string }> {
+): Promise<{ bg: string; border: string; text: string; hex?: string }> {
   const shiftType = await getShiftType(code, tenantId, departmentId);
   if (!shiftType) return COLOR_MAP.gray;
 
+  // If color is a hex code, return inline style values
+  if (shiftType.color.startsWith('#')) {
+    const rgb = hexToRgb(shiftType.color);
+    if (rgb) {
+      return {
+        bg: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.1)`,
+        border: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.3)`,
+        text: shiftType.color,
+        hex: shiftType.color
+      };
+    }
+  }
+
+  // Legacy color name support
   return COLOR_MAP[shiftType.color] || COLOR_MAP.gray;
 }
 
@@ -190,15 +217,36 @@ export async function getShiftOptions(
   departmentId?: string
 ) {
   const shiftTypes = await getShiftTypes(tenantId, departmentId);
-  return shiftTypes.map(shift => ({
-    value: shift.code,
-    label: shift.name.split(' ')[0] || shift.name, // Get first word for short label
-    fullName: shift.name,
-    colors: COLOR_MAP[shift.color] || COLOR_MAP.gray,
-    startTime: shift.startTime,
-    endTime: shift.endTime,
-    allowOvertime: shift.allowOvertime,
-  }));
+  return shiftTypes.map(shift => {
+    let colors;
+    // Handle hex colors
+    if (shift.color.startsWith('#')) {
+      const rgb = hexToRgb(shift.color);
+      if (rgb) {
+        colors = {
+          bg: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.1)`,
+          border: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.3)`,
+          text: shift.color
+        };
+      } else {
+        colors = COLOR_MAP.gray;
+      }
+    } else {
+      // Legacy color name support
+      colors = COLOR_MAP[shift.color] || COLOR_MAP.gray;
+    }
+
+    return {
+      value: shift.code,
+      label: shift.name.split(' ')[0] || shift.name, // Get first word for short label
+      fullName: shift.name,
+      colors,
+      hex: shift.color.startsWith('#') ? shift.color : undefined,
+      startTime: shift.startTime,
+      endTime: shift.endTime,
+      allowOvertime: shift.allowOvertime,
+    };
+  });
 }
 
 // Export defaults for initial setup
