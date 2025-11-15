@@ -2226,8 +2226,7 @@ function evaluateCandidateOption(params: CandidateEvaluationParams): CandidateEv
     if (!allowOverride) {
       return null;
     }
-    const nightLeavePenalty = Math.max(1, state.nightLeaveRemaining ?? 0);
-    criticalOverrideCount += nightLeavePenalty;
+    criticalOverrideCount += 2;
   }
 
   const daysElapsed = params.dayIndex + 1;
