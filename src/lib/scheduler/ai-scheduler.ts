@@ -418,7 +418,6 @@ interface CoverageCandidateParams {
   shifts: (Shift & { code?: string })[];
   date: Date;
   shiftTeams: Record<string, Set<string>>;
-  mode?: 'strict' | 'relaxed';
 }
 
 function buildCoverageCandidates(params: CoverageCandidateParams): CoverageCandidateEntry[] {
@@ -452,8 +451,7 @@ function buildCoverageCandidates(params: CoverageCandidateParams): CoverageCandi
         avoidPatterns: params.avoidPatterns,
         holidays: params.holidays,
         totalDays: params.totalDays,
-        teamCoverage: params.shiftTeams[code] ?? new Set<string>(),
-        mode: params.mode ?? 'strict',
+        shiftTeams: params.shiftTeams[code] ?? new Set<string>(),
       });
       if (!evaluation) {
         return;
@@ -1044,7 +1042,6 @@ async function runGenerationPass(
       shifts: context.activeShifts,
       date,
       shiftTeams: dailyShiftTeams,
-      mode: 'strict',
     });
 
     const coverageSolution = solveCoverageWithPrioritySearch({
@@ -1444,22 +1441,6 @@ interface CandidateEvaluation {
   preferenceScore: number;
 }
 
-interface CandidateSelectionParams {
-  date: Date;
-  shift: Shift & { code?: string };
-  shiftCode: string;
-  employees: AiEmployee[];
-  assignedToday: Set<string>;
-  employeeStates: Map<string, EmployeeState>;
-  pattern: string[] | null;
-  dayIndex: number;
-  avoidPatterns: string[][];
-  holidays: Set<string>;
-  totalDays: number;
-  shiftTeams: Record<string, Set<string>>;
-  mode?: 'strict' | 'relaxed';
-}
-
 interface CandidateEvaluationParams {
   employee: AiEmployee;
   state: EmployeeState;
@@ -1471,65 +1452,27 @@ interface CandidateEvaluationParams {
   avoidPatterns: string[][];
   holidays: Set<string>;
   totalDays: number;
-  teamCoverage: Set<string>;
-  mode?: 'strict' | 'relaxed';
-}
-
-function selectBestCandidateForShift(params: CandidateSelectionParams) {
-  const normalizedShiftCode = params.shiftCode.toUpperCase();
-  const candidates = params.employees
-    .filter((emp) => !params.assignedToday.has(emp.id))
-    .map<CandidateEvaluation | null>((employee) => {
-      const state = params.employeeStates.get(employee.id);
-      if (!state) {
-        return null;
-      }
-      return evaluateCandidateOption({
-        employee,
-        state,
-        shift: params.shift,
-        shiftCode: params.shiftCode,
-        date: params.date,
-        pattern: params.pattern,
-        dayIndex: params.dayIndex,
-        avoidPatterns: params.avoidPatterns,
-        holidays: params.holidays,
-        totalDays: params.totalDays,
-        teamCoverage: params.shiftTeams[normalizedShiftCode] ?? new Set<string>(),
-        mode: params.mode ?? 'strict',
-      });
-    })
-    .filter((candidate): candidate is CandidateEvaluation => !!candidate)
-    .sort((a, b) => b.score - a.score);
-
-  return candidates[0] ?? null;
+  shiftTeams: Set<string>;
 }
 
 function evaluateCandidateOption(params: CandidateEvaluationParams): CandidateEvaluation | null {
   const normalizedShiftCode = params.shiftCode.toUpperCase();
   const isCoreShift = isCoreShiftCode(normalizedShiftCode);
-  const { employee, state, mode = 'strict' } = params;
-  const relaxedMode = mode === 'relaxed';
+  const { employee, state } = params;
 
   if (employee.workPatternType === 'weekday-only') {
     return null;
   }
   if (employee.workPatternType === 'night-intensive' && normalizedShiftCode !== 'N') {
-    if (!relaxedMode) {
-      return null;
-    }
+    return null;
   }
 
-  let scoreAdjustment = 0;
   const remainingOffNeeded = Math.max(0, state.maxOffDays - state.offDays);
   const daysLeftAfterToday = params.totalDays - params.dayIndex - 1;
   const isNightIntensive = employee.workPatternType === 'night-intensive';
   const zeroSlack = isNightIntensive && remainingOffNeeded === daysLeftAfterToday && remainingOffNeeded > 0;
   if (remainingOffNeeded > daysLeftAfterToday || zeroSlack) {
-    if (!relaxedMode) {
-      return null;
-    }
-    scoreAdjustment -= 90;
+    return null;
   }
 
   if (
@@ -1537,10 +1480,7 @@ function evaluateCandidateOption(params: CandidateEvaluationParams): CandidateEv
     !hasShiftPreferences(employee) &&
     state.nightRecoveryDaysNeeded > 0
   ) {
-    if (!relaxedMode) {
-      return null;
-    }
-    scoreAdjustment -= 85;
+    return null;
   }
 
   if (
@@ -1549,17 +1489,11 @@ function evaluateCandidateOption(params: CandidateEvaluationParams): CandidateEv
     state.rotationLock &&
     state.rotationLock === normalizedShiftCode
   ) {
-    if (!relaxedMode) {
-      return null;
-    }
-    scoreAdjustment -= 70;
+    return null;
   }
 
   if (state.lastShiftCode === 'N' && normalizedShiftCode === 'D') {
-    if (!relaxedMode) {
-      return null;
-    }
-    scoreAdjustment -= 60;
+    return null;
   }
 
   const baseScore = calculateCandidateScore({
@@ -1573,11 +1507,11 @@ function evaluateCandidateOption(params: CandidateEvaluationParams): CandidateEv
     avoidPatterns: params.avoidPatterns,
     holidays: params.holidays,
     totalDays: params.totalDays,
-    teamCoverage: params.teamCoverage,
+    teamCoverage: params.shiftTeams,
   });
   return {
     employee,
-    score: baseScore.score + scoreAdjustment,
+    score: baseScore.score,
     preferenceScore: baseScore.preferenceScore,
   };
 }
