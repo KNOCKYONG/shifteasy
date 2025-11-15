@@ -131,7 +131,7 @@ export function SavedPatternPresetsModal({ isOpen, onClose, onPatternLoad }: Sav
                         <div className="flex items-center gap-3 mb-2">
                           <Repeat className="w-5 h-5 text-blue-500" />
                           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                            {pattern.department?.name || `부서 ID: ${pattern.departmentId.slice(0, 8)}...`}
+                            {`부서 ID: ${pattern.departmentId.slice(0, 8)}...`}
                           </h3>
                           <Download className="w-4 h-4 text-gray-400" />
                           {pattern.isActive === 'true' && (

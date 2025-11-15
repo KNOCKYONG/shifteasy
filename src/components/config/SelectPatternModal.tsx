@@ -9,7 +9,6 @@ interface DepartmentPattern {
   id: string;
   tenantId?: string;
   departmentId: string;
-  departmentName?: string;
   requiredStaffDay: number;
   requiredStaffEvening: number;
   requiredStaffNight: number;
@@ -159,7 +158,7 @@ export function SelectPatternModal({
                     <div className={isRecent ? 'mt-6' : ''}>
                       <div className="flex items-center justify-between mb-3">
                         <h3 className="font-semibold text-gray-900 dark:text-white">
-                          {pattern.departmentName || `Department ${pattern.departmentId.slice(0, 8)}`}
+                          {`Department ${pattern.departmentId.slice(0, 8)}`}
                         </h3>
                         {isActivePattern && (
                           <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-medium rounded">

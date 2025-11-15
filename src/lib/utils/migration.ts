@@ -5,7 +5,7 @@
  */
 
 import { db } from '@/db';
-import { tenants, departments, users } from '@/db/schema';
+import { tenants, departments, users, configs, teams, nursePreferences, holidays, schedules } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 /**
