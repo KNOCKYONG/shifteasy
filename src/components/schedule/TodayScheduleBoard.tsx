@@ -346,15 +346,15 @@ export function TodayScheduleBoard({
               {teams.map((team) => (
                 <div
                   key={team.id}
-                  className="flex-1 min-w-[90px] md:min-w-[160px]"
+                  className="flex-1 min-w-[70px] md:min-w-[140px]"
                 >
                   <div
-                    className="h-[44px] md:h-[60px] rounded-lg p-1.5 md:p-2 text-white text-center font-bold border-2 flex items-center justify-center"
+                    className="h-[44px] md:h-[60px] rounded-lg p-1 md:p-2 text-white text-center font-bold border-2 flex items-center justify-center"
                     style={{ backgroundColor: team.color, borderColor: team.color }}
                   >
-                    <div className="flex items-center justify-center gap-1 md:gap-1.5">
+                    <div className="flex items-center justify-center gap-0.5 md:gap-1.5">
                       <Users className="w-3 h-3 md:w-4 md:h-4" />
-                      <span className="text-xs md:text-base">{team.code}{t('today.team')}</span>
+                      <span className="text-[11px] md:text-base">{team.code}{t('today.team')}</span>
                     </div>
                   </div>
                 </div>
@@ -389,16 +389,16 @@ export function TodayScheduleBoard({
                       return (
                         <div
                           key={team.id}
-                          className="flex-1 min-w-[90px] md:min-w-[160px]"
+                          className="flex-1 min-w-[70px] md:min-w-[140px]"
                         >
-                          <div className="h-full bg-white dark:bg-gray-800 rounded-lg p-1.5 md:p-2 border-2 border-gray-200 dark:border-gray-700" style={{ minHeight: '60px' }}>
+                          <div className="h-full bg-white dark:bg-gray-800 rounded-lg p-1 md:p-2 border-2 border-gray-200 dark:border-gray-700" style={{ minHeight: '60px' }}>
                             {/* Employees */}
                             <div className="space-y-0.5 md:space-y-1">
                               {shiftEmployees.length > 0 ? (
                                 shiftEmployees.map(({ employee }) => (
                                   <div
                                     key={employee.id}
-                                    className="flex items-center p-1 md:p-1.5 bg-gray-50 dark:bg-gray-700 rounded shadow-sm"
+                                    className="flex items-center p-0.5 md:p-1.5 bg-gray-50 dark:bg-gray-700 rounded shadow-sm"
                                   >
                                     <span className="text-[10px] md:text-xs font-medium text-gray-900 dark:text-gray-100 truncate">
                                       {employee.name}
@@ -406,7 +406,7 @@ export function TodayScheduleBoard({
                                   </div>
                                 ))
                               ) : (
-                                <div className="h-full flex items-center justify-center text-xs text-gray-400 dark:text-gray-500 py-4 md:py-6">
+                                <div className="h-full flex items-center justify-center text-xs text-gray-400 dark:text-gray-500 py-3 md:py-6">
                                   -
                                 </div>
                               )}
