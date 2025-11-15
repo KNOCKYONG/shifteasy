@@ -1462,11 +1462,20 @@ async function runGenerationPass(
         const supportMode: 'admin' | 'clinical' =
           employee.workPatternType === 'weekday-only' ? 'admin' : 'clinical';
         const preferredCodes = employee.workPatternType === 'night-intensive' ? ['N'] : undefined;
+        const supportOptions = {
+          mode: supportMode,
+          countTowardsRotation: employee.workPatternType !== 'weekday-only',
+          allowedCodes: preferredCodes,
+        } as const;
+        if (assignSupportShift(employee, supportOptions)) {
+          return;
+        }
         if (
+          offQuotaReached &&
+          state.workPatternType === 'three-shift' &&
           assignSupportShift(employee, {
-            mode: supportMode,
-            countTowardsRotation: employee.workPatternType !== 'weekday-only',
-            allowedCodes: preferredCodes,
+            ...supportOptions,
+            allowOverAllocation: true,
           })
         ) {
           return;
