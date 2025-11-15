@@ -5,15 +5,36 @@ import { useTranslation } from 'react-i18next';
 import { X, Check, Settings, Calendar } from 'lucide-react';
 import { api } from '@/lib/trpc/client';
 
-interface ConfigPreset {
+export interface ConfigPresetShiftType {
+  code: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  color: string;
+  allowOvertime?: boolean;
+}
+
+export interface ConfigPresetPosition {
+  id: string;
+  name?: string | null;
+}
+
+export interface ConfigPresetCareerGroup {
+  id: string;
+  name?: string | null;
+}
+
+export interface ConfigPresetData {
+  positions?: ConfigPresetPosition[];
+  shift_types?: ConfigPresetShiftType[];
+  career_groups?: ConfigPresetCareerGroup[];
+  preferences?: Record<string, unknown> | null;
+}
+
+export interface ConfigPreset {
   id: string;
   name: string;
-  data: {
-    positions?: any[];
-    shift_types?: any[];
-    career_groups?: any[];
-    preferences?: any;
-  };
+  data: ConfigPresetData;
   createdAt: string;
 }
 

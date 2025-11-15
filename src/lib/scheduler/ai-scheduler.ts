@@ -85,6 +85,38 @@ export interface AiScheduleValidationResult {
   computationTime: number;
 }
 
+type LockedAssignmentMap = Map<string, ScheduleAssignment[]>;
+
+interface SchedulerContext {
+  dateRange: Date[];
+  holidays: Set<string>;
+  restDayKeys: Set<string>;
+  maxOffDaysPerEmployee: number;
+  shiftTemplateMap: Map<string, Shift & { code?: string }>;
+  shiftTemplateById: Map<string, Shift & { code?: string }>;
+  adminShiftTemplate: (Shift & { code?: string }) | null;
+  activeShifts: (Shift & { code?: string })[];
+  specialRequestsMap: Map<string, AiSpecialRequest[]>;
+  requiredStaffPerShift: Record<string, number>;
+  teamPools: Record<string, Set<string>>;
+  employeeMap: Map<string, AiEmployee>;
+}
+
+interface GenerationPassOptions {
+  lockedAssignments?: LockedAssignmentMap;
+  randomSeed?: number;
+  destroyedDates?: Set<string>;
+  repairFocusDates?: Set<string>;
+}
+
+interface GenerationPassResult {
+  assignments: ScheduleAssignment[];
+  employeeStates: Map<string, EmployeeState>;
+  filledSlots: number;
+  aggregatedPreferenceScore: number;
+  violations: ConstraintViolation[];
+}
+
 interface EmployeeState {
   totalAssignments: number;
   preferenceScore: number;
@@ -140,6 +172,16 @@ const NIGHT_BLOCK_MIN_NON_PREF = 2;
 const NIGHT_BLOCK_TARGET_MAX_NON_PREF = 3;
 const NIGHT_BLOCK_RECOVERY_DAYS = 2;
 const NIGHT_BLOCK_MAX_RECOVERY_DAYS = 3;
+const CORE_SHIFT_CODES = new Set(['D', 'E', 'N']);
+const OFF_OVERRIDE_PENALTY = 60;
+const CRITICAL_OVERRIDE_PENALTY = 45;
+const TEAM_STACK_BASE_PENALTY = 40;
+const TEAM_STACK_DOMINANCE_MULTIPLIER = 50;
+const TEAM_STACK_REQUIRED_MULTIPLIER = 35;
+const TEAM_UNIQUE_REWARD = 25;
+const TEAM_NEED_UNIQUE_PENALTY = 90;
+const COVERAGE_SHORTAGE_PENALTY = 600;
+const MAX_REPAIR_PASSES = 3;
 
 function extractShiftCode(shift: Shift & { code?: string }): string {
   if (shift.code) {
@@ -170,6 +212,10 @@ function isOffShiftCode(code?: string | null): boolean {
   return normalized === 'O' || normalized === 'OFF';
 }
 
+function isCoreShiftCode(code: string): boolean {
+  return CORE_SHIFT_CODES.has(code.toUpperCase());
+}
+
 function resolveGuaranteedOffDays(employee: AiEmployee | undefined, fallback: number): number {
   if (!employee || typeof employee.guaranteedOffDays !== 'number') {
     return fallback;
@@ -182,10 +228,60 @@ function resolveGuaranteedOffDays(employee: AiEmployee | undefined, fallback: nu
 
 export async function generateAiSchedule(request: AiScheduleRequest): Promise<AiScheduleGenerationResult> {
   const start = performance.now();
+  const context = createSchedulerContext(request);
+
+  const basePass = await runGenerationPass(request, context, {});
+  let bestResult = basePass;
+  let bestValidation = await validateSchedule({ ...request, assignments: basePass.assignments });
+  let mergedViolations = dedupeViolations([...basePass.violations, ...bestValidation.violations]);
+
+  const lnsIterations = Math.min(3, Math.max(1, Math.floor(context.dateRange.length / 14)));
+  for (let iteration = 0; iteration < lnsIterations; iteration += 1) {
+    const destroyedDates = chooseLnsWindow(context, bestValidation, iteration);
+    if (!destroyedDates || destroyedDates.size === 0) {
+      break;
+    }
+    const lockedAssignments = buildLockedAssignmentMap(bestResult.assignments, destroyedDates);
+    const candidatePass = await runGenerationPass(request, context, {
+      lockedAssignments,
+      destroyedDates,
+      randomSeed: iteration + 1,
+    });
+    const candidateValidation = await validateSchedule({
+      ...request,
+      assignments: candidatePass.assignments,
+    });
+    const candidateViolations = dedupeViolations([
+      ...candidatePass.violations,
+      ...candidateValidation.violations,
+    ]);
+    if (
+      isCandidateBetter(bestValidation, bestResult.violations.length, candidateValidation, candidatePass.violations.length)
+    ) {
+      bestResult = candidatePass;
+      bestValidation = candidateValidation;
+      mergedViolations = candidateViolations;
+    }
+  }
+
+  const repairOutcome = await runRepairIterations(request, context, bestResult, bestValidation, mergedViolations);
+  const computationTime = Math.round(performance.now() - start);
+  const offAccruals = buildOffAccruals(repairOutcome.result.employeeStates);
+
+  return {
+    assignments: repairOutcome.result.assignments,
+    violations: repairOutcome.violations,
+    score: repairOutcome.validation.score,
+    iterations: context.dateRange.length * Math.max(1, context.activeShifts.length),
+    computationTime,
+    stats: repairOutcome.validation.stats,
+    offAccruals,
+  };
+}
+
+function createSchedulerContext(request: AiScheduleRequest): SchedulerContext {
   const dateRange = eachDayOfInterval({ start: request.startDate, end: request.endDate });
   const holidays = new Set((request.holidays ?? []).map((h) => h.date));
-  const previousOffAccruals = request.previousOffAccruals ?? {};
-  const specialRequestsMap = new Map<string, AiSpecialRequest[]>();
   const restDayKeys = new Set<string>();
   dateRange.forEach((date) => {
     const key = toDateKey(date);
@@ -193,27 +289,94 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       restDayKeys.add(key);
     }
   });
-  const maxOffDaysPerEmployee = Math.max(restDayKeys.size, Math.max(4, Math.floor(dateRange.length / 7)));
 
+  const specialRequestsMap = new Map<string, AiSpecialRequest[]>();
   (request.specialRequests ?? []).forEach((req) => {
-    const key = req.date;
-    if (!specialRequestsMap.has(key)) {
-      specialRequestsMap.set(key, []);
+    if (!specialRequestsMap.has(req.date)) {
+      specialRequestsMap.set(req.date, []);
     }
-    specialRequestsMap.get(key)!.push(req);
+    specialRequestsMap.get(req.date)!.push(req);
   });
 
-  const employeeStates = new Map<string, EmployeeState>();
+  const shiftTemplateMap = new Map<string, Shift & { code?: string }>();
+  const shiftTemplateById = new Map<string, Shift & { code?: string }>();
+  request.shifts.forEach((shift) => {
+    const code = extractShiftCode(shift);
+    shiftTemplateMap.set(code, shift);
+    if (shift.id) {
+      shiftTemplateById.set(shift.id.toLowerCase(), shift);
+    }
+  });
+
+  const activeShifts = request.shifts.filter((shift) => {
+    const code = extractShiftCode(shift);
+    if (code === 'A') {
+      return false;
+    }
+    return shift.type !== 'off' && shift.type !== 'leave';
+  });
+
+  const requiredStaffPerShift: Record<string, number> = {};
+  activeShifts.forEach((shift) => {
+    const code = extractShiftCode(shift);
+    requiredStaffPerShift[code] = request.requiredStaffPerShift?.[code] ?? shift.requiredStaff ?? 1;
+  });
+  ['D', 'E', 'N'].forEach((coreCode) => {
+    if (requiredStaffPerShift[coreCode] === undefined) {
+      const templateFallback = shiftTemplateMap.get(coreCode)?.requiredStaff;
+      requiredStaffPerShift[coreCode] = Math.max(1, templateFallback ?? 1);
+    }
+  });
+
+  const teamPools: Record<string, Set<string>> = {};
+  activeShifts.forEach((shift) => {
+    const code = extractShiftCode(shift).toUpperCase();
+    if (!teamPools[code]) {
+      teamPools[code] = new Set();
+    }
+  });
   const employeeMap = new Map<string, AiEmployee>();
+  request.employees.forEach((employee) => {
+    employeeMap.set(employee.id, employee);
+    if (!employee.teamId) {
+      return;
+    }
+    Object.keys(teamPools).forEach((code) => {
+      teamPools[code]!.add(employee.teamId!);
+    });
+  });
+
+  return {
+    dateRange,
+    holidays,
+    restDayKeys,
+    maxOffDaysPerEmployee: Math.max(restDayKeys.size, Math.max(4, Math.floor(dateRange.length / 7))),
+    shiftTemplateMap,
+    shiftTemplateById,
+    adminShiftTemplate: shiftTemplateMap.get('A') ?? null,
+    activeShifts,
+    specialRequestsMap,
+    requiredStaffPerShift,
+    teamPools,
+    employeeMap,
+  };
+}
+
+function initializeEmployeeStates(
+  request: AiScheduleRequest,
+  context: SchedulerContext,
+  previousOffAccruals: Record<string, number>
+): Map<string, EmployeeState> {
+  const states = new Map<string, EmployeeState>();
   request.employees.forEach((emp) => {
     const nightLeaveDays =
       emp.workPatternType === 'night-intensive'
         ? Math.max(0, request.nightIntensivePaidLeaveDays ?? 0)
         : 0;
     const carryOverOffDays = Math.max(0, previousOffAccruals[emp.id] ?? 0);
-    const baseGuaranteedOffDays = resolveGuaranteedOffDays(emp, maxOffDaysPerEmployee);
+    const baseGuaranteedOffDays = resolveGuaranteedOffDays(emp, context.maxOffDaysPerEmployee);
     const maxOffTarget = baseGuaranteedOffDays + nightLeaveDays + carryOverOffDays;
-    employeeStates.set(emp.id, {
+    states.set(emp.id, {
       totalAssignments: 0,
       preferenceScore: 0,
       consecutiveDays: 0,
@@ -235,65 +398,687 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       bonusOffCarry: carryOverOffDays,
       nightRecoveryDaysNeeded: 0,
     });
-    employeeMap.set(emp.id, emp);
   });
+  return states;
+}
 
-  const shiftTemplateMap = new Map<string, Shift & { code?: string }>();
-  request.shifts.forEach((shift) => {
-    shiftTemplateMap.set(extractShiftCode(shift), shift);
-  });
-  const adminShiftTemplate = shiftTemplateMap.get('A') ?? null;
+function buildEmployeeOrder(employees: AiEmployee[], seed?: number): AiEmployee[] {
+  if (!seed) {
+    return [...employees];
+  }
+  const rng = mulberry32(seed);
+  const copy = [...employees];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(rng() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
 
-  const activeShifts = request.shifts.filter((shift) => {
-    const code = extractShiftCode(shift);
-    if (code === 'A') {
-      return false;
+function mulberry32(a: number) {
+  let t = a;
+  return function () {
+    t += 0x6d2b79f5;
+    let m = Math.imul(t ^ (t >>> 15), 1 | t);
+    m ^= m + Math.imul(m ^ (m >>> 7), 61 | m);
+    return ((m ^ (m >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+interface CoverageCandidateOption {
+  shiftCode: string;
+  shiftId: string;
+  score: number;
+  preferenceScore: number;
+  isNightShift: boolean;
+  teamId?: string | null;
+}
+
+interface CoverageCandidateEntry {
+  employee: AiEmployee;
+  options: CoverageCandidateOption[];
+}
+
+interface CoverageCandidateParams {
+  employees: AiEmployee[];
+  assignedToday: Set<string>;
+  employeeStates: Map<string, EmployeeState>;
+  coverageNeeds: Record<string, number>;
+  pattern: string[] | null;
+  dayIndex: number;
+  avoidPatterns: string[][];
+  holidays: Set<string>;
+  totalDays: number;
+  shifts: (Shift & { code?: string })[];
+  date: Date;
+  shiftTeams: Record<string, Record<string, number>>;
+  allowOffOverride?: boolean;
+}
+
+function buildCoverageCandidates(params: CoverageCandidateParams): CoverageCandidateEntry[] {
+  const requiredTotal = Object.values(params.coverageNeeds).reduce((sum, value) => sum + Math.max(0, value), 0);
+  if (requiredTotal === 0) {
+    return [];
+  }
+  const candidates: CoverageCandidateEntry[] = [];
+  params.employees.forEach((employee) => {
+    if (params.assignedToday.has(employee.id)) {
+      return;
     }
-    return shift.type !== 'off' && shift.type !== 'leave';
-  });
-  const totalRequiredSlots =
-    dateRange.length *
-    activeShifts.reduce((sum, shift) => {
+    const state = params.employeeStates.get(employee.id);
+    if (!state) {
+      return;
+    }
+    const options: CoverageCandidateOption[] = [];
+    params.shifts.forEach((shift) => {
       const code = extractShiftCode(shift);
-      const required = request.requiredStaffPerShift?.[code] ?? shift.requiredStaff ?? 1;
-      return sum + required;
-    }, 0);
+      if ((params.coverageNeeds[code] ?? 0) <= 0) {
+        return;
+      }
+      const existingTeams = params.shiftTeams[code] ?? {};
+      const teamCoverage = new Set(Object.keys(existingTeams));
+      const evaluation = evaluateCandidateOption({
+        employee,
+        state,
+        shift,
+        shiftCode: code,
+        date: params.date,
+        pattern: params.pattern,
+        dayIndex: params.dayIndex,
+        avoidPatterns: params.avoidPatterns,
+        holidays: params.holidays,
+        totalDays: params.totalDays,
+        shiftTeams: teamCoverage,
+        allowOffOverride: params.allowOffOverride ?? false,
+      });
+      if (!evaluation) {
+        return;
+      }
+      options.push({
+        shiftCode: code,
+        shiftId: shift.id ?? `shift-${code.toLowerCase()}`,
+        score: evaluation.score,
+        preferenceScore: evaluation.preferenceScore,
+        isNightShift: shift.type === 'night',
+        teamId: employee.teamId ?? null,
+      });
+    });
+    if (options.length > 0) {
+      options.sort((a, b) => b.score - a.score);
+      candidates.push({ employee, options });
+    }
+  });
+
+  if (candidates.length <= requiredTotal * 2) {
+    return candidates;
+  }
+  return candidates
+    .sort((a, b) => a.options.length - b.options.length)
+    .slice(0, Math.max(requiredTotal * 2, requiredTotal + 2));
+}
+
+interface CoverageSolverParams {
+  coverageNeeds: Record<string, number>;
+  candidates: CoverageCandidateEntry[];
+  initialTeamUsage?: Record<string, Record<string, number>>;
+  teamTargets?: Record<string, number>;
+}
+
+interface CoverageSolverResult {
+  assignments: Map<string, CoverageCandidateOption>;
+  shortages: Record<string, number>;
+}
+
+function deriveTeamTargets(
+  candidates: CoverageCandidateEntry[],
+  requiredStaff: Record<string, number>,
+  existingTeams: Record<string, Record<string, number>>
+): Record<string, number> {
+  const pools: Record<string, Set<string>> = {};
+  candidates.forEach((candidate) => {
+    candidate.options.forEach((option) => {
+      if (!option.teamId) {
+        return;
+      }
+      if (!pools[option.shiftCode]) {
+        pools[option.shiftCode] = new Set();
+      }
+      pools[option.shiftCode]!.add(option.teamId);
+    });
+  });
+  const targets: Record<string, number> = {};
+  const shiftCodes = new Set([
+    ...Object.keys(requiredStaff),
+    ...Object.keys(existingTeams),
+    ...Object.keys(pools),
+  ]);
+  shiftCodes.forEach((code) => {
+    const required = Math.max(1, Math.floor(requiredStaff[code] ?? 1));
+    const pool = pools[code];
+    const existing = existingTeams[code] ?? {};
+    const existingUnique = Object.keys(existing).length;
+    const candidateUnique = pool ? pool.size : 0;
+    const totalUnique = candidateUnique + existingUnique;
+    if (totalUnique <= 0) {
+      return;
+    }
+    targets[code] = Math.min(required, totalUnique);
+  });
+  return targets;
+}
+
+function solveCoverageWithPrioritySearch(params: CoverageSolverParams): CoverageSolverResult {
+  const coverageKeys = Object.keys(params.coverageNeeds);
+  const baseNeeds = coverageKeys.reduce<Record<string, number>>((acc, key) => {
+    acc[key] = params.coverageNeeds[key];
+    return acc;
+  }, {});
+
+  const candidateOrder = [...params.candidates].sort((a, b) => a.options.length - b.options.length);
+  const bestAssignments = new Map<string, CoverageCandidateOption>();
+  const currentAssignments = new Map<string, CoverageCandidateOption>();
+  const minOptionCost = candidateOrder.map((candidate) => {
+    return Math.min(...candidate.options.map((opt) => Math.max(0, 120 - opt.score)));
+  });
+  const suffixMinCost: number[] = [];
+  for (let i = candidateOrder.length - 1; i >= 0; i -= 1) {
+    const existing = suffixMinCost[0] ?? 0;
+    suffixMinCost.unshift((minOptionCost[i] ?? 0) + existing);
+  }
+
+  let bestCost = Number.POSITIVE_INFINITY;
+  const initialTeamUsage = cloneTeamUsageMap(params.initialTeamUsage ?? {});
+  const teamTargets = params.teamTargets ?? {};
+
+  const search = (
+    index: number,
+    cost: number,
+    remaining: Record<string, number>,
+    teamUsage: Record<string, Record<string, number>>
+  ) => {
+    if (index < suffixMinCost.length && cost + suffixMinCost[index] >= bestCost) {
+      return;
+    }
+    if (index >= candidateOrder.length) {
+      const shortagePenalty = computeCoverageShortagePenalty(remaining);
+      const totalCost = cost + shortagePenalty;
+      if (totalCost < bestCost) {
+        bestCost = totalCost;
+        bestAssignments.clear();
+        currentAssignments.forEach((value, key) => {
+          bestAssignments.set(key, value);
+        });
+      }
+      return;
+    }
+    const candidate = candidateOrder[index];
+    let usedOption = false;
+    candidate.options.forEach((option) => {
+      if ((remaining[option.shiftCode] ?? 0) <= 0) {
+        return;
+      }
+      usedOption = true;
+      remaining[option.shiftCode] -= 1;
+      currentAssignments.set(candidate.employee.id, option);
+      const teamPenalty = computeTeamStackPenalty(option, teamUsage, baseNeeds, teamTargets);
+      applyTeamUsage(teamUsage, option.shiftCode, option.teamId ?? null, 1);
+      search(
+        index + 1,
+        cost + Math.max(0, 120 - option.score) + teamPenalty,
+        remaining,
+        teamUsage
+      );
+      applyTeamUsage(teamUsage, option.shiftCode, option.teamId ?? null, -1);
+      currentAssignments.delete(candidate.employee.id);
+      remaining[option.shiftCode] += 1;
+    });
+
+    if (!usedOption) {
+      search(index + 1, cost + 5, remaining, teamUsage);
+    }
+  };
+
+  search(0, 0, { ...baseNeeds }, cloneTeamUsageMap(initialTeamUsage));
+
+  const shortages = coverageKeys.reduce<Record<string, number>>((acc, key) => {
+    const remaining = baseNeeds[key] - countAssignmentsForShift(bestAssignments, key);
+    acc[key] = Math.max(0, remaining);
+    return acc;
+  }, {});
+
+  return {
+    assignments: bestAssignments,
+    shortages,
+  };
+}
+
+function cloneTeamUsageMap(source: Record<string, Record<string, number>>): Record<string, Record<string, number>> {
+  const clone: Record<string, Record<string, number>> = {};
+  Object.entries(source).forEach(([shiftCode, teams]) => {
+    clone[shiftCode] = { ...teams };
+  });
+  return clone;
+}
+
+function applyTeamUsage(
+  usage: Record<string, Record<string, number>>,
+  shiftCode: string,
+  teamId: string | null,
+  delta: number
+) {
+  if (!teamId) {
+    return;
+  }
+  if (!usage[shiftCode]) {
+    usage[shiftCode] = {};
+  }
+  const next = (usage[shiftCode][teamId] ?? 0) + delta;
+  if (next <= 0) {
+    delete usage[shiftCode][teamId];
+  } else {
+    usage[shiftCode][teamId] = next;
+  }
+}
+
+function computeTeamStackPenalty(
+  option: CoverageCandidateOption,
+  usage: Record<string, Record<string, number>>,
+  baseNeeds: Record<string, number>,
+  teamTargets: Record<string, number>
+): number {
+  if (!option.teamId) {
+    return 0;
+  }
+  const required = baseNeeds[option.shiftCode] ?? 0;
+  if (required <= 1) {
+    return 0;
+  }
+  const teamUsage = usage[option.shiftCode] ?? {};
+  const existingCount = teamUsage[option.teamId] ?? 0;
+  const totalAssigned = Object.values(teamUsage).reduce((sum, value) => sum + value, 0);
+  const currentUnique = Object.keys(teamUsage).length;
+  const targetUnique = Math.max(1, teamTargets[option.shiftCode] ?? 1);
+  const introducingNewTeam = !(option.teamId in teamUsage);
+
+  let penalty = 0;
+  if (currentUnique < targetUnique) {
+    if (introducingNewTeam) {
+      penalty -= TEAM_UNIQUE_REWARD * Math.max(1, targetUnique - currentUnique);
+    } else {
+      penalty += TEAM_NEED_UNIQUE_PENALTY * Math.max(1, targetUnique - currentUnique);
+    }
+  }
+
+  if (existingCount === 0 && totalAssigned === 0) {
+    return penalty;
+  }
+  if (existingCount === 0) {
+    return penalty + Math.max(0, 10 - currentUnique * 3);
+  }
+  const dominanceRatio = (existingCount + 1) / Math.max(1, totalAssigned + 1);
+  const requiredRatio = (existingCount + 1) / Math.max(1, required);
+  penalty +=
+    TEAM_STACK_BASE_PENALTY +
+    dominanceRatio * TEAM_STACK_DOMINANCE_MULTIPLIER +
+    requiredRatio * TEAM_STACK_REQUIRED_MULTIPLIER;
+  return penalty;
+}
+
+function computeCoverageShortagePenalty(remaining: Record<string, number>): number {
+  return Object.values(remaining).reduce((sum, deficit) => {
+    if (deficit <= 0) {
+      return sum;
+    }
+    return sum + deficit * COVERAGE_SHORTAGE_PENALTY;
+  }, 0);
+}
+
+function countAssignmentsForShift(assignments: Map<string, CoverageCandidateOption>, shiftCode: string): number {
+  let count = 0;
+  assignments.forEach((option) => {
+    if (option.shiftCode === shiftCode) {
+      count += 1;
+    }
+  });
+  return count;
+}
+
+function dedupeViolations(violations: ConstraintViolation[]): ConstraintViolation[] {
+  const unique = new Map<string, ConstraintViolation>();
+  violations.forEach((violation) => {
+    const keyParts = [
+      violation.constraintId ?? violation.constraintName ?? 'unknown',
+      violation.message,
+      (violation.affectedEmployees ?? []).join(','),
+      (violation.affectedDates ?? []).map((date) => toDateKey(date instanceof Date ? date : new Date(date))).join(','),
+    ];
+    const key = keyParts.join('|');
+    if (!unique.has(key)) {
+      unique.set(key, violation);
+    }
+  });
+  return Array.from(unique.values());
+}
+
+function chooseLnsWindow(
+  context: SchedulerContext,
+  validation: AiScheduleValidationResult,
+  iteration: number
+): Set<string> | null {
+  const violationWithDates = validation.violations.find(
+    (violation) => violation.affectedDates && violation.affectedDates.length > 0
+  );
+  if (violationWithDates) {
+    const window = new Set<string>();
+    violationWithDates.affectedDates?.forEach((date) => {
+      const resolved = date instanceof Date ? date : new Date(date);
+      window.add(toDateKey(resolved));
+    });
+    return window;
+  }
+  if (context.dateRange.length < 4) {
+    return null;
+  }
+  const windowSize = Math.min(3, Math.floor(context.dateRange.length / 2));
+  const maxStart = context.dateRange.length - windowSize;
+  const startIndex = Math.max(0, Math.min(maxStart, iteration % Math.max(1, maxStart + 1)));
+  const window = new Set<string>();
+  for (let i = startIndex; i < startIndex + windowSize; i += 1) {
+    window.add(toDateKey(context.dateRange[i]));
+  }
+  return window;
+}
+
+function buildLockedAssignmentMap(
+  assignments: ScheduleAssignment[],
+  destroyedDates: Set<string>
+): LockedAssignmentMap {
+  const lockMap: LockedAssignmentMap = new Map();
+  assignments.forEach((assignment) => {
+    const dateValue = assignment.date instanceof Date ? assignment.date : new Date(assignment.date);
+    const dateKey = toDateKey(dateValue);
+    if (destroyedDates.has(dateKey)) {
+      return;
+    }
+    if (!lockMap.has(dateKey)) {
+      lockMap.set(dateKey, []);
+    }
+    lockMap.get(dateKey)!.push({
+      ...assignment,
+      date: dateValue,
+      isLocked: true,
+    });
+  });
+  return lockMap;
+}
+
+interface RepairAnalysisResult {
+  repairDates: Set<string>;
+}
+
+function analyzeScheduleForRepairs(assignments: ScheduleAssignment[], context: SchedulerContext): RepairAnalysisResult {
+  const perDateShiftCounts: Record<string, Record<string, number>> = {};
+  const perDateShiftTeams: Record<string, Record<string, Set<string>>> = {};
+
+  assignments.forEach((assignment) => {
+    const resolved = resolveAssignmentShift(assignment, context.shiftTemplateMap, context.shiftTemplateById);
+    if (!resolved) {
+      return;
+    }
+    const shiftCode = resolved.shiftCode.toUpperCase();
+    if (shiftCode === 'O' || shiftCode === 'L') {
+      return;
+    }
+    const dateValue = assignment.date instanceof Date ? assignment.date : new Date(assignment.date);
+    const dateKey = toDateKey(dateValue);
+    if (!perDateShiftCounts[dateKey]) {
+      perDateShiftCounts[dateKey] = {};
+    }
+    perDateShiftCounts[dateKey][shiftCode] = (perDateShiftCounts[dateKey][shiftCode] ?? 0) + 1;
+
+    const employee = context.employeeMap.get(assignment.employeeId);
+    if (employee?.teamId) {
+      if (!perDateShiftTeams[dateKey]) {
+        perDateShiftTeams[dateKey] = {};
+      }
+      if (!perDateShiftTeams[dateKey]![shiftCode]) {
+        perDateShiftTeams[dateKey]![shiftCode] = new Set<string>();
+      }
+      perDateShiftTeams[dateKey]![shiftCode]!.add(employee.teamId);
+    }
+  });
+
+  const repairDates = new Set<string>();
+  context.dateRange.forEach((date) => {
+    const dateKey = toDateKey(date);
+    const counts = perDateShiftCounts[dateKey] ?? {};
+    context.activeShifts.forEach((shift) => {
+      const code = extractShiftCode(shift).toUpperCase();
+      const required = context.requiredStaffPerShift[code] ?? shift.requiredStaff ?? 1;
+      if (required <= 0) {
+        return;
+      }
+      const actual = counts[code] ?? 0;
+      if (actual < required) {
+        repairDates.add(dateKey);
+        return;
+      }
+      const targetTeams = getTeamTargetForShift(context, code);
+      if (targetTeams <= 1) {
+        return;
+      }
+      const actualTeams = perDateShiftTeams[dateKey]?.[code]?.size ?? 0;
+      if (actualTeams < targetTeams) {
+        repairDates.add(dateKey);
+      }
+    });
+  });
+  return { repairDates };
+}
+
+function getTeamTargetForShift(context: SchedulerContext, shiftCode: string): number {
+  const required = context.requiredStaffPerShift[shiftCode] ?? 0;
+  const availableTeams = context.teamPools[shiftCode]?.size ?? 0;
+  if (required <= 1 || availableTeams <= 1) {
+    return Math.min(required, availableTeams);
+  }
+  const baseTarget = Math.min(required, Math.max(2, Math.ceil(required / 2)));
+  return Math.min(baseTarget, availableTeams);
+}
+
+function extractViolationDates(violations: ConstraintViolation[], constraintId: string): Set<string> {
+  const dates = new Set<string>();
+  violations.forEach((violation) => {
+    if (violation.constraintId !== constraintId) {
+      return;
+    }
+    (violation.affectedDates ?? []).forEach((date) => {
+      const resolved = date instanceof Date ? date : new Date(date);
+      dates.add(toDateKey(resolved));
+    });
+  });
+  return dates;
+}
+
+interface RepairIterationOutcome {
+  result: GenerationPassResult;
+  validation: AiScheduleValidationResult;
+  violations: ConstraintViolation[];
+}
+
+async function runRepairIterations(
+  request: AiScheduleRequest,
+  context: SchedulerContext,
+  baseResult: GenerationPassResult,
+  baseValidation: AiScheduleValidationResult,
+  baseViolations: ConstraintViolation[]
+): Promise<RepairIterationOutcome> {
+  let currentResult = baseResult;
+  let currentValidation = baseValidation;
+  let mergedViolations = baseViolations;
+
+  for (let iteration = 0; iteration < MAX_REPAIR_PASSES; iteration += 1) {
+    const scheduleAnalysis = analyzeScheduleForRepairs(currentResult.assignments, context);
+    const coverageViolationDates = extractViolationDates(currentValidation.violations, 'coverage');
+    coverageViolationDates.forEach((dateKey) => scheduleAnalysis.repairDates.add(dateKey));
+    if (scheduleAnalysis.repairDates.size === 0) {
+      break;
+    }
+    const lockedAssignments = buildLockedAssignmentMap(currentResult.assignments, scheduleAnalysis.repairDates);
+    const candidatePass = await runGenerationPass(request, context, {
+      lockedAssignments,
+      destroyedDates: scheduleAnalysis.repairDates,
+      randomSeed: iteration + 101,
+      repairFocusDates: scheduleAnalysis.repairDates,
+    });
+    const candidateValidation = await validateSchedule({
+      ...request,
+      assignments: candidatePass.assignments,
+    });
+    const candidateViolations = dedupeViolations([
+      ...candidatePass.violations,
+      ...candidateValidation.violations,
+    ]);
+    if (
+      isCandidateBetter(
+        currentValidation,
+        currentResult.violations.length,
+        candidateValidation,
+        candidatePass.violations.length
+      )
+    ) {
+      currentResult = candidatePass;
+      currentValidation = candidateValidation;
+      mergedViolations = candidateViolations;
+    } else {
+      break;
+    }
+  }
+
+  return {
+    result: currentResult,
+    validation: currentValidation,
+    violations: mergedViolations,
+  };
+}
+
+function isCandidateBetter(
+  currentValidation: AiScheduleValidationResult,
+  currentGenerationViolations: number,
+  candidateValidation: AiScheduleValidationResult,
+  candidateGenerationViolations: number
+): boolean {
+  const currentHardViolations = currentValidation.violations.filter((violation) => violation.type === 'hard').length;
+  const candidateHardViolations = candidateValidation.violations.filter((violation) => violation.type === 'hard').length;
+  if (candidateHardViolations !== currentHardViolations) {
+    return candidateHardViolations < currentHardViolations;
+  }
+  const currentTotal = currentValidation.violations.length + currentGenerationViolations;
+  const candidateTotal = candidateValidation.violations.length + candidateGenerationViolations;
+  if (candidateTotal !== currentTotal) {
+    return candidateTotal < currentTotal;
+  }
+  return candidateValidation.score.total >= currentValidation.score.total;
+}
+
+function buildOffAccruals(employeeStates: Map<string, EmployeeState>): OffAccrualSummary[] {
+  const accruals: OffAccrualSummary[] = [];
+  employeeStates.forEach((state, employeeId) => {
+    const guaranteedOffDays = state.maxOffDays;
+    const actualOffDays = state.offDays;
+    const extraOffDays = Math.max(0, guaranteedOffDays - actualOffDays);
+    accruals.push({
+      employeeId,
+      extraOffDays,
+      guaranteedOffDays,
+      actualOffDays,
+    });
+  });
+  return accruals;
+}
+
+async function runGenerationPass(
+  request: AiScheduleRequest,
+  context: SchedulerContext,
+  options: GenerationPassOptions
+): Promise<GenerationPassResult> {
+  const previousOffAccruals = request.previousOffAccruals ?? {};
+  const employeeStates = initializeEmployeeStates(request, context, previousOffAccruals);
+  const employeeMap = new Map<string, AiEmployee>();
+  request.employees.forEach((emp) => employeeMap.set(emp.id, emp));
 
   const assignments: ScheduleAssignment[] = [];
   const violations: ConstraintViolation[] = [];
   let filledSlots = 0;
   let aggregatedPreferenceScore = 0;
-
   const pattern = request.teamPattern?.pattern ?? null;
   const avoidPatterns = request.teamPattern?.avoidPatterns ?? [];
+  const employeesOrder = buildEmployeeOrder(request.employees, options.randomSeed);
 
-  dateRange.forEach((date, dayIndex) => {
+  context.dateRange.forEach((date, dayIndex) => {
     const dateKey = toDateKey(date);
-    const todaysRequests = specialRequestsMap.get(dateKey) ?? [];
     const assignedToday = new Set<string>();
     const dailyShiftCounts: Record<string, number> = {};
-    const dailyShiftTeams: Record<string, Set<string>> = {};
+    const dailyShiftTeams: Record<string, Record<string, number>> = {};
+    const todaysLocks = options.lockedAssignments?.get(dateKey) ?? [];
+    const todaysRequests = context.specialRequestsMap.get(dateKey) ?? [];
+    const isRepairFocusDay = options.repairFocusDates?.has(dateKey) ?? false;
 
     const getRequiredForShift = (code: string): number => {
-      return request.requiredStaffPerShift?.[code] ?? shiftTemplateMap.get(code)?.requiredStaff ?? 1;
+      return context.requiredStaffPerShift[code] ?? context.shiftTemplateMap.get(code)?.requiredStaff ?? 1;
     };
 
     const recordShiftAssignment = (employee: AiEmployee | undefined, shiftCode: string) => {
       const normalized = shiftCode.toUpperCase();
       dailyShiftCounts[normalized] = (dailyShiftCounts[normalized] ?? 0) + 1;
-      if (employee?.teamId) {
-        if (!dailyShiftTeams[normalized]) {
-          dailyShiftTeams[normalized] = new Set();
-        }
-        dailyShiftTeams[normalized]!.add(employee.teamId);
+      if (!employee?.teamId) {
+        return;
       }
+      if (!dailyShiftTeams[normalized]) {
+        dailyShiftTeams[normalized] = {};
+      }
+      const teamCounts = dailyShiftTeams[normalized]!;
+      teamCounts[employee.teamId] = (teamCounts[employee.teamId] ?? 0) + 1;
     };
 
-    const selectSupportShiftCode = (allowedCodes?: string[]): string | null => {
-      const candidateCodes = (allowedCodes && allowedCodes.length ? allowedCodes : ['D', 'E', 'N']).filter((code) => shiftTemplateMap.has(code));
+    const assignSupportShift = (
+      employee: AiEmployee,
+      options?: { mode?: 'admin' | 'clinical'; countTowardsRotation?: boolean; allowedCodes?: string[] }
+    ): boolean => {
+      const mode = options?.mode ?? 'clinical';
+      if (mode === 'admin') {
+        if (!context.adminShiftTemplate) {
+          return false;
+        }
+        const shiftCode = extractShiftCode(context.adminShiftTemplate);
+        const shiftId = context.adminShiftTemplate.id ?? `shift-${shiftCode?.toLowerCase() ?? 'a'}`;
+        assignments.push({
+          employeeId: employee.id,
+          shiftId,
+          date,
+          isLocked: false,
+          isSwapRequested: false,
+        });
+        assignedToday.add(employee.id);
+        const state = employeeStates.get(employee.id)!;
+        updateEmployeeState(state, {
+          date,
+          shiftCode,
+          countedAsWork: true,
+          countTowardsRotation: false,
+        });
+        recordShiftAssignment(employee, shiftCode);
+        filledSlots += 1;
+        return true;
+      }
+
+      const allowedCodes = options?.allowedCodes;
+      const candidateCodes = (allowedCodes && allowedCodes.length ? allowedCodes : ['D', 'E', 'N']).filter((code) =>
+        context.shiftTemplateMap.has(code)
+      );
       if (candidateCodes.length === 0) {
-    return null;
-  }
+        return false;
+      }
       let bestCode = candidateCodes[0];
       let bestLoad = Number.POSITIVE_INFINITY;
       candidateCodes.forEach((code) => {
@@ -305,16 +1090,128 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
           bestCode = code;
         }
       });
-      return bestCode;
+      const shiftTemplate = context.shiftTemplateMap.get(bestCode);
+      const shiftId = shiftTemplate?.id ?? `shift-${bestCode.toLowerCase()}`;
+      assignments.push({
+        employeeId: employee.id,
+        shiftId,
+        date,
+        isLocked: false,
+        isSwapRequested: false,
+      });
+      assignedToday.add(employee.id);
+      const state = employeeStates.get(employee.id)!;
+      updateEmployeeState(state, {
+        date,
+        shiftCode: bestCode,
+        countedAsWork: true,
+        isNightShift: bestCode === 'N',
+        countTowardsRotation: options?.countTowardsRotation ?? true,
+      });
+      recordShiftAssignment(employee, bestCode);
+      filledSlots += 1;
+      return true;
     };
 
-    // Step 1: Apply special requests first
-    todaysRequests.forEach((req) => {
-      const state = employeeStates.get(req.employeeId);
+    const assignOffShift = (
+      employee: AiEmployee,
+      opts?: { force?: boolean; dayIndex: number; mustPreserveOffQuota?: boolean }
+    ) => {
+      const state = employeeStates.get(employee.id);
       if (!state) {
         return;
       }
+      const force = opts?.force ?? false;
+      const mustPreserveOffQuota = opts?.mustPreserveOffQuota ?? false;
+      const needsRecovery = state.nightRecoveryDaysNeeded > 0;
+      const enforceOff = mustPreserveOffQuota || needsRecovery;
+      const daysElapsed = opts?.dayIndex ?? 0;
+      const expectedOffByToday = Math.ceil(((daysElapsed + 1) / context.dateRange.length) * state.maxOffDays);
+      const offQuotaReached = state.offDays >= state.maxOffDays;
+      if (!force && !enforceOff && (state.offDays >= expectedOffByToday || offQuotaReached)) {
+        const supportMode: 'admin' | 'clinical' =
+          employee.workPatternType === 'weekday-only' ? 'admin' : 'clinical';
+        const preferredCodes = employee.workPatternType === 'night-intensive' ? ['N'] : undefined;
+        if (
+          assignSupportShift(employee, {
+            mode: supportMode,
+            countTowardsRotation: employee.workPatternType !== 'weekday-only',
+            allowedCodes: preferredCodes,
+          })
+        ) {
+          return;
+        }
+        state.extraOffDays += 1;
+      }
+      incrementOffCounter(state, 'system');
+
+      assignments.push({
+        employeeId: employee.id,
+        shiftId: OFF_SHIFT_ID,
+        date,
+        isLocked: false,
+        isSwapRequested: false,
+      });
+      assignedToday.add(employee.id);
+      updateEmployeeState(state, {
+        date,
+        shiftCode: 'O',
+        countedAsWork: false,
+      });
+      if (state.nightRecoveryDaysNeeded > 0) {
+        state.nightRecoveryDaysNeeded = Math.max(0, state.nightRecoveryDaysNeeded - 1);
+      }
+    };
+
+    // Apply locked assignments (LNS preserved slots)
+    todaysLocks.forEach((locked) => {
+      if (assignedToday.has(locked.employeeId)) {
+        return;
+      }
+      const employee = employeeMap.get(locked.employeeId);
+      const state = employeeStates.get(locked.employeeId);
+      if (!employee || !state) {
+        return;
+      }
+      const resolved = resolveAssignmentShift(locked, context.shiftTemplateMap, context.shiftTemplateById);
+      if (!resolved) {
+        return;
+      }
+      const shiftCode = resolved.shiftCode;
+      const shiftTemplate = resolved.shiftTemplate;
+      const countedAsWork = !isOffShiftCode(shiftCode);
+      assignments.push({
+        employeeId: locked.employeeId,
+        shiftId: locked.shiftId ?? (shiftCode === 'O' ? OFF_SHIFT_ID : `shift-${shiftCode.toLowerCase()}`),
+        date,
+        isLocked: true,
+        isSwapRequested: locked.isSwapRequested ?? false,
+      });
+      assignedToday.add(locked.employeeId);
+      updateEmployeeState(state, {
+        date,
+        shiftCode,
+        countedAsWork,
+        isNightShift: shiftTemplate?.type === 'night' || shiftCode === 'N',
+      });
+      if (countedAsWork) {
+        recordShiftAssignment(employee, shiftCode);
+        filledSlots += 1;
+      } else if (shiftCode === 'O') {
+        incrementOffCounter(state, 'system');
+      }
+    });
+
+    // Step 1: Apply special requests
+    todaysRequests.forEach((req) => {
+      if (assignedToday.has(req.employeeId)) {
+        return;
+      }
+      const state = employeeStates.get(req.employeeId);
       const employee = employeeMap.get(req.employeeId);
+      if (!state || !employee) {
+        return;
+      }
       const normalizedRequestType = req.requestType?.toLowerCase() ?? '';
       const normalizedShiftTypeCode = req.shiftTypeCode?.toUpperCase() ?? null;
 
@@ -380,123 +1277,8 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       }
     });
 
-    const assignSupportShift = (
-      employee: AiEmployee,
-      options?: { mode?: 'admin' | 'clinical'; countTowardsRotation?: boolean; allowedCodes?: string[] }
-    ): boolean => {
-      const mode = options?.mode ?? 'clinical';
-      if (mode === 'admin') {
-        if (!adminShiftTemplate) {
-          return false;
-        }
-        const shiftCode = extractShiftCode(adminShiftTemplate);
-        const shiftId = adminShiftTemplate.id ?? `shift-${shiftCode?.toLowerCase() ?? 'a'}`;
-        assignments.push({
-          employeeId: employee.id,
-          shiftId,
-          date,
-          isLocked: false,
-          isSwapRequested: false,
-        });
-        assignedToday.add(employee.id);
-        const state = employeeStates.get(employee.id)!;
-        updateEmployeeState(state, {
-          date,
-          shiftCode: shiftCode,
-          countedAsWork: true,
-          countTowardsRotation: false,
-        });
-        return true;
-      }
-
-      const allowedCodes = options?.allowedCodes;
-      const supportCode = selectSupportShiftCode(allowedCodes);
-      if (!supportCode) {
-        return false;
-      }
-
-      const shiftTemplate = shiftTemplateMap.get(supportCode);
-      const shiftId = shiftTemplate?.id ?? `shift-${supportCode.toLowerCase()}`;
-
-      assignments.push({
-        employeeId: employee.id,
-        shiftId,
-        date,
-        isLocked: false,
-        isSwapRequested: false,
-      });
-
-      assignedToday.add(employee.id);
-      const state = employeeStates.get(employee.id)!;
-      updateEmployeeState(state, {
-        date,
-        shiftCode: supportCode,
-        countedAsWork: true,
-        isNightShift: supportCode === 'N',
-        countTowardsRotation: options?.countTowardsRotation ?? true,
-      });
-      recordShiftAssignment(employee, supportCode);
-      filledSlots += 1;
-      return true;
-    };
-
-    const assignOffShift = (
-      employee: AiEmployee,
-      options?: { force?: boolean; dayIndex: number; mustPreserveOffQuota?: boolean }
-    ) => {
-      const state = employeeStates.get(employee.id);
-      if (!state) {
-        return;
-      }
-
-      const force = options?.force ?? false;
-      const mustPreserveOffQuota = options?.mustPreserveOffQuota ?? false;
-      const needsRecovery = state.nightRecoveryDaysNeeded > 0;
-      const enforceOff = mustPreserveOffQuota || needsRecovery;
-      const daysElapsed = options?.dayIndex ?? 0;
-      const expectedOffByToday = Math.ceil(((daysElapsed + 1) / dateRange.length) * state.maxOffDays);
-      const offQuotaReached = state.offDays >= state.maxOffDays;
-      if (!force && !enforceOff && (state.offDays >= expectedOffByToday || offQuotaReached)) {
-        const supportMode: 'admin' | 'clinical' =
-          employee.workPatternType === 'weekday-only' ? 'admin' : 'clinical';
-        const preferredCodes =
-          employee.workPatternType === 'night-intensive' ? ['N'] : undefined;
-        if (
-          assignSupportShift(employee, {
-            mode: supportMode,
-            countTowardsRotation: employee.workPatternType !== 'weekday-only',
-            allowedCodes: preferredCodes,
-          })
-        ) {
-          return;
-        }
-        state.extraOffDays += 1;
-      }
-      incrementOffCounter(state, 'system');
-
-      assignments.push({
-        employeeId: employee.id,
-        shiftId: OFF_SHIFT_ID,
-        date,
-        isLocked: false,
-        isSwapRequested: false,
-      });
-
-      assignedToday.add(employee.id);
-      updateEmployeeState(state, {
-        date,
-        shiftCode: 'O',
-        countedAsWork: false,
-      });
-
-      if (state.nightRecoveryDaysNeeded > 0) {
-        state.nightRecoveryDaysNeeded = Math.max(0, state.nightRecoveryDaysNeeded - 1);
-      }
-
-    };
-
-    // Step 1.1: Enforce recovery OFF blocks for night-intensive staff and non-preference night workers
-    request.employees.forEach((employee) => {
+    // Step 1.1 Night recovery enforcement
+    employeesOrder.forEach((employee) => {
       if (assignedToday.has(employee.id)) {
         return;
       }
@@ -540,15 +1322,14 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
     });
 
     const isWeekendDay = isWeekend(date);
-    const isHoliday = holidays.has(dateKey);
+    const isHoliday = context.holidays.has(dateKey);
     const isSpecialDay = isWeekendDay || isHoliday;
 
-    // Step 1.5: Ensure weekday-only staff are assigned admin shifts on working days
-    request.employees.forEach((employee) => {
+    // Step 1.5 weekday-only handling
+    employeesOrder.forEach((employee) => {
       if (employee.workPatternType !== 'weekday-only' || assignedToday.has(employee.id)) {
         return;
       }
-
       if (!isSpecialDay) {
         if (!assignSupportShift(employee, { mode: 'admin', countTowardsRotation: false })) {
           assignOffShift(employee, { dayIndex });
@@ -558,72 +1339,137 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
       }
     });
 
-    // Step 2: Assign regular shifts
-    activeShifts.forEach((shift) => {
-      const targetCode = extractShiftCode(shift);
-      const required = request.requiredStaffPerShift?.[targetCode] ?? shift.requiredStaff ?? 1;
-      let currentAssigned = assignments.filter(
-        (assignment) => assignment.date === date && assignment.shiftId === `shift-${targetCode.toLowerCase()}`
-      ).length;
+    // Step 2: CP-SAT inspired coverage solver
+    const coverageNeeds: Record<string, number> = {};
+    context.activeShifts.forEach((shift) => {
+      const code = extractShiftCode(shift);
+      const required = context.requiredStaffPerShift[code] ?? shift.requiredStaff ?? 1;
+      const already = dailyShiftCounts[code] ?? 0;
+      coverageNeeds[code] = Math.max(0, required - already);
+    });
 
-      let attempts = 0;
-      while (currentAssigned < required && attempts < request.employees.length) {
-        attempts += 1;
-        const candidate = selectCandidate({
-          date,
-          shift,
-          shiftCode: targetCode,
-          employees: request.employees,
+    const coverageCandidates = buildCoverageCandidates({
+      employees: employeesOrder,
+      assignedToday,
+      employeeStates,
+      coverageNeeds,
+      pattern,
+      dayIndex,
+      avoidPatterns,
+      holidays: context.holidays,
+      totalDays: context.dateRange.length,
+      shifts: context.activeShifts,
+      date,
+      shiftTeams: dailyShiftTeams,
+      allowOffOverride: isRepairFocusDay,
+    });
+    const teamTargets = deriveTeamTargets(coverageCandidates, context.requiredStaffPerShift, dailyShiftTeams);
+
+    const coverageSolution = solveCoverageWithPrioritySearch({
+      coverageNeeds,
+      candidates: coverageCandidates,
+      initialTeamUsage: dailyShiftTeams,
+      teamTargets,
+    });
+    let remainingShortages = coverageSolution.shortages;
+
+    coverageSolution.assignments.forEach((option, employeeId) => {
+      const employee = employeeMap.get(employeeId);
+      const state = employeeStates.get(employeeId);
+      if (!employee || !state) {
+        return;
+      }
+      assignments.push({
+        employeeId,
+        shiftId: option.shiftId,
+        date,
+        isLocked: false,
+        isSwapRequested: false,
+      });
+      assignedToday.add(employeeId);
+      updateEmployeeState(state, {
+        date,
+        shiftCode: option.shiftCode,
+        countedAsWork: true,
+        isNightShift: option.isNightShift,
+      });
+      state.preferenceScore += option.preferenceScore;
+      aggregatedPreferenceScore += Math.max(option.preferenceScore, 0);
+      recordShiftAssignment(employee, option.shiftCode);
+      filledSlots += 1;
+    });
+
+    if (Object.values(remainingShortages).some((value) => value > 0)) {
+      const overrideCandidates = buildCoverageCandidates({
+        employees: employeesOrder,
         assignedToday,
         employeeStates,
+        coverageNeeds: remainingShortages,
         pattern,
         dayIndex,
         avoidPatterns,
-        holidays,
-        totalDays: dateRange.length,
+        holidays: context.holidays,
+        totalDays: context.dateRange.length,
+        shifts: context.activeShifts,
+        date,
         shiftTeams: dailyShiftTeams,
+        allowOffOverride: true,
       });
-
-        if (!candidate) {
-          violations.push({
-            constraintId: 'coverage',
-            constraintName: '근무 커버리지',
-            type: 'hard',
-            severity: 'high',
-            message: `${dateKey} ${shift.name} 근무를 채우지 못했습니다.`,
-            affectedEmployees: [],
-            affectedDates: [date],
-            cost: 10,
+      if (overrideCandidates.length > 0) {
+        const overrideTargets = deriveTeamTargets(overrideCandidates, context.requiredStaffPerShift, dailyShiftTeams);
+        const overrideSolution = solveCoverageWithPrioritySearch({
+          coverageNeeds: remainingShortages,
+          candidates: overrideCandidates,
+          initialTeamUsage: dailyShiftTeams,
+          teamTargets: overrideTargets,
+        });
+        remainingShortages = overrideSolution.shortages;
+        overrideSolution.assignments.forEach((option, employeeId) => {
+          const employee = employeeMap.get(employeeId);
+          const state = employeeStates.get(employeeId);
+          if (!employee || !state) {
+            return;
+          }
+          assignments.push({
+            employeeId,
+            shiftId: option.shiftId,
+            date,
+            isLocked: false,
+            isSwapRequested: false,
           });
-          break;
-        }
-
-        assignedToday.add(candidate.employee.id);
-        assignments.push({
-          employeeId: candidate.employee.id,
-          shiftId: `shift-${targetCode.toLowerCase()}`,
-          date,
-          isLocked: false,
-          isSwapRequested: false,
+          assignedToday.add(employeeId);
+          updateEmployeeState(state, {
+            date,
+            shiftCode: option.shiftCode,
+            countedAsWork: true,
+            isNightShift: option.isNightShift,
+          });
+          state.preferenceScore += option.preferenceScore;
+          aggregatedPreferenceScore += Math.max(option.preferenceScore, 0);
+          recordShiftAssignment(employee, option.shiftCode);
+          filledSlots += 1;
         });
-
-        const state = employeeStates.get(candidate.employee.id)!;
-        updateEmployeeState(state, {
-          date,
-          shiftCode: targetCode,
-          countedAsWork: true,
-          isNightShift: shift.type === 'night',
-        });
-        state.preferenceScore += candidate.preferenceScore;
-        aggregatedPreferenceScore += Math.max(candidate.preferenceScore, 0);
-        currentAssigned += 1;
-        filledSlots += 1;
-        recordShiftAssignment(candidate.employee, targetCode);
       }
+    }
+
+    Object.entries(remainingShortages).forEach(([shiftCode, shortage]) => {
+      if (shortage <= 0) {
+        return;
+      }
+      violations.push({
+        constraintId: 'coverage',
+        constraintName: '근무 커버리지',
+        type: 'hard',
+        severity: 'high',
+        message: `${dateKey} ${shiftCode} 근무를 ${shortage}명 채우지 못했습니다.`,
+        affectedEmployees: [],
+        affectedDates: [date],
+        cost: 10,
+      });
     });
 
-    // Step 3: Assign OFF/support shifts to remaining employees
-    request.employees.forEach((employee) => {
+    // Step 3: assign off/support to remaining
+    employeesOrder.forEach((employee) => {
       if (assignedToday.has(employee.id)) {
         return;
       }
@@ -632,7 +1478,7 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
         return;
       }
       const remainingOffNeeded = Math.max(0, state.maxOffDays - state.offDays);
-      const daysRemainingIncludingToday = dateRange.length - dayIndex;
+      const daysRemainingIncludingToday = context.dateRange.length - dayIndex;
       const isNightIntensive = state.workPatternType === 'night-intensive';
       const shortageWithoutToday = remainingOffNeeded > daysRemainingIncludingToday - 1;
       const noSlackForNight =
@@ -646,54 +1492,12 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
     });
   });
 
-  const fairnessIndex = calculateFairnessIndex(
-    request.employees.map((emp) => employeeStates.get(emp.id)?.totalAssignments ?? 0)
-  );
-
-  const coverageRate = totalRequiredSlots === 0 ? 1 : Math.min(1, filledSlots / totalRequiredSlots);
-  const preferenceScore =
-    aggregatedPreferenceScore === 0
-      ? 0
-      : Math.min(100, (aggregatedPreferenceScore / Math.max(1, filledSlots)) * 100);
-
-  const score: ScheduleScore = {
-    total: Math.round((fairnessIndex * 50) + (coverageRate * 40) + (preferenceScore * 0.1)),
-    fairness: Math.round(fairnessIndex * 100),
-    preference: Math.round(preferenceScore),
-    coverage: Math.round(coverageRate * 100),
-    constraintSatisfaction: Math.max(0, 100 - violations.length * 5),
-    breakdown: [
-      { category: 'fairness', score: Math.round(fairnessIndex * 100), weight: 0.5, details: 'Jain 공정성 지수' },
-      { category: 'coverage', score: Math.round(coverageRate * 100), weight: 0.4, details: '필요 인원 커버리지' },
-      { category: 'preference', score: Math.round(preferenceScore), weight: 0.1, details: '선호도 매칭' },
-    ],
-  };
-
-  const offAccruals: OffAccrualSummary[] = [];
-  employeeStates.forEach((state, employeeId) => {
-    const guaranteedOffDays = state.maxOffDays;
-    const actualOffDays = state.offDays;
-    const extraOffDays = Math.max(0, guaranteedOffDays - actualOffDays);
-    offAccruals.push({
-      employeeId,
-      extraOffDays,
-      guaranteedOffDays,
-      actualOffDays,
-    });
-  });
-
   return {
     assignments,
+    employeeStates,
+    filledSlots,
+    aggregatedPreferenceScore,
     violations,
-    score,
-    iterations: dateRange.length * Math.max(1, activeShifts.length),
-    computationTime: Math.round(performance.now() - start),
-    stats: {
-      fairnessIndex,
-      coverageRate,
-      preferenceScore,
-    },
-    offAccruals,
   };
 }
 
@@ -1008,100 +1812,112 @@ export async function validateSchedule(
   };
 }
 
-interface CandidateSelectionParams {
-  date: Date;
-  shift: Shift & { code?: string };
-  shiftCode: string;
-  employees: AiEmployee[];
-  assignedToday: Set<string>;
-  employeeStates: Map<string, EmployeeState>;
-  pattern: string[] | null;
-  dayIndex: number;
-  avoidPatterns: string[][];
-  holidays: Set<string>;
-  totalDays: number;
-  shiftTeams: Record<string, Set<string>>;
-}
-
 interface CandidateEvaluation {
   employee: AiEmployee;
   score: number;
   preferenceScore: number;
 }
 
-function selectCandidate(params: CandidateSelectionParams) {
+interface CandidateEvaluationParams {
+  employee: AiEmployee;
+  state: EmployeeState;
+  shift: Shift & { code?: string };
+  shiftCode: string;
+  date: Date;
+  pattern: string[] | null;
+  dayIndex: number;
+  avoidPatterns: string[][];
+  holidays: Set<string>;
+  totalDays: number;
+  shiftTeams: Set<string>;
+  allowOffOverride?: boolean;
+}
+
+function evaluateCandidateOption(params: CandidateEvaluationParams): CandidateEvaluation | null {
   const normalizedShiftCode = params.shiftCode.toUpperCase();
+  const isCoreShift = isCoreShiftCode(normalizedShiftCode);
+  const { employee, state } = params;
+  const allowOverride = params.allowOffOverride ?? false;
+  let criticalOverrideCount = 0;
 
-  const candidates = params.employees
-    .filter((emp) => !params.assignedToday.has(emp.id))
-    .map<CandidateEvaluation | null>((employee) => {
-      if (employee.workPatternType === 'weekday-only') {
-        return null;
-      }
-      if (employee.workPatternType === 'night-intensive' && normalizedShiftCode !== 'N') {
-        return null;
-      }
-      const state = params.employeeStates.get(employee.id);
-      if (!state) {
-        return null;
-      }
+  if (employee.workPatternType === 'weekday-only') {
+    return null;
+  }
+  if (employee.workPatternType === 'night-intensive' && normalizedShiftCode !== 'N') {
+    if (!allowOverride) {
+      return null;
+    }
+    criticalOverrideCount += 2;
+  }
 
-      const remainingOffNeeded = Math.max(0, state.maxOffDays - state.offDays);
-      const daysLeftAfterToday = params.totalDays - params.dayIndex - 1;
-      const isNightIntensive = employee.workPatternType === 'night-intensive';
-      const zeroSlack = isNightIntensive && remainingOffNeeded === daysLeftAfterToday && remainingOffNeeded > 0;
-      if (remainingOffNeeded > daysLeftAfterToday || zeroSlack) {
-        return null;
-      }
+  const remainingOffNeeded = Math.max(0, state.maxOffDays - state.offDays);
+  const daysLeftAfterToday = params.totalDays - params.dayIndex - 1;
+  const isNightIntensive = employee.workPatternType === 'night-intensive';
+  const zeroSlack = isNightIntensive && remainingOffNeeded === daysLeftAfterToday && remainingOffNeeded > 0;
+  let usedOffOverride = false;
+  if (remainingOffNeeded > daysLeftAfterToday || zeroSlack) {
+    if (!allowOverride) {
+      return null;
+    }
+    usedOffOverride = true;
+    criticalOverrideCount += 1;
+  }
 
-      if (
-        employee.workPatternType === 'night-intensive' &&
-        !hasShiftPreferences(employee) &&
-        state.nightRecoveryDaysNeeded > 0
-      ) {
-        return null;
-      }
+  if (
+    employee.workPatternType === 'night-intensive' &&
+    !hasShiftPreferences(employee) &&
+    state.nightRecoveryDaysNeeded > 0
+  ) {
+    if (!allowOverride) {
+      return null;
+    }
+    criticalOverrideCount += 2;
+  }
 
-      if (
-        state.workPatternType === 'three-shift' &&
-        state.rotationLock &&
-        state.rotationLock === normalizedShiftCode
-      ) {
-        return null;
-      }
+  if (
+    isCoreShift &&
+    state.workPatternType === 'three-shift' &&
+    state.rotationLock &&
+    state.rotationLock === normalizedShiftCode
+  ) {
+    if (!allowOverride) {
+      return null;
+    }
+    criticalOverrideCount += 1;
+  }
 
-      if (state.lastShiftCode === 'N' && normalizedShiftCode === 'D') {
-        return null;
-      }
+  if (state.lastShiftCode === 'N' && normalizedShiftCode === 'D') {
+    if (!allowOverride) {
+      return null;
+    }
+    criticalOverrideCount += 1;
+  }
 
-      const baseScore = calculateCandidateScore({
-        employee,
-        state,
-        date: params.date,
-        shift: params.shift,
-        shiftCode: params.shiftCode,
-        pattern: params.pattern,
-        dayIndex: params.dayIndex,
-        avoidPatterns: params.avoidPatterns,
-        holidays: params.holidays,
-        totalDays: params.totalDays,
-        teamCoverage: params.shiftTeams[normalizedShiftCode] ?? new Set(),
-      });
-      return {
-        employee,
-        score: baseScore.score,
-        preferenceScore: baseScore.preferenceScore,
-      };
-    })
-    .filter((candidate): candidate is CandidateEvaluation => {
-      if (!candidate) {
-        return false;
-      }
-      return candidate.score > Number.NEGATIVE_INFINITY;
-    })
-    .sort((a, b) => b.score - a.score);
-
-  return candidates[0] ?? null;
+  const baseScore = calculateCandidateScore({
+    employee,
+    state,
+    date: params.date,
+    shift: params.shift,
+    shiftCode: params.shiftCode,
+    pattern: params.pattern,
+    dayIndex: params.dayIndex,
+    avoidPatterns: params.avoidPatterns,
+    holidays: params.holidays,
+    totalDays: params.totalDays,
+    teamCoverage: params.shiftTeams,
+  });
+  let adjustedScore = baseScore.score;
+  if (usedOffOverride) {
+    adjustedScore -= OFF_OVERRIDE_PENALTY;
+  }
+  if (criticalOverrideCount > 0) {
+    adjustedScore -= criticalOverrideCount * CRITICAL_OVERRIDE_PENALTY;
+  }
+  return {
+    employee,
+    score: adjustedScore,
+    preferenceScore: baseScore.preferenceScore,
+  };
 }
 
 interface CandidateScoreParams {
@@ -1135,6 +1951,7 @@ function calculateCandidateScore(params: CandidateScoreParams) {
 
   let score = 100;
   const normalizedShiftCode = shiftCode.toUpperCase();
+  const isCoreShift = isCoreShiftCode(normalizedShiftCode);
   const hasPreferenceWeights = !!employee.preferredShiftTypes && Object.keys(employee.preferredShiftTypes).length > 0;
 
   const workPattern = employee.workPatternType ?? 'three-shift';
@@ -1251,7 +2068,7 @@ function calculateCandidateScore(params: CandidateScoreParams) {
   const preferenceWeight = employee.preferredShiftTypes?.[shiftCode] ?? 0;
   score += preferenceWeight * 5;
 
-  if (state.workPatternType === 'three-shift' && state.distinctShifts.size < 2) {
+  if (isCoreShift && state.workPatternType === 'three-shift' && state.distinctShifts.size < 2) {
     const isNewShift = !state.distinctShifts.has(normalizedShiftCode);
     if (isNewShift) {
       score += 20;
@@ -1265,15 +2082,14 @@ function calculateCandidateScore(params: CandidateScoreParams) {
   }
 
   if (!hasPreferenceWeights) {
-    if (state.lastShiftCode === normalizedShiftCode) {
-      if (state.lastShiftRunCount > 0 && state.lastShiftRunCount < 3) {
-        score += 15;
+    if (!isCoreShift) {
+      if (state.lastShiftCode === normalizedShiftCode) {
+        score -= Math.min(40, state.lastShiftRunCount * 15);
       }
-      if (state.lastShiftRunCount >= 3) {
-        score -= 35;
+      const ownedCount = state.shiftCounts[normalizedShiftCode] ?? 0;
+      if (ownedCount > 0) {
+        score -= ownedCount * 12;
       }
-    } else if (state.lastShiftRunCount > 0 && state.lastShiftRunCount < 3) {
-      score -= 10;
     }
 
     const totalAssignments = state.totalAssignments;

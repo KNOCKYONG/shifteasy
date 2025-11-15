@@ -1,4 +1,5 @@
 import { Clock, Plus, Edit2, Trash2, Loader2 } from "lucide-react";
+import { ColorPicker } from "@/components/ui/ColorPicker";
 
 interface ShiftType {
   code: string;
@@ -19,15 +20,16 @@ interface ShiftTypesTabProps {
   isSavingShiftTypes: boolean;
 }
 
-const AVAILABLE_COLORS = [
-  { value: 'blue', label: '파랑', class: 'bg-blue-500' },
-  { value: 'green', label: '초록', class: 'bg-green-500' },
-  { value: 'amber', label: '노랑', class: 'bg-amber-500' },
-  { value: 'red', label: '빨강', class: 'bg-red-500' },
-  { value: 'purple', label: '보라', class: 'bg-purple-500' },
-  { value: 'indigo', label: '남색', class: 'bg-indigo-500' },
-  { value: 'pink', label: '분홍', class: 'bg-pink-500' },
-  { value: 'gray', label: '회색', class: 'bg-gray-500' },
+// Preset colors for the color picker - matching default shift types
+const PRESET_COLORS = [
+  '#3b82f6', // blue - D
+  '#f59e0b', // amber - E
+  '#6366f1', // indigo - N
+  '#10b981', // green - A
+  '#6b7280', // gray - O
+  '#a855f7', // purple - V
+  '#ef4444', // red
+  '#ec4899', // pink
 ];
 
 export function ShiftTypesTab({
@@ -63,7 +65,7 @@ export function ShiftTypesTab({
         name: '',
         startTime: '09:00',
         endTime: '17:00',
-        color: 'blue',
+        color: '#3b82f6', // default blue
         allowOvertime: false,
       });
     } catch (error) {
@@ -154,15 +156,11 @@ export function ShiftTypesTab({
             />
           </div>
           <div className="flex gap-2">
-            <select
-              value={newShiftType.color}
-              onChange={(e) => setNewShiftType({ ...newShiftType, color: e.target.value })}
-              className="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
-            >
-              {AVAILABLE_COLORS.map(color => (
-                <option key={color.value} value={color.value}>{color.label}</option>
-              ))}
-            </select>
+            <ColorPicker
+              color={newShiftType.color}
+              onChange={(color) => setNewShiftType({ ...newShiftType, color })}
+              presetColors={PRESET_COLORS}
+            />
             <button
               onClick={handleAddShiftType}
               className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
@@ -220,15 +218,11 @@ export function ShiftTypesTab({
                     />
                   </div>
                   <div className="flex gap-2">
-                    <select
-                      defaultValue={shift.color}
-                      onChange={(e) => handleUpdateShiftType(shift.code, { color: e.target.value })}
-                      className="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
-                    >
-                      {AVAILABLE_COLORS.map(color => (
-                        <option key={color.value} value={color.value}>{color.label}</option>
-                      ))}
-                    </select>
+                    <ColorPicker
+                      color={shift.color}
+                      onChange={(color) => handleUpdateShiftType(shift.code, { color })}
+                      presetColors={PRESET_COLORS}
+                    />
                     <button
                       onClick={() => setEditingShiftType(null)}
                       className="px-3 py-2 bg-green-600 dark:bg-green-500 text-white rounded-lg hover:bg-green-700 dark:hover:bg-green-600"
@@ -240,7 +234,10 @@ export function ShiftTypesTab({
               ) : (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className={`w-4 h-4 rounded bg-${shift.color}-500`}></div>
+                    <div
+                      className="w-4 h-4 rounded border border-gray-300 dark:border-gray-600"
+                      style={{ backgroundColor: shift.color }}
+                    ></div>
                     <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md font-mono text-sm">
                       {shift.code}
                     </span>

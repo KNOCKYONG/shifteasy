@@ -89,3 +89,4 @@ src/db/temp-*.ts
 src/db/test-*.ts
 !src/db/test-connection.ts
 !src/db/test-supabase.ts
+backend/

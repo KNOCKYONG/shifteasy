@@ -25,6 +25,7 @@ interface EditTeamMemberModalProps {
 
 export function EditTeamMemberModal({ isOpen, onClose, member, departments, onUpdate }: EditTeamMemberModalProps) {
   const [activeTab, setActiveTab] = useState<'basic' | 'career'>('basic');
+  const [isYearsOfServiceFocused, setIsYearsOfServiceFocused] = useState(false);
   const [formData, setFormData] = useState({
     phone: "",
     departmentId: "",
@@ -308,7 +309,11 @@ export function EditTeamMemberModal({ isOpen, onClose, member, departments, onUp
                       type="number"
                       min="0"
                       max="50"
-                      value={formData.yearsOfService || 0}
+                      value={
+                        isYearsOfServiceFocused && (!formData.yearsOfService || formData.yearsOfService === 0)
+                          ? ''
+                          : formData.yearsOfService || 0
+                      }
                       onChange={(e) => {
                         const yearsOfService = parseInt(e.target.value) || 0;
                         if (yearsOfService >= 0 && yearsOfService <= 50) {
@@ -321,6 +326,8 @@ export function EditTeamMemberModal({ isOpen, onClose, member, departments, onUp
                           });
                         }
                       }}
+                      onFocus={() => setIsYearsOfServiceFocused(true)}
+                      onBlur={() => setIsYearsOfServiceFocused(false)}
                       className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
                     />
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">

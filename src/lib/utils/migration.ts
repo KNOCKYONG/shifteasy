@@ -5,8 +5,21 @@
  */
 
 import { db } from '@/db';
-import { tenants, departments, users, configs, teams, nursePreferences, holidays, schedules } from '@/db/schema';
+import { tenants, users, configs, teams, nursePreferences, holidays, schedules } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+
+type TenantSettings = {
+  isGuestTrial?: boolean;
+  migratedFrom?: string | null;
+  [key: string]: unknown;
+};
+
+function parseTenantSettings(settings: unknown): TenantSettings {
+  if (typeof settings === 'object' && settings !== null) {
+    return settings as TenantSettings;
+  }
+  return {};
+}
 
 /**
  * 게스트 계정 여부 확인
@@ -46,8 +59,9 @@ export async function checkGuestAccount(userId: string): Promise<GuestAccountInf
     }
 
     const tenant = user.tenant;
-    const isGuestTrial = tenant.settings?.isGuestTrial === true;
-    const migratedFrom = (tenant.settings as any)?.migratedFrom;
+    const tenantSettings = parseTenantSettings(tenant.settings);
+    const isGuestTrial = tenantSettings.isGuestTrial === true;
+    const migratedFrom = tenantSettings.migratedFrom;
 
     return {
       isGuest: isGuestTrial && tenant.plan === 'free',
@@ -122,7 +136,9 @@ export async function checkMigrationEligibility(
       };
     }
 
-    if (tenant.plan !== 'free' || tenant.settings?.isGuestTrial !== true) {
+    const tenantSettings = parseTenantSettings(tenant.settings);
+
+    if (tenant.plan !== 'free' || tenantSettings.isGuestTrial !== true) {
       return {
         eligible: false,
         reason: 'Tenant is not a guest trial account',
@@ -130,7 +146,7 @@ export async function checkMigrationEligibility(
     }
 
     // 3. 이미 마이그레이션된 계정인지 확인
-    if ((tenant.settings as any)?.migratedFrom) {
+    if (tenantSettings.migratedFrom) {
       return {
         eligible: false,
         reason: 'This account has already been migrated',
