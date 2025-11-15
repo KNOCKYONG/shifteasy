@@ -41,9 +41,13 @@ export const MonthNavigation = React.memo(function MonthNavigation({
           </button>
           <button
             onClick={onThisMonth}
-            className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+            className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+            title="이번 달로 이동"
           >
-            이번 달
+            <Calendar className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+            <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+              {format(monthStart, "yyyy년 M월")}
+            </h2>
           </button>
           <button
             onClick={onNextMonth}
@@ -51,12 +55,6 @@ export const MonthNavigation = React.memo(function MonthNavigation({
           >
             <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-400" />
           </button>
-        </div>
-        <div className="flex items-center gap-2">
-          <Calendar className="w-5 h-5 text-gray-400 dark:text-gray-500" />
-          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-            {format(monthStart, "yyyy년 M월")}
-          </h2>
         </div>
       </div>
 
