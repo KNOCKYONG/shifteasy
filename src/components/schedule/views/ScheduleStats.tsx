@@ -51,7 +51,6 @@ export const ScheduleStats = React.memo(function ScheduleStats({ schedule, shift
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{shiftCode}</p>
                 <p className="text-2xl font-semibold" style={{ color: shift.color }}>
                   {count}
                 </p>
