@@ -2216,10 +2216,7 @@ function evaluateCandidateOption(params: CandidateEvaluationParams): CandidateEv
     return null;
   }
   if (employee.workPatternType === 'night-intensive' && normalizedShiftCode !== 'N') {
-    if (!allowOverride) {
-      return null;
-    }
-    criticalOverrideCount += 2;
+    return null;
   }
 
   const daysElapsed = params.dayIndex + 1;
