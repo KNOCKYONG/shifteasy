@@ -308,6 +308,12 @@ function createSchedulerContext(request: AiScheduleRequest): SchedulerContext {
     const code = extractShiftCode(shift);
     requiredStaffPerShift[code] = request.requiredStaffPerShift?.[code] ?? shift.requiredStaff ?? 1;
   });
+  ['D', 'E', 'N'].forEach((coreCode) => {
+    if (requiredStaffPerShift[coreCode] === undefined) {
+      const templateFallback = shiftTemplateMap.get(coreCode)?.requiredStaff;
+      requiredStaffPerShift[coreCode] = Math.max(1, templateFallback ?? 1);
+    }
+  });
 
   return {
     dateRange,
