@@ -30,7 +30,6 @@ const ManageSchedulesModal = dynamicImport(() => import("@/components/schedule/m
 const SwapRequestModal = dynamicImport(() => import("@/components/schedule/modals/SwapRequestModal").then(mod => ({ default: mod.SwapRequestModal })), { ssr: false });
 const ScheduleSwapModal = dynamicImport(() => import("@/components/schedule/modals/ScheduleSwapModal").then(mod => ({ default: mod.ScheduleSwapModal })), { ssr: false });
 const ImprovementResultModal = dynamicImport(() => import("@/components/schedule/modals/ImprovementResultModal").then(mod => ({ default: mod.ImprovementResultModal })), { ssr: false });
-const GenerateScheduleModal = dynamicImport(() => import("@/components/schedule/modals/GenerateScheduleModal").then(mod => ({ default: mod.GenerateScheduleModal })), { ssr: false });
 import {
   ViewTabs,
   ShiftTypeFilters,
@@ -439,9 +438,6 @@ function SchedulePageContent() {
     employeeId: string;
     currentShift?: Assignment | null;
   } | null>(null);
-
-  // 스케줄 생성 모달 상태
-  const [showGenerateModal, setShowGenerateModal] = useState(false);
 
   // Handle URL parameter changes for view
   useEffect(() => {
@@ -1998,11 +1994,10 @@ function SchedulePageContent() {
       return;
     }
 
-    // Show generate modal with shift requirements
-    setShowGenerateModal(true);
+    void handleGenerateSchedule();
   };
 
-  const handleGenerateSchedule = async (shiftRequirements: Record<string, number>) => {
+  const handleGenerateSchedule = async (shiftRequirements?: Record<string, number>) => {
     if (!canManageSchedules) {
       alert('스케줄 생성 권한이 없습니다.');
       return;
@@ -3558,21 +3553,6 @@ function SchedulePageContent() {
           </div>
         </div>
       )}
-
-      {/* Generate Schedule Modal */}
-      <GenerateScheduleModal
-        isOpen={showGenerateModal}
-        onClose={() => setShowGenerateModal(false)}
-        onGenerate={handleGenerateSchedule}
-        departmentId={
-          currentUser.dbUser?.departmentId ||
-          memberDepartmentId ||
-          (filteredMembers[0]?.departmentId ?? '') ||
-          selectedDepartment ||
-          null
-        }
-        customShiftTypes={customShiftTypes}
-      />
 
       {/* Employee Preferences Modal */}
       {modals.isPreferencesModalOpen && selectedEmployee && (
