@@ -2784,39 +2784,15 @@ function SchedulePageContent() {
     // Extract shift code from shiftId (e.g., 'shift-d' -> 'd')
     const shiftCode = shiftId.replace('shift-', '').toLowerCase();
 
-    // Map shift codes to colors
-    const codeColorMap: Record<string, string> = {
-      'd': '#3B82F6',   // day - blue
-      'e': '#F59E0B',   // evening - amber
-      'n': '#6366F1',   // night - indigo
-      'o': '#9CA3AF',   // off - gray
-      'a': '#10B981',   // administrative - green
-    };
-
-    if (codeColorMap[shiftCode]) {
-      return codeColorMap[shiftCode];
-    }
-
     // Try to find in customShiftTypes by code
     const shiftType = customShiftTypes.find(st =>
       st.code.toLowerCase() === shiftCode
     );
-    if (shiftType) {
-      // Map color name to hex
-      const colorMap: Record<string, string> = {
-        'blue': '#3B82F6',
-        'green': '#10B981',
-        'amber': '#F59E0B',
-        'red': '#EF4444',
-        'purple': '#8B5CF6',
-        'indigo': '#6366F1',
-        'pink': '#EC4899',
-        'gray': '#9CA3AF',
-      };
-      return colorMap[shiftType.color] || '#9CA3AF';
+    if (shiftType && shiftType.color) {
+      return shiftType.color;
     }
 
-    return '#9CA3AF';
+    return '#9CA3AF'; // default gray
   }, [shifts, customShiftTypes]);
 
   // 시프트 이름 가져오기
