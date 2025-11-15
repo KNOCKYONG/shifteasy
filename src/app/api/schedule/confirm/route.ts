@@ -4,7 +4,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { db } from '@/db';
 import { schedules, offBalanceLedger } from '@/db/schema';
 import { notificationService } from '@/lib/notifications/notification-service';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import type { OffAccrualSummary } from '@/lib/types/scheduler';
 
 export const dynamic = 'force-dynamic';
@@ -176,6 +176,7 @@ export async function POST(request: NextRequest) {
         scheduleRecord: confirmedSchedule,
         assignments: schedule.assignments,
         guaranteedOffDaysMap,
+        departmentId: schedule.departmentId,
       });
     } catch (error) {
       console.error('[Confirm] Failed to update off-balance ledger', error);
@@ -479,11 +480,13 @@ async function updateOffBalanceAfterConfirmation({
   scheduleRecord,
   assignments,
   guaranteedOffDaysMap,
+  departmentId,
 }: {
   tenantId: string;
   scheduleRecord: ConfirmedScheduleRecord;
   assignments: ScheduleAssignmentPayload[];
   guaranteedOffDaysMap?: Map<string, number>;
+  departmentId?: string;
 }): Promise<OffBalanceDebugEntry[]> {
   const debugLogs: OffBalanceDebugEntry[] = [];
   const DEFAULT_GUARANTEED_OFF_DAYS = 8;
@@ -517,25 +520,23 @@ async function updateOffBalanceAfterConfirmation({
   const year = periodStart.getFullYear();
   const month = periodStart.getMonth() + 1;
 
-  const deleteConditions = [
-    eq(offBalanceLedger.tenantId, tenantId),
-    eq(offBalanceLedger.year, year),
-    eq(offBalanceLedger.month, month),
-  ];
-
-  if (scheduleRecord.departmentId) {
-    deleteConditions.push(eq(offBalanceLedger.departmentId, scheduleRecord.departmentId));
-  }
-
+  const targetDepartmentId = departmentId ?? scheduleRecord.departmentId ?? null;
   const deletedRows = await db.delete(offBalanceLedger)
-    .where(and(...deleteConditions))
+    .where(
+      and(
+        eq(offBalanceLedger.tenantId, tenantId),
+        eq(offBalanceLedger.year, year),
+        eq(offBalanceLedger.month, month),
+        targetDepartmentId ? eq(offBalanceLedger.departmentId, targetDepartmentId) : isNull(offBalanceLedger.departmentId)
+      )
+    )
     .returning({ id: offBalanceLedger.id });
 
   debugLogs.push({
     message: 'Cleared previous ledger rows',
     data: {
       tenantId,
-      departmentId: scheduleRecord.departmentId,
+      departmentId: targetDepartmentId,
       year,
       month,
       deletedCount: deletedRows.length,
@@ -556,7 +557,7 @@ async function updateOffBalanceAfterConfirmation({
       ledgerRecords.push({
         tenantId,
         nurseId: employeeId,
-        departmentId: scheduleRecord.departmentId,
+        departmentId: targetDepartmentId,
         year,
         month,
         periodStart,
@@ -581,7 +582,7 @@ async function updateOffBalanceAfterConfirmation({
       data: {
         tenantId,
         scheduleId: scheduleRecord.id,
-        departmentId: scheduleRecord.departmentId,
+        departmentId: targetDepartmentId,
         year,
         month,
         employeeCount: employeeIds.length,
@@ -597,7 +598,7 @@ async function updateOffBalanceAfterConfirmation({
     data: {
       tenantId,
       scheduleId: scheduleRecord.id,
-      departmentId: scheduleRecord.departmentId,
+      departmentId: targetDepartmentId,
       year,
       month,
       employeeCount: employeeIds.length,
