@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { eachDayOfInterval, differenceInCalendarDays, format, isWeekend } from 'date-fns';
 import type {
@@ -188,8 +189,10 @@ const OFF_LAG_THRESHOLD = 2;
 const SPECIAL_REQUEST_BONUS = 40;
 const SPECIAL_REQUEST_OVERRIDE_PENALTY = 120;
 const MIN_SCORE_TARGET = 92;
-const DEFAULT_SEEDS: Array<number | undefined> = [undefined, 13, 29, 47];
-const FALLBACK_SEEDS = [97, 131];
+const DEFAULT_RANDOM_SEED_COUNT = 3;
+const FALLBACK_RANDOM_SEED_COUNT = 2;
+const RANDOM_SEED_MIN = 1;
+const RANDOM_SEED_MAX = 1000000;
 
 function extractShiftCode(shift: Shift & { code?: string }): string {
   if (shift.code) {
@@ -283,9 +286,14 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
   const start = performance.now();
   const context = createSchedulerContext(request);
   logRequiredStaffDebug(context);
+  const defaultSeedSet: Array<number | undefined> = [
+    undefined,
+    ...generateRandomSeeds(DEFAULT_RANDOM_SEED_COUNT),
+  ];
+  const fallbackSeedSet = generateRandomSeeds(FALLBACK_RANDOM_SEED_COUNT);
 
   let bestOutcome: SchedulePipelineOutcome | null = null;
-  for (const seed of DEFAULT_SEEDS) {
+  for (const seed of defaultSeedSet) {
     const candidate = await buildSchedulePipeline(request, context, seed);
     if (
       !bestOutcome ||
@@ -301,7 +309,7 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
   }
 
   if (bestOutcome && bestOutcome.validation.score.total < MIN_SCORE_TARGET) {
-    for (const seed of FALLBACK_SEEDS) {
+    for (const seed of fallbackSeedSet) {
       const candidate = await buildSchedulePipeline(request, context, seed);
       if (
         isCandidateBetter(
@@ -332,6 +340,14 @@ export async function generateAiSchedule(request: AiScheduleRequest): Promise<Ai
     stats: finalOutcome.validation.stats,
     offAccruals,
   };
+}
+
+function generateRandomSeeds(count: number): number[] {
+  const seeds: number[] = [];
+  for (let i = 0; i < count; i += 1) {
+    seeds.push(randomInt(RANDOM_SEED_MIN, RANDOM_SEED_MAX));
+  }
+  return seeds;
 }
 
 function createSchedulerContext(request: AiScheduleRequest): SchedulerContext {

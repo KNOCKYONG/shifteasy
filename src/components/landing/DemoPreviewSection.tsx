@@ -3,25 +3,8 @@
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useState, useMemo } from 'react';
-import { Users, Clock, Calendar, Shield, Mail, Phone, Sparkles, CheckCircle, Zap, FileText, Settings } from 'lucide-react';
+import { Calendar, Sparkles, CheckCircle, Zap, FileText, Settings } from 'lucide-react';
 import Link from 'next/link';
-
-// 풍부한 목업 데이터 - Config 직급 코드 사용 (직급별 밸런스)
-// HN: 수석간호사 (Level 9, 10-12년차), SN: 전문간호사 (Level 7, 7-9년차), CN: 책임간호사 (Level 5, 5-6년차), RN: 정규간호사 (Level 3, 3-4년차), NA: 간호조무사 (Level 1, 1-2년차)
-const mockStaffData = [
-  { id: 1, name: '김수연', position: 'HN', email: 'kim.suyeon@hospital.com', phone: '010-1234-5678', status: 'active', role: 'manager', yearsOfService: 10, hireYear: 2015, avatar: null },
-  { id: 2, name: '임채원', position: 'SN', email: 'lim.chaewon@hospital.com', phone: '010-9012-3456', status: 'active', role: 'member', yearsOfService: 8, hireYear: 2017, avatar: null },
-  { id: 3, name: '한지우', position: 'CN', email: 'han.jiwoo@hospital.com', phone: '010-8901-2345', status: 'active', role: 'member', yearsOfService: 6, hireYear: 2019, avatar: null },
-  { id: 4, name: '윤서준', position: 'CN', email: 'yoon.seojun@hospital.com', phone: '010-7890-1234', status: 'active', role: 'member', yearsOfService: 5, hireYear: 2020, avatar: null },
-  { id: 5, name: '이지은', position: 'RN', email: 'lee.jieun@hospital.com', phone: '010-2345-6789', status: 'active', role: 'member', yearsOfService: 4, hireYear: 2021, avatar: null },
-  { id: 6, name: '정하은', position: 'RN', email: 'jung.haeun@hospital.com', phone: '010-5678-9012', status: 'on_leave', role: 'member', yearsOfService: 4, hireYear: 2021, avatar: null },
-  { id: 7, name: '송예진', position: 'RN', email: 'song.yejin@hospital.com', phone: '010-0123-4567', status: 'active', role: 'member', yearsOfService: 3, hireYear: 2022, avatar: null },
-  { id: 8, name: '박민준', position: 'RN', email: 'park.minjun@hospital.com', phone: '010-3456-7890', status: 'active', role: 'member', yearsOfService: 3, hireYear: 2022, avatar: null },
-  { id: 9, name: '최서윤', position: 'NA', email: 'choi.seoyun@hospital.com', phone: '010-4567-8901', status: 'active', role: 'member', yearsOfService: 1, hireYear: 2024, avatar: null },
-  { id: 10, name: '오태양', position: 'NA', email: 'oh.taeyang@hospital.com', phone: '010-1122-3344', status: 'active', role: 'member', yearsOfService: 1, hireYear: 2024, avatar: null },
-  { id: 11, name: '강민지', position: 'NA', email: 'kang.minji@hospital.com', phone: '010-6789-0123', status: 'active', role: 'member', yearsOfService: 2, hireYear: 2023, avatar: null },
-  { id: 12, name: '배수아', position: 'NA', email: 'bae.sua@hospital.com', phone: '010-2233-4455', status: 'active', role: 'member', yearsOfService: 2, hireYear: 2023, avatar: null },
-];
 
 // 근무표 목업 데이터 - 2025년 11월 기준 (30일) - Config 직급 코드 사용 (직급별 밸런스)
 // 현실적인 3교대 로테이션 패턴: 주간(D) → 저녁(E) → 야간(N) → 행정(A) → 휴무(OFF) 사이클
@@ -66,7 +49,6 @@ const mockScheduleData = [
   { id: 12, name: '배수아', position: 'NA', shifts: ['OFF', 'OFF', 'D', 'D', 'OFF', 'E', 'E', 'OFF', 'OFF', 'D', 'D', 'OFF', 'OFF', 'E', 'E', 'E', 'OFF', 'D', 'D', 'OFF', 'OFF', 'OFF', 'E', 'E', 'OFF', 'D', 'OFF', 'OFF', 'OFF', 'OFF'] },
 ];
 
-type StatusFilter = 'all' | 'active' | 'on-leave' | 'manager' | 'part-time';
 type ViewMode = 'generation' | 'schedule';
 type PositionFilter = 'all' | 'HN' | 'SN' | 'CN' | 'RN' | 'NA'; // Config 직급 코드: HN(수석간호사), SN(전문간호사), CN(책임간호사), RN(정규간호사), NA(간호조무사)
 type ShiftFilter = 'all' | 'D' | 'E' | 'N' | 'A' | 'OFF' | '연차';
@@ -74,39 +56,8 @@ type ShiftFilter = 'all' | 'D' | 'E' | 'N' | 'A' | 'OFF' | '연차';
 export default function DemoPreviewSection() {
   const { t } = useTranslation('landing');
   const [viewMode, setViewMode] = useState<ViewMode>('generation');
-  const [currentStep, setCurrentStep] = useState<number>(0);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [searchQuery, setSearchQuery] = useState('');
   const [positionFilter, setPositionFilter] = useState<PositionFilter>('all');
   const [shiftFilter, setShiftFilter] = useState<ShiftFilter>('all');
-
-  // 필터링된 근무자 목록
-  const filteredStaff = useMemo(() => {
-    let filtered = mockStaffData;
-
-    // 상태 필터
-    if (statusFilter === 'active') {
-      filtered = filtered.filter(s => s.status === 'active');
-    } else if (statusFilter === 'on-leave') {
-      filtered = filtered.filter(s => s.status === 'on_leave');
-    } else if (statusFilter === 'manager') {
-      filtered = filtered.filter(s => s.role === 'manager');
-    } else if (statusFilter === 'part-time') {
-      filtered = filtered.filter(s => s.position === 'NA'); // 간호조무사(NA)를 파트타임으로 간주
-    }
-
-    // 검색 필터
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(s =>
-        s.name.toLowerCase().includes(query) ||
-        s.email.toLowerCase().includes(query) ||
-        s.position.toLowerCase().includes(query)
-      );
-    }
-
-    return filtered;
-  }, [statusFilter, searchQuery]);
 
   // 필터링된 스케줄 데이터
   const filteredSchedule = useMemo(() => {
@@ -124,34 +75,6 @@ export default function DemoPreviewSection() {
 
     return filtered;
   }, [positionFilter, shiftFilter]);
-
-  // 통계 계산
-  const stats = {
-    total: mockStaffData.length,
-    active: mockStaffData.filter(s => s.status === 'active').length,
-    onLeave: mockStaffData.filter(s => s.status === 'on_leave').length,
-    managers: mockStaffData.filter(s => s.role === 'manager').length,
-    partTime: mockStaffData.filter(s => s.position === 'NA').length, // 간호조무사(NA)를 파트타임으로 간주
-  };
-
-  // Config 직급 코드를 한글 라벨로 변환
-  const getPositionLabel = (positionCode: string) => {
-    switch (positionCode) {
-      case 'HN': return '수석간호사';
-      case 'SN': return '전문간호사';
-      case 'CN': return '책임간호사';
-      case 'RN': return '정규간호사';
-      case 'NA': return '간호조무사';
-      default: return positionCode;
-    }
-  };
-
-  const getRoleBadgeColor = (role: string) => {
-    switch (role) {
-      case 'manager': return 'bg-[#DBEAFE] text-[#2563EB]';
-      default: return 'bg-gray-100 text-gray-700';
-    }
-  };
 
   const getShiftBadgeStyle = (shift: string) => {
     // ^ 제거하여 실제 shift type 확인
@@ -210,7 +133,6 @@ export default function DemoPreviewSection() {
           <button
             onClick={() => {
               setViewMode('generation');
-              setCurrentStep(0);
             }}
             className={`px-6 py-3 rounded-xl font-semibold transition-all ${
               viewMode === 'generation'
