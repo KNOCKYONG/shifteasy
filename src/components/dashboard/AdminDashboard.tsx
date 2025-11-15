@@ -148,7 +148,7 @@ export function AdminDashboard() {
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 text-white rounded-lg p-6">
+      <div className="bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 text-white rounded-lg p-6 text-center sm:text-left">
         <h1 className="text-2xl font-bold mb-2">
           관리자 대시보드 📊
         </h1>
@@ -175,7 +175,7 @@ export function AdminDashboard() {
               className="block"
             >
               <div className={`p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all cursor-pointer ${stat.urgent ? 'ring-2 ring-red-500' : ''}`}>
-                <div className="flex items-start justify-between">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex-1">
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
                       {stat.title}
@@ -189,7 +189,7 @@ export function AdminDashboard() {
                       {stat.subtitle}
                     </p>
                   </div>
-                  <div className={`p-3 rounded-lg ${colorClasses[stat.color]}`}>
+                  <div className={`p-3 rounded-lg self-start sm:self-auto ${colorClasses[stat.color]}`}>
                     <Icon className="w-6 h-6" />
                   </div>
                 </div>
@@ -212,7 +212,10 @@ export function AdminDashboard() {
               </h3>
               <div className="space-y-2 mb-4">
                 {recentPendingRequests.map((req) => (
-                  <div key={req.id} className="flex items-center justify-between text-sm bg-gray-50 dark:bg-gray-800 p-2 rounded">
+                  <div
+                    key={req.id}
+                    className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between text-sm bg-gray-50 dark:bg-gray-800 p-2 rounded"
+                  >
                     <span className="text-gray-700 dark:text-gray-300">
                       {req.requester?.name} - {format(new Date(req.date), 'MM/dd (E)', { locale: ko })}
                     </span>
@@ -296,7 +299,7 @@ export function AdminDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* My Upcoming Shifts */}
         <Card className="p-6">
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center mb-4">
             <div className="p-2 bg-blue-100 dark:bg-blue-950 rounded-lg">
               <CalendarDays className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
@@ -319,7 +322,7 @@ export function AdminDashboard() {
                 return (
                   <div
                     key={idx}
-                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                    className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg border ${
                       isTodayShift
                         ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800'
                         : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
@@ -345,7 +348,7 @@ export function AdminDashboard() {
                     </div>
                     <Link
                       href={`/schedule?date=${format(shiftDate, 'yyyy-MM-dd')}`}
-                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline w-full sm:w-auto"
                     >
                       상세보기
                     </Link>
@@ -370,7 +373,7 @@ export function AdminDashboard() {
 
         {/* My Workmates on Same Shifts */}
         <Card className="p-6">
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center mb-4">
             <div className="p-2 bg-green-100 dark:bg-green-950 rounded-lg">
               <UserCheck className="w-5 h-5 text-green-600 dark:text-green-400" />
             </div>
@@ -382,9 +385,9 @@ export function AdminDashboard() {
           {/* Filters */}
           <div className="flex flex-col gap-3 mb-4">
             {/* Period Filter */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-[60px]">기간:</span>
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 sm:min-w-[60px]">기간:</span>
+              <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setWorkmatesPeriod('today')}
                   className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
@@ -419,9 +422,9 @@ export function AdminDashboard() {
             </div>
 
             {/* GroupBy Filter */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-[60px]">분류:</span>
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 sm:min-w-[60px]">분류:</span>
+              <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setWorkmatesGroupBy('shift')}
                   className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
@@ -466,9 +469,9 @@ export function AdminDashboard() {
               workmatesData.workmates.slice(0, 6).map((workmate: any) => (
                 <div
                   key={workmate.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
+                  className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
                 >
-                  <div className="flex items-center gap-3 flex-1">
+                  <div className="flex items-center gap-3 flex-1 w-full">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center text-white text-sm font-semibold">
                       {workmate.name?.charAt(0) || '?'}
                     </div>
@@ -481,7 +484,7 @@ export function AdminDashboard() {
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="text-left sm:text-right w-full sm:w-auto">
                     <p className="text-xs font-semibold text-green-600 dark:text-green-400">
                       {workmate.sharedShifts}회
                     </p>

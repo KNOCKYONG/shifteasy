@@ -16,7 +16,7 @@ export function MemberDashboard() {
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg p-6">
+      <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg p-6 text-center sm:text-left">
         <h1 className="text-2xl font-bold mb-2">
           안녕하세요, {name}님! 👋
         </h1>
@@ -29,7 +29,7 @@ export function MemberDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Link href={`/schedule?month=${new Date().toISOString().slice(0, 7)}`}>
           <Card className="p-4 hover:shadow-lg transition-shadow cursor-pointer">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:items-center sm:text-left">
               <div className="p-2 bg-blue-100 rounded-lg">
                 <Calendar className="h-5 w-5 text-blue-600" />
               </div>
@@ -43,7 +43,7 @@ export function MemberDashboard() {
 
         <Link href={`/schedule?date=${new Date(Date.now() + 86400000).toISOString().split('T')[0]}&view=today`}>
           <Card className="p-4 hover:shadow-lg transition-shadow cursor-pointer">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:items-center sm:text-left">
               <div className="p-2 bg-green-100 rounded-lg">
                 <Clock className="h-5 w-5 text-green-600" />
               </div>
@@ -56,7 +56,7 @@ export function MemberDashboard() {
         </Link>
 
         <Card className="p-4">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:items-center sm:text-left">
             <div className="p-2 bg-yellow-100 rounded-lg">
               <Bell className="h-5 w-5 text-yellow-600" />
             </div>
@@ -69,7 +69,7 @@ export function MemberDashboard() {
 
         <Link href="/requests">
           <Card className="p-4 hover:shadow-lg transition-shadow cursor-pointer">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:items-center sm:text-left">
               <div className="p-2 bg-purple-100 rounded-lg">
                 <CheckCircle className="h-5 w-5 text-purple-600" />
               </div>
@@ -101,7 +101,7 @@ export function MemberDashboard() {
 
       {/* This Week Schedule */}
       <Card className="p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
           <h2 className="text-lg font-semibold">이번 주 일정</h2>
           <Link
             href="/schedule"
@@ -155,7 +155,7 @@ export function MemberDashboard() {
       <Card className="p-6">
         <h2 className="text-lg font-semibold mb-4">최근 알림</h2>
         <div className="space-y-3">
-          <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start p-3 bg-blue-50 rounded-lg">
             <Bell className="h-5 w-5 text-blue-600 mt-0.5" />
             <div className="flex-1">
               <p className="font-medium text-sm">스케줄 변경 알림</p>
@@ -166,7 +166,7 @@ export function MemberDashboard() {
             </div>
           </div>
 
-          <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start p-3 bg-green-50 rounded-lg">
             <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
             <div className="flex-1">
               <p className="font-medium text-sm">휴가 승인</p>
