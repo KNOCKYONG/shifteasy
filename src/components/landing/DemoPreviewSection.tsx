@@ -3,61 +3,82 @@
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useState, useMemo } from 'react';
-import { Users, Clock, Calendar, Shield, Mail, Phone } from 'lucide-react';
+import { Users, Clock, Calendar, Shield, Mail, Phone, Sparkles, CheckCircle, Zap, FileText, Settings } from 'lucide-react';
 import Link from 'next/link';
 
-// 풍부한 목업 데이터
+// 풍부한 목업 데이터 - Config 직급 코드 사용 (직급별 밸런스)
+// HN: 수석간호사 (Level 9, 10-12년차), SN: 전문간호사 (Level 7, 7-9년차), CN: 책임간호사 (Level 5, 5-6년차), RN: 정규간호사 (Level 3, 3-4년차), NA: 간호조무사 (Level 1, 1-2년차)
 const mockStaffData = [
-  { id: 1, name: '김수연', position: '수간호사', email: 'kim.suyeon@hospital.com', phone: '010-1234-5678', status: 'active', role: 'manager', yearsOfService: 10, hireYear: 2015, avatar: null },
-  { id: 2, name: '이지은', position: '간호사', email: 'lee.jieun@hospital.com', phone: '010-2345-6789', status: 'active', role: 'member', yearsOfService: 5, hireYear: 2020, avatar: null },
-  { id: 3, name: '박민준', position: '간호사', email: 'park.minjun@hospital.com', phone: '010-3456-7890', status: 'active', role: 'member', yearsOfService: 3, hireYear: 2022, avatar: null },
-  { id: 4, name: '최서윤', position: '신규 간호사', email: 'choi.seoyun@hospital.com', phone: '010-4567-8901', status: 'active', role: 'member', yearsOfService: 1, hireYear: 2024, avatar: null },
-  { id: 5, name: '정하은', position: '간호사', email: 'jung.haeun@hospital.com', phone: '010-5678-9012', status: 'on_leave', role: 'member', yearsOfService: 4, hireYear: 2021, avatar: null },
-  { id: 6, name: '강민지', position: '파트타임 간호사', email: 'kang.minji@hospital.com', phone: '010-6789-0123', status: 'active', role: 'member', yearsOfService: 2, hireYear: 2023, avatar: null },
-  { id: 7, name: '윤서준', position: '간호사', email: 'yoon.seojun@hospital.com', phone: '010-7890-1234', status: 'active', role: 'member', yearsOfService: 6, hireYear: 2019, avatar: null },
-  { id: 8, name: '한지우', position: '간호사', email: 'han.jiwoo@hospital.com', phone: '010-8901-2345', status: 'active', role: 'member', yearsOfService: 7, hireYear: 2018, avatar: null },
-  { id: 9, name: '임채원', position: '수간호사', email: 'lim.chaewon@hospital.com', phone: '010-9012-3456', status: 'active', role: 'manager', yearsOfService: 12, hireYear: 2013, avatar: null },
-  { id: 10, name: '송예진', position: '간호사', email: 'song.yejin@hospital.com', phone: '010-0123-4567', status: 'active', role: 'member', yearsOfService: 4, hireYear: 2021, avatar: null },
-  { id: 11, name: '오태양', position: '신규 간호사', email: 'oh.taeyang@hospital.com', phone: '010-1122-3344', status: 'active', role: 'member', yearsOfService: 1, hireYear: 2024, avatar: null },
-  { id: 12, name: '배수아', position: '파트타임 간호사', email: 'bae.sua@hospital.com', phone: '010-2233-4455', status: 'active', role: 'member', yearsOfService: 3, hireYear: 2022, avatar: null },
+  { id: 1, name: '김수연', position: 'HN', email: 'kim.suyeon@hospital.com', phone: '010-1234-5678', status: 'active', role: 'manager', yearsOfService: 10, hireYear: 2015, avatar: null },
+  { id: 2, name: '임채원', position: 'SN', email: 'lim.chaewon@hospital.com', phone: '010-9012-3456', status: 'active', role: 'member', yearsOfService: 8, hireYear: 2017, avatar: null },
+  { id: 3, name: '한지우', position: 'CN', email: 'han.jiwoo@hospital.com', phone: '010-8901-2345', status: 'active', role: 'member', yearsOfService: 6, hireYear: 2019, avatar: null },
+  { id: 4, name: '윤서준', position: 'CN', email: 'yoon.seojun@hospital.com', phone: '010-7890-1234', status: 'active', role: 'member', yearsOfService: 5, hireYear: 2020, avatar: null },
+  { id: 5, name: '이지은', position: 'RN', email: 'lee.jieun@hospital.com', phone: '010-2345-6789', status: 'active', role: 'member', yearsOfService: 4, hireYear: 2021, avatar: null },
+  { id: 6, name: '정하은', position: 'RN', email: 'jung.haeun@hospital.com', phone: '010-5678-9012', status: 'on_leave', role: 'member', yearsOfService: 4, hireYear: 2021, avatar: null },
+  { id: 7, name: '송예진', position: 'RN', email: 'song.yejin@hospital.com', phone: '010-0123-4567', status: 'active', role: 'member', yearsOfService: 3, hireYear: 2022, avatar: null },
+  { id: 8, name: '박민준', position: 'RN', email: 'park.minjun@hospital.com', phone: '010-3456-7890', status: 'active', role: 'member', yearsOfService: 3, hireYear: 2022, avatar: null },
+  { id: 9, name: '최서윤', position: 'NA', email: 'choi.seoyun@hospital.com', phone: '010-4567-8901', status: 'active', role: 'member', yearsOfService: 1, hireYear: 2024, avatar: null },
+  { id: 10, name: '오태양', position: 'NA', email: 'oh.taeyang@hospital.com', phone: '010-1122-3344', status: 'active', role: 'member', yearsOfService: 1, hireYear: 2024, avatar: null },
+  { id: 11, name: '강민지', position: 'NA', email: 'kang.minji@hospital.com', phone: '010-6789-0123', status: 'active', role: 'member', yearsOfService: 2, hireYear: 2023, avatar: null },
+  { id: 12, name: '배수아', position: 'NA', email: 'bae.sua@hospital.com', phone: '010-2233-4455', status: 'active', role: 'member', yearsOfService: 2, hireYear: 2023, avatar: null },
 ];
 
-// 근무표 목업 데이터 - 2025년 1월 기준 (31일)
-// 현실적인 3교대 로테이션 패턴: 주간(D) → 저녁(E) → 야간(N) → 휴무(OFF) 사이클
+// 근무표 목업 데이터 - 2025년 11월 기준 (30일) - Config 직급 코드 사용 (직급별 밸런스)
+// 현실적인 3교대 로테이션 패턴: 주간(D) → 저녁(E) → 야간(N) → 행정(A) → 휴무(OFF) 사이클
+// 11월 주말: 1-2일(토일), 8-9일(토일), 15-16일(토일), 22-23일(토일), 29-30일(토일) = 총 10일
+// ^ 표시: 요청사항이 있는 근무
+// 각 시프트에 고년차(HN, SN, CN)와 저년차(RN, NA)가 적절히 배치됨
 const mockScheduleData = [
-  // 김수연 (수간호사, 24일 근무): D 시작, 표준 로테이션
-  { id: 1, name: '김수연', position: '수간호사', shifts: ['D', 'D', 'D', 'D', 'OFF', 'E', 'E', 'E', 'E', 'OFF', 'N', 'N', 'N', 'OFF', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'E', 'E', 'E', 'OFF', 'N', 'N', 'N', 'OFF', 'OFF', 'D', 'D'] },
+  // 김수연 (HN-수석간호사, 10년차, 21일 근무): 행정 업무, 주말 일부 휴무
+  { id: 1, name: '김수연', position: 'HN', shifts: ['OFF', 'OFF', 'A', 'A', 'A^', 'A', 'A', 'OFF', 'OFF', 'A', 'A', 'A', 'A', 'A^', 'OFF', 'OFF', 'A', 'A', 'A', 'A', 'A', 'OFF', 'OFF', 'A', 'A', 'A^', 'A', 'A', 'OFF', 'OFF'] },
 
-  // 이지은 (간호사, 23일 근무): E 시작, OFF 2일로 시작
-  { id: 2, name: '이지은', position: '간호사', shifts: ['OFF', 'OFF', 'E', 'E', 'E', 'E', 'OFF', 'N', 'N', 'N', 'OFF', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'E', 'E', 'E', 'E', 'OFF', 'N', 'N', 'N', 'OFF', 'OFF', 'D', 'D', 'D', 'D'] },
+  // 임채원 (SN-전문간호사, 8년차, 22일 근무): D→E→N 로테이션, 안정적 패턴
+  { id: 2, name: '임채원', position: 'SN', shifts: ['OFF', 'OFF', 'D', 'D', 'D^', 'D', 'OFF', 'E', 'OFF', 'E', 'E', 'E^', 'E', 'OFF', 'OFF', 'N', 'N', 'N', 'N^', 'OFF', 'D', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'OFF', 'OFF', 'E'] },
 
-  // 박민준 (간호사, 23일 근무): E 시작, 짧은 주기
-  { id: 3, name: '박민준', position: '간호사', shifts: ['E', 'E', 'E', 'OFF', 'N', 'N', 'N', 'OFF', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'E', 'E', 'E', 'E', 'OFF', 'N', 'N', 'N', 'OFF', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'E', 'E'] },
+  // 한지우 (CN-책임간호사, 6년차, 23일 근무): D 시작 로테이션, 고년차 역할
+  { id: 3, name: '한지우', position: 'CN', shifts: ['OFF', 'D', 'D', 'D', 'D^', 'OFF', 'E', 'OFF', 'E', 'E', 'E', 'E', 'OFF', 'N', 'OFF', 'N', 'N^', 'N', 'OFF', 'D', 'D', 'OFF', 'D', 'D', 'D^', 'D', 'OFF', 'E', 'OFF', 'E'] },
 
-  // 최서윤 (신규, 22일 근무): 주간 위주, 야간 적음
-  { id: 4, name: '최서윤', position: '신규 간호사', shifts: ['D', 'D', 'D', 'D', 'OFF', 'OFF', 'D', 'D', 'D', 'OFF', 'E', 'E', 'E', 'E', 'OFF', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'E', 'E', 'E', 'OFF', 'N', 'N', 'N', 'OFF', 'OFF', 'D'] },
+  // 윤서준 (CN-책임간호사, 5년차, 22일 근무): 야간 비중, 중견 역할
+  { id: 4, name: '윤서준', position: 'CN', shifts: ['OFF', 'N', 'N', 'N^', 'N', 'OFF', 'D', 'OFF', 'D', 'D', 'D', 'OFF', 'E', 'E', 'OFF', 'E', 'E^', 'OFF', 'N', 'N', 'N', 'OFF', 'OFF', 'D', 'D', 'D^', 'D', 'OFF', 'OFF', 'N'] },
 
-  // 정하은 (휴가 중, 5일 근무 + 연차): 초반 근무 후 연차
-  { id: 5, name: '정하은', position: '간호사', shifts: ['OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'D', 'D', 'D', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', 'OFF', '연차', '연차', '연차', '연차', '연차', '연차', '연차', '연차', '연차', '연차'] },
+  // 이지은 (RN-정규간호사, 4년차, 22일 근무): D→E→N 로테이션
+  { id: 5, name: '이지은', position: 'RN', shifts: ['OFF', 'OFF', 'D', 'D', 'D^', 'D', 'OFF', 'OFF', 'OFF', 'E', 'E', 'E', 'E^', 'OFF', 'OFF', 'OFF', 'N', 'N', 'N', 'OFF', 'D', 'OFF', 'OFF', 'D', 'D^', 'D', 'D', 'OFF', 'OFF', 'OFF'] },
 
-  // 강민지 (파트타임, 15일 근무): 저녁 위주, 불규칙
-  { id: 6, name: '강민지', position: '파트타임', shifts: ['OFF', 'E', 'E', 'OFF', 'OFF', 'E', 'E', 'E', 'OFF', 'OFF', 'E', 'E', 'OFF', 'OFF', 'E', 'E', 'E', 'OFF', 'OFF', 'E', 'E', 'OFF', 'OFF', 'E', 'E', 'E', 'OFF', 'OFF', 'E', 'E', 'OFF'] },
+  // 정하은 (RN-정규간호사, 4년차, 10일 근무 + 연차): 초중반 근무 후 연차
+  { id: 6, name: '정하은', position: 'RN', shifts: ['OFF', 'OFF', 'D', 'D', 'D', 'OFF', 'E', 'OFF', 'OFF', 'E', 'E', 'OFF', 'OFF', 'OFF', 'OFF', '연차', '연차', '연차', '연차', '연차', '연차', 'OFF', '연차', '연차', '연차', '연차', '연차', '연차', 'OFF', '연차'] },
 
-  // 윤서준 (간호사, 24일 근무): N 시작, 야간 비중 높음
-  { id: 7, name: '윤서준', position: '간호사', shifts: ['N', 'N', 'N', 'OFF', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'E', 'E', 'E', 'E', 'OFF', 'N', 'N', 'N', 'OFF', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'E', 'E', 'E', 'OFF', 'N', 'N'] },
+  // 송예진 (RN-정규간호사, 3년차, 23일 근무): E 시작 로테이션
+  { id: 7, name: '송예진', position: 'RN', shifts: ['OFF', 'E', 'E', 'E', 'E^', 'OFF', 'N', 'OFF', 'OFF', 'N', 'N', 'N^', 'OFF', 'D', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'E', 'OFF', 'E', 'E', 'E^', 'E', 'OFF', 'N', 'OFF', 'N'] },
 
-  // 한지우 (간호사, 23일 근무): D 시작, OFF 후 시작
-  { id: 8, name: '한지우', position: '간호사', shifts: ['OFF', 'D', 'D', 'D', 'D', 'OFF', 'E', 'E', 'E', 'E', 'OFF', 'N', 'N', 'N', 'OFF', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'E', 'E', 'E', 'OFF', 'N', 'N', 'N', 'OFF', 'OFF', 'D'] },
+  // 박민준 (RN-정규간호사, 3년차, 22일 근무): D 위주 로테이션
+  { id: 8, name: '박민준', position: 'RN', shifts: ['OFF', 'OFF', 'D', 'D', 'D', 'D^', 'OFF', 'OFF', 'E', 'E', 'E', 'E', 'OFF', 'N', 'OFF', 'N', 'N^', 'N', 'OFF', 'OFF', 'D', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'E', 'OFF', 'E'] },
+
+  // 최서윤 (NA-간호조무사, 1년차, 20일 근무): 주간 위주, 야간 없음
+  { id: 9, name: '최서윤', position: 'NA', shifts: ['OFF', 'D', 'D', 'D^', 'D', 'D', 'OFF', 'OFF', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'OFF', 'E', 'E', 'E^', 'E', 'OFF', 'OFF', 'OFF', 'OFF', 'D', 'D', 'D', 'D^', 'OFF', 'OFF', 'OFF'] },
+
+  // 오태양 (NA-간호조무사, 1년차, 19일 근무): 주간/저녁 위주
+  { id: 10, name: '오태양', position: 'NA', shifts: ['OFF', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'OFF', 'E', 'E', 'E^', 'E', 'OFF', 'OFF', 'OFF', 'D', 'D', 'D', 'D^', 'OFF', 'OFF', 'OFF', 'E', 'E', 'E', 'E', 'OFF', 'OFF', 'OFF', 'OFF'] },
+
+  // 강민지 (NA-간호조무사, 2년차, 14일 근무): 저녁 위주, 불규칙
+  { id: 11, name: '강민지', position: 'NA', shifts: ['OFF', 'OFF', 'E', 'E^', 'OFF', 'OFF', 'E', 'OFF', 'OFF', 'OFF', 'E', 'E', 'OFF', 'OFF', 'OFF', 'OFF', 'E', 'E^', 'OFF', 'OFF', 'E', 'OFF', 'OFF', 'OFF', 'E', 'E', 'OFF', 'OFF', 'OFF', 'OFF'] },
+
+  // 배수아 (NA-간호조무사, 2년차, 15일 근무): 주간/저녁 혼합
+  { id: 12, name: '배수아', position: 'NA', shifts: ['OFF', 'OFF', 'D', 'D', 'OFF', 'E', 'E', 'OFF', 'OFF', 'D', 'D', 'OFF', 'OFF', 'E', 'OFF', 'E', 'OFF', 'D', 'D', 'OFF', 'OFF', 'OFF', 'E', 'E', 'OFF', 'D', 'OFF', 'OFF', 'OFF', 'OFF'] },
 ];
 
 type StatusFilter = 'all' | 'active' | 'on-leave' | 'manager' | 'part-time';
-type ViewMode = 'staff' | 'schedule';
+type ViewMode = 'generation' | 'schedule';
+type PositionFilter = 'all' | 'HN' | 'SN' | 'CN' | 'RN' | 'NA'; // Config 직급 코드: HN(수석간호사), SN(전문간호사), CN(책임간호사), RN(정규간호사), NA(간호조무사)
+type ShiftFilter = 'all' | 'D' | 'E' | 'N' | 'A' | 'OFF' | '연차';
 
 export default function DemoPreviewSection() {
   const { t } = useTranslation('landing');
-  const [viewMode, setViewMode] = useState<ViewMode>('staff');
+  const [viewMode, setViewMode] = useState<ViewMode>('generation');
+  const [currentStep, setCurrentStep] = useState<number>(0);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [positionFilter, setPositionFilter] = useState<PositionFilter>('all');
+  const [shiftFilter, setShiftFilter] = useState<ShiftFilter>('all');
 
   // 필터링된 근무자 목록
   const filteredStaff = useMemo(() => {
@@ -71,7 +92,7 @@ export default function DemoPreviewSection() {
     } else if (statusFilter === 'manager') {
       filtered = filtered.filter(s => s.role === 'manager');
     } else if (statusFilter === 'part-time') {
-      filtered = filtered.filter(s => s.position.includes('파트타임'));
+      filtered = filtered.filter(s => s.position === 'NA'); // 간호조무사(NA)를 파트타임으로 간주
     }
 
     // 검색 필터
@@ -87,13 +108,42 @@ export default function DemoPreviewSection() {
     return filtered;
   }, [statusFilter, searchQuery]);
 
+  // 필터링된 스케줄 데이터
+  const filteredSchedule = useMemo(() => {
+    let filtered = mockScheduleData;
+
+    // 직책 필터
+    if (positionFilter !== 'all') {
+      filtered = filtered.filter(s => s.position === positionFilter);
+    }
+
+    // 근무 타입 필터 (특정 근무 타입을 하나라도 포함하는 직원만 표시)
+    if (shiftFilter !== 'all') {
+      filtered = filtered.filter(s => s.shifts.includes(shiftFilter));
+    }
+
+    return filtered;
+  }, [positionFilter, shiftFilter]);
+
   // 통계 계산
   const stats = {
     total: mockStaffData.length,
     active: mockStaffData.filter(s => s.status === 'active').length,
     onLeave: mockStaffData.filter(s => s.status === 'on_leave').length,
     managers: mockStaffData.filter(s => s.role === 'manager').length,
-    partTime: mockStaffData.filter(s => s.position.includes('파트타임')).length,
+    partTime: mockStaffData.filter(s => s.position === 'NA').length, // 간호조무사(NA)를 파트타임으로 간주
+  };
+
+  // Config 직급 코드를 한글 라벨로 변환
+  const getPositionLabel = (positionCode: string) => {
+    switch (positionCode) {
+      case 'HN': return '수석간호사';
+      case 'SN': return '전문간호사';
+      case 'CN': return '책임간호사';
+      case 'RN': return '정규간호사';
+      case 'NA': return '간호조무사';
+      default: return positionCode;
+    }
   };
 
   const getRoleBadgeColor = (role: string) => {
@@ -104,19 +154,23 @@ export default function DemoPreviewSection() {
   };
 
   const getShiftBadgeStyle = (shift: string) => {
-    switch (shift) {
-      case 'D': return '#EAB308'; // Day - 주간
-      case 'E': return '#F59E0B'; // Evening - 저녁
-      case 'N': return '#6366F1'; // Night - 야간
-      case 'OFF': return '#9CA3AF'; // Off - 휴무
-      case '연차': return '#10B981'; // Annual Leave - 연차
+    // ^ 제거하여 실제 shift type 확인
+    const cleanShift = shift.replace('^', '');
+
+    switch (cleanShift) {
+      case 'D': return '#3B82F6'; // Day - 주간 (blue-500)
+      case 'E': return '#F59E0B'; // Evening - 저녁 (amber-500)
+      case 'N': return '#6366F1'; // Night - 야간 (indigo-500)
+      case 'A': return '#22C55E'; // Admin - 행정 (green-500)
+      case 'OFF': return '#6B7280'; // Off - 휴무 (gray-500)
+      case '연차': return '#A855F7'; // Annual Leave - 휴가 (purple-500)
       default: return '#64748B';
     }
   };
 
-  // 2025년 1월 날짜 데이터 생성 (1일~31일)
-  const days = Array.from({ length: 31 }, (_, i) => {
-    const date = new Date(2025, 0, i + 1); // 2025년 1월
+  // 2025년 11월 날짜 데이터 생성 (1일~30일)
+  const days = Array.from({ length: 30 }, (_, i) => {
+    const date = new Date(2025, 10, i + 1); // 2025년 11월 (month는 0-based이므로 10)
     const dayOfWeek = date.getDay(); // 0(일) ~ 6(토)
     const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
     return {
@@ -154,16 +208,19 @@ export default function DemoPreviewSection() {
           className="flex justify-center gap-3 mb-8"
         >
           <button
-            onClick={() => setViewMode('staff')}
+            onClick={() => {
+              setViewMode('generation');
+              setCurrentStep(0);
+            }}
             className={`px-6 py-3 rounded-xl font-semibold transition-all ${
-              viewMode === 'staff'
+              viewMode === 'generation'
                 ? 'bg-[#2563EB] text-white shadow-lg'
                 : 'bg-white text-[#64748B] border border-gray-200 hover:border-[#2563EB] hover:text-[#2563EB]'
             }`}
           >
             <div className="flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              <span>근무자 보기</span>
+              <Sparkles className="w-5 h-5" />
+              <span>{t('demoPreview.tabScheduleGeneration')}</span>
             </div>
           </button>
           <button
@@ -176,7 +233,7 @@ export default function DemoPreviewSection() {
           >
             <div className="flex items-center gap-2">
               <Calendar className="w-5 h-5" />
-              <span>근무표 보기</span>
+              <span>{t('demoPreview.tabCalendarView')}</span>
             </div>
           </button>
         </motion.div>
@@ -189,193 +246,301 @@ export default function DemoPreviewSection() {
           viewport={{ once: true }}
           className="bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden"
         >
-          {/* Staff View */}
-          {viewMode === 'staff' && (
-            <>
-              {/* Stats Cards */}
-              <div className="p-6 sm:p-8 border-b border-gray-100">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-              <button
-                onClick={() => setStatusFilter('all')}
-                className={`p-4 rounded-xl border-2 transition-all ${
-                  statusFilter === 'all'
-                    ? 'border-[#2563EB] bg-[#DBEAFE]/50 shadow-lg'
-                    : 'border-gray-100 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <Users className="w-5 h-5 text-[#2563EB]" />
-                </div>
-                <p className="text-xs text-[#64748B]">전체 인원</p>
-                <p className="text-2xl font-bold text-[#0F172A]">{stats.total}명</p>
-              </button>
-
-              <button
-                onClick={() => setStatusFilter('active')}
-                className={`p-4 rounded-xl border-2 transition-all ${
-                  statusFilter === 'active'
-                    ? 'border-[#2563EB] bg-[#DBEAFE]/50 shadow-lg'
-                    : 'border-gray-100 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <Clock className="w-5 h-5 text-[#2563EB]" />
-                </div>
-                <p className="text-xs text-[#64748B]">근무 중</p>
-                <p className="text-2xl font-bold text-[#0F172A]">{stats.active}명</p>
-              </button>
-
-              <button
-                onClick={() => setStatusFilter('on-leave')}
-                className={`p-4 rounded-xl border-2 transition-all ${
-                  statusFilter === 'on-leave'
-                    ? 'border-[#F97316] bg-[#FED7AA]/50 shadow-lg'
-                    : 'border-gray-100 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <Calendar className="w-5 h-5 text-[#F97316]" />
-                </div>
-                <p className="text-xs text-[#64748B]">휴직 중</p>
-                <p className="text-2xl font-bold text-[#0F172A]">{stats.onLeave}명</p>
-              </button>
-
-              <button
-                onClick={() => setStatusFilter('manager')}
-                className={`p-4 rounded-xl border-2 transition-all ${
-                  statusFilter === 'manager'
-                    ? 'border-[#2563EB] bg-[#DBEAFE]/50 shadow-lg'
-                    : 'border-gray-100 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <Shield className="w-5 h-5 text-[#2563EB]" />
-                </div>
-                <p className="text-xs text-[#64748B]">관리자</p>
-                <p className="text-2xl font-bold text-[#0F172A]">{stats.managers}명</p>
-              </button>
-
-              <button
-                onClick={() => setStatusFilter('part-time')}
-                className={`col-span-2 sm:col-span-1 p-4 rounded-xl border-2 transition-all ${
-                  statusFilter === 'part-time'
-                    ? 'border-[#F97316] bg-[#FED7AA]/50 shadow-lg'
-                    : 'border-gray-100 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <Clock className="w-5 h-5 text-[#F97316]" />
-                </div>
-                <p className="text-xs text-[#64748B]">파트타임</p>
-                <p className="text-2xl font-bold text-[#0F172A]">{stats.partTime}명</p>
-              </button>
-            </div>
-          </div>
-
-          {/* Search Bar */}
-          <div className="p-6 sm:p-8 border-b border-gray-100 bg-[#F8FAFC]">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <input
-                type="text"
-                placeholder="이름, 이메일, 직책으로 검색..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1 px-4 py-3 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent text-[#0F172A] placeholder-[#64748B]"
-              />
-              <Link
-                href="/billing?plan=professional"
-                className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white rounded-lg font-semibold hover:shadow-lg transition-all whitespace-nowrap"
-              >
-                {t('demoPreview.tryNow')}
-              </Link>
-            </div>
-          </div>
-
-          {/* Staff Grid */}
-          <div className="p-6 sm:p-8">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredStaff.map((member, index) => (
+          {/* Schedule Generation View */}
+          {viewMode === 'generation' && (
+            <div className="p-8 sm:p-12">
+              {/* 5-Step Generation Process */}
+              <div className="space-y-6">
+                {/* Step 1: Team Information */}
                 <motion.div
-                  key={member.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: index * 0.05 }}
-                  viewport={{ once: true }}
-                  className="group bg-white rounded-xl border border-gray-200 p-4 hover:shadow-lg hover:border-[#2563EB]/30 transition-all cursor-pointer"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="flex items-start gap-4 p-6 bg-gradient-to-r from-[#DBEAFE] to-white rounded-2xl border-2 border-[#2563EB]"
                 >
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className="w-12 h-12 bg-gradient-to-br from-[#2563EB] to-[#1D4ED8] rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
-                      {member.name.charAt(0)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-semibold text-[#0F172A] truncate">{member.name}</h3>
-                      <p className="text-xs text-[#64748B] truncate">{member.position}</p>
-                    </div>
+                  <div className="flex-shrink-0 w-12 h-12 bg-[#2563EB] rounded-full flex items-center justify-center">
+                    <FileText className="w-6 h-6 text-white" />
                   </div>
-
-                  <div className="space-y-1.5 mb-3 text-xs">
-                    <div className="flex items-center gap-2 text-[#64748B]">
-                      <Mail className="w-3.5 h-3.5 text-gray-400" />
-                      <span className="truncate">{member.email}</span>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className="text-lg font-bold text-[#0F172A]">{t('demoPreview.generationStep1.title')}</h3>
+                      <CheckCircle className="w-5 h-5 text-[#22C55E]" />
                     </div>
-                    <div className="flex items-center gap-2 text-[#64748B]">
-                      <Phone className="w-3.5 h-3.5 text-gray-400" />
-                      <span>{member.phone}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-1.5">
-                    {member.yearsOfService && (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-[#DBEAFE] text-[#2563EB]">
-                        <Clock className="w-3 h-3" />
-                        {member.yearsOfService}년차
-                      </span>
-                    )}
-                    {member.hireYear && (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-gray-100 text-gray-700">
-                        <Calendar className="w-3 h-3" />
-                        {member.hireYear}년 입사
-                      </span>
-                    )}
-                    {member.role === 'manager' && (
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getRoleBadgeColor(member.role)}`}>
-                        수간호사
-                      </span>
-                    )}
+                    <p className="text-sm text-[#64748B] mb-2">{t('demoPreview.generationStep1.description')}</p>
+                    <p className="text-xs text-[#2563EB] font-medium">{t('demoPreview.generationStep1.detail')}</p>
                   </div>
                 </motion.div>
-              ))}
-            </div>
 
-            {filteredStaff.length === 0 && (
-              <div className="text-center py-12">
-                <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-[#64748B]">검색 결과가 없습니다</p>
-                <p className="text-sm text-gray-400 mt-1">다른 검색어나 필터를 시도해보세요</p>
+                {/* Step 2: Work Rules */}
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="flex items-start gap-4 p-6 bg-gradient-to-r from-[#DBEAFE] to-white rounded-2xl border-2 border-[#2563EB]"
+                >
+                  <div className="flex-shrink-0 w-12 h-12 bg-[#2563EB] rounded-full flex items-center justify-center">
+                    <Settings className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className="text-lg font-bold text-[#0F172A]">{t('demoPreview.generationStep2.title')}</h3>
+                      <CheckCircle className="w-5 h-5 text-[#22C55E]" />
+                    </div>
+                    <p className="text-sm text-[#64748B] mb-2">{t('demoPreview.generationStep2.description')}</p>
+                    <p className="text-xs text-[#2563EB] font-medium">{t('demoPreview.generationStep2.detail')}</p>
+                  </div>
+                </motion.div>
+
+                {/* Step 3: AI Analysis */}
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="flex items-start gap-4 p-6 bg-gradient-to-r from-[#FEF3C7] to-white rounded-2xl border-2 border-[#F59E0B]"
+                >
+                  <div className="flex-shrink-0 w-12 h-12 bg-[#F59E0B] rounded-full flex items-center justify-center">
+                    <Sparkles className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className="text-lg font-bold text-[#0F172A]">{t('demoPreview.generationStep3.title')}</h3>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#F59E0B]"></div>
+                    </div>
+                    <p className="text-sm text-[#64748B] mb-2">{t('demoPreview.generationStep3.description')}</p>
+                    <p className="text-xs text-[#F59E0B] font-medium">{t('demoPreview.generationStep3.detail')}</p>
+                  </div>
+                </motion.div>
+
+                {/* Step 4: Optimal Assignment */}
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.4 }}
+                  className="flex items-start gap-4 p-6 bg-white rounded-2xl border-2 border-gray-200"
+                >
+                  <div className="flex-shrink-0 w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
+                    <Zap className="w-6 h-6 text-gray-500" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className="text-lg font-bold text-gray-400">{t('demoPreview.generationStep4.title')}</h3>
+                    </div>
+                    <p className="text-sm text-gray-400 mb-2">{t('demoPreview.generationStep4.description')}</p>
+                    <p className="text-xs text-gray-400 font-medium">{t('demoPreview.generationStep4.detail')}</p>
+                  </div>
+                </motion.div>
+
+                {/* Step 5: Schedule Complete */}
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.5 }}
+                  className="flex items-start gap-4 p-6 bg-white rounded-2xl border-2 border-gray-200"
+                >
+                  <div className="flex-shrink-0 w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
+                    <CheckCircle className="w-6 h-6 text-gray-500" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className="text-lg font-bold text-gray-400">{t('demoPreview.generationStep5.title')}</h3>
+                    </div>
+                    <p className="text-sm text-gray-400 mb-2">{t('demoPreview.generationStep5.description')}</p>
+                    <p className="text-xs text-gray-400 font-medium">{t('demoPreview.generationStep5.detail')}</p>
+                  </div>
+                </motion.div>
               </div>
-            )}
-          </div>
-            </>
+
+              {/* CTA Button */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                className="mt-8 text-center"
+              >
+                <Link
+                  href="/billing?plan=professional"
+                  className="inline-flex items-center gap-2 px-8 py-4 bg-[#2563EB] text-white font-semibold rounded-xl hover:bg-[#1D4ED8] transition-all shadow-lg hover:shadow-xl"
+                >
+                  <Sparkles className="w-5 h-5" />
+                  <span>{t('demoPreview.tryNow')}</span>
+                </Link>
+              </motion.div>
+            </div>
           )}
 
           {/* Schedule View */}
           {viewMode === 'schedule' && (
             <div className="overflow-x-auto">
               {/* Schedule Header */}
-              <div className="p-4 sm:p-6 border-b border-gray-100 flex items-center justify-between bg-[#F8FAFC]">
-                <h3 className="text-lg font-bold text-[#0F172A]">2025년 1월 근무표</h3>
-                <div className="flex gap-3 text-xs">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded" style={{ backgroundColor: '#EAB308' }}></span>
-                    <span className="text-[#64748B]">D (주간)</span>
+              <div className="p-4 sm:p-6 border-b border-gray-100 bg-[#F8FAFC]">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+                  <h3 className="text-lg font-bold text-[#0F172A]">2025년 11월 근무표</h3>
+                  <div className="flex gap-3 text-xs flex-wrap">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded" style={{ backgroundColor: '#3B82F6' }}></span>
+                      <span className="text-[#64748B]">D (주간)</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded" style={{ backgroundColor: '#F59E0B' }}></span>
+                      <span className="text-[#64748B]">E (저녁)</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded" style={{ backgroundColor: '#6366F1' }}></span>
+                      <span className="text-[#64748B]">N (야간)</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded" style={{ backgroundColor: '#22C55E' }}></span>
+                      <span className="text-[#64748B]">A (행정)</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded" style={{ backgroundColor: '#6B7280' }}></span>
+                      <span className="text-[#64748B]">OFF</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded" style={{ backgroundColor: '#A855F7' }}></span>
+                      <span className="text-[#64748B]">연차</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded" style={{ backgroundColor: '#F59E0B' }}></span>
-                    <span className="text-[#64748B]">E (저녁)</span>
+                </div>
+
+                {/* Filter Controls */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  {/* Position Filter - Config 직급 코드 사용 */}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setPositionFilter('all')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        positionFilter === 'all'
+                          ? 'bg-[#2563EB] text-white shadow-md'
+                          : 'bg-white text-[#64748B] border border-gray-200 hover:border-[#2563EB]'
+                      }`}
+                    >
+                      전체
+                    </button>
+                    <button
+                      onClick={() => setPositionFilter('HN')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        positionFilter === 'HN'
+                          ? 'bg-[#2563EB] text-white shadow-md'
+                          : 'bg-white text-[#64748B] border border-gray-200 hover:border-[#2563EB]'
+                      }`}
+                    >
+                      수석간호사
+                    </button>
+                    <button
+                      onClick={() => setPositionFilter('SN')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        positionFilter === 'SN'
+                          ? 'bg-[#2563EB] text-white shadow-md'
+                          : 'bg-white text-[#64748B] border border-gray-200 hover:border-[#2563EB]'
+                      }`}
+                    >
+                      전문간호사
+                    </button>
+                    <button
+                      onClick={() => setPositionFilter('CN')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        positionFilter === 'CN'
+                          ? 'bg-[#2563EB] text-white shadow-md'
+                          : 'bg-white text-[#64748B] border border-gray-200 hover:border-[#2563EB]'
+                      }`}
+                    >
+                      책임간호사
+                    </button>
+                    <button
+                      onClick={() => setPositionFilter('RN')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        positionFilter === 'RN'
+                          ? 'bg-[#2563EB] text-white shadow-md'
+                          : 'bg-white text-[#64748B] border border-gray-200 hover:border-[#2563EB]'
+                      }`}
+                    >
+                      정규간호사
+                    </button>
+                    <button
+                      onClick={() => setPositionFilter('NA')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        positionFilter === 'NA'
+                          ? 'bg-[#2563EB] text-white shadow-md'
+                          : 'bg-white text-[#64748B] border border-gray-200 hover:border-[#2563EB]'
+                      }`}
+                    >
+                      간호조무사
+                    </button>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 rounded" style={{ backgroundColor: '#6366F1' }}></span>
-                    <span className="text-[#64748B]">N (야간)</span>
+
+                  {/* Shift Type Filter */}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setShiftFilter('all')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        shiftFilter === 'all'
+                          ? 'bg-[#F97316] text-white shadow-md'
+                          : 'bg-white text-[#64748B] border border-gray-200 hover:border-[#F97316]'
+                      }`}
+                    >
+                      전체 근무
+                    </button>
+                    <button
+                      onClick={() => setShiftFilter('D')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        shiftFilter === 'D'
+                          ? 'bg-[#3B82F6] text-white shadow-md'
+                          : 'bg-white text-[#64748B] border border-gray-200 hover:border-[#3B82F6]'
+                      }`}
+                    >
+                      주간
+                    </button>
+                    <button
+                      onClick={() => setShiftFilter('E')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        shiftFilter === 'E'
+                          ? 'bg-[#F59E0B] text-white shadow-md'
+                          : 'bg-white text-[#64748B] border border-gray-200 hover:border-[#F59E0B]'
+                      }`}
+                    >
+                      저녁
+                    </button>
+                    <button
+                      onClick={() => setShiftFilter('N')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        shiftFilter === 'N'
+                          ? 'bg-[#6366F1] text-white shadow-md'
+                          : 'bg-white text-[#64748B] border border-gray-200 hover:border-[#6366F1]'
+                      }`}
+                    >
+                      야간
+                    </button>
+                    <button
+                      onClick={() => setShiftFilter('A')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        shiftFilter === 'A'
+                          ? 'bg-[#22C55E] text-white shadow-md'
+                          : 'bg-white text-[#64748B] border border-gray-200 hover:border-[#22C55E]'
+                      }`}
+                    >
+                      행정
+                    </button>
+                    <button
+                      onClick={() => setShiftFilter('OFF')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        shiftFilter === 'OFF'
+                          ? 'bg-[#6B7280] text-white shadow-md'
+                          : 'bg-white text-[#64748B] border border-gray-200 hover:border-[#6B7280]'
+                      }`}
+                    >
+                      휴무
+                    </button>
+                    <button
+                      onClick={() => setShiftFilter('연차')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        shiftFilter === '연차'
+                          ? 'bg-[#A855F7] text-white shadow-md'
+                          : 'bg-white text-[#64748B] border border-gray-200 hover:border-[#A855F7]'
+                      }`}
+                    >
+                      연차
+                    </button>
                   </div>
                 </div>
               </div>
@@ -383,7 +548,7 @@ export default function DemoPreviewSection() {
               {/* Schedule Grid */}
               <div className="min-w-max">
                 {/* Grid Header */}
-                <div className="grid border-b border-gray-200" style={{ gridTemplateColumns: `120px repeat(31, 32px)` }}>
+                <div className="grid border-b border-gray-200" style={{ gridTemplateColumns: `120px repeat(30, 32px)` }}>
                   <div className="p-1.5 bg-gray-50 font-medium text-xs text-gray-700 flex items-center border-r border-gray-200">
                     직원
                   </div>
@@ -409,7 +574,7 @@ export default function DemoPreviewSection() {
                 </div>
 
                 {/* Grid Rows */}
-                {mockScheduleData.map((staff, staffIndex) => (
+                {filteredSchedule.map((staff, staffIndex) => (
                   <motion.div
                     key={staff.id}
                     initial={{ opacity: 0, x: -20 }}
@@ -417,28 +582,50 @@ export default function DemoPreviewSection() {
                     transition={{ duration: 0.3, delay: staffIndex * 0.05 }}
                     viewport={{ once: true }}
                     className="grid border-b border-gray-100 hover:bg-gray-50"
-                    style={{ gridTemplateColumns: `120px repeat(31, 32px)` }}
+                    style={{ gridTemplateColumns: `120px repeat(30, 32px)` }}
                   >
                     <div className="p-1.5 flex flex-col justify-center border-r border-gray-100">
                       <div className="text-xs font-medium text-gray-900 truncate">{staff.name}</div>
                       <div className="text-[10px] text-gray-500 truncate">{staff.position}</div>
                     </div>
-                    {staff.shifts.map((shift, dayIndex) => (
-                      <div
-                        key={dayIndex}
-                        className="p-0.5 border-l border-gray-100 flex items-center justify-center"
-                      >
+                    {staff.shifts.map((shift, dayIndex) => {
+                      const hasRequest = shift.includes('^');
+                      const cleanShift = shift.replace('^', '');
+                      return (
                         <div
-                          className="w-full px-1 py-1 rounded text-[10px] font-medium text-white text-center"
-                          style={{ backgroundColor: getShiftBadgeStyle(shift) }}
-                          title={shift === 'D' ? '주간' : shift === 'E' ? '저녁' : shift === 'N' ? '야간' : '휴무'}
+                          key={dayIndex}
+                          className="p-0.5 border-l border-gray-100 flex items-center justify-center"
                         >
-                          {shift}
+                          <div
+                            className="w-full px-1 py-1 rounded text-[10px] font-medium text-white text-center relative"
+                            style={{ backgroundColor: getShiftBadgeStyle(shift) }}
+                            title={
+                              cleanShift === 'D' ? (hasRequest ? '주간 (요청)' : '주간') :
+                              cleanShift === 'E' ? (hasRequest ? '저녁 (요청)' : '저녁') :
+                              cleanShift === 'N' ? (hasRequest ? '야간 (요청)' : '야간') :
+                              cleanShift === 'A' ? (hasRequest ? '행정 (요청)' : '행정') :
+                              cleanShift === '연차' ? '연차' : '휴무'
+                            }
+                          >
+                            {cleanShift}
+                            {hasRequest && (
+                              <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-yellow-400 rounded-full border border-white"></span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </motion.div>
                 ))}
+
+                {/* Empty State */}
+                {filteredSchedule.length === 0 && (
+                  <div className="p-12 text-center">
+                    <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-[#64748B]">필터 조건에 맞는 직원이 없습니다</p>
+                    <p className="text-sm text-gray-400 mt-1">다른 필터를 시도해보세요</p>
+                  </div>
+                )}
               </div>
 
               {/* Try Now Button */}
@@ -462,23 +649,23 @@ export default function DemoPreviewSection() {
           viewport={{ once: true }}
           className="mt-12 text-center"
         >
-          {viewMode === 'staff' ? (
+          {viewMode === 'generation' ? (
             <>
               <p className="text-[#64748B] mb-4">
-                ✨ 실제 관리자 대시보드 미리보기 - 모든 필터가 실시간으로 작동합니다
+                ✨ AI 기반 근무표 생성 프로세스 - 5단계로 공정하고 효율적인 근무표를 만듭니다
               </p>
               <div className="flex flex-wrap justify-center gap-3">
                 <span className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-full border border-gray-200 text-sm text-[#64748B]">
                   <span className="w-2 h-2 bg-[#2563EB] rounded-full"></span>
-                  상태별 필터링
+                  제약조건 자동 분석
                 </span>
                 <span className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-full border border-gray-200 text-sm text-[#64748B]">
                   <span className="w-2 h-2 bg-[#2563EB] rounded-full"></span>
-                  실시간 검색
+                  공정성 평가
                 </span>
                 <span className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-full border border-gray-200 text-sm text-[#64748B]">
                   <span className="w-2 h-2 bg-[#2563EB] rounded-full"></span>
-                  경력 정보 관리
+                  4초 생성 완료
                 </span>
               </div>
             </>

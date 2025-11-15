@@ -160,9 +160,38 @@
   },
   "demoPreview": {
     "title": "実際に体験してみてください",
-    "subtitle": "実際のスケジュールボードをクリックして確認してください",
+    "subtitle": "AIが公正で効率的なシフト表を生成するプロセスをステップごとに確認してください",
     "clickToInteract": "クリックして選択",
     "tryNow": "今すぐ無料で始める",
+    "tabScheduleGeneration": "シフト表生成",
+    "tabCalendarView": "カレンダー表示",
+    "generationStep1": {
+      "title": "チーム情報入力",
+      "description": "スタッフ情報とシフト希望を登録",
+      "detail": "12名のスタッフ • 5つのポジション • シフト希望設定"
+    },
+    "generationStep2": {
+      "title": "勤務ルール設定",
+      "description": "法的基準と内部規定を適用",
+      "detail": "連続夜勤最大3日 • 週40時間 • 最低休憩11時間"
+    },
+    "generationStep3": {
+      "title": "AI分析開始",
+      "description": "制約条件とパターンを分析",
+      "detail": "240個の制約条件 • ポジション別パターン • 希望マッチング"
+    },
+    "generationStep4": {
+      "title": "最適配置計算",
+      "description": "公平性評価と競合解決",
+      "detail": "上級者-初級者バランス • シフト配分 • 休暇反映"
+    },
+    "generationStep5": {
+      "title": "シフト表完成",
+      "description": "検証完了、調整可能",
+      "detail": "公平性94/100 • ルール遵守100% • 合計所要時間4秒"
+    },
+    "processing": "処理中...",
+    "completed": "完了",
     "feature1": {
       "title": "AI自動生成",
       "description": "5分で最適なスケジュールを自動生成"

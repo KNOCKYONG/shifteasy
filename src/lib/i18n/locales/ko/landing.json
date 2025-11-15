@@ -169,9 +169,38 @@
   },
   "demoPreview": {
     "title": "직접 체험해보세요",
-    "subtitle": "실제 관리자 대시보드에서 사용하는 근무자 보기를 체험해보세요",
+    "subtitle": "AI가 공정하고 효율적인 근무표를 생성하는 과정을 단계별로 확인하세요",
     "clickToInteract": "클릭하여 선택하세요",
     "tryNow": "지금 무료로 시작하기",
+    "tabScheduleGeneration": "근무표 생성",
+    "tabCalendarView": "캘린더 보기",
+    "generationStep1": {
+      "title": "팀 정보 입력",
+      "description": "직원 정보 및 근무 선호도 등록",
+      "detail": "12명 직원 • 5개 직급 • 선호 시프트 설정"
+    },
+    "generationStep2": {
+      "title": "근무 규칙 설정",
+      "description": "법적 기준 및 내부 규정 적용",
+      "detail": "연속 야간 최대 3일 • 주 40시간 • 최소 휴식 11시간"
+    },
+    "generationStep3": {
+      "title": "AI 분석 시작",
+      "description": "제약 조건 및 패턴 분석",
+      "detail": "240개 제약조건 • 직급별 패턴 • 선호도 매칭"
+    },
+    "generationStep4": {
+      "title": "최적 배치 계산",
+      "description": "공정성 평가 및 충돌 해결",
+      "detail": "고년차-저년차 밸런스 • 시프트 분배 • 휴가 반영"
+    },
+    "generationStep5": {
+      "title": "근무표 완성",
+      "description": "검증 완료 및 조정 가능",
+      "detail": "공정성 94/100 • 규칙 준수 100% • 총 소요시간 4초"
+    },
+    "processing": "처리 중...",
+    "completed": "완료",
     "feature1": {
       "title": "AI 자동 생성",
       "description": "5분 만에 최적의 근무표 자동 생성"

@@ -160,9 +160,38 @@
   },
   "demoPreview": {
     "title": "Try It Yourself",
-    "subtitle": "Click and explore the actual schedule board",
+    "subtitle": "See how AI creates fair and efficient schedules step by step",
     "clickToInteract": "Click to select",
     "tryNow": "Start Free Now",
+    "tabScheduleGeneration": "Schedule Generation",
+    "tabCalendarView": "Calendar View",
+    "generationStep1": {
+      "title": "Team Information",
+      "description": "Register staff info and shift preferences",
+      "detail": "12 staff members • 5 positions • Shift preferences"
+    },
+    "generationStep2": {
+      "title": "Set Work Rules",
+      "description": "Apply legal standards and internal policies",
+      "detail": "Max 3 consecutive nights • 40 hrs/week • 11 hrs rest"
+    },
+    "generationStep3": {
+      "title": "AI Analysis",
+      "description": "Analyze constraints and patterns",
+      "detail": "240 constraints • Position patterns • Preference matching"
+    },
+    "generationStep4": {
+      "title": "Optimal Assignment",
+      "description": "Evaluate fairness and resolve conflicts",
+      "detail": "Senior-junior balance • Shift distribution • Leave requests"
+    },
+    "generationStep5": {
+      "title": "Schedule Complete",
+      "description": "Validated and ready for adjustments",
+      "detail": "Fairness 94/100 • 100% compliance • 4 seconds total"
+    },
+    "processing": "Processing...",
+    "completed": "Completed",
     "feature1": {
       "title": "AI Auto-Generation",
       "description": "Optimal schedules generated in 5 minutes"
