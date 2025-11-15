@@ -169,6 +169,7 @@ const NIGHT_BLOCK_MIN_NON_PREF = 2;
 const NIGHT_BLOCK_TARGET_MAX_NON_PREF = 3;
 const NIGHT_BLOCK_RECOVERY_DAYS = 2;
 const NIGHT_BLOCK_MAX_RECOVERY_DAYS = 3;
+const CORE_SHIFT_CODES = new Set(['D', 'E', 'N']);
 
 function extractShiftCode(shift: Shift & { code?: string }): string {
   if (shift.code) {
@@ -197,6 +198,10 @@ function isOffShiftCode(code?: string | null): boolean {
   }
   const normalized = code.replace(/[^a-z]/gi, '').toUpperCase();
   return normalized === 'O' || normalized === 'OFF';
+}
+
+function isCoreShiftCode(code: string): boolean {
+  return CORE_SHIFT_CODES.has(code.toUpperCase());
 }
 
 function resolveGuaranteedOffDays(employee: AiEmployee | undefined, fallback: number): number {
@@ -1446,6 +1451,7 @@ interface CandidateEvaluationParams {
 
 function evaluateCandidateOption(params: CandidateEvaluationParams): CandidateEvaluation | null {
   const normalizedShiftCode = params.shiftCode.toUpperCase();
+  const isCoreShift = isCoreShiftCode(normalizedShiftCode);
   const { employee, state } = params;
 
   if (employee.workPatternType === 'weekday-only') {
@@ -1472,6 +1478,7 @@ function evaluateCandidateOption(params: CandidateEvaluationParams): CandidateEv
   }
 
   if (
+    isCoreShift &&
     state.workPatternType === 'three-shift' &&
     state.rotationLock &&
     state.rotationLock === normalizedShiftCode
@@ -1534,6 +1541,7 @@ function calculateCandidateScore(params: CandidateScoreParams) {
 
   let score = 100;
   const normalizedShiftCode = shiftCode.toUpperCase();
+  const isCoreShift = isCoreShiftCode(normalizedShiftCode);
   const hasPreferenceWeights = !!employee.preferredShiftTypes && Object.keys(employee.preferredShiftTypes).length > 0;
 
   const workPattern = employee.workPatternType ?? 'three-shift';
@@ -1650,7 +1658,7 @@ function calculateCandidateScore(params: CandidateScoreParams) {
   const preferenceWeight = employee.preferredShiftTypes?.[shiftCode] ?? 0;
   score += preferenceWeight * 5;
 
-  if (state.workPatternType === 'three-shift' && state.distinctShifts.size < 2) {
+  if (isCoreShift && state.workPatternType === 'three-shift' && state.distinctShifts.size < 2) {
     const isNewShift = !state.distinctShifts.has(normalizedShiftCode);
     if (isNewShift) {
       score += 20;
@@ -1664,15 +1672,14 @@ function calculateCandidateScore(params: CandidateScoreParams) {
   }
 
   if (!hasPreferenceWeights) {
-    if (state.lastShiftCode === normalizedShiftCode) {
-      if (state.lastShiftRunCount > 0 && state.lastShiftRunCount < 3) {
-        score += 15;
+    if (!isCoreShift) {
+      if (state.lastShiftCode === normalizedShiftCode) {
+        score -= Math.min(40, state.lastShiftRunCount * 15);
       }
-      if (state.lastShiftRunCount >= 3) {
-        score -= 35;
+      const ownedCount = state.shiftCounts[normalizedShiftCode] ?? 0;
+      if (ownedCount > 0) {
+        score -= ownedCount * 12;
       }
-    } else if (state.lastShiftRunCount > 0 && state.lastShiftRunCount < 3) {
-      score -= 10;
     }
 
     const totalAssignments = state.totalAssignments;
