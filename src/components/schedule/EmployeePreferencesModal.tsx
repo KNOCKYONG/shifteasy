@@ -687,7 +687,7 @@ export function EmployeePreferencesModal({
                 <User className="w-7 h-7" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold">{employee.name}님</h2>
+                <h2 className="text-2xl font-bold">{employee.name} 님</h2>
                 <p className="text-blue-100 text-sm mt-1">{employee.role}</p>
               </div>
             </div>

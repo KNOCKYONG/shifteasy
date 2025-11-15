@@ -507,49 +507,37 @@ export function NavigationHeader() {
             const isActive = pathname === item.href ||
               (item.href !== '/' && pathname?.startsWith(item.href));
 
-            // '스케줄' 항목 - manager/admin은 드롭다운, member는 일반 링크
+            // '스케줄' 항목 - manager/admin은 항상 펼쳐진 서브메뉴, member는 일반 링크
             if (item.href === '/schedule') {
               if (isManagerOrAdmin) {
-                const isScheduleOrConfigActive = pathname === '/schedule' || pathname === '/config' ||
-                  pathname?.startsWith('/schedule') || pathname?.startsWith('/config');
-
                 return (
-                  <div key={item.href}>
-                    <button
-                      onClick={() => setShowScheduleDropdown(!showScheduleDropdown)}
-                      className={`w-full flex items-center justify-between px-4 py-3 rounded-md text-sm font-medium transition-colors ${
-                        isScheduleOrConfigActive
-                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
-                      }`}
-                    >
+                  <div key={item.href} className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-2 mb-2">
+                    {/* 스케줄 제목 */}
+                    <div className="px-4 py-2 text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gray-50 dark:bg-gray-800/50 rounded-md mx-2">
                       {item.i18nKey && ready ? t(item.i18nKey, { defaultValue: item.label }) : item.label}
-                      <ChevronDown className={`w-4 h-4 transition-transform ${showScheduleDropdown ? 'rotate-180' : ''}`} />
-                    </button>
+                    </div>
 
-                    {/* Mobile Schedule Submenu */}
-                    {showScheduleDropdown && (
-                      <div className="ml-4 mt-1 space-y-1">
-                        {scheduleSubMenuItems.map((subItem) => (
-                          <button
+                    {/* 스케줄 서브메뉴 (항상 표시) */}
+                    <div className="mt-1 space-y-0.5 pl-2">
+                      {scheduleSubMenuItems.map((subItem) => {
+                        const isSubItemActive = pathname === subItem.href || pathname?.startsWith(subItem.href || '');
+                        return (
+                          <Link
                             key={subItem.href || subItem.label}
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              if (subItem.href) {
-                                router.push(subItem.href);
-                                setMobileMenuOpen(false);
-                                setShowScheduleDropdown(false);
-                              }
-                            }}
-                            className="block w-full text-left px-4 py-2 rounded-md text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+                            href={subItem.href || '#'}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={`flex items-center px-4 py-2.5 text-sm rounded-md transition-all ${
+                              isSubItemActive
+                                ? 'bg-blue-500 text-white font-medium shadow-sm'
+                                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:translate-x-1'
+                            }`}
                           >
+                            <span className={`mr-2 ${isSubItemActive ? 'text-white' : 'text-gray-400'}`}>•</span>
                             {subItem.label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                          </Link>
+                        );
+                      })}
+                    </div>
                   </div>
                 );
               } else {
@@ -579,44 +567,37 @@ export function NavigationHeader() {
             // '부서 관리' 항목에 서브메뉴 추가
             if (item.href === '/department') {
               return (
-                <div key={item.href}>
-                  <button
-                    onClick={() => setShowTeamDropdown(!showTeamDropdown)}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-md text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
-                    }`}
-                  >
+                <div key={item.href} className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-2 mb-2">
+                  {/* 부서 관리 제목 */}
+                  <div className="px-4 py-2 text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider bg-gray-50 dark:bg-gray-800/50 rounded-md mx-2">
                     {item.i18nKey && ready ? t(item.i18nKey, { defaultValue: item.label }) : item.label}
-                    <ChevronDown className={`w-4 h-4 transition-transform ${showTeamDropdown ? 'rotate-180' : ''}`} />
-                  </button>
+                  </div>
 
-                  {/* Mobile Department Submenu */}
-                  {showTeamDropdown && (
-                    <div className="ml-4 mt-1 space-y-1">
-                      {teamSubMenuItems.map((subItem) => (
-                        <button
+                  {/* 부서 관리 서브메뉴 (항상 표시) */}
+                  <div className="mt-1 space-y-0.5 pl-2">
+                    {teamSubMenuItems.map((subItem) => {
+                      const href = subItem.href || `/department?tab=${subItem.value}`;
+                      const isSubItemActive = pathname === '/department' && (
+                        (subItem.value && pathname.includes(`tab=${subItem.value}`)) ||
+                        pathname === subItem.href
+                      );
+                      return (
+                        <Link
                           key={subItem.value || subItem.href}
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            if (subItem.href) {
-                              router.push(subItem.href);
-                            } else {
-                              router.push(`/department?tab=${subItem.value}`);
-                            }
-                            setMobileMenuOpen(false);
-                            setShowTeamDropdown(false);
-                          }}
-                          className="block w-full text-left px-4 py-2 rounded-md text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+                          href={href}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className={`flex items-center px-4 py-2.5 text-sm rounded-md transition-all ${
+                            isSubItemActive
+                              ? 'bg-blue-500 text-white font-medium shadow-sm'
+                              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:translate-x-1'
+                          }`}
                         >
+                          <span className={`mr-2 ${isSubItemActive ? 'text-white' : 'text-gray-400'}`}>•</span>
                           {subItem.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                        </Link>
+                      );
+                    })}
+                  </div>
                 </div>
               );
             }
