@@ -7,6 +7,7 @@ import { useUser } from '@clerk/nextjs';
 import { Check, Shield, CreditCard, Loader2 } from 'lucide-react';
 import ContactModal from '@/components/landing/ContactModal';
 import MigrationProposalModal from '@/components/migration/MigrationProposalModal';
+import MigrationProgressModal from '@/components/migration/MigrationProgressModal';
 import { MigrationOptions, GuestAccountInfo } from '@/lib/utils/migration';
 
 // Plan definitions
@@ -69,6 +70,9 @@ function BillingPageContent() {
   const [selectedPlan, setSelectedPlan] = useState<PlanKey>('starter');
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [isMigrationModalOpen, setIsMigrationModalOpen] = useState(false);
+  const [isProgressModalOpen, setIsProgressModalOpen] = useState(false);
+  const [migrationId, setMigrationId] = useState<string>('');
+  const [migrationResult, setMigrationResult] = useState<any>(null);
   const [guestAccountInfo, setGuestAccountInfo] = useState<GuestAccountInfo | null>(null);
   const [migrationDataStats, setMigrationDataStats] = useState<any>(null);
   const selectedPlanConfig = PLANS[selectedPlan];
@@ -158,6 +162,15 @@ function BillingPageContent() {
     options: MigrationOptions
   ) => {
     try {
+      // Close proposal modal and open progress modal
+      setIsMigrationModalOpen(false);
+      setIsProgressModalOpen(true);
+      setMigrationResult(null); // Reset previous result
+
+      // Generate migration ID for tracking
+      const newMigrationId = `migration-${Date.now()}`;
+      setMigrationId(newMigrationId);
+
       const response = await fetch('/api/migration/guest-to-professional', {
         method: 'POST',
         headers: {
@@ -172,16 +185,35 @@ function BillingPageContent() {
 
       const result = await response.json();
 
+      // Update progress modal with result
+      setMigrationResult(result);
+
       if (result.success) {
-        // 마이그레이션 성공 - 대시보드로 리다이렉트
-        router.push('/dashboard?migration=success');
+        // Migration completed successfully
+        // The progress modal will show completion state
+        // User can click "대시보드로 이동" to navigate
+        setTimeout(() => {
+          router.push('/dashboard?migration=success');
+        }, 3000); // Auto-redirect after 3 seconds
       } else {
-        throw new Error(result.error?.message || '마이그레이션 실패');
+        // Error will be shown in progress modal
+        console.error('Migration failed:', result.error);
       }
     } catch (error) {
       console.error('Migration error:', error);
-      throw error;
+      setMigrationResult({
+        success: false,
+        error: {
+          code: 'NETWORK_ERROR',
+          message: error instanceof Error ? error.message : '네트워크 오류가 발생했습니다.',
+        },
+      });
     }
+  };
+
+  const handleProgressModalClose = () => {
+    setIsProgressModalOpen(false);
+    router.push('/dashboard');
   };
 
   return (
@@ -350,6 +382,13 @@ function BillingPageContent() {
         onClose={() => setIsMigrationModalOpen(false)}
         onConfirm={handleMigrationConfirm}
         dataStats={migrationDataStats}
+      />
+
+      <MigrationProgressModal
+        isOpen={isProgressModalOpen}
+        onClose={handleProgressModalClose}
+        migrationId={migrationId}
+        migrationResult={migrationResult}
       />
     </div>
   );

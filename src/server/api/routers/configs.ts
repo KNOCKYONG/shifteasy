@@ -57,6 +57,118 @@ const DEFAULT_PREFERENCES = {
 };
 
 export const configsRouter = createTRPCRouter({
+  // ===== Config Preset Management =====
+
+  // List all config presets
+  listPresets: protectedProcedure
+    .query(async ({ ctx }) => {
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+
+      // Get all configs with key starting with 'config_preset_'
+      const result = await db.select()
+        .from(configs)
+        .where(and(
+          eq(configs.tenantId, tenantId),
+          isNull(configs.departmentId)
+        ));
+
+      // Filter and transform presets
+      const presets = result
+        .filter(config => config.configKey.startsWith('config_preset_'))
+        .map(config => ({
+          id: config.configKey.replace('config_preset_', ''),
+          name: (config.configValue as any).name || 'Unnamed Preset',
+          data: (config.configValue as any).data || {},
+          createdAt: (config.configValue as any).createdAt || config.createdAt,
+          updatedAt: config.updatedAt,
+        }));
+
+      return presets;
+    }),
+
+  // Save config preset
+  savePreset: protectedProcedure
+    .input(z.object({
+      name: z.string().min(1),
+      data: z.any(), // Full config data object
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+
+      // Generate unique ID
+      const presetId = crypto.randomUUID();
+      const configKey = `config_preset_${presetId}`;
+
+      const presetValue = {
+        name: input.name,
+        data: input.data,
+        createdAt: new Date().toISOString(),
+      };
+
+      const result = await db.insert(configs)
+        .values({
+          tenantId,
+          departmentId: null,
+          configKey,
+          configValue: presetValue,
+        })
+        .returning();
+
+      return {
+        id: presetId,
+        name: input.name,
+        data: input.data,
+        createdAt: presetValue.createdAt,
+        updatedAt: result[0]!.updatedAt,
+      };
+    }),
+
+  // Delete config preset
+  deletePreset: protectedProcedure
+    .input(z.object({
+      id: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const configKey = `config_preset_${input.id}`;
+
+      await db.delete(configs)
+        .where(and(
+          eq(configs.tenantId, tenantId),
+          isNull(configs.departmentId),
+          eq(configs.configKey, configKey)
+        ));
+
+      return { success: true };
+    }),
+
+  // Load config preset (returns the data to be applied)
+  loadPreset: protectedProcedure
+    .input(z.object({
+      id: z.string(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const configKey = `config_preset_${input.id}`;
+
+      const result = await db.select()
+        .from(configs)
+        .where(and(
+          eq(configs.tenantId, tenantId),
+          isNull(configs.departmentId),
+          eq(configs.configKey, configKey)
+        ))
+        .limit(1);
+
+      if (result.length === 0) {
+        throw new Error('Preset not found');
+      }
+
+      return (result[0]!.configValue as any).data || {};
+    }),
+
+  // ===== Original Config Methods =====
+
   // Get config by key (supports department-level override)
   getByKey: longCachedProcedure // 30 min cache for configs
     .input(z.object({

@@ -14,6 +14,7 @@ import { teamsRouter } from './routers/teams';
 import { offBalanceRouter } from './routers/off-balance';
 import { paymentsRouter } from './routers/payments';
 import { consultingRouter } from './routers/consulting';
+import { departmentPatternsRouter } from './routers/department-patterns';
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -31,6 +32,7 @@ export const appRouter = createTRPCRouter({
   offBalance: offBalanceRouter,
   payments: paymentsRouter,
   consulting: consultingRouter,
+  departmentPatterns: departmentPatternsRouter,
 });
 
 export type AppRouter = typeof appRouter;
