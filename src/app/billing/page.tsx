@@ -3,8 +3,11 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
+import { useUser } from '@clerk/nextjs';
 import { Check, Shield, CreditCard, Loader2 } from 'lucide-react';
 import ContactModal from '@/components/landing/ContactModal';
+import MigrationProposalModal from '@/components/migration/MigrationProposalModal';
+import { MigrationOptions, GuestAccountInfo } from '@/lib/utils/migration';
 
 // Plan definitions
 const PLANS = {
@@ -62,8 +65,12 @@ function BillingPageContent() {
   const { t: tLanding } = useTranslation('landing');
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useUser();
   const [selectedPlan, setSelectedPlan] = useState<PlanKey>('starter');
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [isMigrationModalOpen, setIsMigrationModalOpen] = useState(false);
+  const [guestAccountInfo, setGuestAccountInfo] = useState<GuestAccountInfo | null>(null);
+  const [migrationDataStats, setMigrationDataStats] = useState<any>(null);
   const selectedPlanConfig = PLANS[selectedPlan];
   const selectedPlanTranslationBase = `pricing.${selectedPlan}`;
   const selectedPlanName = tLanding(`${selectedPlanTranslationBase}.name`, {
@@ -91,6 +98,34 @@ function BillingPageContent() {
     }
   }, [searchParams, router]);
 
+  // Check if user is a guest account
+  useEffect(() => {
+    if (user?.id && selectedPlan === 'professional') {
+      // Check guest account status
+      fetch('/api/migration/check-guest', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.guestInfo) {
+            setGuestAccountInfo(data.guestInfo);
+            setMigrationDataStats(data.dataStats);
+
+            // 게스트 계정이고 마이그레이션 가능하면 모달 표시
+            if (data.guestInfo.isGuest && data.guestInfo.canMigrate) {
+              setIsMigrationModalOpen(true);
+            }
+          }
+        })
+        .catch((err) => {
+          console.error('Error checking guest account:', err);
+        });
+    }
+  }, [user, selectedPlan]);
+
   const startProfessionalOnboarding = () => {
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('billing_plan', 'professional');
@@ -107,7 +142,46 @@ function BillingPageContent() {
       setIsContactModalOpen(true);
       return;
     }
+
+    // 게스트 계정이고 마이그레이션 가능하면 모달 표시
+    if (guestAccountInfo?.isGuest && guestAccountInfo?.canMigrate) {
+      setIsMigrationModalOpen(true);
+      return;
+    }
+
     startProfessionalOnboarding();
+  };
+
+  const handleMigrationConfirm = async (
+    hospitalName: string,
+    departmentName: string,
+    options: MigrationOptions
+  ) => {
+    try {
+      const response = await fetch('/api/migration/guest-to-professional', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          hospitalName,
+          departmentName,
+          options,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // 마이그레이션 성공 - 대시보드로 리다이렉트
+        router.push('/dashboard?migration=success');
+      } else {
+        throw new Error(result.error?.message || '마이그레이션 실패');
+      }
+    } catch (error) {
+      console.error('Migration error:', error);
+      throw error;
+    }
   };
 
   return (
@@ -269,6 +343,13 @@ function BillingPageContent() {
       <ContactModal
         isOpen={isContactModalOpen}
         onClose={() => setIsContactModalOpen(false)}
+      />
+
+      <MigrationProposalModal
+        isOpen={isMigrationModalOpen}
+        onClose={() => setIsMigrationModalOpen(false)}
+        onConfirm={handleMigrationConfirm}
+        dataStats={migrationDataStats}
       />
     </div>
   );

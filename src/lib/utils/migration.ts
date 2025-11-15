@@ -1,0 +1,276 @@
+/**
+ * 게스트 → Professional 플랜 마이그레이션 유틸리티
+ *
+ * 게스트 계정 감지, 마이그레이션 가능 여부 확인, 데이터 검증 등의 기능을 제공합니다.
+ */
+
+import { db } from '@/db';
+import { tenants, departments, users } from '@/db/schema';
+import { eq, and } from 'drizzle-orm';
+
+/**
+ * 게스트 계정 여부 확인
+ */
+export interface GuestAccountInfo {
+  isGuest: boolean;
+  tenantId: string | null;
+  tenantName: string | null;
+  departmentId: string | null;
+  canMigrate: boolean;
+  alreadyMigrated: boolean;
+}
+
+/**
+ * 사용자의 게스트 계정 정보 조회
+ */
+export async function checkGuestAccount(userId: string): Promise<GuestAccountInfo> {
+  try {
+    // 사용자 정보 조회
+    const user = await db.query.users.findFirst({
+      where: eq(users.clerkId, userId),
+      with: {
+        tenant: true,
+        department: true,
+      },
+    });
+
+    if (!user || !user.tenant) {
+      return {
+        isGuest: false,
+        tenantId: null,
+        tenantName: null,
+        departmentId: null,
+        canMigrate: false,
+        alreadyMigrated: false,
+      };
+    }
+
+    const tenant = user.tenant;
+    const isGuestTrial = tenant.settings?.isGuestTrial === true;
+    const migratedFrom = tenant.settings?.migratedFrom;
+
+    return {
+      isGuest: isGuestTrial && tenant.plan === 'free',
+      tenantId: tenant.id,
+      tenantName: tenant.name,
+      departmentId: user.departmentId,
+      canMigrate: isGuestTrial && tenant.plan === 'free' && !migratedFrom,
+      alreadyMigrated: !!migratedFrom,
+    };
+  } catch (error) {
+    console.error('Error checking guest account:', error);
+    throw error;
+  }
+}
+
+/**
+ * 마이그레이션 가능 여부 확인 (더 상세한 검증)
+ */
+export interface MigrationEligibility {
+  eligible: boolean;
+  reason?: string;
+  dataStats?: {
+    configs: number;
+    teams: number;
+    users: number;
+    preferences: number;
+    holidays: number;
+    schedules: number;
+  };
+}
+
+/**
+ * 마이그레이션 자격 확인
+ */
+export async function checkMigrationEligibility(
+  userId: string,
+  tenantId: string
+): Promise<MigrationEligibility> {
+  try {
+    // 1. 사용자가 해당 테넌트의 소유자인지 확인
+    const user = await db.query.users.findFirst({
+      where: and(
+        eq(users.clerkId, userId),
+        eq(users.tenantId, tenantId)
+      ),
+    });
+
+    if (!user) {
+      return {
+        eligible: false,
+        reason: 'User not found in this tenant',
+      };
+    }
+
+    if (user.role !== 'guest') {
+      return {
+        eligible: false,
+        reason: 'User is not a guest account owner',
+      };
+    }
+
+    // 2. 테넌트가 게스트 체험판인지 확인
+    const tenant = await db.query.tenants.findFirst({
+      where: eq(tenants.id, tenantId),
+    });
+
+    if (!tenant) {
+      return {
+        eligible: false,
+        reason: 'Tenant not found',
+      };
+    }
+
+    if (tenant.plan !== 'free' || tenant.settings?.isGuestTrial !== true) {
+      return {
+        eligible: false,
+        reason: 'Tenant is not a guest trial account',
+      };
+    }
+
+    // 3. 이미 마이그레이션된 계정인지 확인
+    if (tenant.settings?.migratedFrom) {
+      return {
+        eligible: false,
+        reason: 'This account has already been migrated',
+      };
+    }
+
+    // 4. 마이그레이션 가능한 데이터 통계 조회
+    const [
+      configsCount,
+      teamsCount,
+      usersCount,
+      preferencesCount,
+      holidaysCount,
+      schedulesCount,
+    ] = await Promise.all([
+      db.query.configs.findMany({ where: eq(tenants.id, tenantId) }).then(r => r.length),
+      db.query.teams.findMany({ where: eq(tenants.id, tenantId) }).then(r => r.length),
+      db.query.users.findMany({ where: eq(users.tenantId, tenantId) }).then(r => r.length),
+      db.query.nursePreferences.findMany({ where: eq(tenants.id, tenantId) }).then(r => r.length),
+      db.query.holidays.findMany({ where: eq(tenants.id, tenantId) }).then(r => r.length),
+      db.query.schedules?.findMany({ where: eq(tenants.id, tenantId) }).then(r => r?.length || 0),
+    ]);
+
+    return {
+      eligible: true,
+      dataStats: {
+        configs: configsCount,
+        teams: teamsCount,
+        users: usersCount,
+        preferences: preferencesCount,
+        holidays: holidaysCount,
+        schedules: schedulesCount,
+      },
+    };
+  } catch (error) {
+    console.error('Error checking migration eligibility:', error);
+    return {
+      eligible: false,
+      reason: 'Error checking eligibility: ' + (error as Error).message,
+    };
+  }
+}
+
+/**
+ * 시크릿 코드 생성 (XXX-XXX-XXX 형식)
+ */
+export function generateSecretCode(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const generateSegment = () => {
+    return Array.from({ length: 3 }, () =>
+      chars[Math.floor(Math.random() * chars.length)]
+    ).join('');
+  };
+
+  return `${generateSegment()}-${generateSegment()}-${generateSegment()}`;
+}
+
+/**
+ * 마이그레이션 옵션 타입
+ */
+export interface MigrationOptions {
+  migrateConfigs: boolean;
+  migrateTeams: boolean;
+  migrateUsers: boolean;
+  migratePreferences: boolean;
+  migrateHolidays: boolean;
+  migrateSchedules: boolean;
+  migrateSpecialRequests: boolean;
+}
+
+/**
+ * 기본 마이그레이션 옵션
+ */
+export const DEFAULT_MIGRATION_OPTIONS: MigrationOptions = {
+  migrateConfigs: true,
+  migrateTeams: true,
+  migrateUsers: true,
+  migratePreferences: true,
+  migrateHolidays: true,
+  migrateSchedules: false, // 스케줄은 기본적으로 복사하지 않음
+  migrateSpecialRequests: false, // 특별 요청도 기본적으로 복사하지 않음
+};
+
+/**
+ * 마이그레이션 진행 상태
+ */
+export enum MigrationStep {
+  CREATING_TENANT = 'creating_tenant',
+  CREATING_DEPARTMENT = 'creating_department',
+  MIGRATING_CONFIGS = 'migrating_configs',
+  MIGRATING_TEAMS = 'migrating_teams',
+  MIGRATING_USERS = 'migrating_users',
+  MIGRATING_PREFERENCES = 'migrating_preferences',
+  MIGRATING_HOLIDAYS = 'migrating_holidays',
+  MIGRATING_SCHEDULES = 'migrating_schedules',
+  MIGRATING_SPECIAL_REQUESTS = 'migrating_special_requests',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+}
+
+/**
+ * 마이그레이션 진행 정보
+ */
+export interface MigrationProgress {
+  step: MigrationStep;
+  current: number;
+  total: number;
+  message: string;
+}
+
+/**
+ * 마이그레이션 결과
+ */
+export interface MigrationResult {
+  success: boolean;
+  newTenantId?: string;
+  newDepartmentId?: string;
+  secretCode?: string;
+  migratedData?: {
+    configs: number;
+    teams: number;
+    users: number;
+    preferences: number;
+    holidays: number;
+    schedules: number;
+    specialRequests: number;
+  };
+  error?: {
+    code: string;
+    message: string;
+    details?: unknown;
+  };
+}
+
+/**
+ * 에러 코드
+ */
+export enum MigrationErrorCode {
+  NOT_GUEST_ACCOUNT = 'NOT_GUEST_ACCOUNT',
+  ALREADY_MIGRATED = 'ALREADY_MIGRATED',
+  UNAUTHORIZED = 'UNAUTHORIZED',
+  MIGRATION_FAILED = 'MIGRATION_FAILED',
+  VALIDATION_ERROR = 'VALIDATION_ERROR',
+}
