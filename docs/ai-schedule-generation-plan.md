@@ -69,7 +69,7 @@
 
 ## 3. 휴무 보장 및 잔여 휴무 기록
 - 해당 월의 토/일/공휴일에 대해 직원별로 보장해야 하는 오프 일수를 계산한다.
-- 각 직원에게 입력된 `employee.guaranteedOffDays`(없으면 달력 기반 기본값)를 우선 적용하고, 이전 달 `off_balance_ledger`에 적립된 잔여 OFF(`allocatedToAccumulation`)를 합산해 월간 총 휴무 한도(`maxOffDays`)를 계산한다.
+- 각 직원에게 입력된 `employee.guaranteedOffDays`(없으면 달력 기반 기본값)를 우선 적용하고, 이전 달 `off_balance_ledger`에 적립된 잔여 OFF(`accumulatedOffDays`)를 합산해 월간 총 휴무 한도(`maxOffDays`)를 계산한다.
 - `workPatternType === 'night-intensive'` 직원은 위에서 산출한 기본 보장 휴무 수에 `nightIntensivePaidLeaveDays`를 더해 최종 `guaranteedOffDays`를 만들고, `off_balance_ledger` 및 스케줄 메타데이터에서도 같은 값을 사용해 추후 정산 시 보상 휴무가 자동 반영되게 한다.
 - 각 날짜마다 `remainingOffNeeded > 남은 날짜 수 - 1`(일반) 또는 `remainingOffNeeded >= 남은 날짜 수`(나이트 집중 근무자)인 직원은 반드시 OFF를 배정해, `special_requests`가 없더라도 최종적으로 `actualOffDays >= guaranteedOffDays` 관계가 유지되도록 한다.
 - 나이트 집중 근무자의 회복 OFF(`nightRecoveryDaysNeeded`)는 월 전 기간에 분산되며, 강제 휴무가 남아있는 동안에는 근무 후보군에서 제외해 월말 몰림을 방지한다.
@@ -84,7 +84,7 @@
 - 동시에, 이번 스케줄에서 발생한 잔여 휴무(`extraOffDays`)를 `generationResult.offAccruals` 및 `schedules.metadata.offAccruals`에 기록해 UI/리포트에서 잔여 휴무 적립을 바로 확인할 수 있게 한다. 잔여 휴무는 월 내내 목표 대비 부족한 직원에게 우선 배정해 월말에 몰리지 않도록 목표치를 일 단위로 분산 관리하며, 화면에서는 “+X일 예정” 라벨로 표시된다.
 
 ## 8. 정밀 탐색 모드
-- **다중 Seed 탐색**: 기본 Seed 외에 13/29/47 등 여러 Seed로 스케줄을 반복 생성하고, 각 결과를 즉시 `validateSchedule`로 평가해 가장 점수가 높은 후보를 채택한다. 덕분에 초기 직원 순서에 따른 편향을 줄인다.
+- **다중 Seed 탐색**: 실행 시마다 난수로 뽑은 기본/폴백 Seed 묶음을 사용해 스케줄을 반복 생성하고, 각 결과를 즉시 `validateSchedule`로 평가해 가장 점수가 높은 후보를 채택한다. 덕분에 초기 직원 순서에 따른 편향을 줄인다.
 - **확장 LNS/보강 루프**: LNS는 최대 5회까지 반복 수행하며, 개선이 없는 패스가 있더라도 보강 대상 날짜가 남아 있으면 끝까지 탐색한다. Repair 루프도 동일 기준으로 동작해 빈 슬롯/팀 위반을 더 적극적으로 제거한다.
 - **Large Neighborhood 블록 최적화**: `validation.violations`에 등장하는 날짜를 중심으로 최대 5일 윈도우를 만들어 전체 블록을 파괴하고 다시 생성한다. 이 단계는 CP-SAT 후보 탐색 시 전 구간을 한 번에 고려해 연속 패턴·야간 분배·팀 커버리지를 동시에 만족시킨다.
 - **팀/특별 요청 동시 고려**: 모든 단계에서 `teamTargets`를 공유해 “시프트별 팀 최소 1명” 규칙을 강하게 유지한다. 특별 시프트 요청은 커버리지 후보에서 우선순위를 높이고, 팀 균형 때문에 덮어쓴 경우 `special_request_override` violation으로 명시해 투명하게 보고한다.

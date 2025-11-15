@@ -1515,21 +1515,13 @@ function SchedulePageContent() {
       return count;
     }, 0);
 
-    const baseGuarantee = Math.max(restDayCount, Math.max(4, Math.floor(dateRange.length / 7)));
+    const baseGuarantee = restDayCount;
     const carryOverMap = new Map<string, number>();
     (offBalanceData ?? []).forEach((entry) => {
       const remainingOffDays =
         (entry as { remainingOffDays?: number }).remainingOffDays;
-      carryOverMap.set(
-        entry.nurseId,
-        Math.max(
-          0,
-          entry.allocatedToAccumulation ??
-            entry.accumulatedOffDays ??
-            remainingOffDays ??
-            0
-        )
-      );
+      const carryOver = Math.max(0, entry.accumulatedOffDays ?? remainingOffDays ?? 0);
+      carryOverMap.set(entry.nurseId, carryOver);
     });
 
     const memberMap = new Map(filteredMembers.map(member => [member.id, member]));
