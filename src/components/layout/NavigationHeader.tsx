@@ -531,11 +531,10 @@ export function NavigationHeader() {
                     {showScheduleDropdown && (
                       <div className="ml-4 mt-1 space-y-1">
                         {scheduleSubMenuItems.map((subItem) => (
-                          <Link
+                          <button
                             key={subItem.href || subItem.label}
-                            href={subItem.href ?? '#'}
-                            onClick={(e) => {
-                              e.preventDefault();
+                            type="button"
+                            onClick={() => {
                               if (subItem.href) {
                                 router.push(subItem.href);
                               }
@@ -545,7 +544,7 @@ export function NavigationHeader() {
                             className="block w-full text-left px-4 py-2 rounded-md text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
                           >
                             {subItem.label}
-                          </Link>
+                          </button>
                         ))}
                       </div>
                     )}
@@ -595,11 +594,10 @@ export function NavigationHeader() {
                   {showTeamDropdown && (
                     <div className="ml-4 mt-1 space-y-1">
                       {teamSubMenuItems.map((subItem) => (
-                        <Link
+                        <button
                           key={subItem.value || subItem.href}
-                          href={subItem.href ?? `/department?tab=${subItem.value}`}
-                          onClick={(e) => {
-                            e.preventDefault();
+                          type="button"
+                          onClick={() => {
                             if (subItem.href) {
                               router.push(subItem.href);
                             } else {
@@ -611,7 +609,7 @@ export function NavigationHeader() {
                           className="block w-full text-left px-4 py-2 rounded-md text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
                         >
                           {subItem.label}
-                        </Link>
+                        </button>
                       ))}
                     </div>
                   )}
