@@ -23,7 +23,7 @@ interface ShiftTypesTabProps {
 // Preset colors for the color picker - matching default shift types
 const PRESET_COLORS = [
   '#3b82f6', // blue - D
-  '#fb923c', // orange - E
+  '#f59e0b', // amber - E
   '#6366f1', // indigo - N
   '#10b981', // green - A
   '#6b7280', // gray - O

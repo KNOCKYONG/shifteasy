@@ -10,6 +10,18 @@ export interface ShiftType {
   allowOvertime: boolean;
 }
 
+// 색상 문자열을 hex 값으로 매핑
+export const SHIFT_COLOR_MAP: Record<string, string> = {
+  blue: '#3B82F6',
+  green: '#10B981',
+  amber: '#F59E0B',
+  red: '#EF4444',
+  purple: '#8B5CF6',
+  indigo: '#6366F1',
+  pink: '#EC4899',
+  gray: '#6B7280',
+};
+
 /**
  * customShiftTypes를 Shift[] 형식으로 변환
  * @param customShiftTypes - 변환할 시프트 타입 배열
@@ -36,8 +48,28 @@ export function convertShiftTypesToShifts(customShiftTypes: ShiftType[]): Shift[
     else if (normalizedCode === 'A') type = 'custom'; // 행정 근무 (administrative work)
     else if (normalizedCode === 'V' || shiftType.name.includes('휴가')) type = 'leave';
 
-    // Use color from shiftType (always hex) or default gray
-    const color = shiftType.color || '#6B7280';
+    // Determine color: Try multiple approaches
+    let color = '#6B7280'; // Default gray
+
+    // 1. If color is already a hex code, use it
+    if (shiftType.color && shiftType.color.startsWith('#')) {
+      color = shiftType.color;
+    }
+    // 2. Try mapping from SHIFT_COLOR_MAP (case-insensitive)
+    else if (shiftType.color && SHIFT_COLOR_MAP[shiftType.color.toLowerCase()]) {
+      color = SHIFT_COLOR_MAP[shiftType.color.toLowerCase()];
+    }
+    // 3. Fall back to code-based colors
+    else {
+      const codeColorMap: Record<string, string> = {
+        'D': '#EAB308',   // day - yellow
+        'E': '#F59E0B',   // evening - amber
+        'N': '#6366F1',   // night - indigo
+        'O': '#9CA3AF',   // off - gray
+        'A': '#10B981',   // administrative - green
+      };
+      color = codeColorMap[normalizedCode] || '#6B7280';
+    }
 
     const staffingDefaults: Record<string, { required: number; min: number; max: number }> = {
       D: { required: 5, min: 4, max: 6 },
