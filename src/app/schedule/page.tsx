@@ -1574,6 +1574,15 @@ function SchedulePageContent() {
     monthEnd,
   ]);
 
+  React.useEffect(() => {
+    if (currentMonthAssignments.length === 0) {
+      setOffAccrualSummaries([]);
+      return;
+    }
+    const refreshed = recomputeOffAccrualSummaries();
+    setOffAccrualSummaries(refreshed);
+  }, [currentMonthAssignments, recomputeOffAccrualSummaries]);
+
   // Validate current schedule
   const handleValidateSchedule = async () => {
     if (!canManageSchedules) {
