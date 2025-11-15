@@ -9,6 +9,10 @@ import { auth } from '@clerk/nextjs/server';
 import { db } from '@/db';
 import { tenants, departments, users, configs, teams, nursePreferences, holidays } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+
+// Route Segment Config (필수)
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // 마이그레이션은 최대 60초
 import {
   checkGuestAccount,
   checkMigrationEligibility,
@@ -19,6 +23,35 @@ import {
   MigrationErrorCode,
   MigrationStep,
 } from '@/lib/utils/migration';
+
+/**
+ * 병원명에서 slug 생성 (고유성 보장)
+ */
+async function generateUniqueSlug(hospitalName: string): Promise<string> {
+  // 기본 slug 생성: 한글 → 영문 변환 및 정규화
+  const baseSlug = hospitalName
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9가-힣-]/g, '')
+    .substring(0, 50);
+
+  let slug = baseSlug;
+  let counter = 1;
+
+  // 중복 확인 및 고유 slug 생성
+  while (true) {
+    const existing = await db.query.tenants.findFirst({
+      where: eq(tenants.slug, slug),
+    });
+
+    if (!existing) {
+      return slug;
+    }
+
+    slug = `${baseSlug}-${counter}`;
+    counter++;
+  }
+}
 
 /**
  * 마이그레이션 요청 바디
@@ -146,19 +179,32 @@ async function performMigration(
 ): Promise<MigrationResult> {
   try {
     return await db.transaction(async (tx) => {
+      console.log('[Migration] Starting transaction...');
+
       // Step 1: 새 Tenant 생성
       const secretCode = generateSecretCode();
+      const slug = await generateUniqueSlug(hospitalName);
+
+      console.log(`[Migration] Creating new tenant with slug: ${slug}`);
+
       const [newTenant] = await tx
         .insert(tenants)
         .values({
           name: hospitalName,
+          slug,
           plan: 'professional',
           secretCode,
           settings: {
+            timezone: 'Asia/Seoul',
+            locale: 'ko',
+            maxUsers: 50, // Professional plan limit
+            maxDepartments: 10,
+            features: ['ai-scheduling', 'preferences', 'analytics'],
+            signupEnabled: true,
             isGuestTrial: false,
             migratedFrom: oldTenantId,
             migratedAt: new Date().toISOString(),
-          },
+          } as any,
         })
         .returning();
 
@@ -166,18 +212,29 @@ async function performMigration(
         throw new Error('Failed to create new tenant');
       }
 
+      console.log(`[Migration] Created tenant: ${newTenant.id}`);
+
       // Step 2: 새 Department 생성
+      const departmentSecretCode = generateSecretCode();
+
       const [newDepartment] = await tx
         .insert(departments)
         .values({
           tenantId: newTenant.id,
           name: departmentName,
+          secretCode: departmentSecretCode,
+          settings: {
+            minStaff: 1,
+            maxStaff: 50,
+          },
         })
         .returning();
 
       if (!newDepartment) {
         throw new Error('Failed to create new department');
       }
+
+      console.log(`[Migration] Created department: ${newDepartment.id}`);
 
       // Step 3: 사용자 역할 업데이트 (guest → manager)
       await tx
@@ -187,7 +244,9 @@ async function performMigration(
           departmentId: newDepartment.id,
           role: 'manager',
         })
-        .where(eq(users.clerkId, userId));
+        .where(eq(users.authUserId, userId));
+
+      console.log('[Migration] Updated user role');
 
       // 데이터 복사 카운터
       const migratedCounts = {
@@ -202,6 +261,7 @@ async function performMigration(
 
       // Step 4: Configs 복사
       if (options.migrateConfigs) {
+        console.log('[Migration] Migrating configs...');
         const oldConfigs = await tx.query.configs.findMany({
           where: eq(configs.tenantId, oldTenantId),
         });
@@ -215,15 +275,18 @@ async function performMigration(
           });
           migratedCounts.configs++;
         }
+
+        console.log(`[Migration] Migrated ${migratedCounts.configs} configs`);
       }
 
-      // Step 5: Teams 복사
+      // Step 5: Teams 복사 및 ID 매핑
+      const teamIdMap = new Map<string, string>(); // old ID → new ID
+
       if (options.migrateTeams) {
+        console.log('[Migration] Migrating teams...');
         const oldTeams = await tx.query.teams.findMany({
           where: eq(teams.tenantId, oldTenantId),
         });
-
-        const teamIdMap = new Map<string, string>(); // old ID → new ID
 
         for (const team of oldTeams) {
           const [newTeam] = await tx
@@ -242,29 +305,43 @@ async function performMigration(
             migratedCounts.teams++;
           }
         }
+
+        console.log(`[Migration] Migrated ${migratedCounts.teams} teams`);
       }
 
-      // Step 6: Users 복사 (팀원들)
+      // Step 6: Users 복사 (팀원들) - teamId 재매핑
       if (options.migrateUsers) {
+        console.log('[Migration] Migrating users...');
         const oldUsers = await tx.query.users.findMany({
-          where: and(eq(users.tenantId, oldTenantId), eq(users.role, 'member')),
+          where: and(
+            eq(users.tenantId, oldTenantId),
+            eq(users.role, 'member')
+          ),
         });
 
         for (const user of oldUsers) {
+          const newTeamId = user.teamId && teamIdMap.has(user.teamId)
+            ? teamIdMap.get(user.teamId)!
+            : null;
+
           await tx
             .update(users)
             .set({
               tenantId: newTenant.id,
               departmentId: newDepartment.id,
+              teamId: newTeamId,
             })
             .where(eq(users.id, user.id));
 
           migratedCounts.users++;
         }
+
+        console.log(`[Migration] Migrated ${migratedCounts.users} users`);
       }
 
       // Step 7: Nurse Preferences 복사
       if (options.migratePreferences) {
+        console.log('[Migration] Migrating preferences...');
         const oldPreferences = await tx.query.nursePreferences.findMany({
           where: eq(nursePreferences.tenantId, oldTenantId),
         });
@@ -280,10 +357,13 @@ async function performMigration(
           });
           migratedCounts.preferences++;
         }
+
+        console.log(`[Migration] Migrated ${migratedCounts.preferences} preferences`);
       }
 
       // Step 8: Holidays 복사
       if (options.migrateHolidays) {
+        console.log('[Migration] Migrating holidays...');
         const oldHolidays = await tx.query.holidays.findMany({
           where: eq(holidays.tenantId, oldTenantId),
         });
@@ -298,13 +378,34 @@ async function performMigration(
           });
           migratedCounts.holidays++;
         }
+
+        console.log(`[Migration] Migrated ${migratedCounts.holidays} holidays`);
       }
 
       // Step 9: Schedules 복사 (선택적)
-      // TODO: 실제 스케줄 테이블 확인 후 구현
+      if (options.migrateSchedules) {
+        console.log('[Migration] Migrating schedules...');
+        const oldSchedules = await tx.query.schedules.findMany({
+          where: eq(schedules.tenantId, oldTenantId),
+        });
 
-      // Step 10: Special Requests 복사 (선택적)
-      // TODO: 실제 특별 요청 테이블 확인 후 구현
+        for (const schedule of oldSchedules) {
+          await tx.insert(schedules).values({
+            tenantId: newTenant.id,
+            departmentId: newDepartment.id,
+            startDate: schedule.startDate,
+            endDate: schedule.endDate,
+            status: schedule.status,
+            version: schedule.version,
+            metadata: schedule.metadata,
+          });
+          migratedCounts.schedules++;
+        }
+
+        console.log(`[Migration] Migrated ${migratedCounts.schedules} schedules`);
+      }
+
+      console.log('[Migration] Transaction completed successfully');
 
       return {
         success: true,
@@ -315,7 +416,7 @@ async function performMigration(
       } as MigrationResult;
     });
   } catch (error) {
-    console.error('Migration transaction error:', error);
+    console.error('[Migration] Transaction error:', error);
     return {
       success: false,
       error: {

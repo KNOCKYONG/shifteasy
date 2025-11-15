@@ -11,6 +11,10 @@ import {
   checkMigrationEligibility,
 } from '@/lib/utils/migration';
 
+// Route Segment Config (필수)
+export const dynamic = 'force-dynamic';
+export const maxDuration = 10;
+
 /**
  * POST: 현재 사용자가 게스트 계정인지 확인
  */

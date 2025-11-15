@@ -25,9 +25,9 @@ export interface GuestAccountInfo {
  */
 export async function checkGuestAccount(userId: string): Promise<GuestAccountInfo> {
   try {
-    // 사용자 정보 조회
+    // 사용자 정보 조회 (authUserId로 검색)
     const user = await db.query.users.findFirst({
-      where: eq(users.clerkId, userId),
+      where: eq(users.authUserId, userId),
       with: {
         tenant: true,
         department: true,
@@ -47,13 +47,13 @@ export async function checkGuestAccount(userId: string): Promise<GuestAccountInf
 
     const tenant = user.tenant;
     const isGuestTrial = tenant.settings?.isGuestTrial === true;
-    const migratedFrom = tenant.settings?.migratedFrom;
+    const migratedFrom = (tenant.settings as any)?.migratedFrom;
 
     return {
       isGuest: isGuestTrial && tenant.plan === 'free',
       tenantId: tenant.id,
       tenantName: tenant.name,
-      departmentId: user.departmentId,
+      departmentId: user.departmentId || null,
       canMigrate: isGuestTrial && tenant.plan === 'free' && !migratedFrom,
       alreadyMigrated: !!migratedFrom,
     };
@@ -90,7 +90,7 @@ export async function checkMigrationEligibility(
     // 1. 사용자가 해당 테넌트의 소유자인지 확인
     const user = await db.query.users.findFirst({
       where: and(
-        eq(users.clerkId, userId),
+        eq(users.authUserId, userId),
         eq(users.tenantId, tenantId)
       ),
     });
@@ -102,10 +102,11 @@ export async function checkMigrationEligibility(
       };
     }
 
-    if (user.role !== 'guest') {
+    // guest 역할 또는 manager/admin/owner 역할을 가진 사용자만 마이그레이션 가능
+    if (!['guest', 'manager', 'admin', 'owner'].includes(user.role)) {
       return {
         eligible: false,
-        reason: 'User is not a guest account owner',
+        reason: 'User does not have permission to migrate',
       };
     }
 
@@ -129,7 +130,7 @@ export async function checkMigrationEligibility(
     }
 
     // 3. 이미 마이그레이션된 계정인지 확인
-    if (tenant.settings?.migratedFrom) {
+    if ((tenant.settings as any)?.migratedFrom) {
       return {
         eligible: false,
         reason: 'This account has already been migrated',
@@ -138,30 +139,30 @@ export async function checkMigrationEligibility(
 
     // 4. 마이그레이션 가능한 데이터 통계 조회
     const [
-      configsCount,
-      teamsCount,
-      usersCount,
-      preferencesCount,
-      holidaysCount,
-      schedulesCount,
+      configsList,
+      teamsList,
+      usersList,
+      preferencesList,
+      holidaysList,
+      schedulesList,
     ] = await Promise.all([
-      db.query.configs.findMany({ where: eq(tenants.id, tenantId) }).then(r => r.length),
-      db.query.teams.findMany({ where: eq(tenants.id, tenantId) }).then(r => r.length),
-      db.query.users.findMany({ where: eq(users.tenantId, tenantId) }).then(r => r.length),
-      db.query.nursePreferences.findMany({ where: eq(tenants.id, tenantId) }).then(r => r.length),
-      db.query.holidays.findMany({ where: eq(tenants.id, tenantId) }).then(r => r.length),
-      db.query.schedules?.findMany({ where: eq(tenants.id, tenantId) }).then(r => r?.length || 0),
+      db.query.configs.findMany({ where: eq(configs.tenantId, tenantId) }),
+      db.query.teams.findMany({ where: eq(teams.tenantId, tenantId) }),
+      db.query.users.findMany({ where: eq(users.tenantId, tenantId) }),
+      db.query.nursePreferences.findMany({ where: eq(nursePreferences.tenantId, tenantId) }),
+      db.query.holidays.findMany({ where: eq(holidays.tenantId, tenantId) }),
+      db.query.schedules.findMany({ where: eq(schedules.tenantId, tenantId) }),
     ]);
 
     return {
       eligible: true,
       dataStats: {
-        configs: configsCount,
-        teams: teamsCount,
-        users: usersCount,
-        preferences: preferencesCount,
-        holidays: holidaysCount,
-        schedules: schedulesCount,
+        configs: configsList.length,
+        teams: teamsList.length,
+        users: usersList.length,
+        preferences: preferencesList.length,
+        holidays: holidaysList.length,
+        schedules: schedulesList.length,
       },
     };
   } catch (error) {
