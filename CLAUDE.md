@@ -305,5 +305,193 @@ const { data, isLoading } = api.schedule.getDashboardData.useQuery(undefined, {
 - **원인**: 캐싱 설정 누락
 - **해결**: `staleTime` 및 `refetchOnWindowFocus` 설정
 
+## API 라우트 개발 가이드라인 (Next.js 14 App Router)
+
+### 필수 설정: Route Segment Config
+
+**모든 API 라우트**는 다음 설정을 **반드시 포함**해야 합니다:
+
+```typescript
+// src/app/api/your-route/route.ts
+export const dynamic = 'force-dynamic';
+export const maxDuration = 10; // 10초 최대 실행 시간
+```
+
+### 왜 필요한가?
+
+1. **`export const dynamic = 'force-dynamic'`**
+   - API 라우트가 매 요청마다 동적으로 실행되도록 강제
+   - 캐싱 방지 (API는 항상 최신 데이터 제공해야 함)
+   - 없으면 빌드 타임에 정적으로 생성될 수 있음
+
+2. **`export const maxDuration = 10`**
+   - Vercel 서버리스 함수 최대 실행 시간 제한
+   - 리소스 낭비 방지 (무한 루프, 데드락 등)
+   - Vercel 비용 최적화 (실행 시간 = 비용)
+   - 기본값 없음 → 명시적 설정 필수
+
+### 표준 API 라우트 템플릿
+
+```typescript
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { getCurrentUser } from '@/lib/auth';
+
+// 🔥 필수: Route Segment Config
+export const dynamic = 'force-dynamic';
+export const maxDuration = 10;
+
+// Request validation schema
+const RequestSchema = z.object({
+  // ... your schema
+});
+
+export async function POST(req: NextRequest) {
+  try {
+    // 1. 인증 확인
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // 2. 요청 데이터 검증
+    const body = await req.json();
+    const validated = RequestSchema.parse(body);
+
+    // 3. 비즈니스 로직 실행
+    const result = await yourBusinessLogic(validated);
+
+    // 4. 응답 반환
+    return NextResponse.json({ success: true, data: result });
+
+  } catch (error) {
+    console.error('API Error:', error);
+
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid request data', details: error.errors },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+```
+
+### 특수 케이스: 긴 실행 시간이 필요한 경우
+
+파일 업로드, 대용량 데이터 처리 등:
+
+```typescript
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // 60초 (파일 업로드 등)
+
+// 또는 Edge Runtime 사용 (더 빠르고 저렴)
+export const runtime = 'edge';
+export const maxDuration = 30;
+```
+
+### API 라우트 타입별 권장 설정
+
+| 용도 | maxDuration | runtime | 예시 |
+|------|-------------|---------|------|
+| 일반 CRUD | 10초 | nodejs | 데이터 조회, 생성, 수정, 삭제 |
+| 파일 업로드 | 60초 | nodejs | 이미지/문서 업로드 |
+| 대용량 처리 | 30초 | nodejs | 리포트 생성, 배치 작업 |
+| 간단한 조회 | 5초 | edge | 정적 데이터 조회 |
+| Webhook | 10초 | nodejs | 외부 서비스 콜백 |
+| SSE (실시간) | 300초 | nodejs | Server-Sent Events |
+
+### 체크리스트: 새 API 라우트 생성 시
+
+- [ ] `export const dynamic = 'force-dynamic'` 추가
+- [ ] `export const maxDuration = 10` 추가 (또는 적절한 값)
+- [ ] Zod 스키마로 요청 데이터 검증
+- [ ] `getCurrentUser()`로 인증 확인
+- [ ] try-catch로 에러 핸들링
+- [ ] 적절한 HTTP 상태 코드 반환 (200, 400, 401, 500 등)
+- [ ] TypeScript 타입 안전성 확보
+- [ ] 민감 정보 로깅 방지
+
+### 금지 사항
+
+❌ **절대 하지 말 것**:
+```typescript
+// ❌ dynamic 설정 누락
+export async function POST(req: NextRequest) { ... }
+
+// ❌ maxDuration 설정 누락
+export const dynamic = 'force-dynamic';
+export async function POST(req: NextRequest) { ... }
+
+// ❌ vercel.json의 functions 패턴 사용 (App Router에서 작동 안 함)
+{
+  "functions": {
+    "api/**/*.ts": { "memory": 512 }  // ❌ 작동 안 함
+  }
+}
+```
+
+✅ **올바른 방법**:
+```typescript
+// ✅ 모든 설정 포함
+export const dynamic = 'force-dynamic';
+export const maxDuration = 10;
+
+export async function POST(req: NextRequest) { ... }
+```
+
+### 성능 최적화 팁
+
+1. **데이터베이스 쿼리 최적화**
+   - 인덱스 활용 (`docs/DATABASE_INDEX_RECOMMENDATIONS.md` 참고)
+   - N+1 쿼리 방지
+   - 필요한 컬럼만 SELECT
+
+2. **응답 크기 최소화**
+   - 필요한 데이터만 반환
+   - 페이지네이션 적용
+   - gzip 압축 활용
+
+3. **캐싱 전략**
+   - React Query로 클라이언트 캐싱 (5분 권장)
+   - Redis로 서버 캐싱 (선택사항)
+   - HTTP 캐시 헤더 활용
+
+4. **병렬 처리**
+   - 독립적인 작업은 `Promise.all()` 사용
+   - 순차 처리 최소화
+
+### 디버깅 및 모니터링
+
+```typescript
+// 개발 환경에서만 상세 로그
+if (process.env.NODE_ENV === 'development') {
+  console.log('Request:', { body, user });
+}
+
+// 프로덕션 환경에서는 에러만
+console.error('API Error:', {
+  route: '/api/your-route',
+  error: error.message,
+  userId: user?.id,
+});
+```
+
+### 참고 자료
+
+- [Next.js Route Segment Config](https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config)
+- [Vercel Function Duration Limits](https://vercel.com/docs/functions/serverless-functions/runtimes#max-duration)
+- 프로젝트 내부: `docs/DATABASE_INDEX_RECOMMENDATIONS.md`
+
+---
+
 ## 연락처
 문의사항이나 제안사항이 있으시면 이슈를 생성해 주세요.
