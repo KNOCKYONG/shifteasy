@@ -171,9 +171,13 @@ const NIGHT_BLOCK_RECOVERY_DAYS = 2;
 const NIGHT_BLOCK_MAX_RECOVERY_DAYS = 3;
 const CORE_SHIFT_CODES = new Set(['D', 'E', 'N']);
 const OFF_OVERRIDE_PENALTY = 60;
-const TEAM_STACK_BASE_PENALTY = 20;
-const TEAM_STACK_DOMINANCE_MULTIPLIER = 25;
-const TEAM_STACK_REQUIRED_MULTIPLIER = 15;
+const CRITICAL_OVERRIDE_PENALTY = 45;
+const TEAM_STACK_BASE_PENALTY = 40;
+const TEAM_STACK_DOMINANCE_MULTIPLIER = 50;
+const TEAM_STACK_REQUIRED_MULTIPLIER = 35;
+const TEAM_UNIQUE_REWARD = 25;
+const TEAM_NEED_UNIQUE_PENALTY = 90;
+const COVERAGE_SHORTAGE_PENALTY = 600;
 
 function extractShiftCode(shift: Shift & { code?: string }): string {
   if (shift.code) {
@@ -492,11 +496,50 @@ interface CoverageSolverParams {
   coverageNeeds: Record<string, number>;
   candidates: CoverageCandidateEntry[];
   initialTeamUsage?: Record<string, Record<string, number>>;
+  teamTargets?: Record<string, number>;
 }
 
 interface CoverageSolverResult {
   assignments: Map<string, CoverageCandidateOption>;
   shortages: Record<string, number>;
+}
+
+function deriveTeamTargets(
+  candidates: CoverageCandidateEntry[],
+  requiredStaff: Record<string, number>,
+  existingTeams: Record<string, Record<string, number>>
+): Record<string, number> {
+  const pools: Record<string, Set<string>> = {};
+  candidates.forEach((candidate) => {
+    candidate.options.forEach((option) => {
+      if (!option.teamId) {
+        return;
+      }
+      if (!pools[option.shiftCode]) {
+        pools[option.shiftCode] = new Set();
+      }
+      pools[option.shiftCode]!.add(option.teamId);
+    });
+  });
+  const targets: Record<string, number> = {};
+  const shiftCodes = new Set([
+    ...Object.keys(requiredStaff),
+    ...Object.keys(existingTeams),
+    ...Object.keys(pools),
+  ]);
+  shiftCodes.forEach((code) => {
+    const required = Math.max(1, Math.floor(requiredStaff[code] ?? 1));
+    const pool = pools[code];
+    const existing = existingTeams[code] ?? {};
+    const existingUnique = Object.keys(existing).length;
+    const candidateUnique = pool ? pool.size : 0;
+    const totalUnique = candidateUnique + existingUnique;
+    if (totalUnique <= 0) {
+      return;
+    }
+    targets[code] = Math.min(required, totalUnique);
+  });
+  return targets;
 }
 
 function solveCoverageWithPrioritySearch(params: CoverageSolverParams): CoverageSolverResult {
@@ -520,6 +563,7 @@ function solveCoverageWithPrioritySearch(params: CoverageSolverParams): Coverage
 
   let bestCost = Number.POSITIVE_INFINITY;
   const initialTeamUsage = cloneTeamUsageMap(params.initialTeamUsage ?? {});
+  const teamTargets = params.teamTargets ?? {};
 
   const search = (
     index: number,
@@ -551,7 +595,7 @@ function solveCoverageWithPrioritySearch(params: CoverageSolverParams): Coverage
       usedOption = true;
       remaining[option.shiftCode] -= 1;
       currentAssignments.set(candidate.employee.id, option);
-      const teamPenalty = computeTeamStackPenalty(option, teamUsage, baseNeeds);
+      const teamPenalty = computeTeamStackPenalty(option, teamUsage, baseNeeds, teamTargets);
       applyTeamUsage(teamUsage, option.shiftCode, option.teamId ?? null, 1);
       search(
         index + 1,
@@ -614,7 +658,8 @@ function applyTeamUsage(
 function computeTeamStackPenalty(
   option: CoverageCandidateOption,
   usage: Record<string, Record<string, number>>,
-  baseNeeds: Record<string, number>
+  baseNeeds: Record<string, number>,
+  teamTargets: Record<string, number>
 ): number {
   if (!option.teamId) {
     return 0;
@@ -626,19 +671,32 @@ function computeTeamStackPenalty(
   const teamUsage = usage[option.shiftCode] ?? {};
   const existingCount = teamUsage[option.teamId] ?? 0;
   const totalAssigned = Object.values(teamUsage).reduce((sum, value) => sum + value, 0);
+  const currentUnique = Object.keys(teamUsage).length;
+  const targetUnique = Math.max(1, teamTargets[option.shiftCode] ?? 1);
+  const introducingNewTeam = !(option.teamId in teamUsage);
+
+  let penalty = 0;
+  if (currentUnique < targetUnique) {
+    if (introducingNewTeam) {
+      penalty -= TEAM_UNIQUE_REWARD * Math.max(1, targetUnique - currentUnique);
+    } else {
+      penalty += TEAM_NEED_UNIQUE_PENALTY * Math.max(1, targetUnique - currentUnique);
+    }
+  }
+
   if (existingCount === 0 && totalAssigned === 0) {
-    return 0;
+    return penalty;
   }
   if (existingCount === 0) {
-    return Math.max(0, 5 - Object.keys(teamUsage).length);
+    return penalty + Math.max(0, 10 - currentUnique * 3);
   }
   const dominanceRatio = (existingCount + 1) / Math.max(1, totalAssigned + 1);
   const requiredRatio = (existingCount + 1) / Math.max(1, required);
-  return (
+  penalty +=
     TEAM_STACK_BASE_PENALTY +
     dominanceRatio * TEAM_STACK_DOMINANCE_MULTIPLIER +
-    requiredRatio * TEAM_STACK_REQUIRED_MULTIPLIER
-  );
+    requiredRatio * TEAM_STACK_REQUIRED_MULTIPLIER;
+  return penalty;
 }
 
 function computeCoverageShortagePenalty(remaining: Record<string, number>): number {
@@ -646,7 +704,7 @@ function computeCoverageShortagePenalty(remaining: Record<string, number>): numb
     if (deficit <= 0) {
       return sum;
     }
-    return sum + deficit * 200;
+    return sum + deficit * COVERAGE_SHORTAGE_PENALTY;
   }, 0);
 }
 
@@ -1128,11 +1186,13 @@ async function runGenerationPass(
       date,
       shiftTeams: dailyShiftTeams,
     });
+    const teamTargets = deriveTeamTargets(coverageCandidates, context.requiredStaffPerShift, dailyShiftTeams);
 
     const coverageSolution = solveCoverageWithPrioritySearch({
       coverageNeeds,
       candidates: coverageCandidates,
       initialTeamUsage: dailyShiftTeams,
+      teamTargets,
     });
     let remainingShortages = coverageSolution.shortages;
 
@@ -1179,10 +1239,12 @@ async function runGenerationPass(
         allowOffOverride: true,
       });
       if (overrideCandidates.length > 0) {
+        const overrideTargets = deriveTeamTargets(overrideCandidates, context.requiredStaffPerShift, dailyShiftTeams);
         const overrideSolution = solveCoverageWithPrioritySearch({
           coverageNeeds: remainingShortages,
           candidates: overrideCandidates,
           initialTeamUsage: dailyShiftTeams,
+          teamTargets: overrideTargets,
         });
         remainingShortages = overrideSolution.shortages;
         overrideSolution.assignments.forEach((option, employeeId) => {
@@ -1598,12 +1660,17 @@ function evaluateCandidateOption(params: CandidateEvaluationParams): CandidateEv
   const normalizedShiftCode = params.shiftCode.toUpperCase();
   const isCoreShift = isCoreShiftCode(normalizedShiftCode);
   const { employee, state } = params;
+  const allowOverride = params.allowOffOverride ?? false;
+  let criticalOverrideCount = 0;
 
   if (employee.workPatternType === 'weekday-only') {
     return null;
   }
   if (employee.workPatternType === 'night-intensive' && normalizedShiftCode !== 'N') {
-    return null;
+    if (!allowOverride) {
+      return null;
+    }
+    criticalOverrideCount += 2;
   }
 
   const remainingOffNeeded = Math.max(0, state.maxOffDays - state.offDays);
@@ -1612,10 +1679,11 @@ function evaluateCandidateOption(params: CandidateEvaluationParams): CandidateEv
   const zeroSlack = isNightIntensive && remainingOffNeeded === daysLeftAfterToday && remainingOffNeeded > 0;
   let usedOffOverride = false;
   if (remainingOffNeeded > daysLeftAfterToday || zeroSlack) {
-    if (!params.allowOffOverride) {
+    if (!allowOverride) {
       return null;
     }
     usedOffOverride = true;
+    criticalOverrideCount += 1;
   }
 
   if (
@@ -1623,7 +1691,10 @@ function evaluateCandidateOption(params: CandidateEvaluationParams): CandidateEv
     !hasShiftPreferences(employee) &&
     state.nightRecoveryDaysNeeded > 0
   ) {
-    return null;
+    if (!allowOverride) {
+      return null;
+    }
+    criticalOverrideCount += 2;
   }
 
   if (
@@ -1632,11 +1703,17 @@ function evaluateCandidateOption(params: CandidateEvaluationParams): CandidateEv
     state.rotationLock &&
     state.rotationLock === normalizedShiftCode
   ) {
-    return null;
+    if (!allowOverride) {
+      return null;
+    }
+    criticalOverrideCount += 1;
   }
 
   if (state.lastShiftCode === 'N' && normalizedShiftCode === 'D') {
-    return null;
+    if (!allowOverride) {
+      return null;
+    }
+    criticalOverrideCount += 1;
   }
 
   const baseScore = calculateCandidateScore({
@@ -1652,7 +1729,13 @@ function evaluateCandidateOption(params: CandidateEvaluationParams): CandidateEv
     totalDays: params.totalDays,
     teamCoverage: params.shiftTeams,
   });
-  const adjustedScore = usedOffOverride ? baseScore.score - OFF_OVERRIDE_PENALTY : baseScore.score;
+  let adjustedScore = baseScore.score;
+  if (usedOffOverride) {
+    adjustedScore -= OFF_OVERRIDE_PENALTY;
+  }
+  if (criticalOverrideCount > 0) {
+    adjustedScore -= criticalOverrideCount * CRITICAL_OVERRIDE_PENALTY;
+  }
   return {
     employee,
     score: adjustedScore,
