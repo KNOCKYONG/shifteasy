@@ -2,7 +2,7 @@
   "hero": {
     "headline": "AI-Powered Shift Scheduling Made Simple",
     "subheadline": "Intelligent scheduling solution for healthcare, manufacturing, and service industries",
-    "description": "Let AI solve complex shift patterns, staffing shortages, and fairness issues. Reduce scheduling time by 98% with ShiftEasy.",
+    "description": "Let AI solve complex shift patterns,\nstaffing shortages,\nand fairness issues.\nReduce scheduling time by 98% with ShiftEasy.",
     "ctaPrimary": "Start 3-Month Free Trial",
     "ctaSecondary": "Request Free Consulting",
     "trustBadge": "Trusted by 1,000+ teams worldwide",
@@ -248,8 +248,8 @@
       "terms": "Terms of Service"
     },
     "companyInfo": {
-      "basic": "ShiftEasy Inc. | Business Registration: 123-45-67890 | Email: contact@shifteasy.app"
+      "basic": "Knockroom | CEO: Noh Yongseok | Email: knockroom.help@gmail.com"
     },
-    "copyright": "© 2025 ShiftEasy Inc. All rights reserved."
+    "copyright": "© 2025 Knockroom. All rights reserved."
   }
 }

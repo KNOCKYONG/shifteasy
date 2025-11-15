@@ -2,7 +2,7 @@
 
 import { useTranslation } from 'react-i18next';
 import Link from 'next/link';
-import { Github, Twitter, Linkedin, Mail } from 'lucide-react';
+import { Mail } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 const footerLinks = {
@@ -25,10 +25,7 @@ const footerLinks = {
 };
 
 const socialLinks = [
-  { icon: Github, href: 'https://github.com', label: 'GitHub' },
-  { icon: Twitter, href: 'https://twitter.com', label: 'Twitter' },
-  { icon: Linkedin, href: 'https://linkedin.com', label: 'LinkedIn' },
-  { icon: Mail, href: 'mailto:contact@shifteasy.app', label: 'Email' },
+  { icon: Mail, href: 'mailto:knockroom.help@gmail.com', label: 'Email' },
 ];
 
 export default function Footer() {

@@ -2,7 +2,7 @@
   "hero": {
     "headline": "AIが解決するシフト管理",
     "subheadline": "医療・製造・サービス業界のためのインテリジェントスケジューリングソリューション",
-    "description": "複雑なシフトパターン、人手不足、公平性の問題をAIが自動で解決します。ShiftEasyでスケジュール管理時間を98%短縮しましょう。",
+    "description": "複雑なシフトパターン、\n人手不足、\n公平性の問題をAIが自動で解決します。\nShiftEasyでスケジュール管理時間を98%短縮しましょう。",
     "ctaPrimary": "3か月無料で始める",
     "ctaSecondary": "無料コンサルティング申請",
     "trustBadge": "世界中の1,000以上のチームから信頼されています",
@@ -248,8 +248,8 @@
       "terms": "利用規約"
     },
     "companyInfo": {
-      "basic": "ShiftEasy株式会社 | 事業者登録番号: 123-45-67890 | メール: contact@shifteasy.app"
+      "basic": "ノックルーム | 代表者: ノ・ヨンソク | メール: knockroom.help@gmail.com"
     },
-    "copyright": "© 2025 ShiftEasy Inc. All rights reserved."
+    "copyright": "© 2025 Knockroom. All rights reserved."
   }
 }
