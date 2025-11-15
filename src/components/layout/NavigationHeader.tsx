@@ -269,14 +269,18 @@ export function NavigationHeader() {
                           {showScheduleDropdown && (
                             <div className="absolute left-0 top-full mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-50 overflow-hidden">
                               {scheduleSubMenuItems.map((subItem) => (
-                                <Link
+                                <button
                                   key={subItem.href}
-                                  href={subItem.href}
-                                  onClick={() => setShowScheduleDropdown(false)}
+                                  onClick={() => {
+                                    if (subItem.href) {
+                                      router.push(subItem.href);
+                                    }
+                                    setShowScheduleDropdown(false);
+                                  }}
                                   className="block w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                                 >
                                   {subItem.label}
-                                </Link>
+                                </button>
                               ))}
                             </div>
                           )}
