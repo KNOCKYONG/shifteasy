@@ -164,7 +164,82 @@ export const configsRouter = createTRPCRouter({
         throw new Error('Preset not found');
       }
 
+      // Update last used timestamp
+      const userId = ctx.user?.id;
+      if (userId) {
+        const recentPresetKey = `user_recent_config_preset_${userId}`;
+        const recentPresetValue = {
+          presetId: input.id,
+          lastUsedAt: new Date().toISOString(),
+        };
+
+        // Check if recent preset record exists
+        const existingRecent = await db.select()
+          .from(configs)
+          .where(and(
+            eq(configs.tenantId, tenantId),
+            isNull(configs.departmentId),
+            eq(configs.configKey, recentPresetKey)
+          ))
+          .limit(1);
+
+        if (existingRecent.length > 0) {
+          // Update
+          await db.update(configs)
+            .set({
+              configValue: recentPresetValue,
+              updatedAt: new Date(),
+            })
+            .where(and(
+              eq(configs.tenantId, tenantId),
+              isNull(configs.departmentId),
+              eq(configs.configKey, recentPresetKey)
+            ));
+        } else {
+          // Create
+          await db.insert(configs)
+            .values({
+              tenantId,
+              departmentId: null,
+              configKey: recentPresetKey,
+              configValue: recentPresetValue,
+            });
+        }
+      }
+
       return (result[0]!.configValue as any).data || {};
+    }),
+
+  // Get recently used config preset for current user
+  getRecentConfigPreset: protectedProcedure
+    .query(async ({ ctx }) => {
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const userId = ctx.user?.id;
+
+      if (!userId) {
+        return null;
+      }
+
+      const recentPresetKey = `user_recent_config_preset_${userId}`;
+
+      const result = await db.select()
+        .from(configs)
+        .where(and(
+          eq(configs.tenantId, tenantId),
+          isNull(configs.departmentId),
+          eq(configs.configKey, recentPresetKey)
+        ))
+        .limit(1);
+
+      if (result.length === 0) {
+        return null;
+      }
+
+      const recentData = result[0]!.configValue as any;
+      return {
+        presetId: recentData.presetId,
+        lastUsedAt: recentData.lastUsedAt,
+      };
     }),
 
   // ===== Original Config Methods =====

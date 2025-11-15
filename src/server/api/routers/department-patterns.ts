@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { db } from '@/db';
 import { departmentPatterns } from '@/db/schema/department-patterns';
-import { eq, and } from 'drizzle-orm';
+import { configs } from '@/db/schema/configs';
+import { eq, and, isNull } from 'drizzle-orm';
 
 // Input schema for creating/updating patterns
 const DepartmentPatternSchema = z.object({
@@ -11,7 +12,7 @@ const DepartmentPatternSchema = z.object({
   requiredStaffDay: z.number().int().min(0).default(5),
   requiredStaffEvening: z.number().int().min(0).default(4),
   requiredStaffNight: z.number().int().min(0).default(3),
-  requiredStaffByShift: z.record(z.number()).default({ D: 5, E: 4, N: 3 }),
+  requiredStaffByShift: z.record(z.string(), z.number()).default({ D: 5, E: 4, N: 3 }),
   defaultPatterns: z.array(z.array(z.string())).default([['D', 'D', 'D', 'OFF', 'OFF']]),
   avoidPatterns: z.array(z.array(z.string())).default([]),
   totalMembers: z.number().int().min(1).default(15),
@@ -122,5 +123,100 @@ export const departmentPatternsRouter = createTRPCRouter({
         ));
 
       return { success: true };
+    }),
+
+  // Load pattern and track recent usage
+  loadPattern: protectedProcedure
+    .input(z.object({
+      departmentId: z.string().uuid(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const userId = ctx.user?.id;
+
+      // Get the pattern
+      const result = await db.select()
+        .from(departmentPatterns)
+        .where(and(
+          eq(departmentPatterns.tenantId, tenantId),
+          eq(departmentPatterns.departmentId, input.departmentId)
+        ))
+        .limit(1);
+
+      // Track recent usage if user is logged in
+      if (userId && result.length > 0) {
+        const recentPatternKey = `user_recent_department_pattern_${userId}`;
+        const recentPatternValue = {
+          departmentId: input.departmentId,
+          lastUsedAt: new Date().toISOString(),
+        };
+
+        // Check if recent pattern tracking exists
+        const existing = await db.select()
+          .from(configs)
+          .where(and(
+            eq(configs.tenantId, tenantId),
+            isNull(configs.departmentId),
+            eq(configs.configKey, recentPatternKey)
+          ))
+          .limit(1);
+
+        if (existing.length > 0) {
+          // Update existing
+          await db.update(configs)
+            .set({
+              configValue: recentPatternValue,
+              updatedAt: new Date(),
+            })
+            .where(and(
+              eq(configs.tenantId, tenantId),
+              isNull(configs.departmentId),
+              eq(configs.configKey, recentPatternKey)
+            ));
+        } else {
+          // Create new
+          await db.insert(configs)
+            .values({
+              tenantId,
+              departmentId: null,
+              configKey: recentPatternKey,
+              configValue: recentPatternValue,
+            });
+        }
+      }
+
+      return result[0] || null;
+    }),
+
+  // Get recently used department pattern for current user
+  getRecentDepartmentPattern: protectedProcedure
+    .query(async ({ ctx }) => {
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const userId = ctx.user?.id;
+
+      if (!userId) {
+        return null;
+      }
+
+      const recentPatternKey = `user_recent_department_pattern_${userId}`;
+
+      const result = await db.select()
+        .from(configs)
+        .where(and(
+          eq(configs.tenantId, tenantId),
+          isNull(configs.departmentId),
+          eq(configs.configKey, recentPatternKey)
+        ))
+        .limit(1);
+
+      if (result.length === 0) {
+        return null;
+      }
+
+      const recentData = result[0]!.configValue as any;
+      return {
+        departmentId: recentData.departmentId,
+        lastUsedAt: recentData.lastUsedAt,
+      };
     }),
 });

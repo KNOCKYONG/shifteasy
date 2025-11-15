@@ -1,0 +1,2293 @@
+[
+  {
+    "id": "1e193a91-aa80-4715-ae2b-66c25a86d574",
+    "email": "manager.a@shifteasy.com",
+    "name": "김영업",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "01ee2479-c8c0-4001-920a-1c08e376c684",
+    "email": "lee.jieun@shifteasy.com",
+    "name": "이지은",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "230d916f-0b3a-4947-ae14-494da0fae10c",
+    "email": "jung.haneul@shifteasy.com",
+    "name": "정하늘",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "51dbda43-1b44-4731-b639-2f0145ef025f",
+    "email": "lim.donghyun@shifteasy.com",
+    "name": "임동현",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "e43e8497-bdb5-4875-b0bd-75df5d0e630b",
+    "email": "oh.minji@shifteasy.com",
+    "name": "오민지",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "b976c653-ef66-47d1-a252-908b05e6f423",
+    "email": "bae.suji@shifteasy.com",
+    "name": "배수지",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "e43b8c1b-cf5c-4041-8efd-c72a7da59d23",
+    "email": "nam.garam@shifteasy.com",
+    "name": "남가람",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "9296e45c-194c-42b4-8188-667ce71d558a",
+    "email": "shin.wooju@shifteasy.com",
+    "name": "신우주",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "af1c9ea5-4463-4032-bf18-304c136dd5e1",
+    "email": "oh.rora@shifteasy.com",
+    "name": "오로라",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "62a6e059-6e3f-44e8-aedc-89a1b00a8191",
+    "email": "seo.hae@shifteasy.com",
+    "name": "서해",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "2eaf9a5d-ccd7-4693-b9be-3a68652445ef",
+    "email": "jung.gureum@shifteasy.com",
+    "name": "정구름",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "84b52da9-4ceb-42e1-b76d-79a44531e5c2",
+    "email": "moon.byeol@shifteasy.com",
+    "name": "문별",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "de2ed159-a3da-4c21-8222-7d591c5bab09",
+    "email": "song.dul@shifteasy.com",
+    "name": "송들",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "8d07298d-7027-4d79-b4f6-6e52ae8a5611",
+    "email": "kim-si-yeon@snuh.org",
+    "name": "김시연",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "b840a69d-9966-4510-875f-c1d573500b68",
+    "email": "kim-ga-hyun@snuh.org",
+    "name": "김가현",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "46b81050-823a-4633-8ed2-6d8071939e67",
+    "email": "guest22@shift.com",
+    "name": "홍길이",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "98ea0313-c4e6-4559-aa56-7c660d1cd070",
+    "email": "heo.gong@shifteasy.com",
+    "name": "허공",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "720a0e4c-557a-40aa-8d4f-dc42ace99be1",
+    "email": "han.bit@shifteasy.com",
+    "name": "한빛",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "ed611d19-cdd2-4cdc-a0ff-578b54ad0f1a",
+    "email": "jo.iseul@shifteasy.com",
+    "name": "조이슬",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "3266872d-b677-411f-b5d5-4fb10b88e2f2",
+    "email": "kim.taeyang@shifteasy.com",
+    "name": "김태양",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "c7838245-38e7-41dd-8d48-334a9b9d1ca9",
+    "email": "park.haneul@shifteasy.com",
+    "name": "박하늘",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "a3148f3d-355c-4501-82d4-f6276a76443b",
+    "email": "park-chae-rin@snuh.org",
+    "name": "박채린",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "c9d9eb8d-bb10-4375-9ce2-382d9afcedf3",
+    "email": "park-jung-hye@snuh.org",
+    "name": "박정혜",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "0e695c70-d7fe-4152-9c62-021869d5e9c4",
+    "email": "lee-kyung-eun@snuh.org",
+    "name": "이경은",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "ced36735-226b-45f5-8195-6d4acba1c756",
+    "email": "lee-so-yeon@snuh.org",
+    "name": "이소연",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "f87aef85-2c69-4b8e-bec4-884e9a5133a1",
+    "email": "hwang-eun-jung@snuh.org",
+    "name": "황은정",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "146f1506-9559-4c3c-948b-108f1ff9a08d",
+    "email": "lee-chae-yeon@snuh.org",
+    "name": "이채연",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "525ab7a6-fa02-470f-94c6-470fd9994762",
+    "email": "kim-seung-hee@snuh.org",
+    "name": "김승희",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "4e3e7b6f-ec37-43c1-9852-8a06753b1e77",
+    "email": "lee-hyo-jin@snuh.org",
+    "name": "이효진",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "0d73f287-8dd6-44fd-aeac-f3e41b78a4b6",
+    "email": "guest@shifteasy.com",
+    "name": "홍길동",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "327af665-1df1-4bee-8d1d-5d26a1977c26",
+    "email": "admin@shifteasy.com",
+    "name": "어드민",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "1bf6d489-9627-40fd-a8a9-27235d5b0fdc",
+    "email": "nohdol97@gmail.com",
+    "name": "이길",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "a308d351-23be-49a9-bafa-68001924851c",
+    "email": "choi.bada@shifteasy.com",
+    "name": "최바다",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "91899094-ddae-446e-ad10-d7373c532cbf",
+    "email": "song-sun-hee@snuh.org",
+    "name": "송선희",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "985bba98-f28a-4ae7-8e4f-b71ff489a4f9",
+    "email": "jang-min-seo@snuh.org",
+    "name": "장민서",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "2c367237-6b8e-434d-a251-2dab2464d32b",
+    "email": "jung-seo-ha@snuh.org",
+    "name": "정서하",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "deba2ad2-8505-44e1-95c2-6c63376a8c0b",
+    "email": "lee-yoo-min@snuh.org",
+    "name": "이유민",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "ca989477-f0f4-4e18-926d-79bc71a4e951",
+    "email": "do-eun-sol@snuh.org",
+    "name": "도은솔",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "1eda82ce-2d60-4e65-a303-19b1ea8a4a0a",
+    "email": "bae.danbi@shifteasy.com",
+    "name": "배단비",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "e5b14159-53e5-4029-a457-f81370637c79",
+    "email": "lee.byeol@shifteasy.com",
+    "name": "이별",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "5ba28d62-21df-4a8f-9074-7addaae76263",
+    "email": "kim-ha-jin@snuh.org",
+    "name": "김하진",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "e4971f06-347e-44e8-a2e3-a2c6755abb06",
+    "email": "kim-tae-yeon@snuh.org",
+    "name": "김태연",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "6d4c3a2f-7af3-43a4-aff0-a29022f8be58",
+    "email": "park.jimin@shifteasy.com",
+    "name": "박지민",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "8a0724d1-8e10-47c9-9128-60784ef3b53c",
+    "email": "choi.seoyeon@shifteasy.com",
+    "name": "최서연",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "a42143af-7710-4d4b-ba34-3b57ff8b9de0",
+    "email": "kang.minsu@shifteasy.com",
+    "name": "강민수",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "6e223781-22cb-4c2b-99c0-55e35c139278",
+    "email": "yoon.seoa@shifteasy.com",
+    "name": "윤서아",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "e89b9997-3ff2-4277-9424-6b64b8303712",
+    "email": "song.yujin@shifteasy.com",
+    "name": "송유진",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "14801413-8707-449a-8102-64436f7de3ee",
+    "email": "han.jiwoo@shifteasy.com",
+    "name": "한지우",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "e45868ca-a36d-4202-8f3a-f24852b27782",
+    "email": "seo.junho@shifteasy.com",
+    "name": "서준호",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "38179b53-71a7-401c-8db2-c36c761fe20b",
+    "email": "namgung.hyun@shifteasy.com",
+    "name": "남궁현",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "60a1f12e-0c31-4d65-a483-2b3be92c478a",
+    "email": "jo.ara@shifteasy.com",
+    "name": "조아라",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "b9b18aca-06dc-4658-8730-8e02e9a24204",
+    "email": "hwang.taehee@shifteasy.com",
+    "name": "황태희",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "4ff93684-3762-4557-911a-de88247eb7d3",
+    "email": "manager.b@shifteasy.com",
+    "name": "박성과",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "e98c1a40-9cf7-425d-a26c-5978f3d1fe28",
+    "email": "lim.sup@shifteasy.com",
+    "name": "임숲",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "d950599a-d997-45ee-9942-1f82deca556c",
+    "email": "ryu.eunha@shifteasy.com",
+    "name": "류은하",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "12f465aa-a403-4303-8012-faa3103f7a60",
+    "email": "yoon.kang@shifteasy.com",
+    "name": "윤강",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "82d3f462-7932-4674-acd3-b2882ec0d669",
+    "email": "manager@shifteasy.com",
+    "name": "박선미",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "8355c513-a171-4e20-9dae-45e97aead0f7",
+    "email": "kang.san@shifteasy.com",
+    "name": "강산",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "d05d05ab-c74b-4820-9def-7d57c8637fce",
+    "email": "hwang.sori@shifteasy.com",
+    "name": "황소리",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "492ba0a3-b86f-41f9-b27d-526b7175e26c",
+    "email": "jkjk741@naver.com",
+    "name": "노용석",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "02611a5f-0df8-4d1f-b227-f6b6bedc3c86",
+    "email": "guest2@shifteasy.com",
+    "name": "홍길동",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "914b7822-f42b-46b9-bbe7-d30221defc99",
+    "email": "park-se-young@snuh.org",
+    "name": "박세영",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "f4223c1a-c5d7-4916-8e16-ec4434658fdc",
+    "email": "yong-min-young@snuh.org",
+    "name": "용민영",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "8a920208-6eea-47b9-9eb4-23a679965d09",
+    "email": "yang-ha-eun@snuh.org",
+    "name": "양하은",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "99afed55-7b45-46fd-9436-2d0d51e3a2d4",
+    "email": "baek-jung-min@snuh.org",
+    "name": "백정민",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "34058a86-764f-4708-abdb-045ba9914cac",
+    "email": "lee-da-woon@snuh.org",
+    "name": "이다운",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "7abf6ec2-a90d-47ff-87f0-05f183a814d7",
+    "email": "cho-hoon-hwa@snuh.org",
+    "name": "조훈화",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "99c1bdff-81f8-472d-879c-0567b391b746",
+    "email": "jung-hye-min@snuh.org",
+    "name": "정혜민",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "daf2c087-3457-4fd2-8d12-c6c06e42eb7c",
+    "email": "na-hye-ji@snuh.org",
+    "name": "나혜지",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "252320b2-386f-491c-b2f7-f5344b80b872",
+    "email": "kim-min-ji@snuh.org",
+    "name": "김민지",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "a6895c41-4c4e-4268-a714-ba3c9483ae0d",
+    "email": "guesttest001@shifteasy.com",
+    "name": "Guest Test",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "ad456063-72ad-43d2-8423-9266a57755ae",
+    "email": "kim-sun-woo@snuh.org",
+    "name": "김선우",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "26c5a328-db44-47a5-9763-bb582dc27fd5",
+    "email": "joo-hee-jin@snuh.org",
+    "name": "주희진",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "167574eb-9c6d-433a-b8c0-f4d25d2d0f74",
+    "email": "kwon-jung-hee@snuh.org",
+    "name": "권정희",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "e55ffdce-332e-44e5-9416-d66615de7313",
+    "email": "kim-su-jin@snuh.org",
+    "name": "김수진",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "5ff31235-2e3f-4145-bd37-e3b0db885404",
+    "email": "lee-ji-won@snuh.org",
+    "name": "이지원",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "b07afe1f-ba69-406d-86b9-045f2b31868b",
+    "email": "jeon-ye-ji@snuh.org",
+    "name": "전예지",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "c6cd177f-c5f8-4279-9802-b69e09030c84",
+    "email": "cho-ye-seo@snuh.org",
+    "name": "조예서",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  },
+  {
+    "id": "12395eb8-fd3d-4751-9ab5-f8e70f309750",
+    "email": "song-su-min@snuh.org",
+    "name": "송수민",
+    "notification_preferences": {
+      "types": {
+        "swap_approved": true,
+        "swap_rejected": true,
+        "swap_requested": true,
+        "handoff_reminder": true,
+        "schedule_updated": true,
+        "handoff_completed": true,
+        "handoff_submitted": true,
+        "schedule_published": true,
+        "handoff_critical_patient": true
+      },
+      "enabled": true,
+      "channels": {
+        "sse": true,
+        "push": false,
+        "email": false
+      },
+      "quietHours": {
+        "end": "08:00",
+        "start": "22:00",
+        "enabled": false
+      }
+    }
+  }
+]

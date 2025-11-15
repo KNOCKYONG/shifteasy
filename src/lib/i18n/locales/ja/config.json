@@ -62,5 +62,60 @@
   },
   "alerts": {
     "saved": "設定が保存されました。"
+  },
+  "presets": {
+    "saveButton": "現在の設定を保存",
+    "configPresetsButton": "設定プリセット",
+    "patternPresetsButton": "部門パターン",
+    "savePrompt": "プリセット名を入力してください:",
+    "saveSuccess": "設定プリセットが保存されました!",
+    "saveFailed": "プリセットの保存に失敗しました",
+    "loadSuccess": "プリセットが読み込まれました!",
+    "loadFailed": "プリセットの読み込みに失敗しました。",
+    "modal": {
+      "title": "保存された設定プリセット",
+      "subtitle": "保存された設定プリセットを読み込むか削除できます",
+      "loading": "プリセット読み込み中...",
+      "empty": "保存されたプリセットがありません",
+      "emptyHint": "設定ページでプリセットを保存すると、ここに表示されます",
+      "deleteWarning": "プリセットの削除は元に戻せません",
+      "deleteConfirm": "削除確認",
+      "deleting": "削除中...",
+      "close": "閉じる",
+      "loadHint": "クリックしてこのプリセットを読み込む"
+    },
+    "selectModal": {
+      "title": "設定プリセット選択",
+      "subtitle": "スケジュール生成に使用する設定プリセットを選択してください",
+      "recentBadge": "最近使用",
+      "positions": "役職",
+      "shiftTypes": "勤務タイプ",
+      "careerGroups": "キャリアグループ",
+      "skipButton": "スキップ",
+      "confirmButton": "確認",
+      "skipHint": "プリセットなしで続行するにはスキップをクリック"
+    },
+    "patterns": {
+      "title": "保存された部門パターン",
+      "subtitle": "保存された部門別勤務パターンを確認して管理できます",
+      "loading": "パターン読み込み中...",
+      "empty": "保存されたパターンがありません",
+      "emptyHint": "部門別勤務パターンを保存すると、ここに表示されます",
+      "deleteWarning": "パターンの削除は元に戻せません",
+      "active": "有効",
+      "day": "日勤",
+      "evening": "準夜",
+      "night": "夜勤",
+      "total": "総員",
+      "defaultPattern": "基本パターン",
+      "avoidPattern": "回避パターン",
+      "selectModal": {
+        "title": "部門パターン選択",
+        "subtitle": "スケジュール生成に使用する部門パターンを選択してください",
+        "skipButton": "スキップ",
+        "confirmButton": "確認",
+        "skipHint": "パターンなしで続行するにはスキップをクリック"
+      }
+    }
   }
 }

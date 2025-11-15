@@ -30,6 +30,8 @@ const ManageSchedulesModal = dynamicImport(() => import("@/components/schedule/m
 const SwapRequestModal = dynamicImport(() => import("@/components/schedule/modals/SwapRequestModal").then(mod => ({ default: mod.SwapRequestModal })), { ssr: false });
 const ScheduleSwapModal = dynamicImport(() => import("@/components/schedule/modals/ScheduleSwapModal").then(mod => ({ default: mod.ScheduleSwapModal })), { ssr: false });
 const ImprovementResultModal = dynamicImport(() => import("@/components/schedule/modals/ImprovementResultModal").then(mod => ({ default: mod.ImprovementResultModal })), { ssr: false });
+const SelectConfigPresetModal = dynamicImport(() => import("@/components/config/SelectConfigPresetModal").then(mod => ({ default: mod.SelectConfigPresetModal })), { ssr: false });
+const SelectPatternModal = dynamicImport(() => import("@/components/config/SelectPatternModal").then(mod => ({ default: mod.SelectPatternModal })), { ssr: false });
 import {
   ViewTabs,
   ShiftTypeFilters,
@@ -438,6 +440,12 @@ function SchedulePageContent() {
     employeeId: string;
     currentShift?: Assignment | null;
   } | null>(null);
+
+  // 프리셋/패턴 선택 모달 상태
+  const [showPresetSelectionModal, setShowPresetSelectionModal] = useState(false);
+  const [showPatternSelectionModal, setShowPatternSelectionModal] = useState(false);
+  const [selectedConfigPreset, setSelectedConfigPreset] = useState<any | null>(null);
+  const [selectedDepartmentPattern, setSelectedDepartmentPattern] = useState<any | null>(null);
 
   // Handle URL parameter changes for view
   useEffect(() => {
@@ -1981,6 +1989,34 @@ function SchedulePageContent() {
     }
   };
 
+  // 프리셋/패턴 선택 핸들러
+  const handleInitiateScheduleGeneration = () => {
+    if (!canManageSchedules) {
+      alert('스케줄 생성 권한이 없습니다.');
+      return;
+    }
+
+    if (filteredMembers.length === 0) {
+      alert('선택된 부서에 활성 직원이 없습니다.');
+      return;
+    }
+
+    // Show preset selection modal first
+    setShowPresetSelectionModal(true);
+  };
+
+  const handlePresetSelect = (preset: any | null) => {
+    setSelectedConfigPreset(preset);
+    // After preset selection, show pattern selection modal
+    setShowPatternSelectionModal(true);
+  };
+
+  const handlePatternSelect = (pattern: any | null) => {
+    setSelectedDepartmentPattern(pattern);
+    // Proceed with actual schedule generation
+    void handleGenerateSchedule();
+  };
+
   const handleGenerateSchedule = async () => {
     if (!canManageSchedules) {
       alert('스케줄 생성 권한이 없습니다.');
@@ -1997,8 +2033,19 @@ function SchedulePageContent() {
     setOffAccrualSummaries([]);
 
     try {
+      // 1. 선택된 프리셋에서 shift types 우선 사용
       let activeCustomShiftTypes = customShiftTypes;
-      if (!activeCustomShiftTypes || activeCustomShiftTypes.length === 0) {
+      if (selectedConfigPreset?.data?.shift_types && Array.isArray(selectedConfigPreset.data.shift_types) && selectedConfigPreset.data.shift_types.length > 0) {
+        console.log('Using shift types from selected preset:', selectedConfigPreset.name);
+        activeCustomShiftTypes = selectedConfigPreset.data.shift_types.map((st: ConfigShiftType) => ({
+          code: st.code,
+          name: st.name,
+          startTime: st.startTime,
+          endTime: st.endTime,
+          color: st.color,
+          allowOvertime: (st as ConfigShiftType & { allowOvertime?: boolean }).allowOvertime ?? false,
+        }));
+      } else if (!activeCustomShiftTypes || activeCustomShiftTypes.length === 0) {
         if (shiftTypesConfig?.configValue && Array.isArray(shiftTypesConfig.configValue) && shiftTypesConfig.configValue.length > 0) {
           activeCustomShiftTypes = shiftTypesConfig.configValue.map((st: ConfigShiftType) => ({
             code: st.code,
@@ -2054,13 +2101,27 @@ function SchedulePageContent() {
       return;
     }
 
+      // 2. 선택된 패턴 우선 사용, 없으면 API에서 로드
       let teamPattern: TeamPattern | null = null;
-      try {
-        const teamPatternResponse = await fetch(`/api/department-patterns?departmentId=${inferredDepartmentId}`);
-        const teamPatternData = await teamPatternResponse.json() as TeamPattern & { pattern?: TeamPattern; defaultPattern?: TeamPattern };
-        teamPattern = teamPatternData.pattern || teamPatternData.defaultPattern || teamPatternData;
-      } catch (error) {
-        console.warn('Failed to load department pattern:', error);
+      if (selectedDepartmentPattern) {
+        console.log('Using selected department pattern for department:', selectedDepartmentPattern.departmentId);
+        teamPattern = {
+          requiredStaffDay: selectedDepartmentPattern.requiredStaffDay,
+          requiredStaffEvening: selectedDepartmentPattern.requiredStaffEvening,
+          requiredStaffNight: selectedDepartmentPattern.requiredStaffNight,
+          requiredStaffByShift: selectedDepartmentPattern.requiredStaffByShift,
+          defaultPatterns: selectedDepartmentPattern.defaultPatterns,
+          avoidPatterns: selectedDepartmentPattern.avoidPatterns || [],
+          totalMembers: selectedDepartmentPattern.totalMembers,
+        } as TeamPattern;
+      } else {
+        try {
+          const teamPatternResponse = await fetch(`/api/department-patterns?departmentId=${inferredDepartmentId}`);
+          const teamPatternData = await teamPatternResponse.json() as TeamPattern & { pattern?: TeamPattern; defaultPattern?: TeamPattern };
+          teamPattern = teamPatternData.pattern || teamPatternData.defaultPattern || teamPatternData;
+        } catch (error) {
+          console.warn('Failed to load department pattern:', error);
+        }
       }
 
       let simpleSpecialRequests: Array<{
@@ -2958,7 +3019,7 @@ function SchedulePageContent() {
                   {!isMember && (
                     <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                       <button
-                        onClick={handleGenerateSchedule}
+                        onClick={handleInitiateScheduleGeneration}
                         disabled={isGenerating}
                         className={`inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg flex-1 sm:flex-none ${
                           isGenerating
@@ -3526,6 +3587,28 @@ function SchedulePageContent() {
           </div>
         </div>
       )}
+
+      {/* Config Preset Selection Modal */}
+      <SelectConfigPresetModal
+        isOpen={showPresetSelectionModal}
+        onClose={() => setShowPresetSelectionModal(false)}
+        onSelect={handlePresetSelect}
+        onSkip={() => {
+          setSelectedConfigPreset(null);
+          setShowPatternSelectionModal(true);
+        }}
+      />
+
+      {/* Department Pattern Selection Modal */}
+      <SelectPatternModal
+        isOpen={showPatternSelectionModal}
+        onClose={() => setShowPatternSelectionModal(false)}
+        onSelect={handlePatternSelect}
+        onSkip={() => {
+          setSelectedDepartmentPattern(null);
+          void handleGenerateSchedule();
+        }}
+      />
 
       {/* Employee Preferences Modal */}
       {modals.isPreferencesModalOpen && selectedEmployee && (

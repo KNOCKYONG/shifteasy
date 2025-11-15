@@ -62,5 +62,60 @@
   },
   "alerts": {
     "saved": "Settings have been saved."
+  },
+  "presets": {
+    "saveButton": "Save Current Settings",
+    "configPresetsButton": "Config Presets",
+    "patternPresetsButton": "Department Patterns",
+    "savePrompt": "Enter preset name:",
+    "saveSuccess": "Config preset saved successfully!",
+    "saveFailed": "Failed to save preset",
+    "loadSuccess": "Preset loaded successfully!",
+    "loadFailed": "Failed to load preset.",
+    "modal": {
+      "title": "Saved Config Presets",
+      "subtitle": "Load or delete saved configuration presets",
+      "loading": "Loading presets...",
+      "empty": "No saved presets",
+      "emptyHint": "Saved presets will appear here",
+      "deleteWarning": "Preset deletion cannot be undone",
+      "deleteConfirm": "Confirm Delete",
+      "deleting": "Deleting...",
+      "close": "Close",
+      "loadHint": "Click to load this preset"
+    },
+    "selectModal": {
+      "title": "Select Config Preset",
+      "subtitle": "Choose a configuration preset for schedule generation",
+      "recentBadge": "Recently Used",
+      "positions": "Positions",
+      "shiftTypes": "Shift Types",
+      "careerGroups": "Career Groups",
+      "skipButton": "Skip",
+      "confirmButton": "Confirm",
+      "skipHint": "Click skip to proceed without a preset"
+    },
+    "patterns": {
+      "title": "Saved Department Patterns",
+      "subtitle": "View and manage saved department work patterns",
+      "loading": "Loading patterns...",
+      "empty": "No saved patterns",
+      "emptyHint": "Saved department patterns will appear here",
+      "deleteWarning": "Pattern deletion cannot be undone",
+      "active": "Active",
+      "day": "Day",
+      "evening": "Evening",
+      "night": "Night",
+      "total": "Total",
+      "defaultPattern": "Default Pattern",
+      "avoidPattern": "Avoid Pattern",
+      "selectModal": {
+        "title": "Select Department Pattern",
+        "subtitle": "Choose a department pattern for schedule generation",
+        "skipButton": "Skip",
+        "confirmButton": "Confirm",
+        "skipHint": "Click skip to proceed without a pattern"
+      }
+    }
   }
 }

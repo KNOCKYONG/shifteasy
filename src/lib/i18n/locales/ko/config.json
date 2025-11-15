@@ -62,5 +62,60 @@
   },
   "alerts": {
     "saved": "설정이 저장되었습니다."
+  },
+  "presets": {
+    "saveButton": "현재 설정 저장",
+    "configPresetsButton": "설정 프리셋",
+    "patternPresetsButton": "부서 패턴",
+    "savePrompt": "프리셋 이름을 입력하세요:",
+    "saveSuccess": "설정 프리셋이 저장되었습니다!",
+    "saveFailed": "프리셋 저장 실패",
+    "loadSuccess": "프리셋을 불러왔습니다!",
+    "loadFailed": "프리셋 불러오기 중 오류가 발생했습니다.",
+    "modal": {
+      "title": "저장된 설정 프리셋",
+      "subtitle": "저장된 설정 프리셋을 불러오거나 삭제할 수 있습니다",
+      "loading": "프리셋 로딩 중...",
+      "empty": "저장된 프리셋이 없습니다",
+      "emptyHint": "설정 페이지에서 프리셋을 저장하면 여기에 표시됩니다",
+      "deleteWarning": "프리셋 삭제는 되돌릴 수 없습니다",
+      "deleteConfirm": "삭제 확인",
+      "deleting": "삭제 중...",
+      "close": "닫기",
+      "loadHint": "클릭하여 이 프리셋 불러오기"
+    },
+    "selectModal": {
+      "title": "설정 프리셋 선택",
+      "subtitle": "스케줄 생성에 사용할 설정 프리셋을 선택하세요",
+      "recentBadge": "최근 사용",
+      "positions": "직책",
+      "shiftTypes": "근무 유형",
+      "careerGroups": "경력 그룹",
+      "skipButton": "건너뛰기",
+      "confirmButton": "선택 완료",
+      "skipHint": "프리셋 없이 진행하려면 건너뛰기를 클릭하세요"
+    },
+    "patterns": {
+      "title": "저장된 부서 패턴",
+      "subtitle": "저장된 부서별 근무 패턴을 확인하고 관리할 수 있습니다",
+      "loading": "패턴 로딩 중...",
+      "empty": "저장된 패턴이 없습니다",
+      "emptyHint": "부서별 근무 패턴을 저장하면 여기에 표시됩니다",
+      "deleteWarning": "패턴 삭제는 되돌릴 수 없습니다",
+      "active": "활성",
+      "day": "주간",
+      "evening": "저녁",
+      "night": "야간",
+      "total": "총원",
+      "defaultPattern": "기본 패턴",
+      "avoidPattern": "기피 패턴",
+      "selectModal": {
+        "title": "부서 패턴 선택",
+        "subtitle": "스케줄 생성에 사용할 부서 패턴을 선택하세요",
+        "skipButton": "건너뛰기",
+        "confirmButton": "선택 완료",
+        "skipHint": "패턴 없이 진행하려면 건너뛰기를 클릭하세요"
+      }
+    }
   }
 }
