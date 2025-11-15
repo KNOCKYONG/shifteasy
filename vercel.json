@@ -4,11 +4,7 @@
   "framework": "nextjs",
   "installCommand": "npm install --legacy-peer-deps --include=dev",
   "functions": {
-    "api/**/*.{js,ts}": {
-      "memory": 512,
-      "maxDuration": 10
-    },
-    "app/**/*.{js,ts}": {
+    ".next/server/app/**/*.js": {
       "memory": 512,
       "maxDuration": 10
     }
