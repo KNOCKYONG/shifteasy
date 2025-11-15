@@ -2365,46 +2365,6 @@ function SchedulePageContent() {
         setOffAccrualSummaries([]);
       }
 
-      // AI로 생성한 경우 자동 임시저장
-      if (aiEnabled && aiPermission?.canUse) {
-        try {
-          const saveDraftResponse = await fetchWithAuth('/api/schedule/save-draft', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              schedule: {
-                departmentId: inferredDepartmentId,
-                startDate: format(monthStart, 'yyyy-MM-dd'),
-                endDate: format(monthEnd, 'yyyy-MM-dd'),
-                assignments: normalizedAssignments.map(a => ({
-                  employeeId: a.employeeId,
-                  shiftId: a.shiftId,
-                  date: format(a.date, 'yyyy-MM-dd'),
-                  isLocked: a.isLocked,
-                  shiftType: a.shiftType,
-                })),
-              },
-              name: `AI 생성 - ${format(monthStart, 'yyyy년 MM월')}`,
-              metadata: {
-                aiGenerated: true,
-                generatedAt: new Date().toISOString(),
-              },
-            }),
-          });
-
-          if (saveDraftResponse.ok) {
-            const saveData = await saveDraftResponse.json();
-            console.log('AI 생성 스케줄 자동 임시저장 완료:', saveData);
-            // 스케줄 목록 갱신
-            await utils.schedule.invalidate();
-          }
-        } catch (saveError) {
-          console.error('자동 임시저장 실패:', saveError);
-          // 임시저장 실패해도 스케줄 생성은 성공했으므로 에러를 무시
-        }
-      }
     } catch (error) {
       console.error('AI schedule generation failed:', error);
       alert('스케줄 생성 중 오류가 발생했습니다. 다시 시도해주세요.');
