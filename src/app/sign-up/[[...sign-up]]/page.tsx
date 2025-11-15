@@ -708,12 +708,25 @@ export default function SignUpPage() {
                 </button>
 
                 {planType === 'professional' && (
-                  <Link
-                    href="/billing?plan=professional"
-                    className="mt-2 inline-flex w-full items-center justify-center rounded-lg border border-blue-600 py-2.5 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-400 dark:border-blue-400 dark:hover:bg-blue-900/20"
-                  >
-                    플랜 변경하기
-                  </Link>
+                  <>
+                    <Link
+                      href="/billing?plan=professional"
+                      className="mt-2 inline-flex w-full items-center justify-center rounded-lg border border-blue-600 py-2.5 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-400 dark:border-blue-400 dark:hover:bg-blue-900/20"
+                    >
+                      플랜 변경하기
+                    </Link>
+                    <div className="mt-3 text-center">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        이미 계정이 있으신가요?{' '}
+                        <Link
+                          href="/sign-in"
+                          className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium hover:underline"
+                        >
+                          로그인하기
+                        </Link>
+                      </p>
+                    </div>
+                  </>
                 )}
 
                 {!isProfessionalPlan && (

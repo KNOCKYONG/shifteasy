@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowRight, Sparkles, LogIn } from 'lucide-react';
 import Link from 'next/link';
 import ConsultingRequestModal from './ConsultingRequestModal';
 
@@ -13,6 +13,27 @@ export default function HeroSection() {
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-sky-50 via-white to-blue-50">
+      {/* Top Navigation Bar */}
+      <nav className="absolute top-0 left-0 right-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16 sm:h-20">
+            {/* Logo */}
+            <div className="flex items-center">
+              <span className="text-xl sm:text-2xl font-bold text-blue-600">ShiftEasy</span>
+            </div>
+
+            {/* Login Button */}
+            <Link
+              href="/sign-in"
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+            >
+              <LogIn className="w-4 h-4" />
+              로그인
+            </Link>
+          </div>
+        </div>
+      </nav>
+
       {/* Simplified background decoration */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top_right,_#E6F2FF_0%,_transparent_50%)]" />
