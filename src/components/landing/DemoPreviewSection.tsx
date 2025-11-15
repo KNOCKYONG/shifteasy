@@ -296,18 +296,18 @@ export default function DemoPreviewSection() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.3 }}
-                  className="flex items-start gap-4 p-6 bg-gradient-to-r from-[#FEF3C7] to-white rounded-2xl border-2 border-[#F59E0B]"
+                  className="flex items-start gap-4 p-6 bg-gradient-to-r from-[#DBEAFE] to-white rounded-2xl border-2 border-[#2563EB]"
                 >
-                  <div className="flex-shrink-0 w-12 h-12 bg-[#F59E0B] rounded-full flex items-center justify-center">
+                  <div className="flex-shrink-0 w-12 h-12 bg-[#2563EB] rounded-full flex items-center justify-center">
                     <Sparkles className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <h3 className="text-lg font-bold text-[#0F172A]">{t('demoPreview.generationStep3.title')}</h3>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#F59E0B]"></div>
+                      <CheckCircle className="w-5 h-5 text-[#22C55E]" />
                     </div>
                     <p className="text-sm text-[#64748B] mb-2">{t('demoPreview.generationStep3.description')}</p>
-                    <p className="text-xs text-[#F59E0B] font-medium">{t('demoPreview.generationStep3.detail')}</p>
+                    <p className="text-xs text-[#2563EB] font-medium">{t('demoPreview.generationStep3.detail')}</p>
                   </div>
                 </motion.div>
 
@@ -316,17 +316,18 @@ export default function DemoPreviewSection() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.4 }}
-                  className="flex items-start gap-4 p-6 bg-white rounded-2xl border-2 border-gray-200"
+                  className="flex items-start gap-4 p-6 bg-gradient-to-r from-[#DBEAFE] to-white rounded-2xl border-2 border-[#2563EB]"
                 >
-                  <div className="flex-shrink-0 w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-                    <Zap className="w-6 h-6 text-gray-500" />
+                  <div className="flex-shrink-0 w-12 h-12 bg-[#2563EB] rounded-full flex items-center justify-center">
+                    <Zap className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <h3 className="text-lg font-bold text-gray-400">{t('demoPreview.generationStep4.title')}</h3>
+                      <h3 className="text-lg font-bold text-[#0F172A]">{t('demoPreview.generationStep4.title')}</h3>
+                      <CheckCircle className="w-5 h-5 text-[#22C55E]" />
                     </div>
-                    <p className="text-sm text-gray-400 mb-2">{t('demoPreview.generationStep4.description')}</p>
-                    <p className="text-xs text-gray-400 font-medium">{t('demoPreview.generationStep4.detail')}</p>
+                    <p className="text-sm text-[#64748B] mb-2">{t('demoPreview.generationStep4.description')}</p>
+                    <p className="text-xs text-[#2563EB] font-medium">{t('demoPreview.generationStep4.detail')}</p>
                   </div>
                 </motion.div>
 
@@ -335,17 +336,18 @@ export default function DemoPreviewSection() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.5 }}
-                  className="flex items-start gap-4 p-6 bg-white rounded-2xl border-2 border-gray-200"
+                  className="flex items-start gap-4 p-6 bg-gradient-to-r from-[#DBEAFE] to-white rounded-2xl border-2 border-[#2563EB]"
                 >
-                  <div className="flex-shrink-0 w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-                    <CheckCircle className="w-6 h-6 text-gray-500" />
+                  <div className="flex-shrink-0 w-12 h-12 bg-[#2563EB] rounded-full flex items-center justify-center">
+                    <CheckCircle className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <h3 className="text-lg font-bold text-gray-400">{t('demoPreview.generationStep5.title')}</h3>
+                      <h3 className="text-lg font-bold text-[#0F172A]">{t('demoPreview.generationStep5.title')}</h3>
+                      <CheckCircle className="w-5 h-5 text-[#22C55E]" />
                     </div>
-                    <p className="text-sm text-gray-400 mb-2">{t('demoPreview.generationStep5.description')}</p>
-                    <p className="text-xs text-gray-400 font-medium">{t('demoPreview.generationStep5.detail')}</p>
+                    <p className="text-sm text-[#64748B] mb-2">{t('demoPreview.generationStep5.description')}</p>
+                    <p className="text-xs text-[#2563EB] font-medium">{t('demoPreview.generationStep5.detail')}</p>
                   </div>
                 </motion.div>
               </div>
