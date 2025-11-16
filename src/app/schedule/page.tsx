@@ -2,12 +2,12 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useCallback, Suspense, useDeferredValue } from "react";
+import React, { useState, useEffect, useCallback, Suspense, useDeferredValue, useRef } from "react";
 import dynamicImport from "next/dynamic";
 import equal from "fast-deep-equal";
 import { useSearchParams } from "next/navigation";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isWeekend, differenceInCalendarYears } from "date-fns";
-import { Download, Upload, Lock, Wand2, RefreshCcw, FileText, Heart, MoreVertical, Settings, FolderOpen, Save, Loader2, Sparkles, TrendingUp } from "lucide-react";
+import { Download, Upload, Lock, Wand2, RefreshCcw, FileText, Heart, MoreVertical, Settings, FolderOpen, Save, Loader2, Sparkles, TrendingUp, Pencil, Check, X } from "lucide-react";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { api } from "../../lib/trpc/client";
 import { type Employee, type Constraint, type ScheduleAssignment, type SchedulingResult, type OffAccrualSummary } from "@/lib/types/scheduler";
@@ -374,6 +374,8 @@ function SchedulePageContent() {
   }, []);
   const selectedDepartment = selectedDepartmentState;
   const [draftScheduleName, setDraftScheduleName] = useState('');
+  const [isEditingScheduleName, setIsEditingScheduleName] = useState(false);
+  const scheduleNameBeforeEditRef = useRef('');
   const [existingScheduleToReplace, setExistingScheduleToReplace] = useState<{
     id: string;
     startDate: Date;
@@ -1221,6 +1223,11 @@ function SchedulePageContent() {
     [draftScheduleName, defaultScheduleName]
   );
 
+  const confirmationScheduleName = React.useMemo(
+    () => `${format(monthStart, 'yyyy년 M월')} 확정 스케줄`,
+    [monthStart]
+  );
+
   const handleToggleSwapMode = React.useCallback(() => {
     setShowScheduleSwapModal(true);
   }, []);
@@ -1229,6 +1236,33 @@ function SchedulePageContent() {
     setGenerationResult(null);
     setOffAccrualSummaries([]);
   }, []);
+
+  const handleStartEditingScheduleName = () => {
+    scheduleNameBeforeEditRef.current = draftScheduleName;
+    if (!draftScheduleName.trim()) {
+      setDraftScheduleName(effectiveScheduleName);
+    }
+    setIsEditingScheduleName(true);
+  };
+
+  const handleCancelEditingScheduleName = () => {
+    setDraftScheduleName(scheduleNameBeforeEditRef.current);
+    setIsEditingScheduleName(false);
+  };
+
+  const handleConfirmEditingScheduleName = () => {
+    const trimmed = draftScheduleName.trim();
+    if (!trimmed || trimmed === defaultScheduleName) {
+      setDraftScheduleName('');
+    } else {
+      setDraftScheduleName(trimmed);
+    }
+    setIsEditingScheduleName(false);
+  };
+
+  const handleScheduleNameInputChange = (value: string) => {
+    setDraftScheduleName(value);
+  };
 
   const handleSwapRequest = (myShift: SwapShift, targetShift: SwapShift) => {
     setSwapRequestData({ myShift, targetShift });
@@ -1886,6 +1920,7 @@ function SchedulePageContent() {
         await utils.schedule.list.invalidate();
 
         alert('스케줄이 저장되었습니다.\n다른 멤버들에게는 보이지 않으며, 스케줄 보기에서 확인할 수 있습니다.');
+        setIsEditingScheduleName(false);
       } else {
         alert('저장에 실패했습니다: ' + result.error);
       }
@@ -2846,131 +2881,159 @@ function SchedulePageContent() {
             toolbarAnimatedIn ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'
           }`}
         >
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                {/* Primary Actions */}
-                <div className="flex flex-wrap items-center gap-2">
-                  {isScheduleQueryLoading && (
-                    <div className="flex items-center gap-2 px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>스케줄 데이터를 불러오는 중입니다...</span>
-                    </div>
-                  )}
-
-                  {!isMember && (
-                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                      <button
-                        onClick={handleInitiateScheduleGeneration}
-                        disabled={isGenerating}
-                        className={`inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg flex-1 sm:flex-none ${
-                          isGenerating
-                            ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
-                            : "text-white bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
-                        }`}
-                      >
-                        {isGenerating ? (
-                          <>
-                            <RefreshCcw className="w-4 h-4 animate-spin" />
-                            <span className="hidden sm:inline">생성 중...</span>
-                            <span className="sm:hidden">생성중</span>
-                          </>
-                        ) : (
-                          <>
-                            <Wand2 className="w-4 h-4" />
-                            <span className="hidden sm:inline">스케줄 생성</span>
-                            <span className="sm:hidden">생성</span>
-                          </>
-                        )}
-                      </button>
-
-                      {/* AI Toggle Switch */}
-                      <div className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg">
-                        <Sparkles className={`w-4 h-4 ${aiEnabled && isProfessionalPlan ? "text-purple-600 dark:text-purple-400" : "text-gray-400"}`} />
-                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">AI</span>
-                        <button
-                          onClick={() => {
-                            if (!isProfessionalPlan) {
-                              alert(aiFeatureLockedMessage);
-                              return;
-                            }
-                            setAiEnabled(!aiEnabled);
-                          }}
-                          disabled={isGenerating}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
-                            aiEnabled && isProfessionalPlan
-                              ? 'bg-purple-600 dark:bg-purple-500'
-                              : 'bg-gray-300 dark:bg-gray-600'
-                          }`}
-                          title={isProfessionalPlan ? (aiEnabled ? "AI 모드 ON - 스케줄 생성 시 AI가 최적화합니다" : "AI 모드 OFF") : aiFeatureLockedMessage}
-                          role="switch"
-                          aria-checked={aiEnabled}
-                        >
-                          <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform ${
-                              aiEnabled && isProfessionalPlan ? 'translate-x-6' : 'translate-x-1'
-                            }`}
-                          />
-                        </button>
-                        {!isProfessionalPlan && (
-                          <span className="text-xs">🔒</span>
-                        )}
-                        <span className={`text-xs font-medium ${aiEnabled && isProfessionalPlan ? 'text-purple-600 dark:text-purple-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                          {aiEnabled && isProfessionalPlan ? 'ON' : 'OFF'}
-                        </span>
-                      </div>
-
-                      {/* AI Generated Badge */}
-                      {isAiGenerated && hasSchedule && (
-                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border border-purple-200 dark:border-purple-700 rounded-lg">
-                          <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                          <span className="text-xs font-medium text-purple-700 dark:text-purple-300">AI 생성</span>
-                        </div>
-                      )}
-
-                      {/* 🆕 개선 버튼 */}
-                      <button
-                        onClick={handleImproveSchedule}
-                        disabled={!hasSchedule || isImproving}
-                        className={`inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all flex-1 sm:flex-none ${
-                          !hasSchedule || isImproving
-                            ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
-                            : "text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md hover:shadow-lg"
-                        }`}
-                        title={hasSchedule ? "스케줄 최적화" : "개선할 스케줄이 없습니다"}
-                      >
-                        {isImproving ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span className="hidden sm:inline">개선 중...</span>
-                            <span className="sm:hidden">개선중</span>
-                          </>
-                        ) : (
-                          <>
-                            <TrendingUp className="w-4 h-4" />
-                            <span>개선</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2 w-full sm:w-auto">
-                    <div className="flex flex-col w-full sm:w-52">
-                      <label htmlFor="draftScheduleName" className="text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
-                        스케줄 명
-                      </label>
+            <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
+                  {isEditingScheduleName ? (
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                       <input
-                        id="draftScheduleName"
                         type="text"
                         value={draftScheduleName}
-                        onChange={(event) => setDraftScheduleName(event.target.value)}
-                        placeholder={defaultScheduleName}
-                        className="w-full px-3 py-1.5 text-xs sm:text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        onChange={(event) => handleScheduleNameInputChange(event.target.value)}
+                        className="w-full sm:w-64 px-3 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={handleConfirmEditingScheduleName}
+                          className="inline-flex items-center gap-1 px-3 py-2 text-xs font-medium text-white bg-blue-600 dark:bg-blue-500 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          완료
+                        </button>
+                        <button
+                          onClick={handleCancelEditingScheduleName}
+                          className="inline-flex items-center gap-1 px-3 py-2 text-xs font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          취소
+                        </button>
+                      </div>
                     </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 break-words">
+                        {effectiveScheduleName}
+                      </p>
+                      <button
+                        onClick={handleStartEditingScheduleName}
+                        className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                        title="스케줄 명 수정"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Primary Actions */}
+                <div className="flex flex-wrap items-center gap-2 justify-between">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {isScheduleQueryLoading && (
+                      <div className="flex items-center gap-2 px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>스케줄 데이터를 불러오는 중입니다...</span>
+                      </div>
+                    )}
+
+                    {!isMember && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          onClick={handleInitiateScheduleGeneration}
+                          disabled={isGenerating}
+                          className={`inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg ${
+                            isGenerating
+                              ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
+                              : "text-white bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
+                          }`}
+                        >
+                          {isGenerating ? (
+                            <>
+                              <RefreshCcw className="w-4 h-4 animate-spin" />
+                              <span className="hidden sm:inline">생성 중...</span>
+                              <span className="sm:hidden">생성중</span>
+                            </>
+                          ) : (
+                            <>
+                              <Wand2 className="w-4 h-4" />
+                              <span className="hidden sm:inline">스케줄 생성</span>
+                              <span className="sm:hidden">생성</span>
+                            </>
+                          )}
+                        </button>
+
+                        <div className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg">
+                          <Sparkles className={`w-4 h-4 ${aiEnabled && isProfessionalPlan ? "text-purple-600 dark:text-purple-400" : "text-gray-400"}`} />
+                          <span className="text-xs font-medium text-gray-700 dark:text-gray-300">AI</span>
+                          <button
+                            onClick={() => {
+                              if (!isProfessionalPlan) {
+                                alert(aiFeatureLockedMessage);
+                                return;
+                              }
+                              setAiEnabled(!aiEnabled);
+                            }}
+                            disabled={isGenerating}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                              aiEnabled && isProfessionalPlan
+                                ? 'bg-purple-600 dark:bg-purple-500'
+                                : 'bg-gray-300 dark:bg-gray-600'
+                            }`}
+                            title={isProfessionalPlan ? (aiEnabled ? "AI 모드 ON - 스케줄 생성 시 AI가 최적화합니다" : "AI 모드 OFF") : aiFeatureLockedMessage}
+                            role="switch"
+                            aria-checked={aiEnabled}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform ${
+                                aiEnabled && isProfessionalPlan ? 'translate-x-6' : 'translate-x-1'
+                              }`}
+                            />
+                          </button>
+                          {!isProfessionalPlan && (
+                            <span className="text-xs">🔒</span>
+                          )}
+                          <span className={`text-xs font-medium ${aiEnabled && isProfessionalPlan ? 'text-purple-600 dark:text-purple-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                            {aiEnabled && isProfessionalPlan ? 'ON' : 'OFF'}
+                          </span>
+                        </div>
+
+                        {isAiGenerated && hasSchedule && (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border border-purple-200 dark:border-purple-700 rounded-lg">
+                            <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                            <span className="text-xs font-medium text-purple-700 dark:text-purple-300">AI 생성</span>
+                          </div>
+                        )}
+
+                        <button
+                          onClick={handleImproveSchedule}
+                          disabled={!hasSchedule || isImproving}
+                          className={`inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all ${
+                            !hasSchedule || isImproving
+                              ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
+                              : "text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md hover:shadow-lg"
+                          }`}
+                          title={hasSchedule ? "스케줄 최적화" : "개선할 스케줄이 없습니다"}
+                        >
+                          {isImproving ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span className="hidden sm:inline">개선 중...</span>
+                              <span className="sm:hidden">개선중</span>
+                            </>
+                          ) : (
+                            <>
+                              <TrendingUp className="w-4 h-4" />
+                              <span>개선</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 justify-end">
                     <button
                       onClick={handleSaveDraft}
                       disabled={isSavingDraft || !hasSchedule}
-                      className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-400 rounded-lg border border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-70 disabled:cursor-not-allowed"
+                      className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-400 rounded-lg border border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-70.disabled:cursor-not-allowed"
                       title={hasSchedule ? "스케줄 저장 (멤버에게는 보이지 않음)" : "저장할 스케줄이 없습니다"}
                     >
                       {isSavingDraft ? (
@@ -2987,133 +3050,101 @@ function SchedulePageContent() {
                         </>
                       )}
                     </button>
-                  </div>
 
-                  <button
-                    onClick={handleConfirmToggle}
-                    disabled={isPreparingConfirmation || !hasSchedule}
-                    className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-70 disabled:cursor-not-allowed"
-                    title={hasSchedule ? "스케줄 확정" : "확정할 스케줄이 없습니다"}
-                  >
-                    {isPreparingConfirmation ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span className="hidden sm:inline">확인 중...</span>
-                        <span className="sm:hidden">대기</span>
-                      </>
-                    ) : (
-                      <>
-                        <Lock className="w-4 h-4" />
-                        <span className="hidden sm:inline">확정</span>
-                        <span className="sm:hidden">확정</span>
-                      </>
+                    <button
+                      onClick={handleConfirmToggle}
+                      disabled={isPreparingConfirmation || !hasSchedule}
+                      className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-70.disabled:cursor-not-allowed"
+                      title={hasSchedule ? "스케줄 확정" : "확정할 스케줄이 없습니다"}
+                    >
+                      {isPreparingConfirmation ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span className="hidden sm:inline">확인 중...</span>
+                          <span className="sm:hidden">대기</span>
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="w-4 h-4" />
+                          <span className="hidden sm:inline">확정</span>
+                          <span className="sm:hidden">확정</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      onClick={() => modals.setShowImportModal(true)}
+                      className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                      title="가져오기"
+                    >
+                      <Upload className="w-4 h-4" />
+                    </button>
+
+                    {hasSchedule && (
+                      <button
+                        onClick={() => modals.setShowExportModal(true)}
+                        className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                        title="내보내기"
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
                     )}
-                  </button>
-                </div>
 
-                {/* More Options Menu */}
-                <div className="flex items-center gap-2">
-                  {/* Import/Export as icon buttons */}
-                  <button
-                    onClick={() => modals.setShowImportModal(true)}
-                    className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
-                    title="가져오기"
-                  >
-                    <Upload className="w-4 h-4" />
-                  </button>
-
-                  {hasSchedule && (
                     <button
-                      onClick={() => modals.setShowExportModal(true)}
+                      onClick={() => modals.setShowManageModal(true)}
                       className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
-                      title="내보내기"
+                      title="스케줄 관리"
                     >
-                      <Download className="w-4 h-4" />
-                    </button>
-                  )}
-
-                  {/* Manage Saved Schedules */}
-                  <button
-                    onClick={() => modals.setShowManageModal(true)}
-                    className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
-                    title="스케줄 관리"
-                  >
-                    <FolderOpen className="w-4 h-4" />
-                  </button>
-
-                  {/* Dropdown Menu for Additional Options */}
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowMoreMenu(!showMoreMenu)}
-                      className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
-                      title="더 보기"
-                    >
-                      <MoreVertical className="w-4 h-4" />
+                      <FolderOpen className="w-4 h-4" />
                     </button>
 
-                    {/* Dropdown Menu */}
-                    {showMoreMenu && (
-                      <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
-                        {hasSchedule && (
-                          <>
-                            {generationResult && (
-                              <>
-                                <button
-                                  onClick={() => {
-                                    modals.setShowReport(true);
-                                    setShowMoreMenu(false);
-                                  }}
-                                  className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
-                                >
-                                  <FileText className="w-4 h-4" />
-                                  리포트 보기
-                                </button>
-                              </>
-                            )}
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowMoreMenu(!showMoreMenu)}
+                        className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                        title="더 보기"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
 
-                            <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
-                          </>
-                        )}
-
-                        <button
-                          onClick={() => {
-                            handleConfirmToggle();
-                            setShowMoreMenu(false);
-                          }}
-                          disabled={isPreparingConfirmation}
-                          className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                        >
-                          {isPreparingConfirmation ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Lock className="w-4 h-4" />
+                      {showMoreMenu && (
+                        <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
+                          {hasSchedule && generationResult && (
+                            <button
+                              onClick={() => {
+                                modals.setShowReport(true);
+                                setShowMoreMenu(false);
+                              }}
+                              className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
+                            >
+                              <FileText className="w-4 h-4" />
+                              리포트 보기
+                            </button>
                           )}
-                          스케줄 확정
-                        </button>
 
-                        <button
-                          onClick={() => {
-                            // Settings or preferences
-                            setShowMoreMenu(false);
-                          }}
-                          className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
-                        >
-                          <Settings className="w-4 h-4" />
-                          설정
-                        </button>
-                      </div>
-                    )}
+                          <button
+                            onClick={() => {
+                              setShowMoreMenu(false);
+                            }}
+                            className="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center gap-2"
+                          >
+                            <Settings className="w-4 h-4" />
+                            설정
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
             </div>
         </div>
         )}
+
         {!isScheduleQueryLoading && !hasSchedule && (
-          <div className="mb-6 rounded-lg border border-dashed border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30 p-4 text-sm text-gray-600 dark:text-gray-400">
+          <div className="mb-6 rounded-lg border.border-dashed border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30 p-4 text-sm text-gray-600 dark:text-gray-400">
             이 달에는 저장된 스케줄이 없습니다. 상단의 스케줄 생성이나 가져오기 버튼을 사용해 새 스케줄을 만들어주세요.
           </div>
         )}
-
         {/* View Tabs */}
         <ViewTabs
           activeView={filters.activeView}
@@ -3323,7 +3354,7 @@ function SchedulePageContent() {
         onConfirm={handleConfirmSchedule}
         isConfirming={modals.isConfirming}
         isCheckingConflicts={isPreparingConfirmation}
-        scheduleName={effectiveScheduleName}
+        scheduleName={confirmationScheduleName}
         existingSchedule={existingScheduleToReplace}
       />
 

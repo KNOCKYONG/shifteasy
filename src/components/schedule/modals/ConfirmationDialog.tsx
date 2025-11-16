@@ -82,14 +82,12 @@ export const ConfirmationDialog = memo(function ConfirmationDialog({
                         확정 시 수행되는 작업:
                       </p>
                       <ul className="text-sm text-amber-800 dark:text-amber-200 space-y-1">
-                        <li>• 스케줄이 최종 확정되어 수정 불가</li>
                         <li>• 모든 직원에게 알림 발송</li>
                         <li>• 스케줄 공개 및 접근 가능</li>
-                        <li>• 근무 일정 캘린더 동기화</li>
                       </ul>
                     </div>
                     <p className="mt-3 text-sm font-bold text-red-600 dark:text-red-400">
-                      ※ 이 작업은 되돌릴 수 없으며, 기존 스케줄이 영구 삭제됩니다.
+                      ※ 이 작업은 되돌릴 수 없으며, 기존 확정 스케줄이 영구 삭제됩니다.
                     </p>
                   </div>
                 </div>
@@ -114,10 +112,8 @@ export const ConfirmationDialog = memo(function ConfirmationDialog({
                   <strong>확정 시 수행되는 작업:</strong>
                 </p>
                 <ul className="mt-2 space-y-1 text-sm text-blue-600 dark:text-blue-300">
-                  <li>• 스케줄이 최종 확정되어 수정 불가</li>
                   <li>• 모든 직원에게 알림 발송</li>
                   <li>• 스케줄 공개 및 접근 가능</li>
-                  <li>• 근무 일정 캘린더 동기화</li>
                 </ul>
               </div>
             )}
