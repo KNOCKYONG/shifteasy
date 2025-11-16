@@ -1583,6 +1583,38 @@ async function runGenerationPass(
           shiftId = `shift-${shiftCode.toLowerCase()}`;
           countedAsWork = true;
         }
+
+        // Weekday-only 행정 근무자의 시프트 요청은
+        // 커버리지 단계로 넘기지 않고 즉시 확정하여
+        // 기본 A/O 패턴이 special request를 덮어쓰지 않도록 한다.
+        if (employee.workPatternType === 'weekday-only') {
+          const isOff = isOffShiftCode(shiftCode);
+          const countedAsWorkForAdmin = !isOff;
+          const resolvedShiftId = isOff ? OFF_SHIFT_ID : shiftId;
+
+          assignments.push({
+            employeeId: req.employeeId,
+            shiftId: resolvedShiftId,
+            date,
+            isLocked: true,
+            isSwapRequested: false,
+          });
+
+          assignedToday.add(req.employeeId);
+          updateEmployeeState(state, {
+            date,
+            shiftCode,
+            countedAsWork: countedAsWorkForAdmin,
+          });
+          if (isOff) {
+            incrementOffCounter(state, 'special-request');
+            finalShiftToday.set(req.employeeId, 'O');
+          } else {
+            finalShiftToday.set(req.employeeId, shiftCode);
+          }
+
+          return;
+        }
       } else if (normalizedRequestType === 'overtime' || normalizedRequestType === 'extra_shift') {
         shiftCode = 'D';
         shiftId = 'shift-d';
