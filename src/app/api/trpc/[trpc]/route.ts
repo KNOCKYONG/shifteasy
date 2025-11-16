@@ -4,7 +4,7 @@ import { appRouter } from '@/server/api/root';
 import { createTRPCContext } from '@/server/trpc-context';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 10; // 10 seconds max execution time
+export const maxDuration = 60; // 60 seconds max execution time
 
 const handler = (req: NextRequest) =>
   fetchRequestHandler({

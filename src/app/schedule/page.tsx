@@ -356,6 +356,13 @@ function SchedulePageContent() {
   const [, setOriginalSchedule] = useState<ScheduleAssignment[]>([]); // Setter used for state tracking
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationStepIndex, setGenerationStepIndex] = useState(0);
+  const generationSteps = [
+    '입력하신 조건을 분석하고 있어요...',
+    '직원별 패턴과 제약을 적용하는 중이에요...',
+    '근무 균형과 선호도를 맞추는 중이에요...',
+    'AI가 스케줄을 마무리하고 있어요...',
+  ];
   const [generationResult, setGenerationResult] = useState<SchedulingResult | null>(null);
   const [offAccrualSummaries, setOffAccrualSummaries] = useState<OffAccrualSummary[]>([]);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
@@ -1946,9 +1953,32 @@ function SchedulePageContent() {
       return;
     }
 
-    // Show generate modal with shift requirements
-    setShowGenerateModal(true);
-  };
+      // Show generate modal with shift requirements
+      setShowGenerateModal(true);
+    };
+
+  useEffect(() => {
+    if (!isGenerating) {
+      return;
+    }
+
+    setGenerationStepIndex(0);
+    const startedAt = Date.now();
+    const totalDurationMs = 30000;
+
+    const intervalId = window.setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      const progress = Math.min(1, elapsed / totalDurationMs);
+      const nextIndex = Math.floor(progress * (generationSteps.length - 1));
+      setGenerationStepIndex((current) =>
+        nextIndex > current ? nextIndex : current
+      );
+    }, 1500);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [isGenerating]);
 
   const handleGenerateSchedule = async (shiftRequirements: Record<string, number>) => {
     if (!canManageSchedules) {
@@ -1961,9 +1991,10 @@ function SchedulePageContent() {
       return;
     }
 
-    setIsGenerating(true);
-    setGenerationResult(null);
-    setOffAccrualSummaries([]);
+      setIsGenerating(true);
+      setGenerationStepIndex(0);
+      setGenerationResult(null);
+      setOffAccrualSummaries([]);
 
     try {
       // 1. Get active shift types
@@ -3250,6 +3281,20 @@ function SchedulePageContent() {
               <LottieLoadingOverlay message="스케줄 데이터를 불러오는 중입니다..." />
             ) : (
               <>
+                {isGenerating && (
+                  <div className="mb-4 rounded-lg border border-purple-100 bg-purple-50 px-4 py-3 text-sm text-purple-800 shadow-sm dark:border-purple-900/40 dark:bg-purple-950/40 dark:text-purple-100">
+                    <div className="flex items-center gap-2">
+                      <RefreshCcw className="h-4 w-4 animate-spin" />
+                      <span className="font-semibold">AI 스케줄을 생성하는 중입니다</span>
+                    </div>
+                    <p className="mt-1 text-xs text-purple-900/80 dark:text-purple-100/80">
+                      {generationSteps[generationStepIndex]}
+                    </p>
+                    <p className="mt-1 text-[11px] text-purple-900/60 dark:text-purple-100/60">
+                      평균 20~30초 정도 소요될 수 있어요. 이 화면을 열어둔 상태로 잠시만 기다려 주세요.
+                    </p>
+                  </div>
+                )}
                 {filters.viewMode === 'grid' ? (
                   <ScheduleGridView
                     daysInMonth={daysInMonth}
