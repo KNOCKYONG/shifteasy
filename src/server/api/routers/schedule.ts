@@ -12,6 +12,7 @@ import type { Assignment, Employee as ImprovementEmployee, ScheduleConstraints }
 import { sse } from '@/lib/sse/broadcaster';
 import { notificationService } from '@/lib/notifications/notification-service';
 import { format, subMonths } from 'date-fns';
+import { getShiftTypes } from '@/lib/config/shiftTypes';
 
 export const scheduleRouter = createTRPCRouter({
   list: protectedProcedure
@@ -1278,6 +1279,9 @@ export const scheduleRouter = createTRPCRouter({
         employeeId: string;
         date: string | Date;
         shiftId?: string;
+        shiftType?: string;
+        startTime?: string;
+        endTime?: string;
         [key: string]: unknown;
       };
 
@@ -1302,7 +1306,25 @@ export const scheduleRouter = createTRPCRouter({
         startTime?: string;
         endTime?: string;
         color?: string;
+        shiftCode?: string;
       };
+
+      const rawFallbackShiftTypes = await getShiftTypes(
+        tenantId,
+        ctx.user?.departmentId ?? undefined
+      );
+
+      const fallbackShiftTypes: ShiftType[] = rawFallbackShiftTypes.map((shift) => {
+        const shiftId = 'id' in shift && typeof (shift as { id?: unknown }).id === 'string'
+          ? (shift as { id?: string }).id
+          : undefined;
+
+        const normalized: ShiftType = {
+          ...shift,
+          id: shiftId ?? (shift.code ? `shift-${shift.code.toLowerCase()}` : undefined),
+        };
+        return normalized;
+      });
 
       // Extract my assignments from all schedules
       const myShifts: EnrichedAssignment[] = [];
@@ -1311,7 +1333,11 @@ export const scheduleRouter = createTRPCRouter({
 
         const metadata = schedule.metadata as UpcomingShiftsMetadata;
         const assignments = metadata?.assignments || [];
-        const shiftTypes = metadata?.shiftTypes || [];
+        const metadataShiftTypes = (metadata?.shiftTypes || []) as ShiftType[];
+        const shiftTypes =
+          metadataShiftTypes.length > 0
+            ? metadataShiftTypes
+            : (fallbackShiftTypes as ShiftType[]);
 
         // Filter assignments for current user within the date range
         const userAssignments = assignments.filter((a) => {
@@ -1321,30 +1347,36 @@ export const scheduleRouter = createTRPCRouter({
           return assignmentDate >= today && assignmentDate <= sevenDaysLater;
         });
 
-        // Add shift type information to each assignment
-        // Add shift type information to each assignment
-        // Add shift type information to each assignment
         const enrichedAssignments = userAssignments.map((assignment) => {
+          const normalizedShiftId = assignment.shiftId?.toLowerCase();
+          const extractedCode = normalizedShiftId?.replace('shift-', '');
+          const providedCode = assignment.shiftType?.toLowerCase();
+
           // Try multiple matching strategies to find the shift type
           const shiftType = shiftTypes.find((st) => {
-            // Direct ID match
-            if (st.id === assignment.shiftId) return true;
-            
-            // Code match: 'shift-a' matches code 'A'
-            const extractedCode = assignment.shiftId?.replace('shift-', '');
-            if (st.code?.toLowerCase() === extractedCode?.toLowerCase()) return true;
-            
-            // First character match: 'shift-off' -> 'o' matches code 'O'
-            if (st.code?.toLowerCase() === extractedCode?.charAt(0)?.toLowerCase()) return true;
-            
+            const candidateId = typeof st.id === 'string' ? st.id.toLowerCase() : undefined;
+            const candidateCode = typeof st.code === 'string' ? st.code.toLowerCase() : undefined;
+
+            if (candidateId && normalizedShiftId && candidateId === normalizedShiftId) return true;
+            if (candidateCode && normalizedShiftId && normalizedShiftId === `shift-${candidateCode}`) return true;
+            if (candidateCode && extractedCode && candidateCode === extractedCode) return true;
+            if (candidateCode && providedCode && candidateCode === providedCode) return true;
+            if (candidateCode && normalizedShiftId && candidateCode === normalizedShiftId) return true;
+
             return false;
           });
 
+          const codeForDisplay = shiftType?.code?.toUpperCase() ?? assignment.shiftType ?? extractedCode?.toUpperCase();
+          const displayName = shiftType
+            ? [shiftType.code?.toUpperCase(), shiftType.name].filter(Boolean).join(' ').trim()
+            : assignment.shiftType || assignment.shiftId || '-';
+
           const enriched = {
             ...assignment,
-            shiftName: shiftType?.name || assignment.shiftId,
-            startTime: shiftType?.startTime,
-            endTime: shiftType?.endTime,
+            shiftCode: codeForDisplay,
+            shiftName: displayName,
+            startTime: assignment.startTime || shiftType?.startTime,
+            endTime: assignment.endTime || shiftType?.endTime,
             color: shiftType?.color,
           };
 
