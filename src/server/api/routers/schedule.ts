@@ -1325,11 +1325,20 @@ export const scheduleRouter = createTRPCRouter({
         // Add shift type information to each assignment
         // Add shift type information to each assignment
         const enrichedAssignments = userAssignments.map((assignment) => {
-          // Convert shiftId to code format: 'shift-o' -> 'O', 'shift-a' -> 'A'
-          const shiftCode = assignment.shiftId?.replace('shift-', '').toUpperCase();
-          const shiftType = shiftTypes.find((st) =>
-            st.code === shiftCode || st.id === assignment.shiftId || st.code === assignment.shiftId
-          );
+          // Try multiple matching strategies to find the shift type
+          const shiftType = shiftTypes.find((st) => {
+            // Direct ID match
+            if (st.id === assignment.shiftId) return true;
+            
+            // Code match: 'shift-a' matches code 'A'
+            const extractedCode = assignment.shiftId?.replace('shift-', '');
+            if (st.code?.toLowerCase() === extractedCode?.toLowerCase()) return true;
+            
+            // First character match: 'shift-off' -> 'o' matches code 'O'
+            if (st.code?.toLowerCase() === extractedCode?.charAt(0)?.toLowerCase()) return true;
+            
+            return false;
+          });
 
           const enriched = {
             ...assignment,
@@ -1342,7 +1351,7 @@ export const scheduleRouter = createTRPCRouter({
           console.log('📅 나의 다가오는 근무 enriched:', {
             date: assignment.date,
             shiftId: assignment.shiftId,
-            shiftCode: shiftCode,
+            shiftCode: assignment.shiftId?.replace("shift-", ""),
             foundShiftType: shiftType,
             shiftName: enriched.shiftName,
             startTime: enriched.startTime,
