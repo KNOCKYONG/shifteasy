@@ -185,36 +185,46 @@ export function ShiftTypesTab({
           </div>
         </div>
 
-        {/* Shift types list */}
-        <div className="divide-y divide-gray-100 dark:divide-gray-700">
+        {/* Shift types list - Improved Card Layout */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {shiftTypes.map((shift) => (
-            <div key={shift.code} className="py-4">
+            <div
+              key={shift.code}
+              className="relative bg-gray-50 dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow"
+            >
               {editingShiftType === shift.code ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <input
-                    type="text"
-                    value={shift.code}
-                    disabled
-                    className="px-3 py-2 border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-lg"
-                  />
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-12 h-12 rounded-lg border-2 border-gray-300 dark:border-gray-600 flex-shrink-0"
+                      style={{ backgroundColor: shift.color }}
+                    />
+                    <input
+                      type="text"
+                      value={shift.code}
+                      disabled
+                      className="w-20 px-2 py-1 text-center border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-lg font-mono text-sm"
+                    />
+                  </div>
                   <input
                     type="text"
                     defaultValue={shift.name}
                     onBlur={(e) => handleUpdateShiftType(shift.code, { name: e.target.value })}
-                    className="px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
                   />
                   <div className="flex gap-2">
                     <input
                       type="time"
                       defaultValue={shift.startTime}
                       onBlur={(e) => handleUpdateShiftType(shift.code, { startTime: e.target.value })}
-                      className="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                      className="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
                     />
+                    <span className="text-gray-500 dark:text-gray-400 self-center">~</span>
                     <input
                       type="time"
                       defaultValue={shift.endTime}
                       onBlur={(e) => handleUpdateShiftType(shift.code, { endTime: e.target.value })}
-                      className="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                      className="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
                     />
                   </div>
                   <div className="flex gap-2">
@@ -225,30 +235,56 @@ export function ShiftTypesTab({
                     />
                     <button
                       onClick={() => setEditingShiftType(null)}
-                      className="px-3 py-2 bg-green-600 dark:bg-green-500 text-white rounded-lg hover:bg-green-700 dark:hover:bg-green-600"
+                      className="px-3 py-2 bg-green-600 dark:bg-green-500 text-white rounded-lg hover:bg-green-700 dark:hover:bg-green-600 flex items-center gap-1 text-sm"
                     >
                       완료
                     </button>
                   </div>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      defaultChecked={shift.allowOvertime}
+                      onChange={(e) => handleUpdateShiftType(shift.code, { allowOvertime: e.target.checked })}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-gray-700 dark:text-gray-300">초과 근무 허용</span>
+                  </label>
                 </div>
               ) : (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div
-                      className="w-4 h-4 rounded border border-gray-300 dark:border-gray-600"
-                      style={{ backgroundColor: shift.color }}
-                    ></div>
-                    <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md font-mono text-sm">
-                      {shift.code}
-                    </span>
-                    <span className="text-gray-900 dark:text-gray-100 font-medium">
-                      {shift.name}
-                    </span>
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      {shift.startTime} - {shift.endTime}
-                    </span>
+                <>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-12 h-12 rounded-lg border-2 border-gray-300 dark:border-gray-600"
+                        style={{ backgroundColor: shift.color }}
+                      />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-1 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 rounded-md font-mono text-lg font-semibold">
+                            {shift.code}
+                          </span>
+                          <h4 className="text-gray-900 dark:text-gray-100 font-semibold">
+                            {shift.name}
+                          </h4>
+                        </div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                          {shift.startTime === '00:00' && shift.endTime === '00:00'
+                            ? '시간 제한 없음'
+                            : `${shift.startTime} ~ ${shift.endTime}`}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
+
+                  {shift.allowOvertime && (
+                    <div className="mb-3">
+                      <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full">
+                        초과 근무 가능
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-end gap-2">
                     <button
                       onClick={() => setEditingShiftType(shift.code)}
                       className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
@@ -263,7 +299,7 @@ export function ShiftTypesTab({
                       <Trash2 className="w-4 h-4 text-red-500 dark:text-red-400" />
                     </button>
                   </div>
-                </div>
+                </>
               )}
             </div>
           ))}

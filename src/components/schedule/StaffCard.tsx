@@ -3,6 +3,8 @@ import { type Staff } from "@/lib/types";
 import { useTranslation } from "react-i18next";
 import { STAFF_ROLES } from "@/lib/constants/staff";
 import type { WorkPatternType } from "./EmployeePreferencesModal";
+import { useState, useEffect } from "react";
+import { getShiftOptions } from "@/lib/config/shiftTypes";
 
 interface StaffCardProps {
   staff: Staff;
@@ -31,6 +33,21 @@ export function StaffCard({ staff, compact = false, onClick, workPatternType, pr
   const { t } = useTranslation(['components', 'team']);
   const roleColor = ROLE_COLORS[staff.role] || ROLE_COLORS.RN;
   const roleName = STAFF_ROLES[staff.role]?.label || staff.role;
+
+  // Load shift types from database
+  const [shiftOptions, setShiftOptions] = useState<Array<{
+    value: string;
+    label: string;
+    fullName: string;
+  }>>([]);
+
+  useEffect(() => {
+    const loadOptions = async () => {
+      const options = await getShiftOptions();
+      setShiftOptions(options);
+    };
+    loadOptions();
+  }, []);
 
   // 경력 정보 계산
   const getCareerInfo = () => {
@@ -68,6 +85,15 @@ export function StaffCard({ staff, compact = false, onClick, workPatternType, pr
 
     if (preferredShifts && preferredShifts.length > 0) {
       const shiftLabels = preferredShifts.map(s => {
+        // Try to find from DB loaded shift options
+        const shiftOption = shiftOptions.find(opt =>
+          opt.value === s || opt.value === s.toUpperCase()
+        );
+        if (shiftOption) {
+          return shiftOption.label;
+        }
+
+        // Fallback for legacy formats
         if (s === 'day' || s === 'D') return '주간';
         if (s === 'evening' || s === 'E') return '저녁';
         if (s === 'night' || s === 'N') return '야간';

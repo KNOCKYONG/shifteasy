@@ -21,6 +21,12 @@ export function AdminDashboard() {
   const [workmatesPeriod, setWorkmatesPeriod] = useState<'today' | 'week' | 'month'>('week');
   const [workmatesGroupBy, setWorkmatesGroupBy] = useState<'shift' | 'department' | 'team'>('shift');
 
+  // Get shift types from database
+  const { data: configs } = api.configs.getAll.useQuery(undefined, {
+    staleTime: 30 * 60 * 1000, // 30 minutes cache (same as server)
+    refetchOnWindowFocus: false,
+  });
+
   // Optimized dashboard data query - single request with caching
   const { data: dashboardData, isLoading } = api.schedule.getDashboardData.useQuery(undefined, {
     staleTime: 5 * 60 * 1000, // 5 minutes cache
@@ -342,23 +348,25 @@ export function AdminDashboard() {
                       </p>
                       <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
                         {(() => {
-                          // Shift code mapping for display
-                          const shiftMapping: Record<string, string> = {
-                            'shift-d': 'D 주간',
-                            'shift-e': 'E 저녁',
-                            'shift-n': 'N 야간',
-                            'shift-a': 'A 행정',
-                            'shift-o': 'O 휴무',
-                            'shift-off': 'O 휴무',
-                            'shift-v': 'V 휴가',
-                            'd': 'D 주간',
-                            'e': 'E 저녁',
-                            'n': 'N 야간',
-                            'a': 'A 행정',
-                            'o': 'O 휴무',
-                            'off': 'O 휴무',
-                            'v': 'V 휴가',
-                          };
+                          // Dynamic shift code mapping from database
+                          const shiftTypes = configs?.shift_types || [];
+                          const shiftMapping: Record<string, string> = {};
+
+                          // Build mapping from DB shift types
+                          shiftTypes.forEach((st: any) => {
+                            const code = st.code?.toLowerCase();
+                            const displayName = `${st.code} ${st.name}`;
+
+                            // Map various formats
+                            shiftMapping[code] = displayName;
+                            shiftMapping[`shift-${code}`] = displayName;
+
+                            // Special case for OFF
+                            if (code === 'o') {
+                              shiftMapping['off'] = displayName;
+                              shiftMapping['shift-off'] = displayName;
+                            }
+                          });
 
                           const shiftId = shift.shiftId?.toLowerCase() || '';
                           const displayName = shift.shiftName ||
