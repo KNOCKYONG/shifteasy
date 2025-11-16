@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { sseManager } from '@/lib/sse/sseManager';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 10;
+export const maxDuration = 300; // ✅ SSE는 장시간 연결 유지 필요 (5분)
 
 export async function GET(req: NextRequest) {
   // 클라이언트 ID 생성 (실제로는 인증된 사용자 ID 사용)
@@ -29,8 +29,19 @@ export async function GET(req: NextRequest) {
       const encoder = new TextEncoder();
       controller.enqueue(encoder.encode(welcomeMessage));
 
+      // ✅ 30초마다 heartbeat 전송 (연결 유지)
+      const heartbeatInterval = setInterval(() => {
+        try {
+          controller.enqueue(encoder.encode(': heartbeat\n\n'));
+        } catch {
+          console.log(`[SSE Route] Heartbeat failed for ${clientId}, cleaning up`);
+          clearInterval(heartbeatInterval);
+        }
+      }, 30000);
+
       // 연결 종료 시 정리
       req.signal.addEventListener('abort', () => {
+        clearInterval(heartbeatInterval);
         sseManager.removeClient(clientId);
         controller.close();
       });
