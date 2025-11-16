@@ -1541,20 +1541,23 @@ function SchedulePageContent() {
       return [];
     }
 
-    const restDayCount = dateRange.reduce((count, date) => {
+    // ✅ 공휴일만 별도 계산 (주말 제외)
+    const holidayCount = dateRange.reduce((count, date) => {
       const key = format(date, 'yyyy-MM-dd');
-      if (isWeekend(date) || holidayDates.has(key)) {
+      if (holidayDates.has(key)) {
         return count + 1;
       }
       return count;
     }, 0);
 
-    const baseGuarantee = restDayCount;
+    // ✅ 주말만 별도 계산
+    const weekendCount = dateRange.filter(date => isWeekend(date)).length;
+
+    // ✅ 이전 달 이월분 (allocated_to_accumulation) 조회
     const carryOverMap = new Map<string, number>();
     (offBalanceData ?? []).forEach((entry) => {
-      const remainingOffDays =
-        (entry as { remainingOffDays?: number }).remainingOffDays;
-      const carryOver = Math.max(0, entry.accumulatedOffDays ?? remainingOffDays ?? 0);
+      // ✅ allocatedToAccumulation 컬럼 참조
+      const carryOver = Math.max(0, entry.allocatedToAccumulation ?? 0);
       carryOverMap.set(entry.nurseId, carryOver);
     });
 
@@ -1578,10 +1581,26 @@ function SchedulePageContent() {
         member?.simplifiedPreferences?.workPatternType ??
         member?.workPatternType ??
         'three-shift';
-      const nightLeaveDays =
-        workPatternType === 'night-intensive' ? Math.max(0, nightLeaveSetting) : 0;
+
       const carryOver = carryOverMap.get(employeeId) ?? 0;
-      const guaranteedOffDays = baseGuarantee + nightLeaveDays + carryOver;
+      let guaranteedOffDays = 0;
+
+      // ✅ 근무 유형별 보장 휴무일 계산
+      if (workPatternType === 'three-shift') {
+        // 3교대 근무자: 공휴일 + 주말 + 이월분
+        guaranteedOffDays = holidayCount + weekendCount + carryOver;
+      } else if (workPatternType === 'night-intensive') {
+        // 나이트 집중 근무자: 공휴일 + 주말 + 나이트 유급휴가 + 이월분
+        const nightLeaveDays = Math.max(0, nightLeaveSetting);
+        guaranteedOffDays = holidayCount + weekendCount + nightLeaveDays + carryOver;
+      } else if (workPatternType === 'weekday-only') {
+        // 평일 근무자: 공휴일 + 이월분 (주말은 원래 휴무)
+        guaranteedOffDays = holidayCount + carryOver;
+      } else {
+        // 기타 근무 유형: 공휴일 + 주말 + 이월분 (기본값)
+        guaranteedOffDays = holidayCount + weekendCount + carryOver;
+      }
+
       const actualOffDays = offCounts.get(employeeId) ?? 0;
 
       summaries.push({
@@ -1594,7 +1613,9 @@ function SchedulePageContent() {
 
     console.log('[OffBalance] Recomputed off accrual summaries', {
       employeeCount: summaries.length,
-      baseGuarantee,
+      holidayCount,
+      weekendCount,
+      totalRestDays: holidayCount + weekendCount,
     });
 
     return summaries;
