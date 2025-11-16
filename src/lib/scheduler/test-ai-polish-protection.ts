@@ -27,7 +27,7 @@ function createTestData(): {
       shiftId: 'OFF',
       shiftType: 'OFF',
       isLocked: true, // Protected
-      employeeName: 'Kim',
+      // employeeName: 'Kim', // Not part of ScheduleAssignment type
       constraintViolations: [],
     },
     // 🔒 Protected: Specific shift request
@@ -37,7 +37,7 @@ function createTestData(): {
       shiftId: 'N',
       shiftType: 'N',
       isLocked: true, // Protected
-      employeeName: 'Lee',
+      // employeeName: 'Lee',
       constraintViolations: [],
     },
     // ✅ Modifiable: Regular assignment (unfair distribution)
@@ -47,7 +47,7 @@ function createTestData(): {
       shiftId: 'D',
       shiftType: 'D',
       isLocked: false,
-      employeeName: 'Park',
+      // employeeName: 'Park',
       constraintViolations: [],
     },
     // ✅ Modifiable: Regular assignment (can swap)
@@ -57,7 +57,7 @@ function createTestData(): {
       shiftId: 'E',
       shiftType: 'E',
       isLocked: false,
-      employeeName: 'Choi',
+      // employeeName: 'Choi',
       constraintViolations: [],
     },
     // 🔒 Protected: Another special request
@@ -67,7 +67,7 @@ function createTestData(): {
       shiftId: 'OFF',
       shiftType: 'OFF',
       isLocked: true, // Protected
-      employeeName: 'Jung',
+      // employeeName: 'Jung',
       constraintViolations: [],
     },
     // Create unfair distribution (emp-003 has many more shifts)
@@ -77,7 +77,7 @@ function createTestData(): {
       shiftId: 'D',
       shiftType: 'D',
       isLocked: false,
-      employeeName: 'Park',
+      // employeeName: 'Park',
       constraintViolations: [],
     } as ScheduleAssignment)),
   ];
