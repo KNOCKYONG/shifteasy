@@ -1,12 +1,13 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { User, X, AlertCircle, Star, ChevronLeft, ChevronRight, Info, CheckCircle, Wallet, Clock, RotateCcw } from "lucide-react";
+import { User, X, AlertCircle, Star, ChevronLeft, ChevronRight, Info, CheckCircle, Wallet, Clock, RotateCcw, Calendar } from "lucide-react";
 import { type Employee, type EmployeePreferences, type ShiftType } from "@/lib/types/scheduler";
 import { validatePattern as validatePatternUtil, describePattern, EXAMPLE_PATTERNS } from "@/lib/utils/pattern-validator";
 import { api } from "@/lib/trpc/client";
-import { format, startOfMonth, endOfMonth } from "date-fns";
+import { format, startOfMonth, endOfMonth, addMonths, isBefore, startOfDay } from "date-fns";
 import type { SimplifiedPreferences } from "@/components/department/MyPreferencesPanel";
 import { LottieLoadingOverlay } from "@/components/common/LottieLoadingOverlay";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 interface EmployeePreferencesModalProps {
   employee: Employee;
@@ -218,13 +219,39 @@ export function EmployeePreferencesModal({
   const [allocToAllowance, setAllocToAllowance] = useState(0);
   const lastAllocationRef = useRef({ accumulation: 0, allowance: 0 });
 
-  // Fetch off-balance data
+  // ✅ 월 선택 state 추가
+  const [selectedOffBalanceMonth, setSelectedOffBalanceMonth] = useState(new Date());
+
+  // ✅ 현재 사용자 정보 가져오기
+  const currentUser = useCurrentUser();
+  const isManager = currentUser?.role === 'manager' || currentUser?.role === 'admin' || currentUser?.role === 'owner';
+
+  // ✅ 선택 가능한 월 범위 계산
+  const currentMonth = startOfMonth(new Date());
+
+  // ✅ 모든 사용자가 이전 달도 볼 수 있도록 수정 (현재 달 기준 -1 ~ +3개월)
+  const selectableMonths = Array.from({ length: 5 }, (_, i) =>
+    addMonths(currentMonth, i - 1)
+  );
+
+  // ✅ member가 이전 달을 선택했는지 확인
+  const isPastMonth = isBefore(
+    startOfDay(selectedOffBalanceMonth),
+    startOfDay(currentMonth)
+  );
+  const canSaveAllocation = isManager || !isPastMonth;
+
+  // ✅ 선택된 월에 따라 off-balance 데이터 조회
   const { data: offBalance, refetch: refetchOffBalance } = api.offBalance.getByEmployee.useQuery(
-    { employeeId: employee.id },
+    {
+      employeeId: employee.id,
+      year: selectedOffBalanceMonth.getFullYear(),
+      month: selectedOffBalanceMonth.getMonth() + 1, // JavaScript month is 0-indexed
+    },
     { enabled: activeTab === 'off-balance' }
   );
 
-  // Update offBalanceData when query data changes
+  // Update offBalanceData when query data changes or selected month changes
   useEffect(() => {
     if (offBalance) {
       // Transform null values to 0 for type safety
@@ -245,11 +272,11 @@ export function EmployeePreferencesModal({
           status: record.status ?? 'pending',
         })),
       });
-      // Initialize allocation inputs with current values
+      // ✅ Initialize allocation inputs with current values from selected month
       setAllocToAccumulation(offBalance.preferences.allocatedToAccumulation ?? 0);
       setAllocToAllowance(offBalance.preferences.allocatedToAllowance ?? 0);
     }
-  }, [offBalance]);
+  }, [offBalance, selectedOffBalanceMonth]);
 
   // Update allocation mutation
   const updateAllocationMutation = api.offBalance.updateAllocation.useMutation({
@@ -277,7 +304,7 @@ export function EmployeePreferencesModal({
     }
   });
 
-  // Handle allocation save
+  // ✅ 선택된 월의 배분 설정 저장
   const handleSaveAllocation = () => {
     lastAllocationRef.current = {
       accumulation: allocToAccumulation,
@@ -288,6 +315,8 @@ export function EmployeePreferencesModal({
       allocatedToAccumulation: allocToAccumulation,
       allocatedToAllowance: allocToAllowance,
       departmentId: employee.departmentId || undefined,
+      year: selectedOffBalanceMonth.getFullYear(),
+      month: selectedOffBalanceMonth.getMonth() + 1, // JavaScript month is 0-indexed
     });
   };
   // Request 탭을 위한 state
@@ -1088,6 +1117,33 @@ export function EmployeePreferencesModal({
 
           {activeTab === 'off-balance' && (
             <div className="space-y-6">
+              {/* ✅ 월 선택 - 상단으로 이동 */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  배분 대상 월 선택
+                </label>
+                <select
+                  value={format(selectedOffBalanceMonth, 'yyyy-MM')}
+                  onChange={(e) => setSelectedOffBalanceMonth(new Date(e.target.value + '-01'))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+                >
+                  {selectableMonths.map((month) => (
+                    <option key={format(month, 'yyyy-MM')} value={format(month, 'yyyy-MM')}>
+                      {format(month, 'yyyy년 M월')}
+                      {format(month, 'yyyy-MM') === format(currentMonth, 'yyyy-MM') && ' (이번 달)'}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {isManager
+                    ? '💼 Manager는 이전 달부터 배분 설정 가능합니다'
+                    : isPastMonth
+                    ? '⚠️ Member는 과거 데이터를 조회만 가능하며, 수정할 수 없습니다'
+                    : '👤 Member는 이번 달부터 배분 설정 가능합니다'}
+                </p>
+              </div>
+
               {/* 잔여 OFF 시스템 안내 */}
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                 <div className="flex items-start gap-3">
@@ -1109,7 +1165,7 @@ export function EmployeePreferencesModal({
               <div>
                 <h3 className="font-semibold mb-3 text-gray-900 dark:text-white flex items-center gap-2">
                   <Wallet className="w-5 h-5 text-purple-500" />
-                  현재 적립된 OFF 잔액
+                  {format(selectedOffBalanceMonth, 'yyyy년 M월')} OFF 잔액
                 </h3>
                 <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-lg border border-purple-200 dark:border-purple-800 p-6">
                   <div className="text-center">
@@ -1127,7 +1183,7 @@ export function EmployeePreferencesModal({
               <div>
                 <h3 className="font-semibold mb-3 text-gray-900 dark:text-white flex items-center gap-2">
                   <CheckCircle className="w-5 h-5 text-blue-500" />
-                  OFF 배분 설정
+                  {format(selectedOffBalanceMonth, 'yyyy년 M월')} OFF 배분 설정
                 </h3>
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-4">
                   {/* 설명 */}
@@ -1210,16 +1266,32 @@ export function EmployeePreferencesModal({
                     )}
                   </div>
 
-                  {/* 저장 버튼 */}
+                  {/* ✅ Member가 과거 월 선택 시 경고 메시지 */}
+                  {!canSaveAllocation && (
+                    <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded text-sm text-amber-600 dark:text-amber-400">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <strong>과거 데이터는 수정할 수 없습니다</strong>
+                          <p className="mt-1">Member는 이번 달부터 배분 설정을 저장할 수 있습니다. 조회만 가능합니다.</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ✅ 저장 버튼 - member의 과거 월 수정 제한 추가 */}
                   <button
                     onClick={handleSaveAllocation}
                     disabled={
                       updateAllocationMutation.isPending ||
+                      !canSaveAllocation ||
                       (allocToAccumulation + allocToAllowance) > (offBalanceData?.preferences.accumulatedOffDays || 0)
                     }
-                    className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
+                    className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
                   >
-                    {updateAllocationMutation.isPending ? '저장 중...' : '배분 설정 저장'}
+                    {updateAllocationMutation.isPending ? '저장 중...' :
+                     !canSaveAllocation ? '⚠️ 과거 데이터는 수정 불가' :
+                     '배분 설정 저장'}
                   </button>
                 </div>
               </div>
