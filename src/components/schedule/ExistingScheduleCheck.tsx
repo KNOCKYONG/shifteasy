@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { api } from '@/lib/trpc/client';
 import { Calendar, AlertCircle, CheckCircle, Clock, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { toUTCDateOnly } from '@/lib/utils/date-utils';
 
 interface ExistingScheduleCheckProps {
   departmentId: string;
@@ -23,12 +24,17 @@ export default function ExistingScheduleCheck({
 }: ExistingScheduleCheckProps) {
   const [selectedOption, setSelectedOption] = useState<'existing' | 'new' | null>(null);
 
+  const startDateMs = startDate.getTime();
+  const endDateMs = endDate.getTime();
+  const normalizedStartDate = useMemo(() => toUTCDateOnly(new Date(startDateMs)), [startDateMs]);
+  const normalizedEndDate = useMemo(() => toUTCDateOnly(new Date(endDateMs)), [endDateMs]);
+
   // Check for existing published schedules
   const { data: existingData, isLoading } = api.schedule.checkExisting.useQuery(
     {
       departmentId,
-      startDate,
-      endDate,
+      startDate: normalizedStartDate,
+      endDate: normalizedEndDate,
     },
     {
       enabled: !!departmentId && !!startDate && !!endDate,

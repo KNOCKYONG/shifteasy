@@ -5,7 +5,7 @@ import { scopedDb, createAuditLog } from '@/lib/db-helpers';
 import { schedules, users, departments, offBalanceLedger, holidays, specialRequests, teams } from '@/db/schema';
 import { eq, and, gte, lte, desc, inArray, isNull, ne, or } from 'drizzle-orm';
 import { db } from '@/db';
-import { generateAiSchedule } from '@/lib/scheduler/ai-scheduler';
+import { generateAiSchedule } from '@/lib/scheduler/greedy-scheduler';
 import { autoPolishWithAI } from '@/lib/scheduler/ai-polish';
 import { ScheduleImprover } from '@/lib/scheduler/schedule-improver';
 import type { Assignment, Employee as ImprovementEmployee, ScheduleConstraints } from '@/lib/scheduler/types';

@@ -6,3 +6,18 @@
 export function normalizeDate(value: Date | string): Date {
   return value instanceof Date ? value : new Date(value);
 }
+
+/**
+ * Convert any Date/string to a UTC midnight Date to avoid timezone drift
+ */
+export function toUTCDateOnly(value: Date | string): Date {
+  const date = normalizeDate(value);
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+}
+
+/**
+ * Convenience helper to get a stable ISO string (UTC midnight) for a date-only value
+ */
+export function toUTCDateISOString(value: Date | string): string {
+  return toUTCDateOnly(value).toISOString();
+}

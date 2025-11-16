@@ -44,7 +44,7 @@ import {
 import { TeamFilter } from "@/components/schedule/views/TeamFilter";
 import { TodayScheduleBoard } from "@/components/schedule/TodayScheduleBoard";
 import { convertShiftTypesToShifts, type ShiftType } from "@/lib/utils/shift-utils";
-import { normalizeDate } from "@/lib/utils/date-utils";
+import { normalizeDate, toUTCDateOnly, toUTCDateISOString } from "@/lib/utils/date-utils";
 import { useScheduleModals } from "@/hooks/useScheduleModals";
 import { useScheduleFilters, type ScheduleView } from "@/hooks/useScheduleFilters";
 import { ScheduleSkeleton } from "@/components/schedule/ScheduleSkeleton";
@@ -739,8 +739,8 @@ function SchedulePageContent() {
     departmentId: (isManager || isMember) && memberDepartmentId ? memberDepartmentId :
                   selectedDepartment !== 'all' && selectedDepartment !== 'no-department' ? selectedDepartment : undefined,
     status: isMember ? 'published' : undefined, // Members only see published, managers/admins see all including drafts
-    startDate: monthStart,
-    endDate: monthEnd,
+    startDate: toUTCDateOnly(monthStart),
+    endDate: toUTCDateOnly(monthEnd),
     includeMetadata: true, // Need full metadata for assignments
   }, {
     enabled: needsFullSchedule, // 필요한 경우에만 로드
@@ -884,11 +884,6 @@ function SchedulePageContent() {
     });
   }, [schedule, monthStart]);
 
-  const toStableDateISOString = React.useCallback((value: Date | string) => {
-    const date = normalizeDate(value);
-    const stable = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0, 0));
-    return stable.toISOString();
-  }, []);
   const buildSchedulePayload = () => {
     // ✅ Manager/Member는 항상 실제 departmentId 사용
     let actualDepartmentId: string;
@@ -907,12 +902,12 @@ function SchedulePageContent() {
     return {
       id: `schedule-${format(monthStart, 'yyyy-MM')}-${actualDepartmentId}`,
       departmentId: actualDepartmentId,
-      startDate: toStableDateISOString(monthStart),
-      endDate: toStableDateISOString(monthEnd),
+      startDate: toUTCDateISOString(monthStart),
+      endDate: toUTCDateISOString(monthEnd),
       assignments: currentMonthAssignments.map(assignment => ({
         employeeId: assignment.employeeId,
         shiftId: assignment.shiftId,
-        date: toStableDateISOString(assignment.date),
+        date: toUTCDateISOString(assignment.date),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         isLocked: (assignment as any).isLocked ?? false,
         shiftType: deriveShiftTypeFromId(assignment.shiftId),
@@ -1726,8 +1721,8 @@ function SchedulePageContent() {
     try {
       const existingCheck = await utils.schedule.checkExisting.fetch({
         departmentId: validDepartmentId,
-        startDate: monthStart,
-        endDate: endOfMonth(monthStart),
+        startDate: toUTCDateOnly(monthStart),
+        endDate: toUTCDateOnly(monthEnd),
       });
 
       if (existingCheck.hasExisting && existingCheck.schedules.length > 0) {
@@ -2229,8 +2224,8 @@ function SchedulePageContent() {
       const payload = {
         name: `AI 스케줄 - ${format(monthStart, 'yyyy-MM')}`,
         departmentId: inferredDepartmentId,
-        startDate: monthStart,
-        endDate: monthEnd,
+        startDate: toUTCDateOnly(monthStart),
+        endDate: toUTCDateOnly(monthEnd),
         employees,
         shifts: generationShifts,
         constraints: DEFAULT_CONSTRAINTS,

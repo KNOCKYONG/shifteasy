@@ -4,6 +4,7 @@ import { X, ArrowRight, Calendar, User, AlertCircle, CheckCircle, XCircle } from
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { api } from '@/lib/trpc/client';
+import { toUTCDateOnly } from '@/lib/utils/date-utils';
 
 interface SwapRequest {
   id: string;
@@ -44,8 +45,8 @@ export const SwapPreviewModal = React.memo(function SwapPreviewModal({
 
   // Fetch schedule for the month
   const { data: schedulesData, isLoading } = api.schedule.list.useQuery({
-    startDate: startOfMonth,
-    endDate: endOfMonth,
+    startDate: toUTCDateOnly(startOfMonth),
+    endDate: toUTCDateOnly(endOfMonth),
     status: 'published',
   });
 

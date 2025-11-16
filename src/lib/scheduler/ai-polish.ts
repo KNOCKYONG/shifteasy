@@ -7,7 +7,7 @@
 import { performance } from 'perf_hooks';
 import { format } from 'date-fns';
 import type { ScheduleAssignment, ScheduleScore, Constraint, ConstraintViolation } from '@/lib/types/scheduler';
-import type { AiScheduleRequest, AiScheduleGenerationResult, AiEmployee } from './ai-scheduler';
+import type { AiScheduleRequest, AiScheduleGenerationResult, AiEmployee } from './greedy-scheduler';
 import { extractFirstJsonBlock } from '@/lib/utils/ai-json';
 
 export interface AIPolishResult {

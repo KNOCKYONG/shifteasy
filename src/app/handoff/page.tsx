@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import {
@@ -16,6 +16,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { api } from "@/lib/trpc/client";
 import { CreateHandoffDialog } from "@/components/handoff/CreateHandoffDialog";
 import { LottieLoadingOverlay } from "@/components/common/LottieLoadingOverlay";
+import { toUTCDateOnly } from "@/lib/utils/date-utils";
 
 const PRIORITY_ICONS = {
   critical: "🔴",
@@ -62,12 +63,22 @@ export default function HandoffPage() {
     limit: 50,
   });
 
+  const statsRange = useMemo(() => {
+    const end = new Date();
+    const start = new Date(end);
+    start.setDate(start.getDate() - 30);
+    return {
+      startDate: toUTCDateOnly(start),
+      endDate: toUTCDateOnly(end),
+    };
+  }, []);
+
   // Statistics - disabled for now until we have valid department context
   const { data: stats } = api.handoff.stats.useQuery(
     {
       departmentId: selectedDepartment,
-      startDate: new Date(new Date().setDate(new Date().getDate() - 30)),
-      endDate: new Date(),
+      startDate: statsRange.startDate,
+      endDate: statsRange.endDate,
     },
     {
       enabled: !!selectedDepartment, // Only fetch when we have a valid department
