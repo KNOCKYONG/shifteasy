@@ -1,4 +1,4 @@
-import React, { memo, useState, useEffect } from 'react';
+import React, { memo } from 'react';
 import { Lock, X, RefreshCcw, AlertTriangle, Loader2 } from 'lucide-react';
 
 interface ExistingSchedule {
@@ -15,8 +15,6 @@ interface ConfirmationDialogProps {
   isConfirming: boolean;
   isCheckingConflicts?: boolean;
   scheduleName: string;
-  onScheduleNameChange: (name: string) => void;
-  defaultScheduleName: string;
   existingSchedule?: ExistingSchedule | null;
 }
 
@@ -26,32 +24,10 @@ export const ConfirmationDialog = memo(function ConfirmationDialog({
   onConfirm,
   isConfirming,
   scheduleName,
-  onScheduleNameChange,
-  defaultScheduleName,
   existingSchedule,
   isCheckingConflicts = false,
 }: ConfirmationDialogProps) {
-  // Use local state to prevent parent re-renders on every keystroke
-  const [localName, setLocalName] = useState(scheduleName);
-
-  // Sync local state when modal opens/closes or parent value changes
-  useEffect(() => {
-    setLocalName(scheduleName);
-  }, [isOpen, scheduleName]);
-
-  // Update parent only on blur (when user finishes typing)
-  const handleBlur = () => {
-    if (localName !== scheduleName) {
-      onScheduleNameChange(localName);
-    }
-  };
-
-  // Also update parent when confirming
   const handleConfirm = () => {
-    if (localName !== scheduleName) {
-      onScheduleNameChange(localName);
-    }
-    // Wait a tick for state to update before confirming
     setTimeout(onConfirm, 0);
   };
 
@@ -126,27 +102,9 @@ export const ConfirmationDialog = memo(function ConfirmationDialog({
                 : '현재 스케줄을 확정하시겠습니까?'}
             </p>
 
-            {/* 스케줄 명 입력 필드 */}
-            <div className="mb-4">
-              <label htmlFor="scheduleName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                스케줄 명
-              </label>
-              <input
-                type="text"
-                id="scheduleName"
-                value={localName}
-                onChange={(e) => setLocalName(e.target.value)}
-                onBlur={handleBlur}
-                placeholder={defaultScheduleName}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                         bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
-                         placeholder-gray-400 dark:placeholder-gray-500
-                         focus:ring-2 focus:ring-purple-500 focus:border-transparent
-                         transition-colors"
-              />
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                입력하지 않으면 &quot;{defaultScheduleName}&quot;로 저장됩니다.
-              </p>
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">확정될 스케줄 명</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 break-words">{scheduleName}</p>
             </div>
 
             {/* 기존 스케줄이 없을 때만 정보 박스 표시 */}

@@ -373,7 +373,7 @@ function SchedulePageContent() {
     });
   }, []);
   const selectedDepartment = selectedDepartmentState;
-  const [scheduleName, setScheduleName] = useState('');
+  const [draftScheduleName, setDraftScheduleName] = useState('');
   const [existingScheduleToReplace, setExistingScheduleToReplace] = useState<{
     id: string;
     startDate: Date;
@@ -1211,6 +1211,16 @@ function SchedulePageContent() {
     setIsAiGenerated(false);
   }, []);
 
+  const defaultScheduleName = React.useMemo(
+    () => `${format(monthStart, 'yyyy년 M월')} 스케줄`,
+    [monthStart]
+  );
+
+  const effectiveScheduleName = React.useMemo(
+    () => (draftScheduleName.trim() || defaultScheduleName),
+    [draftScheduleName, defaultScheduleName]
+  );
+
   const handleToggleSwapMode = React.useCallback(() => {
     setShowScheduleSwapModal(true);
   }, []);
@@ -1219,10 +1229,6 @@ function SchedulePageContent() {
     setGenerationResult(null);
     setOffAccrualSummaries([]);
   }, []);
-
-  const handleScheduleNameChange = (value: string) => {
-    setScheduleName(value);
-  };
 
   const handleSwapRequest = (myShift: SwapShift, targetShift: SwapShift) => {
     setSwapRequestData({ myShift, targetShift });
@@ -1753,8 +1759,7 @@ function SchedulePageContent() {
       const ensuredOffAccruals = recomputeOffAccrualSummaries();
       setOffAccrualSummaries(ensuredOffAccruals);
 
-      // 스케줄 명이 입력되지 않은 경우 기본값 설정
-      const finalScheduleName = scheduleName.trim() || `${format(monthStart, 'yyyy년 M월')} 스케줄`;
+      const finalScheduleName = effectiveScheduleName;
 
       const response = await fetchWithAuth('/api/schedule/confirm', {
         method: 'POST',
@@ -1786,7 +1791,7 @@ function SchedulePageContent() {
         }
 
         modals.setShowConfirmDialog(false);
-        setScheduleName(''); // 스케줄 명 초기화
+        setDraftScheduleName(''); // 스케줄 명 초기화
         setExistingScheduleToReplace(null); // Clear existing schedule state
 
         // ✅ Invalidate related queries to refresh UI immediately
@@ -1844,6 +1849,7 @@ function SchedulePageContent() {
     setIsSavingDraft(true);
     try {
       const schedulePayload = buildSchedulePayload();
+      const scheduleNameToSave = effectiveScheduleName;
 
       const response = await fetchWithAuth('/api/schedule/save-draft', {
         method: 'POST',
@@ -1851,7 +1857,7 @@ function SchedulePageContent() {
           schedule: schedulePayload,
           month: format(monthStart, 'yyyy-MM-dd'),
           departmentId: validDepartmentId,
-          name: `저장 - ${format(monthStart, 'yyyy년 MM월')}`,
+          name: scheduleNameToSave,
           metadata: {
             createdBy: currentUserId,
             createdAt: new Date().toISOString(),
@@ -2947,26 +2953,41 @@ function SchedulePageContent() {
                     </div>
                   )}
 
-                  <button
-                    onClick={handleSaveDraft}
-                    disabled={isSavingDraft || !hasSchedule}
-                    className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-400 rounded-lg border border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-70 disabled:cursor-not-allowed"
-                    title={hasSchedule ? "스케줄 저장 (멤버에게는 보이지 않음)" : "저장할 스케줄이 없습니다"}
-                  >
-                    {isSavingDraft ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span className="hidden sm:inline">저장 중...</span>
-                        <span className="sm:hidden">저장중</span>
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4" />
-                        <span className="hidden sm:inline">저장</span>
-                        <span className="sm:hidden">저장</span>
-                      </>
-                    )}
-                  </button>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2 w-full sm:w-auto">
+                    <div className="flex flex-col w-full sm:w-52">
+                      <label htmlFor="draftScheduleName" className="text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">
+                        스케줄 명
+                      </label>
+                      <input
+                        id="draftScheduleName"
+                        type="text"
+                        value={draftScheduleName}
+                        onChange={(event) => setDraftScheduleName(event.target.value)}
+                        placeholder={defaultScheduleName}
+                        className="w-full px-3 py-1.5 text-xs sm:text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    <button
+                      onClick={handleSaveDraft}
+                      disabled={isSavingDraft || !hasSchedule}
+                      className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-400 rounded-lg border border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-70 disabled:cursor-not-allowed"
+                      title={hasSchedule ? "스케줄 저장 (멤버에게는 보이지 않음)" : "저장할 스케줄이 없습니다"}
+                    >
+                      {isSavingDraft ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span className="hidden sm:inline">저장 중...</span>
+                          <span className="sm:hidden">저장중</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" />
+                          <span className="hidden sm:inline">저장</span>
+                          <span className="sm:hidden">저장</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
 
                   <button
                     onClick={handleConfirmToggle}
@@ -3302,9 +3323,7 @@ function SchedulePageContent() {
         onConfirm={handleConfirmSchedule}
         isConfirming={modals.isConfirming}
         isCheckingConflicts={isPreparingConfirmation}
-        scheduleName={scheduleName}
-        onScheduleNameChange={handleScheduleNameChange}
-        defaultScheduleName={`${format(monthStart, 'yyyy년 M월')} 스케줄`}
+        scheduleName={effectiveScheduleName}
         existingSchedule={existingScheduleToReplace}
       />
 
