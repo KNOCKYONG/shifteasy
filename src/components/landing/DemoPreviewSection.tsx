@@ -12,41 +12,41 @@ import Link from 'next/link';
 // ^ 표시: 요청사항이 있는 근무
 // 각 시프트에 고년차(HN, SN, CN)와 저년차(RN, NA)가 적절히 배치됨
 const mockScheduleData = [
-  // 김수연 (HN-수석간호사, 10년차, 21일 근무): 행정 업무, 주말 일부 휴무
-  { id: 1, name: '김수연', position: 'HN', shifts: ['A', 'OFF', 'A', 'A', 'A^', 'A', 'A', 'A', 'OFF', 'A', 'A', 'A', 'A', 'A^', 'A', 'OFF', 'A', 'A', 'A', 'A', 'A', 'A', 'OFF', 'A', 'A', 'A^', 'A', 'A', 'OFF', 'OFF'] },
+  // 김수연 (HN-수석간호사, 10년차, 평일 20일 근무): 행정 업무만, 주말 공휴일 10일 OFF
+  { id: 1, name: '김수연', position: 'HN', shifts: ['OFF', 'OFF', 'A', 'A', 'A^', 'A', 'A', 'OFF', 'OFF', 'A', 'A', 'A', 'A', 'A^', 'OFF', 'OFF', 'A', 'A', 'A', 'A', 'A', 'OFF', 'OFF', 'A', 'A', 'A^', 'A', 'A', 'OFF', 'OFF'] },
 
-  // 임채원 (SN-전문간호사, 8년차, 22일 근무): D→E→N 로테이션, 안정적 패턴
-  { id: 2, name: '임채원', position: 'SN', shifts: ['OFF', 'OFF', 'D', 'D', 'D^', 'D', 'OFF', 'E', 'OFF', 'E', 'E', 'E^', 'E', 'OFF', 'OFF', 'N', 'N', 'N', 'N^', 'OFF', 'D', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'OFF', 'E', 'E'] },
+  // 임채원 (SN-전문간호사, 8년차, 20일 근무): D→E→N 로테이션, 공휴일 10일 OFF 보장
+  { id: 2, name: '임채원', position: 'SN', shifts: ['D', 'D', 'OFF', 'D', 'D^', 'D', 'OFF', 'OFF', 'E', 'E', 'E', 'E^', 'E', 'OFF', 'OFF', 'N', 'N', 'N', 'N^', 'OFF', 'D', 'OFF', 'OFF', 'D', 'D', 'D', 'OFF', 'OFF', 'E', 'E'] },
 
-  // 한지우 (CN-책임간호사, 6년차, 23일 근무): D 시작 로테이션, 고년차 역할
-  { id: 3, name: '한지우', position: 'CN', shifts: ['D', 'D', 'D', 'D', 'D^', 'OFF', 'E', 'D', 'E', 'E', 'E', 'E', 'OFF', 'N', 'E', 'N', 'N^', 'N', 'OFF', 'D', 'D', 'OFF', 'D', 'D', 'D^', 'D', 'OFF', 'E', 'D', 'E'] },
+  // 한지우 (CN-책임간호사, 6년차, 20일 근무): D→E→N 로테이션, 공휴일 10일 OFF 보장
+  { id: 3, name: '한지우', position: 'CN', shifts: ['D', 'D', 'OFF', 'D', 'D^', 'OFF', 'E', 'OFF', 'E', 'E', 'E', 'E', 'OFF', 'N', 'E', 'OFF', 'N^', 'N', 'OFF', 'D', 'D', 'OFF', 'OFF', 'D', 'D^', 'D', 'OFF', 'E', 'D', 'OFF'] },
 
-  // 윤서준 (CN-책임간호사, 5년차, 22일 근무): 야간 비중, 중견 역할
-  { id: 4, name: '윤서준', position: 'CN', shifts: ['N', 'N', 'N', 'N^', 'N', 'OFF', 'D', 'N', 'D', 'D', 'D', 'OFF', 'E', 'E', 'N', 'E', 'E^', 'OFF', 'N', 'N', 'N', 'N', 'OFF', 'D', 'D', 'D^', 'D', 'OFF', 'N', 'N'] },
+  // 윤서준 (CN-책임간호사, 5년차, 20일 근무): 야간 비중 높음, 공휴일 10일 OFF 보장
+  { id: 4, name: '윤서준', position: 'CN', shifts: ['N', 'N', 'OFF', 'N^', 'N', 'OFF', 'D', 'OFF', 'D', 'D', 'D', 'OFF', 'E', 'E', 'N', 'OFF', 'E^', 'OFF', 'N', 'N', 'N', 'N', 'OFF', 'OFF', 'D', 'D^', 'D', 'OFF', 'OFF', 'N'] },
 
-  // 이지은 (RN-정규간호사, 4년차, 22일 근무): D→E→N 로테이션
-  { id: 5, name: '이지은', position: 'RN', shifts: ['D', 'OFF', 'D', 'D', 'D^', 'D', 'OFF', 'OFF', 'OFF', 'E', 'E', 'E', 'E^', 'OFF', 'OFF', 'OFF', 'N', 'N', 'N', 'OFF', 'D', 'D', 'OFF', 'D', 'D^', 'D', 'D', 'OFF', 'OFF', 'OFF'] },
+  // 이지은 (RN-정규간호사, 4년차, 20일 근무): D→E→N 로테이션, 공휴일 10일 OFF 보장
+  { id: 5, name: '이지은', position: 'RN', shifts: ['D', 'D', 'OFF', 'D', 'D^', 'D', 'OFF', 'OFF', 'E', 'E', 'E', 'E', 'E^', 'OFF', 'OFF', 'N', 'N', 'N', 'N', 'OFF', 'D', 'D', 'OFF', 'OFF', 'D^', 'D', 'D', 'OFF', 'OFF', 'E'] },
 
-  // 정하은 (RN-정규간호사, 4년차, 10일 근무 + 연차): 초중반 근무 후 연차
+  // 정하은 (RN-정규간호사, 4년차, 10일 근무 + 연차): 초중반 근무 후 연차 사용
   { id: 6, name: '정하은', position: 'RN', shifts: ['OFF', 'OFF', 'D', 'D', 'D', 'OFF', 'E', 'OFF', 'OFF', 'E', 'E', 'OFF', 'OFF', 'OFF', 'OFF', '연차', '연차', '연차', '연차', '연차', '연차', '연차', '연차', '연차', '연차', '연차', '연차', '연차', 'OFF', '연차'] },
 
-  // 송예진 (RN-정규간호사, 3년차, 23일 근무): E 시작 로테이션
-  { id: 7, name: '송예진', position: 'RN', shifts: ['E', 'E', 'E', 'E', 'E^', 'OFF', 'N', 'E', 'OFF', 'N', 'N', 'N^', 'OFF', 'D', 'D', 'D', 'D', 'D', 'D', 'OFF', 'E', 'E', 'E', 'E', 'E^', 'E', 'OFF', 'N', 'E', 'N'] },
+  // 송예진 (RN-정규간호사, 3년차, 20일 근무): E→N→D 로테이션, 공휴일 10일 OFF 보장
+  { id: 7, name: '송예진', position: 'RN', shifts: ['E', 'E', 'OFF', 'E', 'E^', 'OFF', 'N', 'OFF', 'N', 'N', 'N', 'N^', 'OFF', 'D', 'D', 'OFF', 'D', 'D', 'D', 'OFF', 'E', 'E', 'OFF', 'OFF', 'E^', 'E', 'OFF', 'N', 'OFF', 'N'] },
 
-  // 박민준 (RN-정규간호사, 3년차, 22일 근무): D 위주 로테이션
-  { id: 8, name: '박민준', position: 'RN', shifts: ['OFF', 'OFF', 'D', 'D', 'D', 'D^', 'OFF', 'OFF', 'E', 'E', 'E', 'E', 'OFF', 'N', 'E', 'N', 'N^', 'N', 'OFF', 'OFF', 'D', 'D', 'D', 'D', 'D', 'D', 'OFF', 'E', 'E', 'E'] },
+  // 박민준 (RN-정규간호사, 3년차, 20일 근무): D→E 위주, 공휴일 10일 OFF 보장
+  { id: 8, name: '박민준', position: 'RN', shifts: ['E', 'E', 'OFF', 'D', 'D', 'D^', 'OFF', 'OFF', 'E', 'E', 'E', 'E', 'OFF', 'N', 'E', 'OFF', 'N^', 'N', 'OFF', 'OFF', 'D', 'D', 'OFF', 'OFF', 'D', 'D', 'OFF', 'E', 'E', 'E'] },
 
-  // 최서윤 (NA-간호조무사, 1년차, 20일 근무): 주간 위주, 야간 없음
-  { id: 9, name: '최서윤', position: 'NA', shifts: ['D', 'D', 'D', 'D^', 'D', 'D', 'OFF', 'D', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'D', 'E', 'E', 'E^', 'E', 'OFF', 'OFF', 'OFF', 'OFF', 'D', 'D', 'D', 'D^', 'OFF', 'D', 'OFF'] },
+  // 최서윤 (NA-간호조무사, 1년차, 20일 근무): 주간 위주, 공휴일 10일 OFF 보장
+  { id: 9, name: '최서윤', position: 'NA', shifts: ['D', 'D', 'OFF', 'D^', 'D', 'D', 'OFF', 'D', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'D', 'E', 'E', 'E^', 'E', 'OFF', 'OFF', 'D', 'OFF', 'OFF', 'D', 'D', 'D^', 'OFF', 'D', 'OFF'] },
 
-  // 오태양 (NA-간호조무사, 1년차, 19일 근무): 주간/저녁 위주
-  { id: 10, name: '오태양', position: 'NA', shifts: ['OFF', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'OFF', 'E', 'E', 'E^', 'E', 'OFF', 'OFF', 'OFF', 'D', 'D', 'D', 'D^', 'OFF', 'OFF', 'D', 'E', 'E', 'E', 'E', 'OFF', 'OFF', 'OFF', 'OFF'] },
+  // 오태양 (NA-간호조무사, 1년차, 20일 근무): 주간/저녁 혼합, 공휴일 10일 OFF 보장
+  { id: 10, name: '오태양', position: 'NA', shifts: ['OFF', 'OFF', 'D', 'D', 'D', 'D', 'OFF', 'OFF', 'D', 'E', 'E^', 'E', 'OFF', 'OFF', 'E', 'D', 'D', 'D', 'D^', 'OFF', 'OFF', 'E', 'E', 'E', 'E', 'E', 'OFF', 'OFF', 'D', 'D'] },
 
-  // 강민지 (NA-간호조무사, 2년차, 14일 근무): 저녁 위주, 불규칙
-  { id: 11, name: '강민지', position: 'NA', shifts: ['E', 'OFF', 'E', 'E^', 'OFF', 'OFF', 'E', 'E', 'OFF', 'OFF', 'E', 'E', 'OFF', 'OFF', 'OFF', 'OFF', 'E', 'E^', 'OFF', 'OFF', 'E', 'E', 'OFF', 'OFF', 'E', 'E', 'OFF', 'OFF', 'OFF', 'OFF'] },
+  // 강민지 (NA-간호조무사, 2년차, 20일 근무): 저녁 위주, 공휴일 10일 OFF 보장
+  { id: 11, name: '강민지', position: 'NA', shifts: ['OFF', 'OFF', 'E', 'E^', 'E', 'OFF', 'E', 'OFF', 'E', 'E', 'E', 'E', 'OFF', 'OFF', 'E', 'E', 'E', 'E^', 'E', 'OFF', 'E', 'E', 'OFF', 'E', 'E', 'E', 'OFF', 'OFF', 'E', 'E'] },
 
-  // 배수아 (NA-간호조무사, 2년차, 15일 근무): 주간/저녁 혼합
-  { id: 12, name: '배수아', position: 'NA', shifts: ['OFF', 'OFF', 'D', 'D', 'OFF', 'E', 'E', 'OFF', 'OFF', 'D', 'D', 'OFF', 'OFF', 'E', 'E', 'E', 'OFF', 'D', 'D', 'OFF', 'OFF', 'OFF', 'E', 'E', 'OFF', 'D', 'OFF', 'OFF', 'OFF', 'OFF'] },
+  // 배수아 (NA-간호조무사, 2년차, 20일 근무): 주간/저녁 혼합, 공휴일 10일 OFF 보장
+  { id: 12, name: '배수아', position: 'NA', shifts: ['OFF', 'OFF', 'D', 'D', 'E', 'E', 'E', 'OFF', 'OFF', 'D', 'D', 'OFF', 'OFF', 'E', 'E', 'E', 'OFF', 'D', 'D', 'OFF', 'OFF', 'D', 'E', 'E', 'D', 'D', 'OFF', 'E', 'E', 'E'] },
 ];
 
 type ViewMode = 'generation' | 'schedule';
