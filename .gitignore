@@ -9,6 +9,7 @@
 # IDE settings
 .idea/
 .vscode/
+.claude/
 *.iml
 *.ipr
 *.iws
