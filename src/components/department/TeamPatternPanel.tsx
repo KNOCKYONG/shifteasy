@@ -359,6 +359,36 @@ export function TeamPatternPanel({
     indigo: '#6366f1',
     pink: '#ec4899',
     gray: '#6b7280',
+    slate: '#475569',
+    sky: '#0ea5e9',
+    cyan: '#06b6d4',
+    teal: '#14b8a6',
+    emerald: '#10b981',
+    lime: '#84cc16',
+    yellow: '#eab308',
+    orange: '#f97316',
+    rose: '#f43f5e',
+    violet: '#8b5cf6',
+  };
+
+  const resolveShiftColor = (color?: string): string => {
+    if (!color) {
+      return '#94a3b8';
+    }
+
+    const trimmed = color.trim();
+    const lower = trimmed.toLowerCase();
+
+    if (lower.startsWith('#') || lower.startsWith('rgb') || lower.startsWith('hsl')) {
+      return trimmed;
+    }
+
+    if (colorMap[lower]) {
+      return colorMap[lower];
+    }
+
+    const base = lower.split('-')[0];
+    return colorMap[base] || trimmed;
   };
 
   // shiftTypes 기반으로 색상 스타일 가져오기
@@ -375,8 +405,7 @@ export function TeamPatternPanel({
       return 'bg-gray-50 border-gray-300 text-gray-700';
     }
 
-    // Tailwind 색상 이름을 hex 코드로 변환
-    const hexColor = colorMap[shiftType.color.toLowerCase()] || shiftType.color;
+    const hexColor = resolveShiftColor(shiftType.color);
 
     console.log(`[getShiftColorStyle] Code: ${shiftCode}, Color: ${shiftType.color} -> ${hexColor}`);
 
@@ -664,7 +693,7 @@ export function TeamPatternPanel({
                   <div className="flex items-center gap-3">
                     <span
                       className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: colorMap[shift.color] || '#94a3b8' }}
+                      style={{ backgroundColor: resolveShiftColor(shift.color) }}
                     />
                     <div>
                       <p className="text-sm font-semibold text-gray-900">
