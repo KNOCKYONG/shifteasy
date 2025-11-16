@@ -1659,6 +1659,12 @@ function SchedulePageContent() {
       // Close modal
       modals.setShowManageModal(false);
 
+      // Update schedule name display/edit state to loaded schedule name
+      const loadedName = (loadedSchedule.metadata as { name?: string } | null)?.name ?? '';
+      setDraftScheduleName(loadedName);
+      scheduleNameBeforeEditRef.current = loadedName;
+      setIsEditingScheduleName(false);
+
       console.log(`✅ Successfully loaded schedule with ${convertedAssignments.length} assignments`);
     } catch (error) {
       console.error('❌ Error loading schedule:', error);
@@ -1793,7 +1799,7 @@ function SchedulePageContent() {
       const ensuredOffAccruals = recomputeOffAccrualSummaries();
       setOffAccrualSummaries(ensuredOffAccruals);
 
-      const finalScheduleName = effectiveScheduleName;
+      const finalScheduleName = confirmationScheduleName;
 
       const response = await fetchWithAuth('/api/schedule/confirm', {
         method: 'POST',
