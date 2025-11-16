@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import {
   Calendar, Clock, Users, ArrowRightLeft, AlertTriangle,
-  CheckCircle, Activity, Briefcase, CalendarDays, UserCheck
+  CheckCircle, Activity, Briefcase, CalendarDays, UserCheck, Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 import { api } from '@/lib/trpc/client';
@@ -19,7 +19,7 @@ export function AdminDashboard() {
 
   // Workmates filter state
   const [workmatesPeriod, setWorkmatesPeriod] = useState<'today' | 'week' | 'month'>('week');
-  const [workmatesGroupBy, setWorkmatesGroupBy] = useState<'shift' | 'department' | 'team'>('shift');
+  const [workmatesGroupBy, setWorkmatesGroupBy] = useState<'shift' | 'team'>('shift');
 
   // Get shift types from database
   const { data: configs } = api.configs.getAll.useQuery(undefined, {
@@ -47,7 +47,11 @@ export function AdminDashboard() {
   }, [upcomingShifts]);
 
   // Get colleagues working with me on same shifts
-  const { data: workmatesData, isLoading: isLoadingWorkmates } = api.schedule.getMyWorkmates.useQuery(
+  const {
+    data: workmatesData,
+    isLoading: isLoadingWorkmates,
+    isFetching: isFetchingWorkmates,
+  } = api.schedule.getMyWorkmates.useQuery(
     {
       period: workmatesPeriod,
       groupBy: workmatesGroupBy,
@@ -57,6 +61,16 @@ export function AdminDashboard() {
       refetchOnWindowFocus: false,
     }
   );
+
+  const [workmatesSnapshot, setWorkmatesSnapshot] = useState<typeof workmatesData>(undefined);
+
+  useEffect(() => {
+    if (workmatesData) {
+      setWorkmatesSnapshot(workmatesData);
+    }
+  }, [workmatesData]);
+
+  const resolvedWorkmatesData = workmatesData ?? workmatesSnapshot;
 
   // Extract stats from optimized response
   const workingToday = dashboardData?.workingToday || 0;
@@ -142,8 +156,7 @@ export function AdminDashboard() {
   const recentPendingRequests = pendingRequests.slice(0, 3);
 
   const isInitialLoading = (!dashboardData && isLoading) ||
-    (!upcomingShifts && isLoadingShifts) ||
-    (!workmatesData && isLoadingWorkmates);
+    (!upcomingShifts && isLoadingShifts);
 
   if (isInitialLoading) {
     return (
@@ -413,139 +426,150 @@ export function AdminDashboard() {
 
         {/* My Workmates on Same Shifts */}
         <Card className="p-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center mb-4">
-            <div className="p-2 bg-green-100 dark:bg-green-950 rounded-lg">
-              <UserCheck className="w-5 h-5 text-green-600 dark:text-green-400" />
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-100 dark:bg-green-950 rounded-lg">
+                <UserCheck className="w-5 h-5 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                  같은 스케줄 동료 보기
+                </h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {workmatesPeriod === 'today' ? '오늘' : workmatesPeriod === 'week' ? '이번 주' : '이번 달'} · {workmatesGroupBy === 'shift' ? '같은 시프트 기준' : '같은 팀 기준'}
+                </p>
+              </div>
             </div>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-              같은 스케줄 동료 보기
-            </h2>
+            {resolvedWorkmatesData && (
+              <span className="text-xs px-2 py-1 rounded-full bg-green-50 text-green-600 dark:bg-green-900/40 dark:text-green-200">
+                총 {resolvedWorkmatesData.workmates.length}명
+              </span>
+            )}
           </div>
 
           {/* Filters */}
           <div className="flex flex-col gap-3 mb-4">
-            {/* Period Filter */}
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 sm:min-w-[60px]">기간:</span>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => setWorkmatesPeriod('today')}
-                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
-                    workmatesPeriod === 'today'
-                      ? 'bg-green-600 text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  오늘
-                </button>
-                <button
-                  onClick={() => setWorkmatesPeriod('week')}
-                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
-                    workmatesPeriod === 'week'
-                      ? 'bg-green-600 text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  이번 주
-                </button>
-                <button
-                  onClick={() => setWorkmatesPeriod('month')}
-                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
-                    workmatesPeriod === 'month'
-                      ? 'bg-green-600 text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  이번 달
-                </button>
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+                기간 선택
+              </span>
+              <div className="inline-flex rounded-lg bg-gray-50 dark:bg-gray-800 p-1">
+                {(['today', 'week', 'month'] as const).map((period) => {
+                  const isActive = workmatesPeriod === period;
+                  const label = period === 'today' ? '오늘' : period === 'week' ? '이번 주' : '이번 달';
+                  return (
+                    <button
+                      key={period}
+                      onClick={() => setWorkmatesPeriod(period)}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                        isActive
+                          ? 'bg-white dark:bg-gray-700 text-green-600 dark:text-green-300 shadow'
+                          : 'text-gray-600 dark:text-gray-300 hover:text-green-600'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* GroupBy Filter */}
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 sm:min-w-[60px]">분류:</span>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => setWorkmatesGroupBy('shift')}
-                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
-                    workmatesGroupBy === 'shift'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  같은 시프트
-                </button>
-                <button
-                  onClick={() => setWorkmatesGroupBy('department')}
-                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
-                    workmatesGroupBy === 'department'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  같은 부서
-                </button>
-                <button
-                  onClick={() => setWorkmatesGroupBy('team')}
-                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${
-                    workmatesGroupBy === 'team'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  같은 팀
-                </button>
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+                보기 방식
+              </span>
+              <div className="flex gap-2">
+                {(['shift', 'team'] as const).map((mode) => {
+                  const isActive = workmatesGroupBy === mode;
+                  return (
+                    <button
+                      key={mode}
+                      onClick={() => setWorkmatesGroupBy(mode)}
+                      className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                        isActive
+                          ? 'border-blue-500 text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/30'
+                          : 'border-transparent text-gray-600 dark:text-gray-300 hover:text-blue-600 hover:border-blue-200 dark:hover:border-blue-700'
+                      }`}
+                    >
+                      <span>{mode === 'shift' ? '같은 시프트' : '같은 팀'}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
 
-          <div className="space-y-2">
-            {isLoadingWorkmates ? (
-              <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-                로딩 중...
+          <div className="relative" aria-busy={isFetchingWorkmates}>
+            {isFetchingWorkmates && resolvedWorkmatesData && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/80 dark:bg-gray-900/70">
+                <Loader2 className="w-5 h-5 text-green-600 dark:text-green-300 animate-spin" />
+                <span className="ml-2 text-xs text-gray-600 dark:text-gray-300">동료 정보를 불러오는 중...</span>
               </div>
-            ) : workmatesData && workmatesData.workmates && workmatesData.workmates.length > 0 ? (
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              workmatesData.workmates.slice(0, 6).map((workmate: any) => (
-                <div
-                  key={workmate.id}
-                  className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
-                >
-                  <div className="flex items-center gap-3 flex-1 w-full">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center text-white text-sm font-semibold">
-                      {workmate.name?.charAt(0) || '?'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                        {workmate.name}
-                      </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        {workmate.role === 'member' ? '일반' : workmate.role === 'manager' ? '매니저' : '관리자'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-left sm:text-right w-full sm:w-auto">
-                    <p className="text-xs font-semibold text-green-600 dark:text-green-400">
-                      {workmate.sharedShifts}회
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      같은 시프트
-                    </p>
-                  </div>
-                </div>
-              ))
-            ) : workmatesData && workmatesData.myShifts && workmatesData.myShifts.length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-                {workmatesPeriod === 'today' ? '오늘' : workmatesPeriod === 'week' ? '이번 주' : '이번 달'} 근무 일정이 없습니다
-              </p>
-            ) : (
-              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-                {workmatesGroupBy === 'shift' ? '같은 시프트로' : workmatesGroupBy === 'department' ? '같은 부서에서' : '같은 팀에서'} 근무하는 동료가 없습니다
-              </p>
             )}
+
+            <div className="space-y-2">
+              {(!resolvedWorkmatesData && isLoadingWorkmates) ? (
+                Array.from({ length: 3 }).map((_, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 animate-pulse"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
+                      <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded w-1/4" />
+                    </div>
+                  </div>
+                ))
+              ) : resolvedWorkmatesData && resolvedWorkmatesData.workmates && resolvedWorkmatesData.workmates.length > 0 ? (
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                resolvedWorkmatesData.workmates.slice(0, 6).map((workmate: any) => (
+                  <div
+                    key={workmate.id}
+                    className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
+                  >
+                    <div className="flex items-center gap-3 flex-1 w-full">
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center text-white text-sm font-semibold">
+                        {workmate.name?.charAt(0) || '?'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                          {workmate.name}
+                        </p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                          {workmatesGroupBy === 'team'
+                            ? '동일 팀 일정'
+                            : workmate.role === 'member'
+                              ? '일반 직원'
+                              : workmate.role === 'manager'
+                                ? '매니저'
+                                : '관리자'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-left sm:text-right w-full sm:w-auto">
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-600 dark:text-green-400">
+                        {workmate.sharedShifts}회
+                        <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                          {workmatesGroupBy === 'shift' ? '같은 시프트' : '같은 팀'}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : resolvedWorkmatesData && resolvedWorkmatesData.myShifts && resolvedWorkmatesData.myShifts.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                  {workmatesPeriod === 'today' ? '오늘' : workmatesPeriod === 'week' ? '이번 주' : '이번 달'}에 예정된 근무가 없습니다.
+                </p>
+              ) : (
+                <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-6 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  아직 {workmatesGroupBy === 'shift' ? '같은 시프트' : '같은 팀'}로 함께 근무할 동료가 없습니다.
+                </div>
+              )}
+            </div>
           </div>
 
-          {workmatesData && workmatesData.workmates && workmatesData.workmates.length > 6 && (
+          {resolvedWorkmatesData && resolvedWorkmatesData.workmates && resolvedWorkmatesData.workmates.length > 6 && (
             <Link href="/department" className="block mt-4">
               <button className="w-full px-4 py-2 text-sm text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800 transition-colors">
                 전체 부서원 보기
