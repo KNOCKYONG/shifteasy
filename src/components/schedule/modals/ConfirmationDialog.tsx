@@ -84,6 +84,9 @@ export const ConfirmationDialog = memo(function ConfirmationDialog({
                       <ul className="text-sm text-amber-800 dark:text-amber-200 space-y-1">
                         <li>• 모든 직원에게 알림 발송</li>
                         <li>• 스케줄 공개 및 접근 가능</li>
+                        <li>• 근무 일정 캘린더 동기화</li>
+                        <li>• 해당 월의 근무 교환 요청 초기화</li>
+                        <li>• 해당 월의 휴무/Off 잔여치 재계산</li>
                       </ul>
                     </div>
                     <p className="mt-3 text-sm font-bold text-red-600 dark:text-red-400">
@@ -114,6 +117,9 @@ export const ConfirmationDialog = memo(function ConfirmationDialog({
                 <ul className="mt-2 space-y-1 text-sm text-blue-600 dark:text-blue-300">
                   <li>• 모든 직원에게 알림 발송</li>
                   <li>• 스케줄 공개 및 접근 가능</li>
+                  <li>• 근무 일정 캘린더 동기화</li>
+                  <li>• 해당 월의 근무 교환 요청 초기화</li>
+                  <li>• 해당 월의 휴무/Off 잔여치 재계산</li>
                 </ul>
               </div>
             )}

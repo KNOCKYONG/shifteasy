@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentUser } from '@/lib/auth';
 import { db } from '@/db';
-import { schedules, offBalanceLedger } from '@/db/schema';
+import { schedules, offBalanceLedger, swapRequests } from '@/db/schema';
 import { notificationService } from '@/lib/notifications/notification-service';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, gte, lte } from 'drizzle-orm';
 import type { OffAccrualSummary } from '@/lib/types/scheduler';
 
 export const dynamic = 'force-dynamic';
@@ -50,6 +50,12 @@ type OffBalanceDebugEntry = {
 type NotificationResult = Awaited<ReturnType<typeof notificationService.sendToUser>>;
 
 const confirmedSchedules = new Map<string, ConfirmedScheduleRecord>();
+
+function getMonthRange(date: Date) {
+  const start = new Date(date.getFullYear(), date.getMonth(), 1);
+  const end = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
+  return { start, end };
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -129,6 +135,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const scheduleStartDate = new Date(schedule.startDate);
+    const scheduleMonthRange = getMonthRange(scheduleStartDate);
+
     // ✅ Create new schedule in DB with auto-generated UUID
     const [createdSchedule] = await db
       .insert(schedules)
@@ -179,6 +188,22 @@ export async function POST(request: NextRequest) {
       });
     } catch (error) {
       console.error('[Confirm] Failed to update off-balance ledger', error);
+    }
+
+    try {
+      const deletedSwapRequests = await db
+        .delete(swapRequests)
+        .where(and(
+          eq(swapRequests.tenantId, tenantId),
+          eq(swapRequests.departmentId, requestDepartmentId),
+          gte(swapRequests.date, scheduleMonthRange.start),
+          lte(swapRequests.date, scheduleMonthRange.end),
+        ))
+        .returning({ id: swapRequests.id });
+
+      console.log(`[Confirm] Deleted ${deletedSwapRequests.length} swap requests for department ${requestDepartmentId} between ${scheduleMonthRange.start.toISOString()} and ${scheduleMonthRange.end.toISOString()}`);
+    } catch (error) {
+      console.error('[Confirm] Failed to delete swap requests for confirmed month', error);
     }
 
     // Send notifications if requested
