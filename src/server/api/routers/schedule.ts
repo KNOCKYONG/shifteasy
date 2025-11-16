@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { scopedDb, createAuditLog } from '@/lib/db-helpers';
-import { schedules, users, departments, offBalanceLedger, holidays, specialRequests, teams } from '@/db/schema';
+import { schedules, users, departments, offBalanceLedger, holidays, specialRequests, teams, swapRequests } from '@/db/schema';
 import { eq, and, gte, lte, desc, inArray, isNull, ne, or } from 'drizzle-orm';
 import { db } from '@/db';
 import { generateAiSchedule } from '@/lib/scheduler/greedy-scheduler';
@@ -746,6 +746,51 @@ export const scheduleRouter = createTRPCRouter({
         throw new TRPCError({
           code: 'FORBIDDEN',
           message: '스케줄을 삭제할 권한이 없습니다. 관리자 또는 매니저에게 문의하세요.',
+        });
+      }
+
+      if (schedule.status === 'published') {
+        const scheduleStart = new Date(schedule.startDate);
+        const year = scheduleStart.getFullYear();
+        const month = scheduleStart.getMonth() + 1;
+        const monthStart = new Date(scheduleStart.getFullYear(), scheduleStart.getMonth(), 1);
+        const monthEnd = new Date(scheduleStart.getFullYear(), scheduleStart.getMonth() + 1, 0, 23, 59, 59, 999);
+
+        const swapCleanupConditions = [
+          eq(swapRequests.tenantId, tenantId),
+          gte(swapRequests.date, monthStart),
+          lte(swapRequests.date, monthEnd),
+        ];
+        if (schedule.departmentId) {
+          swapCleanupConditions.push(eq(swapRequests.departmentId, schedule.departmentId));
+        }
+
+        const offLedgerCleanupConditions = [
+          eq(offBalanceLedger.tenantId, tenantId),
+          eq(offBalanceLedger.year, year),
+          eq(offBalanceLedger.month, month),
+        ];
+        if (schedule.departmentId) {
+          offLedgerCleanupConditions.push(eq(offBalanceLedger.departmentId, schedule.departmentId));
+        }
+
+        const deletedSwapRequests = await db
+          .delete(swapRequests)
+          .where(and(...swapCleanupConditions))
+          .returning({ id: swapRequests.id });
+
+        const deletedOffLedger = await db
+          .delete(offBalanceLedger)
+          .where(and(...offLedgerCleanupConditions))
+          .returning({ id: offBalanceLedger.id });
+
+        console.log('[ScheduleDelete] Cleared related monthly data', {
+          scheduleId: schedule.id,
+          departmentId: schedule.departmentId,
+          year,
+          month,
+          swapRequestsDeleted: deletedSwapRequests.length,
+          offLedgerDeleted: deletedOffLedger.length,
         });
       }
 

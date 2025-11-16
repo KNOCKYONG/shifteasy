@@ -45,8 +45,24 @@ export function ManageSchedulesModal({ isOpen, onClose, onScheduleDeleted, onSch
     },
   });
 
-  const handleDelete = (scheduleId: string) => {
-    deleteMutation.mutate({ id: scheduleId });
+  const handleDelete = (schedule: (typeof schedules)[number]) => {
+    if (schedule.status === 'published') {
+      const warningMessage = [
+        '확정된 스케줄을 삭제하면 다음 작업이 함께 진행됩니다.',
+        '',
+        '• 해당 월의 근무 교환 요청 초기화',
+        '• 해당 월의 휴무/Off 잔여치 삭제',
+        '',
+        '계속 진행하시겠습니까?',
+      ].join('\n');
+
+      const confirmed = window.confirm(warningMessage);
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    deleteMutation.mutate({ id: schedule.id });
   };
 
   const getStatusBadge = (status: string) => {
@@ -263,22 +279,31 @@ export function ManageSchedulesModal({ isOpen, onClose, onScheduleDeleted, onSch
 
                       <div className="flex items-center gap-2">
                         {deleteConfirmId === schedule.id ? (
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleDelete(schedule.id)}
-                              disabled={deleteMutation.isPending}
-                              className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 rounded-lg transition-colors flex items-center gap-2"
-                            >
-                              {deleteMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-                              삭제 확인
-                            </button>
-                            <button
-                              onClick={() => setDeleteConfirmId(null)}
-                              disabled={deleteMutation.isPending}
-                              className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 rounded-lg transition-colors"
-                            >
-                              취소
-                            </button>
+                          <div className="flex flex-col items-end gap-2 text-right">
+                            {schedule.status === 'published' && (
+                              <div className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 w-full max-w-xs">
+                                <p className="font-semibold mb-1">확정된 스케줄 삭제 시 함께 진행됩니다:</p>
+                                <p>• 해당 월의 근무 교환 요청 초기화</p>
+                                <p>• 해당 월의 휴무/Off 잔여치 삭제</p>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleDelete(schedule)}
+                                disabled={deleteMutation.isPending}
+                                className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 rounded-lg transition-colors flex items-center gap-2"
+                              >
+                                {deleteMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+                                삭제 확인
+                              </button>
+                              <button
+                                onClick={() => setDeleteConfirmId(null)}
+                                disabled={deleteMutation.isPending}
+                                className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 rounded-lg transition-colors"
+                              >
+                                취소
+                              </button>
+                            </div>
                           </div>
                         ) : (
                           <button
