@@ -355,6 +355,8 @@ export function AdminDashboard() {
                           // Build mapping from DB shift types
                           shiftTypes.forEach((st: { code?: string; name?: string }) => {
                             const code = st.code?.toLowerCase();
+                            if (!code) return; // Skip if code is undefined
+
                             const displayName = `${st.code} ${st.name}`;
 
                             // Map various formats
