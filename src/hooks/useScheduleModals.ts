@@ -13,11 +13,7 @@ export function useScheduleModals() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [exportFormat, setExportFormat] = useState<'excel' | 'pdf' | 'both' | null>(null);
 
-  // Validation & Optimization
-  const [showValidationResults, setShowValidationResults] = useState(false);
-  const [validationScore, setValidationScore] = useState<number | null>(null);
-  const [validationIssues, setValidationIssues] = useState<any[]>([]);
-  const [isValidating, setIsValidating] = useState(false);
+  // Optimization
   const [isOptimizing, setIsOptimizing] = useState(false);
 
   // Confirmation
@@ -48,15 +44,7 @@ export function useScheduleModals() {
     exportFormat,
     setExportFormat,
 
-    // Validation & Optimization
-    showValidationResults,
-    setShowValidationResults,
-    validationScore,
-    setValidationScore,
-    validationIssues,
-    setValidationIssues,
-    isValidating,
-    setIsValidating,
+    // Optimization
     isOptimizing,
     setIsOptimizing,
 

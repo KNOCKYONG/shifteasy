@@ -7,7 +7,7 @@ import dynamicImport from "next/dynamic";
 import equal from "fast-deep-equal";
 import { useSearchParams } from "next/navigation";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isWeekend, differenceInCalendarYears } from "date-fns";
-import { Download, Upload, Lock, Wand2, RefreshCcw, FileText, Heart, CheckCircle, MoreVertical, Settings, FolderOpen, Save, Loader2, Sparkles, TrendingUp } from "lucide-react";
+import { Download, Upload, Lock, Wand2, RefreshCcw, FileText, Heart, MoreVertical, Settings, FolderOpen, Save, Loader2, Sparkles, TrendingUp } from "lucide-react";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { api } from "../../lib/trpc/client";
 import { type Employee, type Constraint, type ScheduleAssignment, type SchedulingResult, type OffAccrualSummary } from "@/lib/types/scheduler";
@@ -24,7 +24,6 @@ import type { ImprovementReport } from "@/lib/scheduler/types";
 const EmployeePreferencesModal = dynamicImport(() => import("@/components/schedule/EmployeePreferencesModal").then(mod => ({ default: mod.EmployeePreferencesModal })), { ssr: false });
 const ImportModal = dynamicImport(() => import("@/components/schedule/modals/ImportModal").then(mod => ({ default: mod.ImportModal })), { ssr: false });
 const ExportModal = dynamicImport(() => import("@/components/schedule/modals/ExportModal").then(mod => ({ default: mod.ExportModal })), { ssr: false });
-const ValidationResultsModal = dynamicImport(() => import("@/components/schedule/modals/ValidationResultsModal").then(mod => ({ default: mod.ValidationResultsModal })), { ssr: false });
 const ConfirmationDialog = dynamicImport(() => import("@/components/schedule/modals/ConfirmationDialog").then(mod => ({ default: mod.ConfirmationDialog })), { ssr: false });
 const ManageSchedulesModal = dynamicImport(() => import("@/components/schedule/modals/ManageSchedulesModal").then(mod => ({ default: mod.ManageSchedulesModal })), { ssr: false });
 const SwapRequestModal = dynamicImport(() => import("@/components/schedule/modals/SwapRequestModal").then(mod => ({ default: mod.SwapRequestModal })), { ssr: false });
@@ -236,6 +235,8 @@ function SchedulePageContent() {
   const effectiveTenantId = currentUser.dbUser?.tenantId ?? currentUser.orgId ?? '';
   const effectiveUserRole = currentUser.dbUser?.role ?? currentUser.role ?? 'admin';
   const tenantPlan = currentUser.tenantPlan ?? currentUser.dbUser?.tenantPlan ?? null;
+  const isProfessionalPlan = (tenantPlan ?? '').toLowerCase() === 'professional';
+  const aiFeatureLockedMessage = '프로페셔널 플랜에서만 사용 가능한 기능입니다.';
   const headerDepartmentId = memberDepartmentId ?? undefined;
   const isAuthReady = Boolean(currentUserId && effectiveTenantId);
 
@@ -318,11 +319,6 @@ function SchedulePageContent() {
       alert(`스케줄 개선 실패: ${error.message}`);
       setIsImproving(false);
     },
-  });
-
-  // AI 기능 사용 권한 확인
-  const { data: aiPermission } = api.payments.canUseAIFeatures.useQuery(undefined, {
-    enabled: isAuthReady,
   });
 
   useEffect(() => {
@@ -1152,15 +1148,6 @@ function SchedulePageContent() {
     });
   }, [resolvedUsersData, careerOverrides]);
 
-  const employeeNameMap = React.useMemo(() => {
-    const map: Record<string, string> = {};
-    allMembers.forEach((member) => {
-      const displayName = member.name || '이름 미등록';
-      map[member.id] = displayName;
-    });
-    return map;
-  }, [allMembers]);
-
   // 필터링된 멤버 리스트 (나의 스케줄만 보기 적용 - 스케줄 보기 탭에서 사용)
   const filteredMembers = React.useMemo(() => {
     let members = [...allMembers];
@@ -1579,82 +1566,6 @@ function SchedulePageContent() {
     monthEnd,
   ]);
 
-  // Validate current schedule
-  const handleValidateSchedule = async () => {
-    if (!canManageSchedules) {
-      alert('스케줄 검증 권한이 없습니다.');
-      return;
-    }
-
-    modals.setIsValidating(true);
-    modals.setShowValidationResults(false);
-
-    try {
-      const schedulePayload = buildSchedulePayload();
-
-      // Fetch nurse_preferences for all employees
-      console.log('🔍 Fetching nurse_preferences for validation...');
-      const preferencesResponse = await fetchWithAuth('/api/preferences');
-      const preferencesData = await preferencesResponse.json();
-
-      console.log('📦 Preferences data:', preferencesData);
-
-      // Merge preferences into employee data
-      const employeesWithPreferences = filteredMembers.map(emp => {
-        const empPrefs = preferencesData.data?.[emp.id];
-        return {
-          ...emp,
-          preferences: empPrefs ? {
-            maxConsecutiveDays: empPrefs.workPreferences?.maxConsecutiveDays || 5,
-            preferredShifts: empPrefs.workPreferences?.preferredShifts || [],
-            avoidShifts: empPrefs.workPreferences?.avoidShifts || [],
-            preferredDaysOff: [], // TODO: Map from preferences if available
-            preferNightShift: empPrefs.workPreferences?.preferredShifts?.includes('night') || false,
-          } : undefined,
-        };
-      });
-
-      console.log('✅ Employees with preferences:', employeesWithPreferences.length);
-
-      // Use regular fetch for public validate endpoint (no auth required)
-      const response = await fetch('/api/schedule/validate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          schedule: schedulePayload,
-          employees: employeesWithPreferences,
-          shifts: shifts,
-          constraints: DEFAULT_CONSTRAINTS,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        modals.setValidationScore(result.data.score);
-        modals.setValidationIssues(result.data.violations || []);
-        modals.setShowValidationResults(true);
-
-        if (result.data.score === 100) {
-          alert('스케줄이 모든 제약조건을 만족합니다!');
-        } else if (result.data.score >= 80) {
-          alert(`스케줄 검증 점수: ${result.data.score}점\n경미한 문제가 있지만 사용 가능합니다.`);
-        } else {
-          alert(`스케줄 검증 점수: ${result.data.score}점\n개선이 필요한 사항이 있습니다.`);
-        }
-      } else {
-        alert('스케줄 검증에 실패했습니다: ' + result.error);
-      }
-    } catch (error) {
-      console.error('Validation error:', error);
-      alert('스케줄 검증 중 오류가 발생했습니다.');
-    } finally {
-      modals.setIsValidating(false);
-    }
-  };
-
   // Optimize current schedule
   // handleOptimizeSchedule function removed - complex genetic algorithm optimizer not needed
 
@@ -1857,7 +1768,6 @@ function SchedulePageContent() {
           metadata: {
             createdBy: currentUserId,
             createdAt: new Date().toISOString(),
-            validationScore: modals.validationScore,
             offAccruals: ensuredOffAccruals,
           },
         }),
@@ -1898,7 +1808,7 @@ function SchedulePageContent() {
     }
   };
 
-  // Save schedule as draft (임시 저장)
+  // Save schedule as draft
   const handleSaveDraft = async () => {
     if (!canManageSchedules) {
       alert('스케줄 저장 권한이 없습니다.');
@@ -1941,7 +1851,7 @@ function SchedulePageContent() {
           schedule: schedulePayload,
           month: format(monthStart, 'yyyy-MM-dd'),
           departmentId: validDepartmentId,
-          name: `임시 저장 - ${format(monthStart, 'yyyy년 MM월')}`,
+          name: `저장 - ${format(monthStart, 'yyyy년 MM월')}`,
           metadata: {
             createdBy: currentUserId,
             createdAt: new Date().toISOString(),
@@ -1969,13 +1879,13 @@ function SchedulePageContent() {
         // Invalidate schedule cache to refresh the list (for ManageSchedulesModal)
         await utils.schedule.list.invalidate();
 
-        alert('스케줄이 임시 저장되었습니다.\n다른 멤버들에게는 보이지 않으며, 스케줄 보기에서 확인할 수 있습니다.');
+        alert('스케줄이 저장되었습니다.\n다른 멤버들에게는 보이지 않으며, 스케줄 보기에서 확인할 수 있습니다.');
       } else {
-        alert('임시 저장에 실패했습니다: ' + result.error);
+        alert('저장에 실패했습니다: ' + result.error);
       }
     } catch (error) {
       console.error('Save draft error:', error);
-      alert('임시 저장 중 오류가 발생했습니다.');
+      alert('저장 중 오류가 발생했습니다.');
     }
     finally {
       setIsSavingDraft(false);
@@ -2283,11 +2193,11 @@ function SchedulePageContent() {
         requiredStaffPerShift,
         optimizationGoal: 'balanced' as const,
         nightIntensivePaidLeaveDays: nightLeaveSetting,
-        enableAI: aiEnabled && (aiPermission?.canUse ?? false), // AI Polish 활성화
+        enableAI: aiEnabled && isProfessionalPlan, // AI Polish 활성화
       };
 
       const result = await generateScheduleMutation.mutateAsync(payload);
-      let normalizedAssignments: ScheduleAssignment[] = result.assignments.map((assignment: DbAssignment) => ({
+      const normalizedAssignments: ScheduleAssignment[] = result.assignments.map((assignment: DbAssignment) => ({
         ...assignment,
         date: new Date(assignment.date),
         id: assignment.id || `${assignment.employeeId}-${assignment.date}`,
@@ -2315,7 +2225,7 @@ function SchedulePageContent() {
       setOriginalSchedule(normalizedAssignments);
       setIsConfirmed(false);
       setLoadedScheduleId(result.scheduleId);
-      setIsAiGenerated(aiEnabled && (aiPermission?.canUse ?? false)); // Mark schedule as AI-generated
+      setIsAiGenerated(aiEnabled && isProfessionalPlan); // Mark schedule as AI-generated
       if (result.generationResult) {
         setGenerationResult({
           success: true,
@@ -2332,8 +2242,8 @@ function SchedulePageContent() {
         setOffAccrualSummaries([]);
       }
 
-      // AI로 생성한 경우 자동 임시저장
-      if (aiEnabled && aiPermission?.canUse) {
+      // AI로 생성한 경우 자동 저장
+      if (aiEnabled && isProfessionalPlan) {
         try {
           const saveDraftResponse = await fetchWithAuth('/api/schedule/save-draft', {
             method: 'POST',
@@ -2363,13 +2273,13 @@ function SchedulePageContent() {
 
           if (saveDraftResponse.ok) {
             const saveData = await saveDraftResponse.json();
-            console.log('AI 생성 스케줄 자동 임시저장 완료:', saveData);
+            console.log('AI 생성 스케줄 자동 저장 완료:', saveData);
             // 스케줄 목록 갱신
             await utils.schedule.invalidate();
           }
         } catch (saveError) {
-          console.error('자동 임시저장 실패:', saveError);
-          // 임시저장 실패해도 스케줄 생성은 성공했으므로 에러를 무시
+          console.error('자동 저장 실패:', saveError);
+          // 저장 실패해도 스케줄 생성은 성공했으므로 에러를 무시
         }
       }
     } catch (error) {
@@ -2968,37 +2878,37 @@ function SchedulePageContent() {
 
                       {/* AI Toggle Switch */}
                       <div className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg">
-                        <Sparkles className={`w-4 h-4 ${aiEnabled && aiPermission?.canUse ? "text-purple-600 dark:text-purple-400" : "text-gray-400"}`} />
+                        <Sparkles className={`w-4 h-4 ${aiEnabled && isProfessionalPlan ? "text-purple-600 dark:text-purple-400" : "text-gray-400"}`} />
                         <span className="text-xs font-medium text-gray-700 dark:text-gray-300">AI</span>
                         <button
                           onClick={() => {
-                            if (!aiPermission?.canUse) {
-                              alert(aiPermission?.reason || '유료 플랜 구독이 필요합니다.');
+                            if (!isProfessionalPlan) {
+                              alert(aiFeatureLockedMessage);
                               return;
                             }
                             setAiEnabled(!aiEnabled);
                           }}
                           disabled={isGenerating}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
-                            aiEnabled && aiPermission?.canUse
+                            aiEnabled && isProfessionalPlan
                               ? 'bg-purple-600 dark:bg-purple-500'
                               : 'bg-gray-300 dark:bg-gray-600'
                           }`}
-                          title={aiPermission?.canUse ? (aiEnabled ? "AI 모드 ON - 스케줄 생성 시 AI가 최적화합니다" : "AI 모드 OFF") : "유료 플랜 구독 필요"}
+                          title={isProfessionalPlan ? (aiEnabled ? "AI 모드 ON - 스케줄 생성 시 AI가 최적화합니다" : "AI 모드 OFF") : aiFeatureLockedMessage}
                           role="switch"
                           aria-checked={aiEnabled}
                         >
                           <span
                             className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform ${
-                              aiEnabled && aiPermission?.canUse ? 'translate-x-6' : 'translate-x-1'
+                              aiEnabled && isProfessionalPlan ? 'translate-x-6' : 'translate-x-1'
                             }`}
                           />
                         </button>
-                        {!aiPermission?.canUse && (
+                        {!isProfessionalPlan && (
                           <span className="text-xs">🔒</span>
                         )}
-                        <span className={`text-xs font-medium ${aiEnabled && aiPermission?.canUse ? 'text-purple-600 dark:text-purple-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                          {aiEnabled && aiPermission?.canUse ? 'ON' : 'OFF'}
+                        <span className={`text-xs font-medium ${aiEnabled && isProfessionalPlan ? 'text-purple-600 dark:text-purple-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                          {aiEnabled && isProfessionalPlan ? 'ON' : 'OFF'}
                         </span>
                       </div>
 
@@ -3038,31 +2948,10 @@ function SchedulePageContent() {
                   )}
 
                   <button
-                    onClick={handleValidateSchedule}
-                    disabled={modals.isValidating || !hasSchedule}
-                    className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-70 disabled:cursor-not-allowed"
-                    title={hasSchedule ? "스케줄 검증" : "검증할 스케줄이 없습니다"}
-                  >
-                    {modals.isValidating ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span className="hidden sm:inline">검증 중...</span>
-                        <span className="sm:hidden">진행중</span>
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="w-4 h-4" />
-                        <span className="hidden sm:inline">검증</span>
-                        <span className="sm:hidden">검증</span>
-                      </>
-                    )}
-                  </button>
-
-                  <button
                     onClick={handleSaveDraft}
                     disabled={isSavingDraft || !hasSchedule}
                     className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-400 rounded-lg border border-blue-300 dark:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-70 disabled:cursor-not-allowed"
-                    title={hasSchedule ? "스케줄 임시 저장 (멤버에게는 보이지 않음)" : "저장할 스케줄이 없습니다"}
+                    title={hasSchedule ? "스케줄 저장 (멤버에게는 보이지 않음)" : "저장할 스케줄이 없습니다"}
                   >
                     {isSavingDraft ? (
                       <>
@@ -3073,7 +2962,7 @@ function SchedulePageContent() {
                     ) : (
                       <>
                         <Save className="w-4 h-4" />
-                        <span className="hidden sm:inline">임시 저장</span>
+                        <span className="hidden sm:inline">저장</span>
                         <span className="sm:hidden">저장</span>
                       </>
                     )}
@@ -3397,15 +3286,6 @@ function SchedulePageContent() {
         onScheduleLoad={handleLoadSchedule}
       />
 
-      {/* Validation Results Modal */}
-      <ValidationResultsModal
-        isOpen={modals.showValidationResults}
-        onClose={() => modals.setShowValidationResults(false)}
-        validationScore={modals.validationScore}
-        validationIssues={modals.validationIssues}
-        employeeNameMap={employeeNameMap}
-      />
-
       {/* 🆕 Improvement Result Modal */}
       <ImprovementResultModal
         isOpen={showImprovementModal}
@@ -3422,7 +3302,6 @@ function SchedulePageContent() {
         onConfirm={handleConfirmSchedule}
         isConfirming={modals.isConfirming}
         isCheckingConflicts={isPreparingConfirmation}
-        validationScore={modals.validationScore}
         scheduleName={scheduleName}
         onScheduleNameChange={handleScheduleNameChange}
         defaultScheduleName={`${format(monthStart, 'yyyy년 M월')} 스케줄`}

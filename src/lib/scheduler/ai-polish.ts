@@ -6,7 +6,7 @@
 
 import { performance } from 'perf_hooks';
 import { format } from 'date-fns';
-import type { ScheduleAssignment, ScheduleScore, Constraint } from '@/lib/types/scheduler';
+import type { ScheduleAssignment, ScheduleScore, Constraint, ConstraintViolation } from '@/lib/types/scheduler';
 import type { AiScheduleRequest, AiScheduleGenerationResult, AiEmployee } from './ai-scheduler';
 
 export interface AIPolishResult {
@@ -35,6 +35,44 @@ interface ObviousIssue {
   };
   impact: 'high' | 'medium' | 'low';
   confidence: number;
+}
+
+interface AnalysisAssignment {
+  employeeId: string;
+  date: string;
+  shiftId: string;
+  shiftType?: string;
+  isLocked: boolean;
+  isSpecialRequest: boolean;
+}
+
+interface AnalysisEmployee {
+  id: string;
+  name?: string | null;
+  preferences?: Record<string, number> | null;
+  workPattern?: AiEmployee['workPatternType'];
+  assignmentCount: number;
+}
+
+interface AnalysisSpecialRequest {
+  employeeId: string;
+  date: string;
+  requestType?: string;
+  shiftCode?: string | null;
+}
+
+type RequiredStaffMap = Record<string, number>;
+
+type ScheduleViolationSummary = Pick<ConstraintViolation, 'constraintName' | 'severity' | 'message'>;
+
+interface AnalysisData {
+  currentAssignments: AnalysisAssignment[];
+  currentScore: ScheduleScore;
+  violations: ScheduleViolationSummary[];
+  employees: AnalysisEmployee[];
+  constraints: Constraint[];
+  requiredStaffPerShift?: RequiredStaffMap;
+  specialRequests: AnalysisSpecialRequest[];
 }
 
 /**
@@ -76,7 +114,7 @@ export async function autoPolishWithAI(
         const affectedEmployees = [issue.fix.employeeA, issue.fix.employeeB].filter(Boolean);
         for (const employeeId of affectedEmployees) {
           const assignment = analysisData.currentAssignments.find(
-            (a: any) => a.employeeId === employeeId && a.date === issue.fix.date
+            (assignment) => assignment.employeeId === employeeId && assignment.date === issue.fix.date
           );
           if (assignment && (assignment.isLocked || assignment.isSpecialRequest)) {
             console.log(`[AI Polish] Filtering out issue affecting protected assignment: ${employeeId} on ${issue.fix.date}`);
@@ -152,7 +190,7 @@ export async function autoPolishWithAI(
 function prepareAnalysisData(
   aiResult: AiScheduleGenerationResult,
   input: AiScheduleRequest
-) {
+): AnalysisData {
   // 직원별 배정 수 계산
   const employeeAssignmentCounts = new Map<string, number>();
   aiResult.assignments.forEach((assignment) => {
@@ -167,7 +205,7 @@ function prepareAnalysisData(
   });
 
   // 배정에 특별 요청 및 locked 정보 추가
-  const enhancedAssignments = aiResult.assignments.slice(0, 50).map((assignment) => {
+  const enhancedAssignments: AnalysisAssignment[] = aiResult.assignments.slice(0, 50).map((assignment) => {
     const dateStr = format(assignment.date, 'yyyy-MM-dd');
     const key = `${assignment.employeeId}-${dateStr}`;
     return {
@@ -183,7 +221,11 @@ function prepareAnalysisData(
   return {
     currentAssignments: enhancedAssignments,
     currentScore: aiResult.score,
-    violations: aiResult.violations.slice(0, 10),
+    violations: aiResult.violations.slice(0, 10).map((violation) => ({
+      constraintName: violation.constraintName,
+      severity: violation.severity,
+      message: violation.message,
+    })),
     employees: input.employees.slice(0, 20).map((emp: AiEmployee) => ({
       id: emp.id,
       name: emp.name,
@@ -191,22 +233,22 @@ function prepareAnalysisData(
       workPattern: emp.workPatternType,
       assignmentCount: employeeAssignmentCounts.get(emp.id) || 0,
     })),
-    constraints: input.constraints?.slice(0, 10) || [],
-    requiredStaffPerShift: input.requiredStaffPerShift,
+    constraints: input.constraints?.slice(0, 10) ?? [],
+    requiredStaffPerShift: input.requiredStaffPerShift ?? undefined,
     // 특별 요청 정보 추가
     specialRequests: input.specialRequests?.slice(0, 20).map(req => ({
       employeeId: req.employeeId,
       date: req.date,
       requestType: req.requestType,
       shiftCode: req.shiftTypeCode,
-    })) || [],
+    })) ?? [],
   };
 }
 
 /**
  * OpenAI를 사용하여 명백한 이슈 분석
  */
-async function analyzeForObviousIssues(data: any): Promise<{ obviousIssues: ObviousIssue[] }> {
+async function analyzeForObviousIssues(data: AnalysisData): Promise<{ obviousIssues: ObviousIssue[] }> {
   // OpenAI API 키 확인
   if (!process.env.OPENAI_API_KEY) {
     console.warn('[AI Polish] OPENAI_API_KEY not configured, skipping AI analysis');
@@ -266,7 +308,7 @@ async function analyzeForObviousIssues(data: any): Promise<{ obviousIssues: Obvi
 /**
  * AI 분석 프롬프트 생성
  */
-function buildAnalysisPrompt(data: any): string {
+function buildAnalysisPrompt(data: AnalysisData): string {
   return `
 다음 근무 스케줄에서 **명백하고 간단하게 고칠 수 있는** 문제만 찾으세요.
 
@@ -277,9 +319,9 @@ function buildAnalysisPrompt(data: any): string {
    - 직원이 명시적으로 요청한 시프트는 최우선 보호
 2. **아래 배정은 절대 수정 제안 금지:**
 ${data.currentAssignments
-  .filter((a: any) => a.isSpecialRequest || a.isLocked)
+  .filter((assignment) => assignment.isSpecialRequest || assignment.isLocked)
   .slice(0, 15)
-  .map((a: any) => `   - ${a.employeeId}: ${a.date} → ${a.shiftId} (🔒 보호됨)`)
+  .map((assignment) => `   - ${assignment.employeeId}: ${assignment.date} → ${assignment.shiftId} (🔒 보호됨)`)
   .join('\n')}
 
 ## 현재 스케줄 상태
@@ -290,21 +332,21 @@ ${data.currentAssignments
 - 제약 위반: ${data.violations.length}건
 
 ## 특별 요청 목록 (변경 절대 금지)
-${data.specialRequests?.slice(0, 10).map((req: any) => `
-- ${req.employeeId}: ${req.date} → ${req.shiftCode || req.requestType} 요청 (🔒 보호됨)
+${data.specialRequests.slice(0, 10).map((request) => `
+- ${request.employeeId}: ${request.date} → ${request.shiftCode || request.requestType} 요청 (🔒 보호됨)
 `).join('\n') || '(없음)'}
 
 ## 직원 정보
-${data.employees.slice(0, 10).map((emp: any) => `
-- ${emp.name} (ID: ${emp.id})
-  - 근무 패턴: ${emp.workPattern || '지정 안됨'}
-  - 배정 수: ${emp.assignmentCount}회
-  - 선호 시프트: ${emp.preferences ? Object.keys(emp.preferences).join(', ') : '없음'}
+${data.employees.slice(0, 10).map((employee) => `
+- ${employee.name ?? '이름 미등록'} (ID: ${employee.id})
+  - 근무 패턴: ${employee.workPattern || '지정 안됨'}
+  - 배정 수: ${employee.assignmentCount}회
+  - 선호 시프트: ${employee.preferences ? Object.keys(employee.preferences).join(', ') : '없음'}
 `).join('\n')}
 
 ## 제약 위반
-${data.violations.slice(0, 5).map((v: any) => `
-- [${v.severity}] ${v.constraintName}: ${v.message}
+${data.violations.slice(0, 5).map((violation) => `
+- [${violation.severity}] ${violation.constraintName}: ${violation.message}
 `).join('\n')}
 
 ## 찾을 문제 (특별 요청 및 locked 배정은 절대 제외)

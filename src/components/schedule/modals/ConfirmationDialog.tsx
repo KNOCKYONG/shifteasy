@@ -14,7 +14,6 @@ interface ConfirmationDialogProps {
   onConfirm: () => void;
   isConfirming: boolean;
   isCheckingConflicts?: boolean;
-  validationScore: number | null;
   scheduleName: string;
   onScheduleNameChange: (name: string) => void;
   defaultScheduleName: string;
@@ -26,7 +25,6 @@ export const ConfirmationDialog = memo(function ConfirmationDialog({
   onClose,
   onConfirm,
   isConfirming,
-  validationScore,
   scheduleName,
   onScheduleNameChange,
   defaultScheduleName,
@@ -150,30 +148,6 @@ export const ConfirmationDialog = memo(function ConfirmationDialog({
                 입력하지 않으면 &quot;{defaultScheduleName}&quot;로 저장됩니다.
               </p>
             </div>
-
-            {validationScore !== null && (
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    검증 점수
-                  </span>
-                  <span className={`text-lg font-bold ${
-                    validationScore >= 80
-                      ? 'text-green-600 dark:text-green-400'
-                      : validationScore >= 60
-                      ? 'text-yellow-600 dark:text-yellow-400'
-                      : 'text-red-600 dark:text-red-400'
-                  }`}>
-                    {validationScore}점
-                  </span>
-                </div>
-                {validationScore < 80 && (
-                  <p className="text-xs text-yellow-600 dark:text-yellow-400">
-                    ⚠️ 검증 점수가 낮습니다. 최적화를 먼저 실행하는 것을 권장합니다.
-                  </p>
-                )}
-              </div>
-            )}
 
             {/* 기존 스케줄이 없을 때만 정보 박스 표시 */}
             {!existingSchedule && (

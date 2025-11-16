@@ -12,7 +12,6 @@ const PUBLIC_ROUTE_PATTERNS = [
   /^\/api\/auth\/signup$/,
   /^\/api\/auth\/provision-tenant$/,
   /^\/api\/auth\/guest-signup$/,
-  /^\/api\/schedule\/validate$/,
   /^\/api\/email\/logo$/,
 ];
 
