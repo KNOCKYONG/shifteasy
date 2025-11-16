@@ -1,12 +1,13 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { User, X, AlertCircle, Star, ChevronLeft, ChevronRight, Info, CheckCircle, Wallet, Clock, RotateCcw } from "lucide-react";
+import { User, X, AlertCircle, Star, ChevronLeft, ChevronRight, Info, CheckCircle, Wallet, Clock, RotateCcw, Calendar } from "lucide-react";
 import { type Employee, type EmployeePreferences, type ShiftType } from "@/lib/types/scheduler";
 import { validatePattern as validatePatternUtil, describePattern, EXAMPLE_PATTERNS } from "@/lib/utils/pattern-validator";
 import { api } from "@/lib/trpc/client";
-import { format, startOfMonth, endOfMonth } from "date-fns";
+import { format, startOfMonth, endOfMonth, addMonths, isBefore, startOfDay } from "date-fns";
 import type { SimplifiedPreferences } from "@/components/department/MyPreferencesPanel";
 import { LottieLoadingOverlay } from "@/components/common/LottieLoadingOverlay";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 interface EmployeePreferencesModalProps {
   employee: Employee;
@@ -218,9 +219,31 @@ export function EmployeePreferencesModal({
   const [allocToAllowance, setAllocToAllowance] = useState(0);
   const lastAllocationRef = useRef({ accumulation: 0, allowance: 0 });
 
-  // Fetch off-balance data
+  // ✅ 월 선택 state 추가
+  const [selectedOffBalanceMonth, setSelectedOffBalanceMonth] = useState(new Date());
+
+  // ✅ 현재 사용자 정보 가져오기
+  const currentUser = useCurrentUser();
+  const isManager = currentUser?.role === 'manager' || currentUser?.role === 'admin' || currentUser?.role === 'owner';
+
+  // ✅ 선택 가능한 월 범위 계산
+  const currentMonth = startOfMonth(new Date());
+  const minSelectableMonth = isManager
+    ? addMonths(currentMonth, -1) // manager: 이전 달부터
+    : currentMonth; // member: 이번 달부터
+
+  // ✅ 선택 가능한 월 목록 생성 (현재 달 기준 ±3개월)
+  const selectableMonths = Array.from({ length: 7 }, (_, i) =>
+    addMonths(currentMonth, i - 3)
+  ).filter(month => !isBefore(startOfDay(month), startOfDay(minSelectableMonth)));
+
+  // ✅ 선택된 월에 따라 off-balance 데이터 조회
   const { data: offBalance, refetch: refetchOffBalance } = api.offBalance.getByEmployee.useQuery(
-    { employeeId: employee.id },
+    {
+      employeeId: employee.id,
+      year: selectedOffBalanceMonth.getFullYear(),
+      month: selectedOffBalanceMonth.getMonth() + 1, // JavaScript month is 0-indexed
+    },
     { enabled: activeTab === 'off-balance' }
   );
 
@@ -277,7 +300,7 @@ export function EmployeePreferencesModal({
     }
   });
 
-  // Handle allocation save
+  // ✅ 선택된 월의 배분 설정 저장
   const handleSaveAllocation = () => {
     lastAllocationRef.current = {
       accumulation: allocToAccumulation,
@@ -288,6 +311,8 @@ export function EmployeePreferencesModal({
       allocatedToAccumulation: allocToAccumulation,
       allocatedToAllowance: allocToAllowance,
       departmentId: employee.departmentId || undefined,
+      year: selectedOffBalanceMonth.getFullYear(),
+      month: selectedOffBalanceMonth.getMonth() + 1, // JavaScript month is 0-indexed
     });
   };
   // Request 탭을 위한 state
@@ -1130,6 +1155,31 @@ export function EmployeePreferencesModal({
                   OFF 배분 설정
                 </h3>
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-4">
+                  {/* ✅ 월 선택 드롭다운 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      배분 대상 월 선택
+                    </label>
+                    <select
+                      value={format(selectedOffBalanceMonth, 'yyyy-MM')}
+                      onChange={(e) => setSelectedOffBalanceMonth(new Date(e.target.value + '-01'))}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+                    >
+                      {selectableMonths.map((month) => (
+                        <option key={format(month, 'yyyy-MM')} value={format(month, 'yyyy-MM')}>
+                          {format(month, 'yyyy년 M월')}
+                          {format(month, 'yyyy-MM') === format(currentMonth, 'yyyy-MM') && ' (이번 달)'}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {isManager
+                        ? '💼 Manager는 이전 달부터 배분 설정 가능합니다'
+                        : '👤 Member는 이번 달부터 배분 설정 가능합니다'}
+                    </p>
+                  </div>
+
                   {/* 설명 */}
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     적립된 OFF를 미래 사용(적립)과 수당 지급으로 자유롭게 분배할 수 있습니다.

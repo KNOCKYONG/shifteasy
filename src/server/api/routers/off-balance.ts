@@ -9,6 +9,8 @@ export const offBalanceRouter = createTRPCRouter({
     .input(z.object({
       employeeId: z.string(),
       limit: z.number().min(1).max(100).default(12), // Last 12 months by default
+      year: z.number().optional(), // ✅ 특정 연도
+      month: z.number().min(1).max(12).optional(), // ✅ 특정 월 (1-12)
     }))
     .query(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId;
@@ -32,15 +34,21 @@ export const offBalanceRouter = createTRPCRouter({
         )
         .limit(input.limit);
 
-      const latest = history[0];
+      // ✅ 특정 월이 지정된 경우 해당 월의 데이터 찾기
+      let targetRecord = history[0];
+      if (input.year !== undefined && input.month !== undefined) {
+        targetRecord = history.find(
+          (record) => record.year === input.year && record.month === input.month
+        ) || history[0];
+      }
 
       return {
-        preferences: latest
+        preferences: targetRecord
           ? {
-              accumulatedOffDays: latest.accumulatedOffDays ?? latest.remainingOffDays ?? 0,
-              allocatedToAccumulation: latest.allocatedToAccumulation ?? 0,
-              allocatedToAllowance: latest.allocatedToAllowance ?? 0,
-              allocationStatus: latest.allocationStatus ?? 'pending',
+              accumulatedOffDays: targetRecord.accumulatedOffDays ?? targetRecord.remainingOffDays ?? 0,
+              allocatedToAccumulation: targetRecord.allocatedToAccumulation ?? 0,
+              allocatedToAllowance: targetRecord.allocatedToAllowance ?? 0,
+              allocationStatus: targetRecord.allocationStatus ?? 'pending',
             }
           : {
               accumulatedOffDays: 0,
@@ -49,6 +57,7 @@ export const offBalanceRouter = createTRPCRouter({
               allocationStatus: 'pending',
             },
         history,
+        selectedRecord: targetRecord, // ✅ 선택된 레코드 반환
       };
     }),
 
@@ -59,6 +68,8 @@ export const offBalanceRouter = createTRPCRouter({
       allocatedToAccumulation: z.number().min(0),
       allocatedToAllowance: z.number().min(0),
       departmentId: z.string().optional(),
+      year: z.number().optional(), // ✅ 특정 연도
+      month: z.number().min(1).max(12).optional(), // ✅ 특정 월 (1-12)
     }))
     .mutation(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId;
@@ -73,6 +84,14 @@ export const offBalanceRouter = createTRPCRouter({
 
       if (input.departmentId) {
         conditions.push(eq(offBalanceLedger.departmentId, input.departmentId));
+      }
+
+      // ✅ 특정 월이 지정된 경우 해당 월 필터 추가
+      if (input.year !== undefined) {
+        conditions.push(eq(offBalanceLedger.year, input.year));
+      }
+      if (input.month !== undefined) {
+        conditions.push(eq(offBalanceLedger.month, input.month));
       }
 
       const [latestLedger] = await ctx.db
