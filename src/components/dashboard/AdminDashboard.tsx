@@ -353,7 +353,7 @@ export function AdminDashboard() {
                           const shiftMapping: Record<string, string> = {};
 
                           // Build mapping from DB shift types
-                          shiftTypes.forEach((st: any) => {
+                          shiftTypes.forEach((st: { code?: string; name?: string }) => {
                             const code = st.code?.toLowerCase();
                             const displayName = `${st.code} ${st.name}`;
 

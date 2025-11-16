@@ -34,12 +34,16 @@ export const offBalanceRouter = createTRPCRouter({
         )
         .limit(input.limit);
 
-      // ✅ 특정 월이 지정된 경우 해당 월의 데이터 찾기
-      let targetRecord = history[0];
+      // ✅ 특정 월이 지정된 경우 해당 월의 데이터만 찾기 (없으면 undefined)
+      let targetRecord = undefined;
       if (input.year !== undefined && input.month !== undefined) {
+        // 선택한 월의 데이터만 찾기 (fallback 없음)
         targetRecord = history.find(
           (record) => record.year === input.year && record.month === input.month
-        ) || history[0];
+        );
+      } else {
+        // 월 지정이 없으면 가장 최근 데이터
+        targetRecord = history[0];
       }
 
       return {
@@ -51,13 +55,14 @@ export const offBalanceRouter = createTRPCRouter({
               allocationStatus: targetRecord.allocationStatus ?? 'pending',
             }
           : {
+              // ✅ 선택한 월의 데이터가 없으면 모두 0으로 표시
               accumulatedOffDays: 0,
               allocatedToAccumulation: 0,
               allocatedToAllowance: 0,
               allocationStatus: 'pending',
             },
         history,
-        selectedRecord: targetRecord, // ✅ 선택된 레코드 반환
+        selectedRecord: targetRecord, // ✅ 선택된 레코드 반환 (없으면 undefined)
       };
     }),
 
