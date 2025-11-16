@@ -365,6 +365,7 @@ function SchedulePageContent() {
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isPreparingConfirmation, setIsPreparingConfirmation] = useState(false);
   const [toolbarAnimatedIn, setToolbarAnimatedIn] = useState(false);
+  const [isAiGenerated, setIsAiGenerated] = useState(false); // Track if current schedule was AI-generated
   const [selectedDepartmentState, setSelectedDepartmentState] = useState<string>('all');
   const setSelectedDepartment = useCallback((value: string | ((prev: string) => string)) => {
     setSelectedDepartmentState((prev) => {
@@ -847,13 +848,14 @@ function SchedulePageContent() {
         setOffAccrualSummaries((metadata?.offAccruals as OffAccrualSummary[] | undefined) ?? []);
         setIsConfirmed(currentMonthSchedule.status === 'published'); // Only confirmed if published
         setLoadedScheduleId(currentMonthSchedule.id);
+        setIsAiGenerated(Boolean(metadata?.aiEnabled)); // Track if this schedule was AI-generated
         lastLoadedRef.current = { id: currentMonthSchedule.id, updatedAt: currentUpdatedAt };
         if (currentMonthSchedule.departmentId && !isMember) {
           setSelectedDepartment(prev => (
             prev === currentMonthSchedule.departmentId ? prev : currentMonthSchedule.departmentId!
           ));
         }
-        console.log(`✅ Loaded ${convertedAssignments.length} assignments from ${currentMonthSchedule.status} schedule ${currentMonthSchedule.id} (updated: ${currentMonthSchedule.updatedAt})`);
+        console.log(`✅ Loaded ${convertedAssignments.length} assignments from ${currentMonthSchedule.status} schedule ${currentMonthSchedule.id} (updated: ${currentMonthSchedule.updatedAt})${metadata?.aiEnabled ? ' [AI Generated]' : ''}`);
       });
     } else {
       setOffAccrualSummaries([]);
@@ -1201,6 +1203,7 @@ function SchedulePageContent() {
     setGenerationResult(null);
     setOffAccrualSummaries([]);
     setLoadedScheduleId(null); // ✅ Reset to allow loading new month's schedule
+    setIsAiGenerated(false);
   }, []);
 
   const handleNextMonth = React.useCallback(() => {
@@ -1209,6 +1212,7 @@ function SchedulePageContent() {
     setGenerationResult(null);
     setOffAccrualSummaries([]);
     setLoadedScheduleId(null); // ✅ Reset to allow loading new month's schedule
+    setIsAiGenerated(false);
   }, []);
 
   const handleThisMonth = React.useCallback(() => {
@@ -1217,6 +1221,7 @@ function SchedulePageContent() {
     setGenerationResult(null);
     setOffAccrualSummaries([]);
     setLoadedScheduleId(null); // ✅ Reset to allow loading current month's schedule
+    setIsAiGenerated(false);
   }, []);
 
   const handleToggleSwapMode = React.useCallback(() => {
@@ -2278,6 +2283,7 @@ function SchedulePageContent() {
         requiredStaffPerShift,
         optimizationGoal: 'balanced' as const,
         nightIntensivePaidLeaveDays: nightLeaveSetting,
+        enableAI: aiEnabled && (aiPermission?.canUse ?? false), // AI Polish 활성화
       };
 
       const result = await generateScheduleMutation.mutateAsync(payload);
@@ -2288,72 +2294,28 @@ function SchedulePageContent() {
         isLocked: assignment.isLocked || false,
       }));
 
-      // AI 검토 기능이 활성화되어 있고 권한이 있는 경우 AI 검토 실행
-      if (aiEnabled && aiPermission?.canUse) {
-        try {
-          const { reviewScheduleWithAI } = await import('@/lib/ai/openai-client');
-
-          const aiReviewResult = await reviewScheduleWithAI({
-            schedule: {
-              employees: employees.map(emp => ({
-                id: emp.id,
-                name: emp.name,
-                role: emp.role,
-                preferences: {
-                  workPatternType: emp.workPatternType,
-                },
-              })),
-              assignments: normalizedAssignments.map(a => ({
-                date: format(a.date, 'yyyy-MM-dd'),
-                employeeId: a.employeeId,
-                shiftId: a.shiftId,
-                shiftType: a.shiftType,
-              })),
-              constraints: {
-                minStaff: requiredStaffPerShift ? Math.min(...Object.values(requiredStaffPerShift)) : undefined,
-                maxConsecutiveDays: 6,
-                minRestDays: 1,
-              },
-            },
-            period: {
-              startDate: format(monthStart, 'yyyy-MM-dd'),
-              endDate: format(monthEnd, 'yyyy-MM-dd'),
-            },
-          });
-
-          // AI 개선 제안이 있는 경우 사용자에게 표시
-          if (aiReviewResult.analysis.qualityScore < 80 && aiReviewResult.suggestions.length > 0) {
-            const shouldApply = confirm(
-              `AI 분석 결과:\n` +
-              `품질 점수: ${aiReviewResult.analysis.qualityScore}/100\n\n` +
-              `주요 문제점:\n${aiReviewResult.analysis.issues.slice(0, 3).map(i => `- ${i.description}`).join('\n')}\n\n` +
-              `AI가 ${aiReviewResult.suggestions.length}개의 개선 제안을 제공했습니다.\n` +
-              `개선된 스케줄을 적용하시겠습니까?`
-            );
-
-            if (shouldApply && aiReviewResult.improvedSchedule) {
-              // AI가 제안한 개선된 스케줄 적용
-              normalizedAssignments = aiReviewResult.improvedSchedule.assignments.map((assignment) => ({
-                employeeId: assignment.employeeId,
-                date: new Date(assignment.date),
-                shiftId: assignment.shiftId || '',
-                shiftType: assignment.shiftType,
-                id: `${assignment.employeeId}-${assignment.date}`,
-                isLocked: false,
-              }));
-            }
-          }
-        } catch (aiError) {
-          console.error('AI 스케줄 검토 중 오류:', aiError);
-          // AI 검토 실패 시에도 원래 스케줄은 사용
-          alert('AI 검토 중 오류가 발생했지만, 기본 스케줄은 생성되었습니다.');
-        }
+      // AI Polish 결과 처리
+      if (result.aiPolishResult?.improved) {
+        // AI Polish improvements notification
+        console.log(`✨ AI가 ${result.aiPolishResult.improvements.length}개 이슈를 자동 해결했습니다!`);
+        console.log('AI Polish improvements:',
+          result.aiPolishResult.improvements
+            .slice(0, 2)
+            .map((imp: { description: string }) => `• ${imp.description}`)
+            .join('\n')
+        );
+        console.log('[AI Polish] Score improvement:', {
+          before: result.aiPolishResult.beforeScore,
+          after: result.aiPolishResult.afterScore,
+          delta: result.aiPolishResult.afterScore - result.aiPolishResult.beforeScore,
+        });
       }
 
       setSchedule(normalizedAssignments);
       setOriginalSchedule(normalizedAssignments);
       setIsConfirmed(false);
       setLoadedScheduleId(result.scheduleId);
+      setIsAiGenerated(aiEnabled && (aiPermission?.canUse ?? false)); // Mark schedule as AI-generated
       if (result.generationResult) {
         setGenerationResult({
           success: true,
@@ -3004,29 +2966,49 @@ function SchedulePageContent() {
                         )}
                       </button>
 
-                      {/* AI Toggle */}
-                      <button
-                        onClick={() => {
-                          if (!aiPermission?.canUse) {
-                            alert(aiPermission?.reason || '유료 플랜 구독이 필요합니다.');
-                            return;
-                          }
-                          setAiEnabled(!aiEnabled);
-                        }}
-                        disabled={isGenerating}
-                        className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
-                          aiEnabled && aiPermission?.canUse
-                            ? "bg-purple-50 dark:bg-purple-900/20 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300"
-                            : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                        } disabled:opacity-50 disabled:cursor-not-allowed`}
-                        title={aiPermission?.canUse ? (aiEnabled ? "AI 검토 ON" : "AI 검토 OFF") : "유료 플랜 구독 필요"}
-                      >
+                      {/* AI Toggle Switch */}
+                      <div className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg">
                         <Sparkles className={`w-4 h-4 ${aiEnabled && aiPermission?.canUse ? "text-purple-600 dark:text-purple-400" : "text-gray-400"}`} />
-                        <span className="text-xs">AI</span>
+                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">AI</span>
+                        <button
+                          onClick={() => {
+                            if (!aiPermission?.canUse) {
+                              alert(aiPermission?.reason || '유료 플랜 구독이 필요합니다.');
+                              return;
+                            }
+                            setAiEnabled(!aiEnabled);
+                          }}
+                          disabled={isGenerating}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                            aiEnabled && aiPermission?.canUse
+                              ? 'bg-purple-600 dark:bg-purple-500'
+                              : 'bg-gray-300 dark:bg-gray-600'
+                          }`}
+                          title={aiPermission?.canUse ? (aiEnabled ? "AI 모드 ON - 스케줄 생성 시 AI가 최적화합니다" : "AI 모드 OFF") : "유료 플랜 구독 필요"}
+                          role="switch"
+                          aria-checked={aiEnabled}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform ${
+                              aiEnabled && aiPermission?.canUse ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
                         {!aiPermission?.canUse && (
-                          <span className="ml-1 text-xs">🔒</span>
+                          <span className="text-xs">🔒</span>
                         )}
-                      </button>
+                        <span className={`text-xs font-medium ${aiEnabled && aiPermission?.canUse ? 'text-purple-600 dark:text-purple-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                          {aiEnabled && aiPermission?.canUse ? 'ON' : 'OFF'}
+                        </span>
+                      </div>
+
+                      {/* AI Generated Badge */}
+                      {isAiGenerated && hasSchedule && (
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border border-purple-200 dark:border-purple-700 rounded-lg">
+                          <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                          <span className="text-xs font-medium text-purple-700 dark:text-purple-300">AI 생성</span>
+                        </div>
+                      )}
 
                       {/* 🆕 개선 버튼 */}
                       <button
@@ -3410,6 +3392,7 @@ function SchedulePageContent() {
           setGenerationResult(null);
           setOffAccrualSummaries([]);
           setIsConfirmed(false); // Reset confirmed state
+          setIsAiGenerated(false);
         }}
         onScheduleLoad={handleLoadSchedule}
       />

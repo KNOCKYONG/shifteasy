@@ -6,6 +6,7 @@ import { schedules, users, departments, offBalanceLedger, holidays, specialReque
 import { eq, and, gte, lte, desc, inArray, isNull, ne, or } from 'drizzle-orm';
 import { db } from '@/db';
 import { generateAiSchedule } from '@/lib/scheduler/ai-scheduler';
+import { autoPolishWithAI } from '@/lib/scheduler/ai-polish';
 import { ScheduleImprover } from '@/lib/scheduler/schedule-improver';
 import type { Assignment, Employee as ImprovementEmployee, ScheduleConstraints } from '@/lib/scheduler/types';
 import { sse } from '@/lib/sse/broadcaster';
@@ -221,6 +222,7 @@ export const scheduleRouter = createTRPCRouter({
       requiredStaffPerShift: z.record(z.string(), z.number()).optional(),
       optimizationGoal: z.enum(['fairness', 'preference', 'coverage', 'cost', 'balanced']).default('balanced'),
       nightIntensivePaidLeaveDays: z.number().optional(),
+      enableAI: z.boolean().default(false),
     }))
     .mutation(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
@@ -303,7 +305,48 @@ export const scheduleRouter = createTRPCRouter({
         previousOffAccruals,
       });
 
-      const serializedAssignments = aiResult.assignments.map((assignment) => ({
+      let finalAssignments = aiResult.assignments;
+      let finalScore = aiResult.score;
+      let aiPolishResult = null;
+
+      // AI Polish 적용 (enableAI=true일 때만)
+      if (input.enableAI) {
+        try {
+          const polishResult = await autoPolishWithAI(aiResult, {
+            departmentId: input.departmentId,
+            startDate: input.startDate,
+            endDate: input.endDate,
+            employees: employeesWithGuarantees,
+            shifts: input.shifts,
+            constraints: input.constraints,
+            specialRequests: input.specialRequests,
+            holidays: input.holidays,
+            teamPattern: input.teamPattern,
+            requiredStaffPerShift: input.requiredStaffPerShift,
+            nightIntensivePaidLeaveDays: input.nightIntensivePaidLeaveDays,
+            previousOffAccruals,
+          });
+
+          if (polishResult.improved) {
+            finalAssignments = polishResult.assignments;
+            finalScore = polishResult.score;
+            aiPolishResult = {
+              improved: true,
+              improvements: polishResult.improvements,
+              beforeScore: aiResult.score.total,
+              afterScore: polishResult.score.total,
+              polishTime: polishResult.polishTime,
+            };
+
+            console.log(`[AI Polish] ${aiResult.score.total} → ${polishResult.score.total} (+${polishResult.score.total - aiResult.score.total})`);
+          }
+        } catch (polishError) {
+          console.error('[AI Polish] Failed, using original schedule:', polishError);
+          // AI 실패 시 원래 스케줄 사용 (Fail-safe)
+        }
+      }
+
+      const serializedAssignments = finalAssignments.map((assignment) => ({
         ...assignment,
         date: assignment.date instanceof Date ? assignment.date.toISOString() : assignment.date,
       }));
@@ -320,9 +363,11 @@ export const scheduleRouter = createTRPCRouter({
           constraints: input.constraints,
           assignments: serializedAssignments,
           stats: aiResult.stats,
-          score: aiResult.score,
+          score: finalScore,
           violations: aiResult.violations,
           offAccruals: aiResult.offAccruals,
+          aiEnabled: input.enableAI,
+          aiPolishResult,
         },
       });
 
@@ -351,10 +396,11 @@ export const scheduleRouter = createTRPCRouter({
         assignments: serializedAssignments,
         generationResult: {
           computationTime: aiResult.computationTime,
-          score: aiResult.score,
+          score: finalScore,
           violations: aiResult.violations,
           offAccruals: aiResult.offAccruals,
         },
+        aiPolishResult,
       };
     }),
 
