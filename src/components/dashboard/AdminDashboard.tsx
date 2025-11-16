@@ -341,10 +341,37 @@ export function AdminDashboard() {
                         )}
                       </p>
                       <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
-                        {shift.shiftName || shift.shiftId || '-'}
-                        {shift.startTime && shift.endTime && (
+                        {(() => {
+                          // Shift code mapping for display
+                          const shiftMapping: Record<string, string> = {
+                            'shift-d': 'D 주간',
+                            'shift-e': 'E 저녁',
+                            'shift-n': 'N 야간',
+                            'shift-a': 'A 행정',
+                            'shift-o': 'O 휴무',
+                            'shift-off': 'O 휴무',
+                            'shift-v': 'V 휴가',
+                            'd': 'D 주간',
+                            'e': 'E 저녁',
+                            'n': 'N 야간',
+                            'a': 'A 행정',
+                            'o': 'O 휴무',
+                            'off': 'O 휴무',
+                            'v': 'V 휴가',
+                          };
+
+                          const shiftId = shift.shiftId?.toLowerCase() || '';
+                          const displayName = shift.shiftName ||
+                                            shiftMapping[shiftId] ||
+                                            shiftMapping[shiftId.replace('shift-', '')] ||
+                                            shift.shiftId ||
+                                            '-';
+
+                          return displayName;
+                        })()}
+                        {shift.startTime && shift.endTime && shift.startTime !== '00:00' && (
                           <span className="ml-1">
-                            {shift.startTime.substring(0, 5)}~{shift.endTime.substring(0, 5)}
+                            ({shift.startTime.substring(0, 5)}~{shift.endTime.substring(0, 5)})
                           </span>
                         )}
                       </p>
