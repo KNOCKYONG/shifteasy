@@ -251,7 +251,7 @@ export function EmployeePreferencesModal({
     { enabled: activeTab === 'off-balance' }
   );
 
-  // Update offBalanceData when query data changes
+  // Update offBalanceData when query data changes or selected month changes
   useEffect(() => {
     if (offBalance) {
       // Transform null values to 0 for type safety
@@ -272,11 +272,11 @@ export function EmployeePreferencesModal({
           status: record.status ?? 'pending',
         })),
       });
-      // Initialize allocation inputs with current values
+      // ✅ Initialize allocation inputs with current values from selected month
       setAllocToAccumulation(offBalance.preferences.allocatedToAccumulation ?? 0);
       setAllocToAllowance(offBalance.preferences.allocatedToAllowance ?? 0);
     }
-  }, [offBalance]);
+  }, [offBalance, selectedOffBalanceMonth]);
 
   // Update allocation mutation
   const updateAllocationMutation = api.offBalance.updateAllocation.useMutation({
