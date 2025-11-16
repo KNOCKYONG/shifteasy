@@ -227,6 +227,10 @@ function isCoreShiftCode(code: string): boolean {
   return CORE_SHIFT_CODES.has(code.toUpperCase());
 }
 
+function normalizeCoreShiftCode(raw: string): string {
+  return raw.replace(/[^a-z]/gi, '').toUpperCase();
+}
+
 function resolveGuaranteedOffDays(employee: AiEmployee | undefined, fallback: number): number {
   if (!employee || typeof employee.guaranteedOffDays !== 'number') {
     return fallback;
@@ -355,12 +359,12 @@ function createSchedulerContext(request: AiScheduleRequest): SchedulerContext {
   const dateIndexMap = new Map<string, number>();
   const holidays = new Set((request.holidays ?? []).map((h) => h.date));
   const restDayKeys = new Set<string>();
-  dateRange.forEach((date, index) => {
-    const key = toDateKey(date);
-    dateIndexMap.set(key, index);
-    if (isWeekend(date) || holidays.has(key)) {
-      restDayKeys.add(key);
-    }
+    dateRange.forEach((date, index) => {
+      const key = toDateKey(date);
+      dateIndexMap.set(key, index);
+      if (isWeekend(date) || holidays.has(key)) {
+        restDayKeys.add(key);
+      }
   });
 
   const specialRequestsMap = new Map<string, AiSpecialRequest[]>();
@@ -419,12 +423,13 @@ function createSchedulerContext(request: AiScheduleRequest): SchedulerContext {
     });
   });
 
-  return {
-    dateRange,
-    dateIndexMap,
-    holidays,
-    restDayKeys,
-    maxOffDaysPerEmployee: Math.max(restDayKeys.size, Math.max(4, Math.floor(dateRange.length / 7))),
+    return {
+      dateRange,
+      dateIndexMap,
+      holidays,
+      restDayKeys,
+      // Base entitled OFF days in this period = number of weekends + holidays
+      maxOffDaysPerEmployee: restDayKeys.size,
     shiftTemplateMap,
     shiftTemplateById,
     adminShiftTemplate: shiftTemplateMap.get('A') ?? null,
@@ -1208,19 +1213,19 @@ async function applyPostBuildHeuristics(
   };
 }
 
-function resolveRequestedShiftCode(req: AiSpecialRequest): string | null {
-  if (req.requestType === 'shift_request' && req.shiftTypeCode) {
-    const normalized = req.shiftTypeCode.toUpperCase();
-    if (!isOffShiftCode(normalized)) {
-      return normalized;
+  function resolveRequestedShiftCode(req: AiSpecialRequest): string | null {
+    if (req.requestType === 'shift_request' && req.shiftTypeCode) {
+      const normalized = normalizeCoreShiftCode(req.shiftTypeCode);
+      if (normalized && !isOffShiftCode(normalized)) {
+        return normalized;
+      }
     }
+    const normalizedRequestType = req.requestType?.toLowerCase() ?? '';
+    if (normalizedRequestType === 'overtime' || normalizedRequestType === 'extra_shift') {
+      return 'D';
+    }
+    return null;
   }
-  const normalizedRequestType = req.requestType?.toLowerCase() ?? '';
-  if (normalizedRequestType === 'overtime' || normalizedRequestType === 'extra_shift') {
-    return 'D';
-  }
-  return null;
-}
 
 function rebuildEmployeeStates(
   request: AiScheduleRequest,
@@ -1561,8 +1566,8 @@ async function runGenerationPass(
       if (!state || !employee) {
         return;
       }
-      const normalizedRequestType = req.requestType?.toLowerCase() ?? '';
-      const normalizedShiftTypeCode = req.shiftTypeCode?.toUpperCase() ?? null;
+        const normalizedRequestType = req.requestType?.toLowerCase() ?? '';
+        const normalizedShiftTypeCode = req.shiftTypeCode ? normalizeCoreShiftCode(req.shiftTypeCode) : null;
 
       let shiftId = OFF_SHIFT_ID;
       let shiftCode = 'O';
@@ -1885,15 +1890,15 @@ export async function validateSchedule(
   const dateRange = eachDayOfInterval({ start: request.startDate, end: request.endDate });
   const holidays = new Set((request.holidays ?? []).map((h) => h.date));
   const restDayKeys = new Set<string>();
-  dateRange.forEach((date) => {
-    const key = toDateKey(date);
-    if (isWeekend(date) || holidays.has(key)) {
-      restDayKeys.add(key);
-    }
-  });
-  const maxOffDaysPerEmployee = Math.max(restDayKeys.size, Math.max(4, Math.floor(dateRange.length / 7)));
+    dateRange.forEach((date) => {
+      const key = toDateKey(date);
+      if (isWeekend(date) || holidays.has(key)) {
+        restDayKeys.add(key);
+      }
+    });
+  const maxOffDaysPerEmployee = restDayKeys.size;
 
-  const shiftTemplateMap = new Map<string, Shift & { code?: string }>();
+    const shiftTemplateMap = new Map<string, Shift & { code?: string }>();
   const shiftTemplateById = new Map<string, Shift & { code?: string }>();
   request.shifts.forEach((shift) => {
     const code = extractShiftCode(shift);

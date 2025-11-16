@@ -8,6 +8,7 @@ import { performance } from 'perf_hooks';
 import { format } from 'date-fns';
 import type { ScheduleAssignment, ScheduleScore, Constraint, ConstraintViolation } from '@/lib/types/scheduler';
 import type { AiScheduleRequest, AiScheduleGenerationResult, AiEmployee } from './ai-scheduler';
+import { extractFirstJsonBlock } from '@/lib/utils/ai-json';
 
 export interface AIPolishResult {
   assignments: ScheduleAssignment[];
@@ -297,8 +298,19 @@ async function analyzeForObviousIssues(data: AnalysisData): Promise<{ obviousIss
       return { obviousIssues: [] };
     }
 
-    const result = JSON.parse(content);
-    return result;
+    const jsonText = extractFirstJsonBlock(content);
+    if (!jsonText) {
+      console.warn('[AI Polish] No JSON block found in AI response');
+      return { obviousIssues: [] };
+    }
+
+    const result = JSON.parse(jsonText) as { obviousIssues?: ObviousIssue[] };
+    if (!result || !Array.isArray(result.obviousIssues)) {
+      console.warn('[AI Polish] Parsed AI response missing obviousIssues array');
+      return { obviousIssues: [] };
+    }
+
+    return { obviousIssues: result.obviousIssues };
   } catch (error) {
     console.error('[AI Polish] OpenAI API error:', error);
     return { obviousIssues: [] };

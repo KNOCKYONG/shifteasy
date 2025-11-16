@@ -260,30 +260,31 @@ export const scheduleRouter = createTRPCRouter({
       const previousYear = previousMonthDate.getFullYear();
       const previousMonth = previousMonthDate.getMonth() + 1;
 
-      const previousLedgerRows = await db
-        .select({
-          nurseId: offBalanceLedger.nurseId,
-          allocatedToAccumulation: offBalanceLedger.allocatedToAccumulation,
-          guaranteedOffDays: offBalanceLedger.guaranteedOffDays,
-        })
-        .from(offBalanceLedger)
-        .where(and(
-          eq(offBalanceLedger.tenantId, tenantId),
-          eq(offBalanceLedger.departmentId, input.departmentId),
-          eq(offBalanceLedger.year, previousYear),
-          eq(offBalanceLedger.month, previousMonth),
-        ));
+        const previousLedgerRows = await db
+          .select({
+            nurseId: offBalanceLedger.nurseId,
+            accumulatedOffDays: offBalanceLedger.accumulatedOffDays,
+            guaranteedOffDays: offBalanceLedger.guaranteedOffDays,
+          })
+          .from(offBalanceLedger)
+          .where(and(
+            eq(offBalanceLedger.tenantId, tenantId),
+            eq(offBalanceLedger.departmentId, input.departmentId),
+            eq(offBalanceLedger.year, previousYear),
+            eq(offBalanceLedger.month, previousMonth),
+          ));
 
       const previousOffAccruals: Record<string, number> = {};
       const previousGuaranteedOffDays: Record<string, number> = {};
-      previousLedgerRows.forEach((row) => {
-        if (row.nurseId) {
-          previousOffAccruals[row.nurseId] = Math.max(0, row.allocatedToAccumulation || 0);
-          if (typeof row.guaranteedOffDays === 'number') {
-            previousGuaranteedOffDays[row.nurseId] = row.guaranteedOffDays;
+        previousLedgerRows.forEach((row) => {
+          if (row.nurseId) {
+            // Carry-over OFF days come from the accumulated_off_days of the previous month
+            previousOffAccruals[row.nurseId] = Math.max(0, row.accumulatedOffDays || 0);
+            if (typeof row.guaranteedOffDays === 'number') {
+              previousGuaranteedOffDays[row.nurseId] = row.guaranteedOffDays;
+            }
           }
-        }
-      });
+        });
 
       const employeesWithGuarantees = input.employees.map((emp) => ({
         ...emp,
@@ -456,42 +457,49 @@ export const scheduleRouter = createTRPCRouter({
       try {
         const tenantId = (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d');
 
-        type ScheduleMetadata = {
-          assignments?: Array<{
-            employeeId: string;
-            shiftType?: string;
-            date: string | Date;
+          type ScheduleMetadata = {
+            assignments?: Array<{
+              employeeId: string;
+              shiftType?: string;
+              date: string | Date;
+              [key: string]: unknown;
+            }>;
+            offAccruals?: Array<{
+              employeeId: string;
+              extraOffDays: number;
+              guaranteedOffDays: number;
+              actualOffDays: number;
+            }>;
             [key: string]: unknown;
-          }>;
-          [key: string]: unknown;
-        };
+          };
 
-        // Get schedule assignments from metadata
-        const metadata = schedule.metadata as ScheduleMetadata;
-        const assignments = metadata?.assignments || [];
+          // Get schedule assignments and OFF accrual info from metadata
+          const metadata = schedule.metadata as ScheduleMetadata;
+          const assignments = metadata?.assignments || [];
+          const offAccruals = metadata?.offAccruals || [];
 
-        if (assignments.length === 0) {
-          console.log('[OffBalance] (TRPC) Skipping ledger update - no assignments in metadata', {
-            tenantId,
-            scheduleId: schedule.id,
-          });
-        } else {
-          const employeeIds = [...new Set(assignments.map((a) => a.employeeId))] as string[];
+          if (assignments.length === 0) {
+            console.log('[OffBalance] (TRPC) Skipping ledger update - no assignments in metadata', {
+              tenantId,
+              scheduleId: schedule.id,
+            });
+          } else {
+            const employeeIds = [...new Set(assignments.map((a) => a.employeeId))] as string[];
 
           const periodStart = schedule.startDate;
           const periodEnd = schedule.endDate;
           const year = periodStart.getFullYear();
           const month = periodStart.getMonth() + 1;
 
-          const deleteFilters = [
-            eq(offBalanceLedger.year, year),
-            eq(offBalanceLedger.month, month),
-          ];
+            const deleteFilters = [
+              eq(offBalanceLedger.year, year),
+              eq(offBalanceLedger.month, month),
+            ];
           if (schedule.departmentId) {
             deleteFilters.push(eq(offBalanceLedger.departmentId, schedule.departmentId));
           }
 
-          const deletedRows = await tenantDb.hardDelete(offBalanceLedger, and(...deleteFilters));
+            const deletedRows = await tenantDb.hardDelete(offBalanceLedger, and(...deleteFilters));
 
           console.log('[OffBalance] (TRPC) Cleared previous ledger rows', {
             tenantId,
@@ -502,64 +510,113 @@ export const scheduleRouter = createTRPCRouter({
             scheduleId: schedule.id,
           });
 
-          const offBalanceRecords = [];
+            const offBalanceRecords = [];
 
-          for (const employeeId of employeeIds) {
-            const employeeAssignments = assignments.filter((a) => a.employeeId === employeeId);
-            const actualOffDays = employeeAssignments.filter((a) =>
-              a.shiftType === 'O' || a.shiftType === 'OFF'
-            ).length;
+            if (offAccruals.length > 0) {
+              // Prefer using AI off-accrual summaries when available
+              const accrualByEmployee = new Map<string, {
+                extraOffDays: number;
+                guaranteedOffDays: number;
+                actualOffDays: number;
+              }>();
+              offAccruals.forEach((entry) => {
+                accrualByEmployee.set(entry.employeeId, {
+                  extraOffDays: entry.extraOffDays,
+                  guaranteedOffDays: entry.guaranteedOffDays,
+                  actualOffDays: entry.actualOffDays,
+                });
+              });
 
-            const guaranteedOffDays = 8;
-            const remainingOffDays = guaranteedOffDays - actualOffDays;
+              employeeIds.forEach((employeeId) => {
+                const accrual = accrualByEmployee.get(employeeId);
+                if (!accrual) {
+                  return;
+                }
 
-            if (remainingOffDays > 0) {
-              offBalanceRecords.push({
+                const remainingOffDays = accrual.extraOffDays;
+                if (remainingOffDays <= 0) {
+                  return;
+                }
+
+                offBalanceRecords.push({
+                  tenantId,
+                  nurseId: employeeId,
+                  departmentId: schedule.departmentId,
+                  year,
+                  month,
+                  periodStart,
+                  periodEnd,
+                  guaranteedOffDays: accrual.guaranteedOffDays,
+                  actualOffDays: accrual.actualOffDays,
+                  remainingOffDays,
+                  accumulatedOffDays: remainingOffDays,
+                  allocatedToAccumulation: 0,
+                  allocatedToAllowance: 0,
+                  compensationType: null,
+                  status: 'pending',
+                  allocationStatus: 'pending',
+                  scheduleId: schedule.id,
+                });
+              });
+            } else {
+              // Fallback: derive OFF ledger only from assignments with a simple rule
+              for (const employeeId of employeeIds) {
+                const employeeAssignments = assignments.filter((a) => a.employeeId === employeeId);
+                const actualOffDays = employeeAssignments.filter((a) =>
+                  a.shiftType === 'O' || a.shiftType === 'OFF'
+                ).length;
+
+                const guaranteedOffDays = 8;
+                const remainingOffDays = guaranteedOffDays - actualOffDays;
+
+                if (remainingOffDays > 0) {
+                  offBalanceRecords.push({
+                    tenantId,
+                    nurseId: employeeId,
+                    departmentId: schedule.departmentId,
+                    year,
+                    month,
+                    periodStart,
+                    periodEnd,
+                    guaranteedOffDays,
+                    actualOffDays,
+                    remainingOffDays,
+                    accumulatedOffDays: remainingOffDays,
+                    allocatedToAccumulation: 0,
+                    allocatedToAllowance: 0,
+                    compensationType: null,
+                    status: 'pending',
+                    allocationStatus: 'pending',
+                    scheduleId: schedule.id,
+                  });
+                }
+              }
+            }
+
+            if (!offBalanceRecords.length) {
+              console.log('[OffBalance] (TRPC) No remaining OFF days to record', {
                 tenantId,
-                nurseId: employeeId,
                 departmentId: schedule.departmentId,
                 year,
                 month,
-                periodStart,
-                periodEnd,
-                guaranteedOffDays,
-                actualOffDays,
-                remainingOffDays,
-                accumulatedOffDays: remainingOffDays,
-                allocatedToAccumulation: 0,
-                allocatedToAllowance: 0,
-                compensationType: null,
-                status: 'pending',
-                allocationStatus: 'pending',
                 scheduleId: schedule.id,
+                employeeCount: employeeIds.length,
+              });
+            } else {
+              await tenantDb.insert(offBalanceLedger, offBalanceRecords);
+
+              console.log('[OffBalance] (TRPC) Inserted ledger rows', {
+                tenantId,
+                departmentId: schedule.departmentId,
+                year,
+                month,
+                scheduleId: schedule.id,
+                employeeCount: employeeIds.length,
+                insertedCount: offBalanceRecords.length,
               });
             }
           }
-
-          if (!offBalanceRecords.length) {
-            console.log('[OffBalance] (TRPC) No remaining OFF days to record', {
-              tenantId,
-              departmentId: schedule.departmentId,
-              year,
-              month,
-              scheduleId: schedule.id,
-              employeeCount: employeeIds.length,
-            });
-          } else {
-            await tenantDb.insert(offBalanceLedger, offBalanceRecords);
-
-            console.log('[OffBalance] (TRPC) Inserted ledger rows', {
-              tenantId,
-              departmentId: schedule.departmentId,
-              year,
-              month,
-              scheduleId: schedule.id,
-              employeeCount: employeeIds.length,
-              insertedCount: offBalanceRecords.length,
-            });
-          }
-        }
-      } catch (error) {
+        } catch (error) {
         console.error('Error calculating off-balance:', error);
         // Don't fail the publish if off-balance calculation fails
       }
