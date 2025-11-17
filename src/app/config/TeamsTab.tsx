@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Plus, Edit2, Trash2, Users, Save, ChevronDown, ChevronUp, X, Loader2 } from "lucide-react";
+import { Plus, Edit2, Trash2, Users, Save, ChevronDown, ChevronUp, X, Loader2, Check } from "lucide-react";
 import { api } from "@/lib/trpc/client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { LottieLoadingOverlay } from "@/components/common/LottieLoadingOverlay";
@@ -60,6 +60,9 @@ export function TeamsTab() {
   const [unassignedCollapsed, setUnassignedCollapsed] = useState(false);
   const [showUnassignConfirm, setShowUnassignConfirm] = useState(false);
   const [unassigningMember, setUnassigningMember] = useState<TeamMember | null>(null);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assigningMember, setAssigningMember] = useState<TeamMember | null>(null);
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
 
   const [newTeam, setNewTeam] = useState({
     name: '',
@@ -182,13 +185,6 @@ export function TeamsTab() {
     });
   };
 
-  const handleAssignToTeam = (userId: string, teamId: string) => {
-    updateUserTeam.mutate({
-      userId: userId,
-      teamId: teamId,
-    });
-  };
-
   const handleUnassignFromTeam = (member: TeamMember) => {
     setUnassigningMember(member);
     setShowUnassignConfirm(true);
@@ -202,6 +198,34 @@ export function TeamsTab() {
     });
     setShowUnassignConfirm(false);
     setUnassigningMember(null);
+  };
+
+  const closeAssignModal = () => {
+    setShowAssignModal(false);
+    setAssigningMember(null);
+  };
+
+  const openAssignModal = (member: TeamMember) => {
+    setAssigningMember(member);
+    setSelectedTeamId(member.teamId ?? null);
+    setShowAssignModal(true);
+  };
+
+  const confirmAssign = () => {
+    if (!assigningMember) return;
+    const currentTeamId = assigningMember.teamId ?? null;
+    if (currentTeamId === selectedTeamId) {
+      closeAssignModal();
+      return;
+    }
+    updateUserTeam.mutate({
+      userId: assigningMember.id,
+      teamId: selectedTeamId,
+    }, {
+      onSuccess: () => {
+        closeAssignModal();
+      },
+    });
   };
 
   const isInitialLoading = (isLoadingTeams && teams.length === 0) ||
@@ -276,27 +300,12 @@ export function TeamsTab() {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">
-                      배정할 팀 선택
-                    </label>
-                    <select
-                      onChange={(e) => {
-                        if (e.target.value) {
-                          handleAssignToTeam(member.id, e.target.value);
-                        }
-                      }}
-                      className="w-full px-3 py-2 text-sm border border-amber-200 dark:border-amber-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-amber-300 dark:focus:ring-amber-600 transition"
-                      defaultValue=""
-                    >
-                      <option value="">팀 선택...</option>
-                      {teams.map((team) => (
-                        <option key={team.id} value={team.id}>
-                          {team.name} ({team.code})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <button
+                    onClick={() => openAssignModal(member)}
+                    className="w-full px-3 py-2 text-sm font-semibold text-amber-900 dark:text-amber-100 bg-white dark:bg-gray-900/40 border border-amber-200 dark:border-amber-700 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/30 transition"
+                  >
+                    팀 배정하기
+                  </button>
                 </div>
               ))}
             </div>
@@ -400,10 +409,13 @@ export function TeamsTab() {
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-200">
                               {member.position || '직책 미지정'}
                             </span>
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-200">
-                              코드 {team.code}
-                            </span>
                           </div>
+                          <button
+                            onClick={() => openAssignModal(member)}
+                            className="w-full mt-auto px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-100 bg-white dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-900/60 transition"
+                          >
+                            팀 변경
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -622,6 +634,80 @@ export function TeamsTab() {
               >
                 {updateUserTeam.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
                 {updateUserTeam.isPending ? '처리 중...' : '배정 해제'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Modal */}
+      {showAssignModal && assigningMember && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full p-6">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">팀 배정</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              <span className="font-semibold text-blue-600 dark:text-blue-400">{assigningMember.name}</span> 님의 팀을 선택하세요.
+            </p>
+            <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+              <button
+                onClick={() => setSelectedTeamId(null)}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 text-left transition ${
+                  selectedTeamId === null
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600'
+                }`}
+              >
+                <div>
+                  <div className="font-semibold text-gray-900 dark:text-gray-100">미배정</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">팀을 배정하지 않습니다</div>
+                </div>
+                {selectedTeamId === null && <Check className="w-5 h-5 text-blue-600" />}
+              </button>
+              {teams.map((team) => {
+                const isSelected = selectedTeamId === team.id;
+                const memberCount = getTeamMembers(team.id).length;
+                return (
+                  <button
+                    key={team.id}
+                    onClick={() => setSelectedTeamId(team.id)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 text-left transition ${
+                      isSelected
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="w-8 h-8 rounded-full border border-white/50"
+                        style={{ backgroundColor: team.color }}
+                      />
+                      <div>
+                        <div className="font-semibold text-gray-900 dark:text-gray-100">{team.name}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{memberCount}명 배정</div>
+                      </div>
+                    </div>
+                    {isSelected && <Check className="w-5 h-5 text-blue-600" />}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={closeAssignModal}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
+              >
+                취소
+              </button>
+              <button
+                onClick={confirmAssign}
+                disabled={
+                  updateUserTeam.isPending ||
+                  selectedTeamId === (assigningMember.teamId ?? null)
+                }
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {updateUserTeam.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+                {updateUserTeam.isPending ? '배정 중...' : '배정하기'}
               </button>
             </div>
           </div>
