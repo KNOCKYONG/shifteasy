@@ -486,8 +486,8 @@ function applyObviousFixes(
         if (
           assignmentA.isLocked ||
           assignmentB.isLocked ||
-          (assignmentA as any).isSpecialRequest ||
-          (assignmentB as any).isSpecialRequest ||
+          assignmentA.isSpecialRequest ||
+          assignmentB.isSpecialRequest ||
           nightIntensiveEmployeeIds.has(assignmentA.employeeId) ||
           nightIntensiveEmployeeIds.has(assignmentB.employeeId)
         ) {
@@ -519,7 +519,7 @@ function applyObviousFixes(
         // 보호 규칙: locked, specialRequest, night-intensive는 변경 금지
         if (
           assignment.isLocked ||
-          (assignment as any).isSpecialRequest ||
+          assignment.isSpecialRequest ||
           nightIntensiveEmployeeIds.has(assignment.employeeId)
         ) {
           console.log(
@@ -556,4 +556,3 @@ function estimateScoreImprovement(issues: ObviousIssue[]): number {
     return sum + baseImprovement * issue.confidence;
   }, 0);
 }
-

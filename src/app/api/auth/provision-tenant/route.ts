@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { tenants, departments } from '@/db/schema/tenants';
 import { eq } from 'drizzle-orm';
+import { applyPlanSettings } from '@/lib/billing/plan-limits';
 
 const SECRET_CODE_LENGTH = 8;
 const SECRET_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -79,6 +80,17 @@ export async function POST(request: NextRequest) {
     const trialExpiresAt = new Date();
     trialExpiresAt.setDate(trialExpiresAt.getDate() + 90);
 
+    const tenantSettings = applyPlanSettings('professional', {
+      overrides: {
+        timezone: 'Asia/Seoul',
+        locale: 'ko',
+        maxDepartments: 10,
+        features: ['ai-scheduling', 'analytics', 'priority-support'],
+        signupEnabled: true,
+        planExpiresAt: trialExpiresAt.toISOString(),
+      },
+    });
+
     const [createdTenant] = await db
       .insert(tenants)
       .values({
@@ -86,15 +98,7 @@ export async function POST(request: NextRequest) {
         slug,
         secretCode,
         plan: 'professional',
-        settings: {
-          timezone: 'Asia/Seoul',
-          locale: 'ko',
-          maxUsers: 50,
-          maxDepartments: 10,
-          features: ['ai-scheduling', 'analytics', 'priority-support'],
-          signupEnabled: true,
-          planExpiresAt: trialExpiresAt.toISOString(),
-        },
+        settings: tenantSettings,
       })
       .returning();
 

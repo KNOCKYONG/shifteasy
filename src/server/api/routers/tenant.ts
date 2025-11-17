@@ -3,6 +3,7 @@ import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { users, departments, nursePreferences } from '@/db/schema';
 import { eq, and, or, like, sql } from 'drizzle-orm';
 import { sse } from '@/lib/sse/broadcaster';
+import { assertTenantWithinUserLimit } from '@/lib/billing/plan-limits';
 
 export const tenantRouter = createTRPCRouter({
   users: createTRPCRouter({
@@ -183,6 +184,11 @@ export const tenantRouter = createTRPCRouter({
         if (existing.length > 0) {
           throw new Error('이미 해당 이메일로 등록된 팀원이 있습니다.');
         }
+
+        await assertTenantWithinUserLimit({
+          tenantId,
+          dbClient: ctx.db,
+        });
 
         const resolvedDepartmentId = input.departmentId || ctx.user?.departmentId || null;
         const generatedEmployeeId =

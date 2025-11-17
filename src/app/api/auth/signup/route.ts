@@ -4,6 +4,7 @@ import { users } from '@/db/schema/tenants';
 import { eq, and } from 'drizzle-orm';
 import { validateSecretCode } from '@/lib/auth/secret-code';
 import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
+import { assertTenantWithinUserLimit, TenantUserLimitError } from '@/lib/billing/plan-limits';
 
 const isVerboseLoggingEnabled = process.env.NODE_ENV !== 'production';
 const logDebug = (...args: Parameters<typeof console.log>) => {
@@ -89,6 +90,18 @@ export async function POST(req: NextRequest) {
       finalUser = updatedUser;
       logDebug('기존 사용자 업데이트 완료, 권한 유지:', existingUser[0].role);
     } else {
+      try {
+        await assertTenantWithinUserLimit({ tenantId, dbClient: db });
+      } catch (error) {
+        if (error instanceof TenantUserLimitError) {
+          return NextResponse.json(
+            { error: error.message, code: 'USER_LIMIT_EXCEEDED' },
+            { status: 400 }
+          );
+        }
+        throw error;
+      }
+
       const newUser = await db
         .insert(users)
         .values({

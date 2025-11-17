@@ -44,8 +44,8 @@ CREATE TABLE "tenants" (
   "name" text NOT NULL,
   "slug" text UNIQUE NOT NULL,
   "secret_code" text UNIQUE NOT NULL,
-  "plan" text NOT NULL DEFAULT 'free',  -- free, pro, enterprise
-  "settings" jsonb DEFAULT '{"timezone":"Asia/Seoul","locale":"ko","maxUsers":10,"maxDepartments":3,"features":[],"signupEnabled":true}',
+  "plan" text NOT NULL DEFAULT 'guest',  -- guest, professional, enterprise
+  "settings" jsonb DEFAULT '{"timezone":"Asia/Seoul","locale":"ko","maxUsers":30,"maxDepartments":3,"features":[],"signupEnabled":true}',
   "created_at" timestamptz NOT NULL DEFAULT now(),
   "updated_at" timestamptz NOT NULL DEFAULT now(),
   "deleted_at" timestamptz
@@ -61,7 +61,7 @@ CREATE TABLE "tenants" (
 {
   timezone?: string;          // 기본: "Asia/Seoul"
   locale?: string;            // 기본: "ko"
-  maxUsers?: number;          // 기본: 10
+  maxUsers?: number;          // 기본: 30 (Guest), 50 (Professional)
   maxDepartments?: number;    // 기본: 3
   features?: string[];        // 활성화된 기능 목록
   signupEnabled?: boolean;    // 가입 활성화 여부

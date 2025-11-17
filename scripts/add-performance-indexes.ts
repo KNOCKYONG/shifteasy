@@ -264,12 +264,6 @@ async function main() {
     await analyzeTablesForOptimization();
 
     console.log('\n✅ Performance indexes added successfully!');
-    console.log('\n📈 Expected improvements:');
-    console.log('  - handoff.list: 4.87s → ~0.3s (94% faster)');
-    console.log('  - tenant.users.list: 4.18s → ~0.6s (86% faster)');
-    console.log('  - department.patterns: 2.36s → ~0.4s (83% faster)');
-    console.log('  - teams.getAll: 2.09s → ~0.3s (86% faster)');
-    console.log('  - Overall page load: 15-20s → 3-5s (75% faster)\n');
   } catch (error) {
     console.error('❌ Failed to add performance indexes');
     console.error(error);

@@ -10,7 +10,7 @@
 		"auth:backfill": "tsx scripts/backfill-supabase-auth-users.ts",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
-		"db:push": "tsx scripts/backup-notification-preferences.ts && tsx scripts/prepare-department-patterns.ts && drizzle-kit push && tsx scripts/add-performance-indexes.ts",
+		"db:push": "drizzle-kit push",
 		"db:studio": "drizzle-kit studio",
 		"db:init": "tsx src/db/initialize.ts",
 		"db:setup": "npm run db:push && npm run db:init",

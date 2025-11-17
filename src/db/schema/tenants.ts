@@ -9,7 +9,7 @@ export const tenants = pgTable('tenants', {
   name: text('name').notNull(),
   slug: text('slug').unique().notNull(),
   secretCode: text('secret_code').unique().notNull(),
-  plan: text('plan').notNull().default('free'), // free, pro, enterprise
+  plan: text('plan').notNull().default('guest'), // guest, professional, enterprise
   settings: jsonb('settings').$type<{
     timezone?: string;
     locale?: string;
@@ -23,7 +23,7 @@ export const tenants = pgTable('tenants', {
   }>().default({
     timezone: 'Asia/Seoul',
     locale: 'ko',
-    maxUsers: 10,
+    maxUsers: 30,
     maxDepartments: 3,
     features: [],
     signupEnabled: true

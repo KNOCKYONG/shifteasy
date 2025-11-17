@@ -10,7 +10,7 @@ import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterv
 import { Download, Upload, Lock, Wand2, RefreshCcw, FileText, Heart, MoreVertical, Settings, FolderOpen, Save, Loader2, Sparkles, TrendingUp, Pencil, Check, X } from "lucide-react";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { api } from "../../lib/trpc/client";
-import { type Employee, type Constraint, type ScheduleAssignment, type SchedulingResult, type OffAccrualSummary } from "@/lib/types/scheduler";
+import { type Employee, type Constraint, type ScheduleAssignment, type SchedulingResult, type OffAccrualSummary, type ConstraintViolation } from "@/lib/types/scheduler";
 import type { Assignment } from "@/types/schedule";
 import { EmployeeAdapter } from "../../lib/adapters/employee-adapter";
 import type { UnifiedEmployee } from "@/lib/types/unified-employee";
@@ -306,6 +306,7 @@ function SchedulePageContent() {
   // SSE context available but not currently used in this component
   // const { isConnected: isSSEConnected, reconnectAttempt } = useSSEContext();
   const generateScheduleMutation = api.schedule.generate.useMutation();
+  const generateHSScheduleMutation = api.hsSchedule.generate.useMutation();
   const deleteMutation = api.schedule.delete.useMutation();
 
   // 🆕 스케줄 개선 mutation
@@ -1999,7 +2000,341 @@ function SchedulePageContent() {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [isGenerating]);
+  }, [isGenerating, generationSteps.length]);
+
+  // HS 스케줄 생성 핸들러
+  const handleGenerateHSSchedule = async (shiftRequirements: Record<string, number>) => {
+    if (!canManageSchedules) {
+      alert('스케줄 생성 권한이 없습니다.');
+      return;
+    }
+
+    if (filteredMembers.length === 0) {
+      alert('선택된 부서에 활성 직원이 없습니다.');
+      return;
+    }
+
+    // Use the same preparation logic as AI schedule generation
+    // but call the HS mutation instead
+    setIsGenerating(true);
+    setGenerationStepIndex(0);
+    setGenerationResult(null);
+    setOffAccrualSummaries([]);
+
+    try {
+      // Copy the same preparation code from handleGenerateSchedule
+      // This is intentionally duplicated to keep the two systems completely independent
+
+      // 1. Get active shift types
+      let activeCustomShiftTypes = customShiftTypes;
+      if (!activeCustomShiftTypes || activeCustomShiftTypes.length === 0) {
+        if (shiftTypesConfig?.configValue && Array.isArray(shiftTypesConfig.configValue) && shiftTypesConfig.configValue.length > 0) {
+          activeCustomShiftTypes = shiftTypesConfig.configValue.map((st: ConfigShiftType) => ({
+            code: st.code,
+            name: st.name,
+            startTime: st.startTime,
+            endTime: st.endTime,
+            color: st.color,
+            allowOvertime: (st as ConfigShiftType & { allowOvertime?: boolean }).allowOvertime ?? false,
+          }));
+        } else {
+          const savedShiftTypes = typeof window !== 'undefined' ? window.localStorage.getItem('customShiftTypes') : null;
+          if (savedShiftTypes) {
+            try {
+              activeCustomShiftTypes = JSON.parse(savedShiftTypes);
+            } catch (error) {
+              console.error('Failed to parse cached shift types:', error);
+            }
+          }
+        }
+
+        if (!activeCustomShiftTypes || activeCustomShiftTypes.length === 0) {
+          activeCustomShiftTypes = [
+            { code: 'D', name: '주간', startTime: '08:00', endTime: '16:00', color: '#EAB308', allowOvertime: false },
+            { code: 'E', name: '저녁', startTime: '16:00', endTime: '24:00', color: '#F59E0B', allowOvertime: false },
+            { code: 'N', name: '야간', startTime: '00:00', endTime: '08:00', color: '#6366F1', allowOvertime: false },
+            { code: 'O', name: '휴무', startTime: '00:00', endTime: '00:00', color: '#9CA3AF', allowOvertime: false },
+            { code: 'A', name: '행정', startTime: '09:00', endTime: '18:00', color: '#10B981', allowOvertime: false },
+          ];
+        }
+      }
+
+      activeCustomShiftTypes = activeCustomShiftTypes ?? [];
+
+      const preferencesResponse = await fetchWithAuth('/api/preferences');
+      const preferencesData = await preferencesResponse.json();
+      const preferencesMap = new Map<string, SimplifiedPreferences>();
+      if (preferencesData.success && preferencesData.data) {
+        Object.entries(preferencesData.data).forEach(([employeeId, prefs]) => {
+          preferencesMap.set(employeeId, prefs as SimplifiedPreferences);
+        });
+      }
+
+    const inferredDepartmentId =
+      currentUser.dbUser?.departmentId ||
+      memberDepartmentId ||
+      (filteredMembers[0]?.departmentId ?? '') ||
+      selectedDepartment ||
+      '';
+
+    if (!inferredDepartmentId) {
+      alert('해당 계정에 부서가 연결되어 있지 않아 스케줄을 생성할 수 없습니다. 관리자에게 문의하세요.');
+      setIsGenerating(false);
+      return;
+    }
+
+      // 2. Load department pattern and use provided shift requirements
+      let teamPattern: TeamPattern | null = null;
+      try {
+        const teamPatternResponse = await fetch(`/api/department-patterns?departmentId=${inferredDepartmentId}`);
+        const teamPatternData = await teamPatternResponse.json() as TeamPattern & { pattern?: TeamPattern; defaultPattern?: TeamPattern };
+        teamPattern = teamPatternData.pattern || teamPatternData.defaultPattern || teamPatternData;
+
+        // Override with provided shift requirements
+        if (teamPattern && shiftRequirements) {
+          teamPattern.requiredStaffByShift = shiftRequirements;
+          // Update legacy fields for backward compatibility
+          teamPattern.requiredStaffDay = shiftRequirements['D'] || 5;
+          teamPattern.requiredStaffEvening = shiftRequirements['E'] || 4;
+          teamPattern.requiredStaffNight = shiftRequirements['N'] || 3;
+        }
+      } catch (error) {
+        console.warn('Failed to load department pattern:', error);
+      }
+
+      let simpleSpecialRequests: Array<{
+        employeeId: string;
+        requestType: string;
+        date: string;
+        shiftTypeCode?: string;
+      }> = [];
+      try {
+        const specialRequestsResponse = await fetch(
+          `/api/trpc/specialRequests.getApprovedForScheduling?batch=1&input=${encodeURIComponent(JSON.stringify({
+            "0": {
+              json: {
+                startDate: format(monthStart, 'yyyy-MM-dd'),
+                endDate: format(monthEnd, 'yyyy-MM-dd'),
+              }
+            }
+          }))}`
+        );
+        const specialRequestsData = await specialRequestsResponse.json() as Array<{ result?: { data?: { json?: SpecialRequest[] } } }>;
+        if (specialRequestsData && specialRequestsData[0]?.result?.data?.json) {
+          simpleSpecialRequests = specialRequestsData[0].result.data.json.map((req: SpecialRequest) => ({
+            employeeId: req.employeeId,
+            requestType: req.requestType,
+            date: req.date,
+            shiftTypeCode: req.shiftTypeCode ?? undefined,
+          }));
+        }
+      } catch (error) {
+        console.warn('Failed to load special requests:', error);
+      }
+
+      const unifiedEmployees: UnifiedEmployee[] = filteredMembers.map(member => {
+        const comprehensivePrefs = preferencesMap.get(member.id);
+        return EmployeeAdapter.fromMockToUnified(member, comprehensivePrefs);
+      });
+
+      const employees: Employee[] = [];
+      for (const unified of unifiedEmployees) {
+        const employee = EmployeeAdapter.toSchedulerEmployee(unified);
+        employees.push(employee);
+      }
+
+      let holidays: Array<{ date: string; name: string }> = [];
+      try {
+        const holidaysResponse = await fetch(
+          `/api/trpc/holidays.getByDateRange?batch=1&input=${encodeURIComponent(JSON.stringify({
+            "0": {
+              json: {
+                startDate: format(monthStart, 'yyyy-MM-dd'),
+                endDate: format(monthEnd, 'yyyy-MM-dd'),
+              }
+            }
+          }))}`
+        );
+        const holidaysData = await holidaysResponse.json() as Array<{ result?: { data?: { json?: Holiday[] } } }>;
+        if (holidaysData && holidaysData[0]?.result?.data?.json) {
+          holidays = holidaysData[0].result.data.json.map((h: Holiday) => ({
+            date: h.date,
+            name: h.name,
+          }));
+        }
+      } catch (error) {
+        console.warn('Failed to load holidays from DB:', error);
+      }
+
+      const allDaysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+      allDaysInMonth.forEach(day => {
+        if (isWeekend(day)) {
+          const dateStr = format(day, 'yyyy-MM-dd');
+          if (!holidays.find(h => h.date === dateStr)) {
+            holidays.push({
+              date: dateStr,
+              name: day.getDay() === 0 ? '일요일' : '토요일',
+            });
+          }
+        }
+      });
+
+      let teamPatternPayload: { pattern: string[]; avoidPatterns?: string[][] } | null = null;
+      if (teamPattern?.defaultPatterns?.length) {
+        teamPatternPayload = {
+          pattern: teamPattern.defaultPatterns[0] || ['D', 'D', 'E', 'E', 'N', 'N', 'OFF', 'OFF'],
+          avoidPatterns: teamPattern?.avoidPatterns || [],
+        };
+      } else if (Array.isArray(teamPattern?.pattern)) {
+        teamPatternPayload = {
+          pattern: teamPattern.pattern,
+          avoidPatterns: teamPattern?.avoidPatterns || [],
+        };
+      }
+
+      const requiredStaffPerShift = teamPattern
+        ? (() => {
+            const baseMap: Record<string, number> = teamPattern.requiredStaffByShift
+              ? { ...teamPattern.requiredStaffByShift }
+              : {
+                  D: (teamPattern.requiredStaffDay as number) || 5,
+                  E: (teamPattern.requiredStaffEvening as number) || 4,
+                  N: (teamPattern.requiredStaffNight as number) || 3,
+                };
+            ['D', 'E', 'N'].forEach((code, index) => {
+              if (typeof baseMap[code] !== 'number') {
+                baseMap[code] = [5, 4, 3][index];
+              }
+            });
+            return baseMap;
+          })()
+        : undefined;
+
+      const configShiftOverrides = new Map<string, ShiftType>();
+      if (shiftTypesConfig?.configValue && Array.isArray(shiftTypesConfig.configValue)) {
+        shiftTypesConfig.configValue.forEach((st: ConfigShiftType) => {
+          const normalizedCode = typeof st.code === 'string' ? st.code.toUpperCase() : '';
+          if (!normalizedCode) return;
+          configShiftOverrides.set(normalizedCode, {
+            code: normalizedCode,
+            name: st.name,
+            startTime: st.startTime,
+            endTime: st.endTime,
+            color: st.color,
+            allowOvertime: (st as ConfigShiftType & { allowOvertime?: boolean }).allowOvertime ?? false,
+          });
+        });
+      }
+
+      const shiftCodeSet = new Set<string>(STANDARD_AI_SHIFT_CODES);
+      const registerShiftCode = (raw?: string | null) => {
+        if (typeof raw !== 'string') return;
+        const normalized = raw.trim().toUpperCase();
+        if (!normalized) return;
+        shiftCodeSet.add(normalized);
+      };
+
+      if (requiredStaffPerShift) {
+        Object.keys(requiredStaffPerShift).forEach(registerShiftCode);
+      }
+      teamPattern?.defaultPatterns?.forEach(pattern => pattern.forEach(registerShiftCode));
+      const legacyPattern = (teamPattern as { pattern?: string[] } | null)?.pattern;
+      legacyPattern?.forEach(registerShiftCode);
+      teamPattern?.avoidPatterns?.forEach(pattern => pattern.forEach(registerShiftCode));
+      activeCustomShiftTypes?.forEach(st => registerShiftCode(st.code));
+      configShiftOverrides.forEach((_, code) => registerShiftCode(code));
+
+      const orderedShiftCodes: string[] = [];
+      STANDARD_AI_SHIFT_CODES.forEach(code => orderedShiftCodes.push(code));
+      const additionalCodes = Array.from(shiftCodeSet).filter(code => !STANDARD_AI_SHIFT_CODES.includes(code as StandardShiftCode));
+      additionalCodes.sort();
+      additionalCodes.forEach(code => orderedShiftCodes.push(code));
+
+      const generationShiftTypes: ShiftType[] = [];
+      orderedShiftCodes.forEach(code => {
+        const normalized = code.toUpperCase();
+        if (configShiftOverrides.has(normalized)) {
+          generationShiftTypes.push(configShiftOverrides.get(normalized)!);
+          return;
+        }
+        const fallbackShift = activeCustomShiftTypes?.find(
+          shift => typeof shift.code === 'string' && shift.code.toUpperCase() === normalized
+        );
+        if (fallbackShift) {
+          generationShiftTypes.push({ ...fallbackShift, code: normalized });
+          return;
+        }
+        if (DEFAULT_STANDARD_SHIFT_TYPES[normalized as StandardShiftCode]) {
+          generationShiftTypes.push(DEFAULT_STANDARD_SHIFT_TYPES[normalized as StandardShiftCode]);
+          return;
+        }
+        generationShiftTypes.push({
+          ...DEFAULT_FALLBACK_SHIFT_TYPE,
+          code: normalized,
+          name: normalized,
+        });
+      });
+
+      let generationShifts = convertShiftTypesToShifts(generationShiftTypes);
+      if (generationShifts.length === 0) {
+        generationShifts = convertShiftTypesToShifts(STANDARD_AI_SHIFT_CODES.map(code => DEFAULT_STANDARD_SHIFT_TYPES[code]));
+      }
+
+      const payload = {
+        name: `HS 스케줄 - ${format(monthStart, 'yyyy-MM')}`,
+        departmentId: inferredDepartmentId,
+        startDate: toUTCDateOnly(monthStart),
+        endDate: toUTCDateOnly(monthEnd),
+        employees,
+        shifts: generationShifts,
+        constraints: DEFAULT_CONSTRAINTS,
+        specialRequests: simpleSpecialRequests,
+        holidays,
+        teamPattern: teamPatternPayload,
+        requiredStaffPerShift,
+        nightIntensivePaidLeaveDays: nightLeaveSetting,
+      };
+
+      // Call HS mutation instead of AI mutation
+      const result = await generateHSScheduleMutation.mutateAsync(payload);
+      const normalizedAssignments: ScheduleAssignment[] = result.assignments.map((assignment: DbAssignment) => ({
+        ...assignment,
+        date: new Date(assignment.date),
+        id: assignment.id || `${assignment.employeeId}-${assignment.date}`,
+        isLocked: assignment.isLocked || false,
+      }));
+
+      setSchedule(normalizedAssignments);
+      setOriginalSchedule(normalizedAssignments);
+      setIsConfirmed(false);
+      setLoadedScheduleId(result.scheduleId);
+      setIsAiGenerated(false); // HS scheduler is NOT AI-generated
+      if (result.generationResult) {
+        setGenerationResult({
+          success: true,
+          schedule: undefined,
+          violations: result.generationResult.violations as ConstraintViolation[],
+          score: {
+            ...result.generationResult.score,
+            constraintSatisfaction: 0,
+            breakdown: [],
+          },
+          iterations: 0,
+          computationTime: result.generationResult.computationTime,
+          offAccruals: result.generationResult.offAccruals,
+        });
+        setOffAccrualSummaries(result.generationResult.offAccruals ?? []);
+      } else {
+        setGenerationResult(null);
+        setOffAccrualSummaries([]);
+      }
+    } catch (error) {
+      console.error('HS schedule generation failed:', error);
+      alert('HS 스케줄 생성 중 오류가 발생했습니다. 다시 시도해주세요.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const handleGenerateSchedule = async (shiftRequirements: Record<string, number>) => {
     if (!canManageSchedules) {
@@ -2989,8 +3324,43 @@ function SchedulePageContent() {
 
                     {!isMember && (
                       <div className="flex flex-wrap items-center gap-2">
+                        {/* HS 스케줄 생성 버튼 */}
                         <button
-                          onClick={handleInitiateScheduleGeneration}
+                          onClick={() => {
+                            // Open the same modal but use HS generation handler
+                            setShowGenerateModal(true);
+                            // Store which handler to use
+                            (window as typeof window & { __hsScheduleMode?: boolean }).__hsScheduleMode = true;
+                          }}
+                          disabled={isGenerating}
+                          className={`inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg ${
+                            isGenerating
+                              ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
+                              : "text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
+                          }`}
+                        >
+                          {isGenerating ? (
+                            <>
+                              <RefreshCcw className="w-4 h-4 animate-spin" />
+                              <span className="hidden sm:inline">생성 중...</span>
+                              <span className="sm:hidden">생성중</span>
+                            </>
+                          ) : (
+                            <>
+                              <Wand2 className="w-4 h-4" />
+                              <span className="hidden sm:inline">HS 스케줄 생성</span>
+                              <span className="sm:hidden">HS 생성</span>
+                            </>
+                          )}
+                        </button>
+
+                        {/* 기존 AI 스케줄 생성 버튼 */}
+                        <button
+                          onClick={() => {
+                            handleInitiateScheduleGeneration();
+                            // Clear HS mode flag
+                            (window as typeof window & { __hsScheduleMode?: boolean }).__hsScheduleMode = false;
+                          }}
                           disabled={isGenerating}
                           className={`inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg ${
                             isGenerating
@@ -3532,8 +3902,14 @@ function SchedulePageContent() {
       {/* Generate Schedule Modal */}
       <GenerateScheduleModal
         isOpen={showGenerateModal}
-        onClose={() => setShowGenerateModal(false)}
-        onGenerate={handleGenerateSchedule}
+        onClose={() => {
+          setShowGenerateModal(false);
+          // Clear HS mode flag when modal closes
+          (window as typeof window & { __hsScheduleMode?: boolean }).__hsScheduleMode = false;
+        }}
+        onGenerate={(window as typeof window & { __hsScheduleMode?: boolean }).__hsScheduleMode
+          ? handleGenerateHSSchedule
+          : handleGenerateSchedule}
         departmentId={
           currentUser.dbUser?.departmentId ||
           memberDepartmentId ||

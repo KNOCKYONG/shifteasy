@@ -5,6 +5,7 @@ import { tenants, departments, users } from '@/db/schema/tenants';
 import { nursePreferences } from '@/db/schema/nurse-preferences';
 import { sql } from 'drizzle-orm';
 import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
+import { applyPlanSettings } from '@/lib/billing/plan-limits';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 10;
@@ -89,6 +90,19 @@ export async function POST(request: NextRequest) {
     const planExpiresAt = new Date();
     planExpiresAt.setDate(planExpiresAt.getDate() + 14);
 
+    const tenantSettings = applyPlanSettings('guest', {
+      overrides: {
+        timezone: 'Asia/Seoul',
+        locale: 'ko',
+        maxDepartments: 10,
+        features: ['ai-scheduling', 'analytics', 'priority-support'],
+        signupEnabled: false,
+        planExpiresAt: planExpiresAt.toISOString(),
+        isGuestTrial: true,
+        originalHospitalName: sanitizedHospitalName,
+      },
+    });
+
     const [tenant] = await db
       .insert(tenants)
       .values({
@@ -96,17 +110,7 @@ export async function POST(request: NextRequest) {
         slug: guestPrefix,
         secretCode: guestPrefix,
         plan: 'guest',
-        settings: {
-          timezone: 'Asia/Seoul',
-          locale: 'ko',
-          maxUsers: 50,
-          maxDepartments: 10,
-          features: ['ai-scheduling', 'analytics', 'priority-support'],
-          signupEnabled: false,
-          planExpiresAt: planExpiresAt.toISOString(),
-          isGuestTrial: true,
-          originalHospitalName: sanitizedHospitalName,
-        },
+        settings: tenantSettings,
       })
       .returning();
 

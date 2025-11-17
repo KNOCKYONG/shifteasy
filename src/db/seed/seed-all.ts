@@ -8,6 +8,7 @@ import { wards } from '@/db/schema/wards';
 import { staff, staffRoleEnum } from '@/db/schema/staff';
 import { eq } from 'drizzle-orm';
 import * as dotenv from 'dotenv';
+import { applyPlanSettings } from '@/lib/billing/plan-limits';
 
 // Load environment variables
 dotenv.config({ path: '.env.local' });
@@ -89,13 +90,15 @@ async function seedAll() {
         slug: 'snuh',
         secretCode: 'SNUH-2025',
         plan: 'enterprise',
-        settings: {
-          timezone: 'Asia/Seoul',
-          locale: 'ko',
-          maxUsers: 100,
-          maxDepartments: 10,
-          features: ['scheduling', 'attendance', 'notifications', 'analytics']
-        }
+        settings: applyPlanSettings('enterprise', {
+          overrides: {
+            timezone: 'Asia/Seoul',
+            locale: 'ko',
+            maxDepartments: 10,
+            maxUsers: 100,
+            features: ['scheduling', 'attendance', 'notifications', 'analytics']
+          }
+        })
       });
       console.log('✅ 테넌트 생성 완료');
     } else {

@@ -89,6 +89,7 @@ export interface ScheduleAssignment {
   shiftType?: string; // 휴무 계산 등을 위한 시프트 코드
   isSwapRequested?: boolean;
   swapRequestId?: string;
+  isSpecialRequest?: boolean;
 }
 
 // 주간/월간 스케줄

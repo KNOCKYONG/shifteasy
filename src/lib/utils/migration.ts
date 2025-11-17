@@ -7,6 +7,7 @@
 import { db } from '@/db';
 import { tenants, users, configs, teams, nursePreferences, holidays, schedules } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { normalizePlanId } from '@/lib/billing/plan-limits';
 
 type TenantSettings = {
   isGuestTrial?: boolean;
@@ -63,12 +64,14 @@ export async function checkGuestAccount(userId: string): Promise<GuestAccountInf
     const isGuestTrial = tenantSettings.isGuestTrial === true;
     const migratedFrom = tenantSettings.migratedFrom;
 
+    const normalizedPlan = normalizePlanId(tenant.plan);
+
     return {
-      isGuest: isGuestTrial && tenant.plan === 'free',
+      isGuest: isGuestTrial && normalizedPlan === 'guest',
       tenantId: tenant.id,
       tenantName: tenant.name,
       departmentId: user.departmentId || null,
-      canMigrate: isGuestTrial && tenant.plan === 'free' && !migratedFrom,
+      canMigrate: isGuestTrial && normalizedPlan === 'guest' && !migratedFrom,
       alreadyMigrated: !!migratedFrom,
     };
   } catch (error) {
@@ -138,7 +141,7 @@ export async function checkMigrationEligibility(
 
     const tenantSettings = parseTenantSettings(tenant.settings);
 
-    if (tenant.plan !== 'free' || tenantSettings.isGuestTrial !== true) {
+    if (normalizePlanId(tenant.plan) !== 'guest' || tenantSettings.isGuestTrial !== true) {
       return {
         eligible: false,
         reason: 'Tenant is not a guest trial account',

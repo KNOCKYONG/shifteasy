@@ -86,7 +86,7 @@ graph TD
 {
   id: "old-tenant-id",
   name: "서울아산병원 (체험판)",
-  plan: "free",
+  plan: "guest",
   settings: {
     isGuestTrial: true,
     originalHospitalName: "서울아산병원"

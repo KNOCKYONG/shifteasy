@@ -4,6 +4,7 @@ import { scopedDb, createAuditLog } from '@/lib/db-helpers';
 import { users } from '@/db/schema';
 import { eq, and, or, like } from 'drizzle-orm';
 import { sse } from '@/lib/sse/broadcaster';
+import { assertTenantWithinUserLimit } from '@/lib/billing/plan-limits';
 
 export const staffRouter = createTRPCRouter({
   list: protectedProcedure
@@ -72,7 +73,13 @@ export const staffRouter = createTRPCRouter({
       position: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const db = scopedDb((ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'));
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const db = scopedDb(tenantId);
+
+      await assertTenantWithinUserLimit({
+        tenantId,
+        dbClient: ctx.db,
+      });
 
       // TODO: Integrate with Supabase to create user
       const authUserId = `auth_${Date.now()}`;
@@ -84,7 +91,7 @@ export const staffRouter = createTRPCRouter({
       });
 
       await createAuditLog({
-        tenantId: (ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d'),
+        tenantId,
         actorId: (ctx.user?.id || 'dev-user-id'),
         action: 'staff.created',
         entityType: 'user',
