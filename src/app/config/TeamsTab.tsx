@@ -27,6 +27,17 @@ interface TeamMember {
   teamId: string | null;
 }
 
+const getInitials = (name: string) => {
+  if (!name) {
+    return '??';
+  }
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) {
+    return '??';
+  }
+  return parts.slice(0, 2).map(part => part[0]?.toUpperCase() ?? '').join('');
+};
+
 const COLOR_OPTIONS = [
   '#3B82F6', // blue
   '#10B981', // green
@@ -248,35 +259,44 @@ export function TeamsTab() {
               {getUnassignedMembers().map((member) => (
                 <div
                   key={member.id}
-                  className="bg-amber-50 dark:bg-amber-900/10 rounded-lg p-4 border border-amber-200 dark:border-amber-800"
+                  className="bg-amber-50 dark:bg-amber-900/10 rounded-xl p-4 border border-amber-200 dark:border-amber-800 flex flex-col gap-3"
                 >
-                  <div className="mb-3">
-                    <div className="font-medium text-gray-900 dark:text-gray-100">{member.name}</div>
-                    {member.employeeId && (
-                      <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                        사번: {member.employeeId}
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-200 text-amber-900 text-sm font-semibold">
+                      {getInitials(member.name)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
+                        <div className="font-medium text-gray-900 dark:text-gray-100 truncate">{member.name}</div>
+                        <span className="inline-flex items-center px-2 py-0.5 text-xs rounded-full bg-white/80 dark:bg-amber-800/40 text-amber-700 dark:text-amber-200 border border-amber-200 dark:border-amber-700">
+                          {member.position || '직책 미지정'}
+                        </span>
                       </div>
-                    )}
-                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      {member.position || '직책 미지정'}
+                      <div className="text-xs text-gray-500 dark:text-gray-400 break-all">{member.email}</div>
                     </div>
                   </div>
-                  <select
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        handleAssignToTeam(member.id, e.target.value);
-                      }
-                    }}
-                    className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    defaultValue=""
-                  >
-                    <option value="">팀 선택...</option>
-                    {teams.map((team) => (
-                      <option key={team.id} value={team.id}>
-                        {team.name} ({team.code})
-                      </option>
-                    ))}
-                  </select>
+
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">
+                      배정할 팀 선택
+                    </label>
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          handleAssignToTeam(member.id, e.target.value);
+                        }
+                      }}
+                      className="w-full px-3 py-2 text-sm border border-amber-200 dark:border-amber-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-amber-300 dark:focus:ring-amber-600 transition"
+                      defaultValue=""
+                    >
+                      <option value="">팀 선택...</option>
+                      {teams.map((team) => (
+                        <option key={team.id} value={team.id}>
+                          {team.name} ({team.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               ))}
             </div>
@@ -351,24 +371,38 @@ export function TeamsTab() {
                       {teamMembers.map((member) => (
                         <div
                           key={member.id}
-                          className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 relative"
+                          className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 relative flex flex-col gap-3"
                         >
                           <button
                             onClick={() => handleUnassignFromTeam(member)}
                             className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                            aria-label={`${member.name} 팀 배정 해제`}
                           >
                             <X className="w-4 h-4" />
                           </button>
-                          <div>
-                            <div className="font-medium text-gray-900 dark:text-gray-100 pr-6">{member.name}</div>
-                            {member.employeeId && (
-                              <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                                사번: {member.employeeId}
-                              </div>
-                            )}
-                            <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                              {member.position || '직책 미지정'}
+                          <div className="flex items-start gap-3">
+                            <div
+                              className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white"
+                              style={{ backgroundColor: team.color || '#6b7280' }}
+                            >
+                              {getInitials(member.name)}
                             </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold text-gray-900 dark:text-gray-100 pr-6">
+                                {member.name}
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400 break-all">
+                                {member.email}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-200">
+                              {member.position || '직책 미지정'}
+                            </span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-200">
+                              코드 {team.code}
+                            </span>
                           </div>
                         </div>
                       ))}
@@ -566,8 +600,8 @@ export function TeamsTab() {
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">팀 배정 해제</h3>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
               <span className="font-semibold text-blue-600 dark:text-blue-400">{unassigningMember.name}</span>
-              {unassigningMember.employeeId && (
-                <span className="text-sm text-gray-500"> (사번: {unassigningMember.employeeId})</span>
+              {unassigningMember.email && (
+                <span className="text-sm text-gray-500"> ({unassigningMember.email})</span>
               )}
               님을 팀에서 배정 해제하시겠습니까?
             </p>
