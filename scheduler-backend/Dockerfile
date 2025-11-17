@@ -17,6 +17,7 @@ WORKDIR /workspace/scheduler-backend
 
 COPY scheduler-backend/package*.json ./
 RUN npm install --omit=dev
+RUN npm ls tsconfig-paths
 
 COPY --from=builder /workspace/scheduler-backend/dist ./dist
 
@@ -25,4 +26,4 @@ ENV PORT=4000
 
 EXPOSE 4000
 
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/scheduler-backend/src/main.js"]

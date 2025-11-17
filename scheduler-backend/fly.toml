@@ -6,6 +6,9 @@
 app = "shifteasy-scheduler"
 primary_region = "nrt"
 
+[processes]
+  app = "node dist/scheduler-backend/src/main.js"
+
 [build]
   dockerfile = "Dockerfile"
 
