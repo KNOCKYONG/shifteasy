@@ -164,7 +164,7 @@ MILP 해가 존재하더라도 아래 조정이 필요할 수 있다:
 - 백엔드 라우터 레이어에 새 solver 진입점을 추가하고, 필요 시 `scheduler/milp-csp-scheduler.ts` 같은 전용 모듈을 통해 TRPC mutation을 노출한다.
 
 ## 10. 추가 고려 사항
-- **성능**: MILP 계산 시간이 늘어나면 워커/큐 기반 비동기 처리 권장 (앞선 Redis/Upstash 논의 참고).
+- **성능**: MILP 계산 시간이 늘어나면 워커/큐 기반 비동기 처리 권장 (upstash 의 redis, NestJS 는 fly.io 에서 구동)
 - **Fallback**: MILP infeasible 시 자동으로 제약 완화 전략(예: 경력 그룹 slack 증가)을 단계적으로 적용.
 - **관찰 가능성**: solver 입력/출력 로그를 S3 등 외부 저장소에 보관하여 나중에 재현 가능하게 만든다.
 - **Config 확장**: 향후 career group별 목표 비율(%)을 `configs`에 추가하여 MILP 목적함수 가중치로 반영할 수 있게 설계한다.
