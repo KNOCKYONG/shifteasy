@@ -2,6 +2,7 @@ import { createTRPCRouter } from './trpc';
 import { authRouter } from './routers/auth';
 import { tenantRouter } from './routers/tenant';
 import { scheduleRouter } from './routers/schedule';
+import { hsScheduleRouter } from './routers/hs-schedule';
 import { staffRouter } from './routers/staff';
 import { swapRouter } from './routers/swap';
 import { preferencesRouter } from './routers/preferences';
@@ -20,6 +21,7 @@ export const appRouter = createTRPCRouter({
   auth: authRouter,
   tenant: tenantRouter,
   schedule: scheduleRouter,
+  hsSchedule: hsScheduleRouter,
   staff: staffRouter,
   swap: swapRouter,
   preferences: preferencesRouter,
