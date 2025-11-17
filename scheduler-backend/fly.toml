@@ -1,0 +1,36 @@
+# fly.toml template for scheduler-backend
+#
+# Copy to fly.toml and update `app` with your Fly.io app name:
+#   cp fly.example.toml fly.toml
+
+app = "shifteasy-scheduler"
+primary_region = "nrt"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "4000"
+
+[[services]]
+  internal_port = 4000
+  processes = ["app"]
+  auto_start_machines = true
+  auto_stop_machines = "off"
+  min_machines_running = 1
+
+  [services.concurrency]
+    hard_limit = 25
+    soft_limit = 20
+
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = 443
+
+  [[services.tcp_checks]]
+    interval = "15s"
+    timeout = "2s"

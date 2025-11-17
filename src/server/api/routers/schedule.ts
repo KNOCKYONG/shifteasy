@@ -5,14 +5,171 @@ import { scopedDb, createAuditLog } from '@/lib/db-helpers';
 import { schedules, users, departments, offBalanceLedger, holidays, specialRequests, teams, swapRequests } from '@/db/schema';
 import { eq, and, gte, lte, desc, inArray, isNull, ne, or } from 'drizzle-orm';
 import { db } from '@/db';
-import { generateAiSchedule } from '@/lib/scheduler/greedy-scheduler';
-import { autoPolishWithAI } from '@/lib/scheduler/ai-polish';
 import { ScheduleImprover } from '@/lib/scheduler/schedule-improver';
 import type { Assignment, Employee as ImprovementEmployee, ScheduleConstraints } from '@/lib/scheduler/types';
+import type { ScheduleAssignment, ConstraintViolation, ScheduleScore, OffAccrualSummary } from '@/lib/types/scheduler';
 import { sse } from '@/lib/sse/broadcaster';
 import { notificationService } from '@/lib/notifications/notification-service';
 import { format, subMonths } from 'date-fns';
 import { getShiftTypes } from '@/lib/config/shiftTypes';
+
+const scheduleGenerationInputSchema = z.object({
+  name: z.string().default('AI Generated Schedule'),
+  departmentId: z.string().min(1),
+  startDate: z.date(),
+  endDate: z.date(),
+  employees: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    role: z.string(),
+    departmentId: z.string().optional(),
+    teamId: z.string().nullable().optional(),
+    workPatternType: z.enum(['three-shift', 'night-intensive', 'weekday-only']).optional(),
+    preferredShiftTypes: z.record(z.string(), z.number()).optional(),
+    maxConsecutiveDaysPreferred: z.number().optional(),
+    maxConsecutiveNightsPreferred: z.number().optional(),
+    guaranteedOffDays: z.number().optional(),
+  })),
+  shifts: z.array(z.object({
+    id: z.string(),
+    code: z.string().optional(),
+    type: z.enum(['day', 'evening', 'night', 'off', 'leave', 'custom']),
+    name: z.string(),
+    time: z.object({
+      start: z.string(),
+      end: z.string(),
+      hours: z.number(),
+      breakMinutes: z.number().optional(),
+    }),
+    color: z.string(),
+    requiredStaff: z.number().min(0).default(1),
+    minStaff: z.number().optional(),
+    maxStaff: z.number().optional(),
+  })),
+  constraints: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    type: z.enum(['hard', 'soft']),
+    category: z.enum(['legal', 'contractual', 'operational', 'preference', 'fairness']),
+    weight: z.number(),
+    active: z.boolean(),
+    config: z.record(z.string(), z.any()).optional(),
+  })).default([]),
+  specialRequests: z.array(z.object({
+    employeeId: z.string(),
+    date: z.string(),
+    requestType: z.string(),
+    shiftTypeCode: z.string().optional(),
+  })).default([]),
+  holidays: z.array(z.object({
+    date: z.string(),
+    name: z.string(),
+  })).default([]),
+  teamPattern: z.object({
+    pattern: z.array(z.string()),
+    avoidPatterns: z.array(z.array(z.string())).optional(),
+  }).nullable().optional(),
+  requiredStaffPerShift: z.record(z.string(), z.number()).optional(),
+  optimizationGoal: z.enum(['fairness', 'preference', 'coverage', 'cost', 'balanced']).default('balanced'),
+  nightIntensivePaidLeaveDays: z.number().optional(),
+  enableAI: z.boolean().default(false),
+});
+
+type ScheduleGenerationInput = z.infer<typeof scheduleGenerationInputSchema>;
+
+type BackendScheduleAssignment = Omit<ScheduleAssignment, 'date'> & { date: string };
+
+interface SchedulerBackendResult {
+  assignments: BackendScheduleAssignment[];
+  generationResult: {
+    iterations: number;
+    computationTime: number;
+    violations: ConstraintViolation[];
+    score: ScheduleScore;
+    offAccruals: OffAccrualSummary[];
+    stats: {
+      fairnessIndex: number;
+      coverageRate: number;
+      preferenceScore: number;
+    };
+  };
+  aiPolishResult: {
+    improved: boolean;
+    beforeScore: number;
+    afterScore: number;
+    improvements: {
+      type: string;
+      description: string;
+      impact: 'high' | 'medium' | 'low';
+      confidence: number;
+    }[];
+    polishTime: number;
+  } | null;
+}
+
+interface SchedulerBackendJobStatusResponse {
+  id: string;
+  status: 'queued' | 'processing' | 'completed' | 'failed';
+  result?: SchedulerBackendResult | null;
+  error?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+type SchedulerBackendPayload = Omit<ScheduleGenerationInput, 'startDate' | 'endDate'> & {
+  startDate: string;
+  endDate: string;
+  previousOffAccruals: Record<string, number>;
+};
+
+const DEFAULT_JOB_TIMEOUT_MS = Number(process.env.SCHEDULER_JOB_TIMEOUT_MS ?? 120000);
+const DEFAULT_JOB_POLL_INTERVAL_MS = Number(process.env.SCHEDULER_JOB_POLL_INTERVAL_MS ?? 2000);
+
+async function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function requestScheduleGenerationFromBackend(
+  payload: SchedulerBackendPayload
+): Promise<SchedulerBackendResult> {
+  const schedulerBackendUrl = process.env.SCHEDULER_BACKEND_URL;
+  if (!schedulerBackendUrl) {
+    throw new Error('SCHEDULER_BACKEND_URL is not configured');
+  }
+
+  const enqueueResponse = await fetch(`${schedulerBackendUrl}/scheduler/jobs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!enqueueResponse.ok) {
+    const message = await enqueueResponse.text();
+    throw new Error(`Failed to enqueue schedule job: ${enqueueResponse.status} ${message}`);
+  }
+
+  const { jobId } = (await enqueueResponse.json()) as { jobId: string };
+  const timeoutAt = Date.now() + DEFAULT_JOB_TIMEOUT_MS;
+
+  while (Date.now() < timeoutAt) {
+    const statusResponse = await fetch(`${schedulerBackendUrl}/scheduler/jobs/${jobId}`);
+    if (!statusResponse.ok) {
+      throw new Error(`Failed to fetch job status (${statusResponse.status})`);
+    }
+
+    const jobStatus = (await statusResponse.json()) as SchedulerBackendJobStatusResponse;
+    if (jobStatus.status === 'completed' && jobStatus.result) {
+      return jobStatus.result;
+    }
+    if (jobStatus.status === 'failed') {
+      throw new Error(jobStatus.error ?? 'Scheduler job failed');
+    }
+
+    await sleep(DEFAULT_JOB_POLL_INTERVAL_MS);
+  }
+
+  throw new Error('Scheduler backend timeout');
+}
 
 export const scheduleRouter = createTRPCRouter({
   list: protectedProcedure
@@ -164,67 +321,7 @@ export const scheduleRouter = createTRPCRouter({
     }),
 
   generate: protectedProcedure
-    .input(z.object({
-      name: z.string().default('AI Generated Schedule'),
-      departmentId: z.string().min(1),
-      startDate: z.date(),
-      endDate: z.date(),
-      employees: z.array(z.object({
-        id: z.string(),
-        name: z.string(),
-        role: z.string(),
-        departmentId: z.string().optional(),
-        teamId: z.string().nullable().optional(),
-        workPatternType: z.enum(['three-shift', 'night-intensive', 'weekday-only']).optional(),
-        preferredShiftTypes: z.record(z.string(), z.number()).optional(),
-        maxConsecutiveDaysPreferred: z.number().optional(),
-        maxConsecutiveNightsPreferred: z.number().optional(),
-        guaranteedOffDays: z.number().optional(),
-      })),
-      shifts: z.array(z.object({
-        id: z.string(),
-        code: z.string().optional(),
-        type: z.enum(['day', 'evening', 'night', 'off', 'leave', 'custom']),
-        name: z.string(),
-        time: z.object({
-          start: z.string(),
-          end: z.string(),
-          hours: z.number(),
-          breakMinutes: z.number().optional(),
-        }),
-        color: z.string(),
-        requiredStaff: z.number().min(0).default(1),
-        minStaff: z.number().optional(),
-        maxStaff: z.number().optional(),
-      })),
-      constraints: z.array(z.object({
-        id: z.string(),
-        name: z.string(),
-        type: z.enum(['hard', 'soft']),
-        category: z.enum(['legal', 'contractual', 'operational', 'preference', 'fairness']),
-        weight: z.number(),
-        active: z.boolean(),
-        config: z.record(z.string(), z.any()).optional(),
-      })).default([]),
-      specialRequests: z.array(z.object({
-        employeeId: z.string(),
-        date: z.string(),
-        requestType: z.string(),
-        shiftTypeCode: z.string().optional(),
-      })).default([]),
-      holidays: z.array(z.object({
-        date: z.string(),
-        name: z.string(),
-      })).default([]),
-      teamPattern: z.object({
-        pattern: z.array(z.string()),
-        avoidPatterns: z.array(z.array(z.string())).optional(),
-      }).nullable().optional(),
-      requiredStaffPerShift: z.record(z.string(), z.number()).optional(),
-      optimizationGoal: z.enum(['fairness', 'preference', 'coverage', 'cost', 'balanced']).default('balanced'),
-      nightIntensivePaidLeaveDays: z.number().optional(),
-      enableAI: z.boolean().default(false),
-    }))
+    .input(scheduleGenerationInputSchema)
     .mutation(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
       const tenantDb = scopedDb(tenantId);
@@ -292,10 +389,11 @@ export const scheduleRouter = createTRPCRouter({
         guaranteedOffDays: emp.guaranteedOffDays ?? previousGuaranteedOffDays[emp.id],
       }));
 
-      const aiResult = await generateAiSchedule({
+      const backendResult = await requestScheduleGenerationFromBackend({
+        name: input.name,
         departmentId: input.departmentId,
-        startDate: input.startDate,
-        endDate: input.endDate,
+        startDate: input.startDate.toISOString(),
+        endDate: input.endDate.toISOString(),
         employees: employeesWithGuarantees,
         shifts: input.shifts,
         constraints: input.constraints,
@@ -303,50 +401,19 @@ export const scheduleRouter = createTRPCRouter({
         holidays: input.holidays,
         teamPattern: input.teamPattern ?? null,
         requiredStaffPerShift: input.requiredStaffPerShift,
+        optimizationGoal: input.optimizationGoal,
         nightIntensivePaidLeaveDays: input.nightIntensivePaidLeaveDays,
+        enableAI: input.enableAI,
         previousOffAccruals,
       });
 
-      let finalAssignments = aiResult.assignments;
-      let finalScore = aiResult.score;
-      let aiPolishResult = null;
-
-      // AI Polish 적용 (enableAI=true일 때만)
-      if (input.enableAI) {
-        try {
-          const polishResult = await autoPolishWithAI(aiResult, {
-            departmentId: input.departmentId,
-            startDate: input.startDate,
-            endDate: input.endDate,
-            employees: employeesWithGuarantees,
-            shifts: input.shifts,
-            constraints: input.constraints,
-            specialRequests: input.specialRequests,
-            holidays: input.holidays,
-            teamPattern: input.teamPattern,
-            requiredStaffPerShift: input.requiredStaffPerShift,
-            nightIntensivePaidLeaveDays: input.nightIntensivePaidLeaveDays,
-            previousOffAccruals,
-          });
-
-          if (polishResult.improved) {
-            finalAssignments = polishResult.assignments;
-            finalScore = polishResult.score;
-            aiPolishResult = {
-              improved: true,
-              improvements: polishResult.improvements,
-              beforeScore: aiResult.score.total,
-              afterScore: polishResult.score.total,
-              polishTime: polishResult.polishTime,
-            };
-
-            console.log(`[AI Polish] ${aiResult.score.total} → ${polishResult.score.total} (+${polishResult.score.total - aiResult.score.total})`);
-          }
-        } catch (polishError) {
-          console.error('[AI Polish] Failed, using original schedule:', polishError);
-          // AI 실패 시 원래 스케줄 사용 (Fail-safe)
-        }
-      }
+      const finalAssignments = backendResult.assignments.map((assignment) => ({
+        ...assignment,
+        date: new Date(assignment.date),
+      }));
+      const generationResult = backendResult.generationResult;
+      const finalScore = generationResult.score;
+      const aiPolishResult = backendResult.aiPolishResult;
 
       const serializedAssignments = finalAssignments.map((assignment) => ({
         ...assignment,
@@ -364,10 +431,10 @@ export const scheduleRouter = createTRPCRouter({
           generationMethod: 'ai-engine',
           constraints: input.constraints,
           assignments: serializedAssignments,
-          stats: aiResult.stats,
+          stats: generationResult.stats,
           score: finalScore,
-          violations: aiResult.violations,
-          offAccruals: aiResult.offAccruals,
+          violations: generationResult.violations,
+          offAccruals: generationResult.offAccruals,
           aiEnabled: input.enableAI,
           aiPolishResult,
         },
@@ -381,8 +448,8 @@ export const scheduleRouter = createTRPCRouter({
         entityId: schedule.id,
         after: schedule,
         metadata: {
-          computationTime: aiResult.computationTime,
-          iterations: aiResult.iterations,
+          computationTime: generationResult.computationTime,
+          iterations: generationResult.iterations,
         },
       });
 
@@ -397,10 +464,10 @@ export const scheduleRouter = createTRPCRouter({
         scheduleId: schedule.id,
         assignments: serializedAssignments,
         generationResult: {
-          computationTime: aiResult.computationTime,
+          computationTime: generationResult.computationTime,
           score: finalScore,
-          violations: aiResult.violations,
-          offAccruals: aiResult.offAccruals,
+          violations: generationResult.violations,
+          offAccruals: generationResult.offAccruals,
         },
         aiPolishResult,
       };

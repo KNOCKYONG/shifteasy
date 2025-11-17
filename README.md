@@ -80,6 +80,9 @@ TOSS_WEBHOOK_SECRET=whsec_xxx
 # 기타 설정
 NODE_ENV=development
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+SCHEDULER_BACKEND_URL=http://localhost:4000
+SCHEDULER_JOB_TIMEOUT_MS=180000
+SCHEDULER_JOB_POLL_INTERVAL_MS=2000
 ```
 
 **참고:** `[YOUR_USERNAME]`을 실제 시스템 사용자명으로 변경하세요 (예: `whoami` 명령어로 확인)
@@ -104,6 +107,49 @@ npm run dev
 ```
 
 브라우저에서 http://localhost:3000 접속
+
+### 4. 스케줄러 백엔드 (NestJS + Upstash Redis)
+
+1. `.env.local`에 `SCHEDULER_BACKEND_URL` 값을 추가합니다. (예: `http://localhost:4000`)
+2. `scheduler-backend/.env` 파일을 생성하고 아래 값을 채웁니다. (`scheduler-backend/.env.example` 참고)
+   ```env
+   PORT=4000
+   UPSTASH_REDIS_REST_URL=your-upstash-url
+   UPSTASH_REDIS_REST_TOKEN=your-upstash-token
+   OPENAI_API_KEY=sk-...
+   SCHEDULER_WORKER_POLL_INTERVAL=1000
+   ```
+3. 백엔드 의존성 설치 후 실행:
+   ```bash
+   cd scheduler-backend
+   npm install
+   npm run start:dev
+   ```
+
+NestJS 서비스가 장시간 스케줄 생성 요청을 Upstash Redis 큐에 등록하고, 워커가 순차적으로 처리합니다. Next.js 서버는 `SCHEDULER_BACKEND_URL`을 통해 이 백엔드에 요청을 위임하므로 반드시 두 서버를 함께 실행하세요.
+
+#### Fly.io 배포 준비
+1. Dockerfile과 `.dockerignore`가 포함되어 있으므로 Fly.io에서 그대로 빌드할 수 있습니다.
+2. `scheduler-backend/fly.example.toml`을 복사해 앱 이름/리전을 맞춘 뒤 환경 변수를 설정합니다.
+   ```bash
+   cd scheduler-backend
+   cp fly.example.toml fly.toml
+   fly auth login
+   fly launch --no-deploy   # 이미 Dockerfile이 있으므로 기존 앱에 붙일 때 사용
+   ```
+3. Fly 앱 secrets에 Upstash/OPENAI 키를 등록합니다.
+   ```bash
+   fly secrets set UPSTASH_REDIS_REST_URL=... \
+     UPSTASH_REDIS_REST_TOKEN=... \
+     OPENAI_API_KEY=... \
+     SCHEDULER_WORKER_POLL_INTERVAL=1000
+   ```
+4. 배포:
+   ```bash
+   fly deploy
+   ```
+5. 배포 후 `https://<app>.fly.dev`를 `SCHEDULER_BACKEND_URL`에 입력하면 Vercel 프론트와 연동됩니다.
+
 
 ## 📁 데이터베이스 관리
 
