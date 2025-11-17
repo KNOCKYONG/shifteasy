@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import type { KeyboardEvent } from "react";
 import { Plus, Edit2, Trash2, Users, Save, ChevronDown, ChevronUp, X, Loader2, Check } from "lucide-react";
 import { api } from "@/lib/trpc/client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -228,6 +229,13 @@ export function TeamsTab() {
     });
   };
 
+  const handleCardKeyDown = (event: KeyboardEvent<HTMLDivElement>, member: TeamMember) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      openAssignModal(member);
+    }
+  };
+
   const isInitialLoading = (isLoadingTeams && teams.length === 0) ||
     (isLoadingUsersData && !usersData);
 
@@ -279,11 +287,15 @@ export function TeamsTab() {
             </h4>
           </div>
           {!unassignedCollapsed && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
               {getUnassignedMembers().map((member) => (
                 <div
                   key={member.id}
-                  className="bg-amber-50 dark:bg-amber-900/10 rounded-xl p-4 border border-amber-200 dark:border-amber-800 flex flex-col gap-3"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openAssignModal(member)}
+                  onKeyDown={(e) => handleCardKeyDown(e, member)}
+                  className="bg-amber-50 dark:bg-amber-900/10 rounded-xl p-4 border border-amber-200 dark:border-amber-800 flex flex-col gap-3 cursor-pointer hover:shadow-lg hover:border-amber-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-200 text-amber-900 text-sm font-semibold">
@@ -299,13 +311,9 @@ export function TeamsTab() {
                       <div className="text-xs text-gray-500 dark:text-gray-400 break-all">{member.email}</div>
                     </div>
                   </div>
-
-                  <button
-                    onClick={() => openAssignModal(member)}
-                    className="w-full px-3 py-2 text-sm font-semibold text-amber-900 dark:text-amber-100 bg-white dark:bg-gray-900/40 border border-amber-200 dark:border-amber-700 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/30 transition"
-                  >
-                    팀 배정하기
-                  </button>
+                  <div className="text-xs font-semibold text-amber-700 dark:text-amber-200">
+                    카드 전체를 눌러 팀을 배정하세요
+                  </div>
                 </div>
               ))}
             </div>
@@ -376,14 +384,21 @@ export function TeamsTab() {
                       배정된 직원이 없습니다
                     </p>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                       {teamMembers.map((member) => (
                         <div
                           key={member.id}
-                          className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 relative flex flex-col gap-3"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => openAssignModal(member)}
+                          onKeyDown={(e) => handleCardKeyDown(e, member)}
+                          className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 sm:p-4 border border-gray-200 dark:border-gray-700 relative flex flex-col gap-3 cursor-pointer hover:shadow-lg hover:border-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                         >
                           <button
-                            onClick={() => handleUnassignFromTeam(member)}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleUnassignFromTeam(member);
+                            }}
                             className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                             aria-label={`${member.name} 팀 배정 해제`}
                           >
@@ -410,12 +425,6 @@ export function TeamsTab() {
                               {member.position || '직책 미지정'}
                             </span>
                           </div>
-                          <button
-                            onClick={() => openAssignModal(member)}
-                            className="w-full mt-auto px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-100 bg-white dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-900/60 transition"
-                          >
-                            팀 변경
-                          </button>
                         </div>
                       ))}
                     </div>
