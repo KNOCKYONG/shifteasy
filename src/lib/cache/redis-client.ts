@@ -24,15 +24,19 @@ export class RedisClient {
 
   private async initializeClient() {
     try {
-      // In development, use mock cache if Redis is not available
-      if (process.env.NODE_ENV === 'development' && !process.env.REDIS_URL) {
-        console.log('Using in-memory cache (Redis not configured)');
+      const shouldUseMock =
+        !process.env.REDIS_URL ||
+        process.env.DISABLE_REDIS === 'true' ||
+        process.env.VERCEL === '1';
+
+      if (shouldUseMock) {
+        console.log('Using in-memory cache for Redis (configuration missing or disabled)');
         this.useMockCache = true;
         this.isConnected = true;
         return;
       }
 
-      const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+      const redisUrl = process.env.REDIS_URL as string;
 
       this.client = new Redis(redisUrl, {
         maxRetriesPerRequest: 3,
