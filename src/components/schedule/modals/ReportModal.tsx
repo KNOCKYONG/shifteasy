@@ -1,5 +1,17 @@
 import React from 'react';
-import { FileText, X, Clock, RefreshCcw } from 'lucide-react';
+import { FileText, X, Clock, RefreshCcw, AlertTriangle, Users, Award } from 'lucide-react';
+import type {
+  GenerationDiagnostics,
+  StaffingShortageInfo,
+  TeamCoverageGapInfo,
+  CareerGroupCoverageGapInfo,
+  SpecialRequestMissInfo,
+  OffBalanceGapInfo,
+  ShiftPatternBreakInfo,
+  PostprocessStats,
+  TeamWorkloadGapInfo,
+  AvoidPatternViolationInfo,
+} from '@/lib/types/scheduler';
 
 interface ScoreBreakdown {
   category: string;
@@ -33,6 +45,8 @@ interface GenerationResult {
   suggestions?: Suggestion[];
   computationTime: number;
   iterations: number;
+  diagnostics?: GenerationDiagnostics;
+  postprocess?: PostprocessStats;
 }
 
 interface ReportModalProps {
@@ -41,12 +55,54 @@ interface ReportModalProps {
   generationResult: GenerationResult | null;
 }
 
+const renderShortageLine = (shortage: StaffingShortageInfo) =>
+  `${shortage.date} ${shortage.shiftType} - 필요 ${shortage.required}명, 실제 ${shortage.covered}명`;
+
+const renderTeamGapLine = (gap: TeamCoverageGapInfo) =>
+  `${gap.date} ${gap.shiftType} - ${gap.teamId}팀 부족 (${gap.shortage}명)`;
+
+const renderCareerGapLine = (gap: CareerGroupCoverageGapInfo) =>
+  `${gap.date} ${gap.shiftType} - 경력 그룹 ${gap.careerGroupAlias} 부족 (${gap.shortage}명)`;
+
+const renderSpecialRequestLine = (miss: SpecialRequestMissInfo) =>
+  `${miss.date} ${miss.employeeId} → ${miss.shiftType}`;
+
+const renderOffBalanceLine = (gap: OffBalanceGapInfo) =>
+  `${gap.teamId}팀 ${gap.employeeA}/${gap.employeeB} 휴무 차이 ${gap.difference}일 (허용 ${gap.tolerance}일)`;
+
+const renderShiftBreakLine = (issue: ShiftPatternBreakInfo) =>
+  `${issue.employeeId} - ${issue.shiftType} ${issue.startDate} 시작 ${issue.window}일 창 내 초과 ${issue.excess}일`;
+
+const renderTeamWorkloadLine = (gap: TeamWorkloadGapInfo) =>
+  `${gap.teamA} vs ${gap.teamB} 근무일 차이 ${gap.difference}일 (허용 ${gap.tolerance}일)`;
+
+const renderAvoidPatternLine = (issue: AvoidPatternViolationInfo) =>
+  `${issue.employeeId} - ${issue.startDate}부터 ${issue.pattern.join(' → ')} 패턴 반복`;
+
+const describePreflightIssue = (issue: Record<string, unknown>) => {
+  const type = typeof issue.type === 'string' ? issue.type : 'unknown';
+  if (type === 'insufficientPotentialStaff') {
+    return `${issue.date} ${issue.shiftType}: 공급 < 수요 (${issue.available}/${issue.required})`;
+  }
+  if (type === 'teamCoverageImpossible') {
+    return `${issue.date} ${issue.shiftType}: ${issue.teamId}팀 인원 없음`;
+  }
+  if (type === 'careerGroupCoverageImpossible') {
+    return `${issue.date} ${issue.shiftType}: 경력 그룹 ${issue.careerGroupAlias} 배치 불가`;
+  }
+  if (type === 'specialRequestPatternConflict') {
+    return `${issue.date} ${issue.employeeId}: 패턴상 ${issue.requestedShift} 불가`;
+  }
+  return type;
+};
+
 export function ReportModal({
   isOpen,
   onClose,
   generationResult,
 }: ReportModalProps) {
   if (!isOpen || !generationResult) return null;
+  const postprocess = generationResult.postprocess ?? generationResult.diagnostics?.postprocess;
 
   return (
     <div className="fixed inset-0 bg-gray-900/50 dark:bg-gray-950/70 flex items-center justify-center z-50 p-4">
@@ -189,6 +245,199 @@ export function ReportModal({
               )}
             </div>
           </div>
+
+          {/* Diagnostics */}
+          {generationResult.diagnostics && (
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-500" />
+                🔍 제약 진단 요약
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {generationResult.diagnostics.staffingShortages && generationResult.diagnostics.staffingShortages.length > 0 && (
+                  <div className="bg-red-50 dark:bg-red-950/30 rounded-lg p-4 border border-red-100 dark:border-red-900/60">
+                    <p className="text-sm font-semibold text-red-700 dark:text-red-300 mb-2 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4" />
+                      필수 인원 부족 {generationResult.diagnostics.staffingShortages.length}건
+                    </p>
+                    <div className="space-y-1 text-xs text-red-700 dark:text-red-200">
+                      {generationResult.diagnostics.staffingShortages.slice(0, 4).map((shortage, idx) => (
+                        <p key={`${shortage.date}-${shortage.shiftType}-${idx}`}>• {renderShortageLine(shortage)}</p>
+                      ))}
+                      {generationResult.diagnostics.staffingShortages.length > 4 && (
+                        <p className="italic">… 추가 {generationResult.diagnostics.staffingShortages.length - 4}건</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {generationResult.diagnostics.teamCoverageGaps && generationResult.diagnostics.teamCoverageGaps.length > 0 && (
+                  <div className="bg-orange-50 dark:bg-orange-950/30 rounded-lg p-4 border border-orange-100 dark:border-orange-900/60">
+                    <p className="text-sm font-semibold text-orange-700 dark:text-orange-300 mb-2 flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      팀 커버리지 부족 {generationResult.diagnostics.teamCoverageGaps.length}건
+                    </p>
+                    <div className="space-y-1 text-xs text-orange-700 dark:text-orange-200">
+                      {generationResult.diagnostics.teamCoverageGaps.slice(0, 4).map((gap, idx) => (
+                        <p key={`${gap.date}-${gap.teamId}-${gap.shiftType}-${idx}`}>• {renderTeamGapLine(gap)}</p>
+                      ))}
+                      {generationResult.diagnostics.teamCoverageGaps.length > 4 && (
+                        <p className="italic">… 추가 {generationResult.diagnostics.teamCoverageGaps.length - 4}건</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {generationResult.diagnostics.careerGroupCoverageGaps && generationResult.diagnostics.careerGroupCoverageGaps.length > 0 && (
+                  <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4 border border-blue-100 dark:border-blue-900/60">
+                    <p className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2 flex items-center gap-2">
+                      <Award className="w-4 h-4" />
+                      경력 그룹 커버리지 부족 {generationResult.diagnostics.careerGroupCoverageGaps.length}건
+                    </p>
+                    <div className="space-y-1 text-xs text-blue-700 dark:text-blue-200">
+                      {generationResult.diagnostics.careerGroupCoverageGaps.slice(0, 4).map((gap, idx) => (
+                        <p key={`${gap.date}-${gap.careerGroupAlias}-${gap.shiftType}-${idx}`}>• {renderCareerGapLine(gap)}</p>
+                      ))}
+                      {generationResult.diagnostics.careerGroupCoverageGaps.length > 4 && (
+                        <p className="italic">… 추가 {generationResult.diagnostics.careerGroupCoverageGaps.length - 4}건</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {generationResult.diagnostics.teamWorkloadGaps && generationResult.diagnostics.teamWorkloadGaps.length > 0 && (
+                  <div className="bg-cyan-50 dark:bg-cyan-950/30 rounded-lg p-4 border border-cyan-100 dark:border-cyan-900/60">
+                    <p className="text-sm font-semibold text-cyan-700 dark:text-cyan-300 mb-2 flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      팀 근무 편차 {generationResult.diagnostics.teamWorkloadGaps.length}건
+                    </p>
+                    <div className="space-y-1 text-xs text-cyan-700 dark:text-cyan-200">
+                      {generationResult.diagnostics.teamWorkloadGaps.slice(0, 4).map((gap, idx) => (
+                        <p key={`team-workload-${idx}`}>• {renderTeamWorkloadLine(gap)}</p>
+                      ))}
+                      {generationResult.diagnostics.teamWorkloadGaps.length > 4 && (
+                        <p className="italic">… 추가 {generationResult.diagnostics.teamWorkloadGaps.length - 4}건</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {generationResult.diagnostics.specialRequestMisses && generationResult.diagnostics.specialRequestMisses.length > 0 && (
+                  <div className="bg-purple-50 dark:bg-purple-950/30 rounded-lg p-4 border border-purple-100 dark:border-purple-900/60">
+                    <p className="text-sm font-semibold text-purple-700 dark:text-purple-300 mb-2 flex items-center gap-2">
+                      <Clock className="w-4 h-4" />
+                      특별 요청 미충족 {generationResult.diagnostics.specialRequestMisses.length}건
+                    </p>
+                    <div className="space-y-1 text-xs text-purple-700 dark:text-purple-200">
+                      {generationResult.diagnostics.specialRequestMisses.slice(0, 4).map((miss, idx) => (
+                        <p key={`${miss.date}-${miss.employeeId}-${idx}`}>• {renderSpecialRequestLine(miss)}</p>
+                      ))}
+                      {generationResult.diagnostics.specialRequestMisses.length > 4 && (
+                        <p className="italic">… 추가 {generationResult.diagnostics.specialRequestMisses.length - 4}건</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {generationResult.diagnostics.offBalanceGaps && generationResult.diagnostics.offBalanceGaps.length > 0 && (
+                  <div className="bg-teal-50 dark:bg-teal-950/30 rounded-lg p-4 border border-teal-100 dark:border-teal-900/60">
+                    <p className="text-sm font-semibold text-teal-700 dark:text-teal-300 mb-2 flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      팀 휴무 편차 초과 {generationResult.diagnostics.offBalanceGaps.length}건
+                    </p>
+                    <div className="space-y-1 text-xs text-teal-700 dark:text-teal-200">
+                      {generationResult.diagnostics.offBalanceGaps.slice(0, 4).map((gap, idx) => (
+                        <p key={`off-balance-${idx}`}>• {renderOffBalanceLine(gap)}</p>
+                      ))}
+                      {generationResult.diagnostics.offBalanceGaps.length > 4 && (
+                        <p className="italic">… 추가 {generationResult.diagnostics.offBalanceGaps.length - 4}건</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {generationResult.diagnostics.shiftPatternBreaks && generationResult.diagnostics.shiftPatternBreaks.length > 0 && (
+                  <div className="bg-rose-50 dark:bg-rose-950/30 rounded-lg p-4 border border-rose-100 dark:border-rose-900/60">
+                    <p className="text-sm font-semibold text-rose-700 dark:text-rose-300 mb-2 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4" />
+                      연속 시프트 위반 {generationResult.diagnostics.shiftPatternBreaks.length}건
+                    </p>
+                    <div className="space-y-1 text-xs text-rose-700 dark:text-rose-200">
+                      {generationResult.diagnostics.shiftPatternBreaks.slice(0, 4).map((issue, idx) => (
+                        <p key={`shift-break-${idx}`}>• {renderShiftBreakLine(issue)}</p>
+                      ))}
+                      {generationResult.diagnostics.shiftPatternBreaks.length > 4 && (
+                        <p className="italic">… 추가 {generationResult.diagnostics.shiftPatternBreaks.length - 4}건</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {generationResult.diagnostics.avoidPatternViolations && generationResult.diagnostics.avoidPatternViolations.length > 0 && (
+                  <div className="bg-amber-50 dark:bg-amber-950/30 rounded-lg p-4 border border-amber-100 dark:border-amber-900/60">
+                    <p className="text-sm font-semibold text-amber-700 dark:text-amber-300 mb-2 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4" />
+                      기피 패턴 위반 {generationResult.diagnostics.avoidPatternViolations.length}건
+                    </p>
+                    <div className="space-y-1 text-xs text-amber-700 dark:text-amber-200">
+                      {generationResult.diagnostics.avoidPatternViolations.slice(0, 4).map((issue, idx) => (
+                        <p key={`avoid-pattern-${idx}`}>• {renderAvoidPatternLine(issue)}</p>
+                      ))}
+                      {generationResult.diagnostics.avoidPatternViolations.length > 4 && (
+                        <p className="italic">… 추가 {generationResult.diagnostics.avoidPatternViolations.length - 4}건</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {generationResult.diagnostics.preflightIssues && generationResult.diagnostics.preflightIssues.length > 0 && (
+                  <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 border border-gray-200 dark:border-gray-800 md:col-span-2">
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4" />
+                      사전 감지 이슈 {generationResult.diagnostics.preflightIssues.length}건
+                    </p>
+                    <div className="space-y-1 text-xs text-gray-600 dark:text-gray-300">
+                      {generationResult.diagnostics.preflightIssues.slice(0, 5).map((issue, idx) => (
+                        <p key={`preflight-${idx}`}>• {describePreflightIssue(issue)}</p>
+                      ))}
+                      {generationResult.diagnostics.preflightIssues.length > 5 && (
+                        <p className="italic">… 추가 {generationResult.diagnostics.preflightIssues.length - 5}건</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {postprocess && (
+                  <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4 border border-blue-100 dark:border-blue-900/60 md:col-span-2">
+                    <p className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-2 flex items-center gap-2">
+                      <Award className="w-4 h-4" />
+                      CSP 후처리 요약
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-blue-800 dark:text-blue-200">
+                      <div>
+                        <p className="text-blue-600 dark:text-blue-400">반복 횟수</p>
+                        <p className="text-base font-semibold">{postprocess.iterations ?? 0}</p>
+                      </div>
+                      <div>
+                        <p className="text-blue-600 dark:text-blue-400">개선 수</p>
+                        <p className="text-base font-semibold">{postprocess.improvements ?? 0}</p>
+                      </div>
+                      <div>
+                        <p className="text-blue-600 dark:text-blue-400">허용된 worse move</p>
+                        <p className="text-base font-semibold">{postprocess.acceptedWorse ?? 0}</p>
+                      </div>
+                      <div>
+                        <p className="text-blue-600 dark:text-blue-400">최종 Penalty</p>
+                        <p className="text-base font-semibold">
+                          {postprocess.finalPenalty !== undefined ? Math.round(postprocess.finalPenalty) : '-'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* 공정성 분석 */}
           <div className="mb-6">

@@ -7,13 +7,72 @@ import { eq, and, gte, lte, desc, inArray, isNull, ne, or } from 'drizzle-orm';
 import { db } from '@/db';
 import { ScheduleImprover } from '@/lib/scheduler/schedule-improver';
 import type { Assignment, Employee as ImprovementEmployee, ScheduleConstraints } from '@/lib/scheduler/types';
-import type { ScheduleAssignment, ConstraintViolation, ScheduleScore, OffAccrualSummary } from '@/lib/types/scheduler';
+import type {
+  ScheduleAssignment,
+  ConstraintViolation,
+  ScheduleScore,
+  OffAccrualSummary,
+  PostprocessStats,
+} from '@/lib/types/scheduler';
 import { sse } from '@/lib/sse/broadcaster';
 import { notificationService } from '@/lib/notifications/notification-service';
 import { format, subMonths } from 'date-fns';
 import { getShiftTypes } from '@/lib/config/shiftTypes';
+import { loadCareerGroups, loadYearsOfServiceMap } from '../utils/milp-data-loader';
+import { serializeMilpCspInput } from '@/lib/scheduler/milp-csp/serializer';
+import type { MilpCspScheduleInput, MilpCspSolverOptions } from '@/lib/scheduler/milp-csp/types';
 
-const scheduleGenerationInputSchema = z.object({
+const constraintWeightsSchema = z.object({
+  staffing: z.number().min(0).max(10).default(1),
+  teamBalance: z.number().min(0).max(10).default(1),
+  careerBalance: z.number().min(0).max(10).default(1),
+  offBalance: z.number().min(0).max(10).default(1),
+});
+
+const cspSettingsSchema = z.object({
+  maxIterations: z.number().int().min(50).max(2000).default(400),
+  tabuSize: z.number().int().min(0).max(256).default(32),
+  timeLimitMs: z.number().int().min(500).max(20000).default(4000),
+  maxSameShift: z.number().int().min(1).max(5).default(2),
+  offTolerance: z.number().int().min(0).max(5).default(2),
+  annealing: z.object({
+    temperature: z.number().min(0).max(20).default(5),
+    coolingRate: z.number().min(0.5).max(0.99).default(0.92),
+  }).optional(),
+});
+
+const schedulerAdvancedSchema = z.object({
+  useMilpEngine: z.boolean().optional(),
+  solverPreference: z.enum(['auto', 'ortools', 'highs']).optional(),
+  constraintWeights: constraintWeightsSchema.partial().optional(),
+  cspSettings: cspSettingsSchema.partial().optional(),
+});
+
+const mapAdvancedSettingsToSolverOptions = (
+  advanced?: z.infer<typeof schedulerAdvancedSchema>
+): MilpCspSolverOptions | undefined => {
+  if (!advanced) {
+    return undefined;
+  }
+  const options: MilpCspSolverOptions = {};
+  if (advanced.constraintWeights) {
+    options.constraintWeights = {
+      staffing: advanced.constraintWeights.staffing,
+      teamBalance: advanced.constraintWeights.teamBalance,
+      careerBalance: advanced.constraintWeights.careerBalance,
+      offBalance: advanced.constraintWeights.offBalance,
+    };
+  }
+  if (advanced.cspSettings) {
+    options.cspSettings = {
+      ...advanced.cspSettings,
+      annealing: advanced.cspSettings.annealing,
+    };
+  }
+  return options;
+};
+
+export const scheduleGenerationInputSchema = z.object({
   name: z.string().default('AI Generated Schedule'),
   departmentId: z.string().min(1),
   startDate: z.date(),
@@ -73,6 +132,8 @@ const scheduleGenerationInputSchema = z.object({
   optimizationGoal: z.enum(['fairness', 'preference', 'coverage', 'cost', 'balanced']).default('balanced'),
   nightIntensivePaidLeaveDays: z.number().optional(),
   enableAI: z.boolean().default(false),
+  useMilpEngine: z.boolean().default(false),
+  schedulerAdvanced: schedulerAdvancedSchema.optional(),
 });
 
 type ScheduleGenerationInput = z.infer<typeof scheduleGenerationInputSchema>;
@@ -91,6 +152,60 @@ interface SchedulerBackendResult {
       fairnessIndex: number;
       coverageRate: number;
       preferenceScore: number;
+    };
+    postprocess?: PostprocessStats;
+    diagnostics?: {
+      staffingShortages?: Array<{
+        date: string;
+        shiftType: string;
+        required: number;
+        covered: number;
+        shortage: number;
+      }>;
+      teamCoverageGaps?: Array<{
+        date: string;
+        shiftType: string;
+        teamId: string;
+        shortage: number;
+      }>;
+      careerGroupCoverageGaps?: Array<{
+        date: string;
+        shiftType: string;
+        careerGroupAlias: string;
+        shortage: number;
+      }>;
+      teamWorkloadGaps?: Array<{
+        teamA: string;
+        teamB: string;
+        difference: number;
+        tolerance: number;
+      }>;
+      offBalanceGaps?: Array<{
+        teamId: string;
+        employeeA: string;
+        employeeB: string;
+        difference: number;
+        tolerance: number;
+      }>;
+      shiftPatternBreaks?: Array<{
+        employeeId: string;
+        shiftType: string;
+        startDate: string;
+        window: number;
+        excess: number;
+      }>;
+      specialRequestMisses?: Array<{
+        employeeId: string;
+        date: string;
+        shiftType: string;
+      }>;
+      avoidPatternViolations?: Array<{
+        employeeId: string;
+        startDate: string;
+        pattern: string[];
+      }>;
+      preflightIssues?: Array<Record<string, unknown>>;
+      postprocess?: PostprocessStats;
     };
   };
   aiPolishResult: {
@@ -120,6 +235,9 @@ type SchedulerBackendPayload = Omit<ScheduleGenerationInput, 'startDate' | 'endD
   startDate: string;
   endDate: string;
   previousOffAccruals: Record<string, number>;
+  milpInput?: MilpCspScheduleInput;
+  schedulerAdvanced?: z.infer<typeof schedulerAdvancedSchema>;
+  solver?: 'auto' | 'ortools' | 'highs';
 };
 
 const DEFAULT_JOB_TIMEOUT_MS = Number(process.env.SCHEDULER_JOB_TIMEOUT_MS ?? 120000);
@@ -130,11 +248,18 @@ async function sleep(ms: number) {
 }
 
 async function requestScheduleGenerationFromBackend(
-  payload: SchedulerBackendPayload
+  payload: SchedulerBackendPayload,
+  options?: { useMilpBackend?: boolean }
 ): Promise<SchedulerBackendResult> {
-  const schedulerBackendUrl = process.env.SCHEDULER_BACKEND_URL;
+  const schedulerBackendUrl = options?.useMilpBackend
+    ? process.env.MILP_SCHEDULER_BACKEND_URL ?? process.env.SCHEDULER_BACKEND_URL
+    : process.env.SCHEDULER_BACKEND_URL;
   if (!schedulerBackendUrl) {
-    throw new Error('SCHEDULER_BACKEND_URL is not configured');
+    throw new Error(
+      options?.useMilpBackend
+        ? 'MILP_SCHEDULER_BACKEND_URL is not configured'
+        : 'SCHEDULER_BACKEND_URL is not configured'
+    );
   }
 
   const enqueueResponse = await fetch(`${schedulerBackendUrl}/scheduler/jobs`, {
@@ -389,6 +514,42 @@ export const scheduleRouter = createTRPCRouter({
         guaranteedOffDays: emp.guaranteedOffDays ?? previousGuaranteedOffDays[emp.id],
       }));
 
+      const schedulerAdvanced = input.schedulerAdvanced;
+
+      let milpInput: MilpCspScheduleInput | undefined;
+      if (input.useMilpEngine) {
+        const employeeIds = employeesWithGuarantees.map((emp) => emp.id);
+        const [careerGroups, yearsOfServiceMap] = await Promise.all([
+          loadCareerGroups(tenantId, input.departmentId),
+          loadYearsOfServiceMap(tenantId, employeeIds),
+        ]);
+        const solverOptions = mapAdvancedSettingsToSolverOptions(schedulerAdvanced);
+
+        milpInput = serializeMilpCspInput(
+          {
+            departmentId: input.departmentId,
+            startDate: input.startDate,
+            endDate: input.endDate,
+            employees: employeesWithGuarantees,
+            shifts: input.shifts,
+            constraints: input.constraints,
+            specialRequests: input.specialRequests,
+            holidays: input.holidays,
+            teamPattern: input.teamPattern ?? null,
+            requiredStaffPerShift: input.requiredStaffPerShift,
+            nightIntensivePaidLeaveDays: input.nightIntensivePaidLeaveDays,
+          },
+          {
+            previousOffAccruals,
+            careerGroups,
+            yearsOfServiceMap,
+            solverOptions,
+          }
+        );
+      }
+
+      const enableAIFlag = input.useMilpEngine ? false : input.enableAI;
+
       const backendResult = await requestScheduleGenerationFromBackend({
         name: input.name,
         departmentId: input.departmentId,
@@ -403,9 +564,13 @@ export const scheduleRouter = createTRPCRouter({
         requiredStaffPerShift: input.requiredStaffPerShift,
         optimizationGoal: input.optimizationGoal,
         nightIntensivePaidLeaveDays: input.nightIntensivePaidLeaveDays,
-        enableAI: input.enableAI,
+        enableAI: enableAIFlag,
+        useMilpEngine: input.useMilpEngine,
         previousOffAccruals,
-      });
+        milpInput,
+        schedulerAdvanced,
+        solver: schedulerAdvanced?.solverPreference ?? 'auto',
+      }, { useMilpBackend: input.useMilpEngine });
 
       const finalAssignments = backendResult.assignments.map((assignment) => ({
         ...assignment,
@@ -414,6 +579,8 @@ export const scheduleRouter = createTRPCRouter({
       const generationResult = backendResult.generationResult;
       const finalScore = generationResult.score;
       const aiPolishResult = backendResult.aiPolishResult;
+      const generationDiagnostics = generationResult.diagnostics ?? {};
+      const generationPostprocess = generationResult.postprocess ?? generationDiagnostics.postprocess;
 
       const serializedAssignments = finalAssignments.map((assignment) => ({
         ...assignment,
@@ -428,14 +595,16 @@ export const scheduleRouter = createTRPCRouter({
         status: 'draft',
         metadata: {
           generatedBy: ctx.user?.id || 'system',
-          generationMethod: 'ai-engine',
+          generationMethod: input.useMilpEngine ? 'milp-engine' : 'ai-engine',
           constraints: input.constraints,
           assignments: serializedAssignments,
           stats: generationResult.stats,
           score: finalScore,
           violations: generationResult.violations,
           offAccruals: generationResult.offAccruals,
-          aiEnabled: input.enableAI,
+          diagnostics: generationDiagnostics,
+          schedulerAdvanced,
+          aiEnabled: enableAIFlag,
           aiPolishResult,
         },
       });
@@ -464,10 +633,14 @@ export const scheduleRouter = createTRPCRouter({
         scheduleId: schedule.id,
         assignments: serializedAssignments,
         generationResult: {
+          iterations: generationResult.iterations,
           computationTime: generationResult.computationTime,
           score: finalScore,
           violations: generationResult.violations,
           offAccruals: generationResult.offAccruals,
+          stats: generationResult.stats,
+          diagnostics: generationDiagnostics,
+          postprocess: generationPostprocess,
         },
         aiPolishResult,
       };

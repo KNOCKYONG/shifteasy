@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure, longCachedProcedure } from '../trpc';
 import { db } from '@/db';
 import { configs } from '@/db/schema/configs';
+import { DEFAULT_SCHEDULER_ADVANCED } from '@/lib/config/schedulerAdvanced';
 import { eq, and, isNull } from 'drizzle-orm';
 import { sse } from '@/lib/sse/broadcaster';
 
@@ -54,6 +55,7 @@ const DEFAULT_POSITION_GROUPS = [
 
 const DEFAULT_PREFERENCES = {
   nightIntensivePaidLeaveDays: 0,
+  schedulerAdvanced: DEFAULT_SCHEDULER_ADVANCED,
 };
 
 export const configsRouter = createTRPCRouter({

@@ -1,12 +1,12 @@
-# Fly.io Scheduler Backend
+# Fly.io Scheduler Worker (Python + OR-Tools)
 
-장시간 스케줄 생성 작업을 Vercel 프론트와 분리하기 위해 NestJS 백엔드를 Fly.io에 올리는 방법을 정리했습니다.
+장시간 MILP/CSP 계산을 Next.js 프론트와 분리하기 위해 `scheduler-worker` (FastAPI + OR-Tools) 앱을 Fly.io에 배포하는 절차입니다.
 
 ## 구조 요약
 
-- Next.js(TRPC) → `SCHEDULER_BACKEND_URL` (`https://shifteasy-scheduler.fly.dev`) 로 Fly NestJS API 호출.
-- NestJS → Upstash Redis 큐에 작업 저장, 워커가 `generateAiSchedule` + `autoPolishWithAI` 수행.
-- 작업 완료 시 NestJS가 JSON 응답을 반환하면 Next.js가 결과를 DB/상태에 반영.
+- Next.js(TRPC) → `MILP_SCHEDULER_BACKEND_URL` (`https://<app>.fly.dev`) 로 FastAPI 워커 호출.
+- FastAPI → OR-Tools/HiGHS로 MILP 계산, 결과를 `/scheduler/jobs/{id}` 응답으로 반환.
+- Next.js는 동일한 큐 인터페이스(POST → 폴링)를 사용하므로 기존 TRPC 로직을 그대로 재사용합니다.
 
 ## 준비 사항
 
@@ -14,55 +14,46 @@
    ```bash
    fly auth login
    ```
-2. Fly 앱 생성 (`fly apps create shifteasy-scheduler`)
-3. `scheduler-backend/fly.toml`에서 `app` / `primary_region` 등 확인.
-4. Secrets 등록:
+2. 앱 생성
    ```bash
-   cd scheduler-backend
-   fly secrets set \
-     UPSTASH_REDIS_REST_URL=... \
-     UPSTASH_REDIS_REST_TOKEN=... \
-     OPENAI_API_KEY=... \
-     SCHEDULER_WORKER_POLL_INTERVAL=1000
+   fly apps create shifteasy-milp-worker
    ```
+3. `scheduler-worker/fly.example.toml`을 복사해 `fly.toml` 작성 후 `app`/리전을 수정합니다.
 
 ## 배포
 
-루트에서:
 ```bash
-cd scheduler-backend
+cd scheduler-worker
+fly launch --no-deploy  # 필요 시
 fly deploy
 ```
 
 배포 후 상태 확인:
-```bash
-fly status -a shifteasy-scheduler
-```
-
-## 로컬 개발 (옵션)
 
 ```bash
-cd scheduler-backend
-npm install
-npm run start:dev
+fly status -a shifteasy-milp-worker
 ```
 
-`.env.example`을 참고해 필요한 키들을 `.env`에 작성하면 됩니다.
+## 로컬 개발
+
+```bash
+cd scheduler-worker
+pip install -r requirements.txt
+uvicorn src.app:app --host 0.0.0.0 --port 4000 --reload
+```
 
 ## 환경 변수
 
 Vercel/로컬 `.env.local`:
+
 ```
-SCHEDULER_BACKEND_URL=https://shifteasy-scheduler.fly.dev
+MILP_SCHEDULER_BACKEND_URL=https://shifteasy-milp-worker.fly.dev
 ```
 
-Fly secrets:
-- `UPSTASH_REDIS_REST_URL`
-- `UPSTASH_REDIS_REST_TOKEN`
-- `OPENAI_API_KEY`
-- `SCHEDULER_WORKER_POLL_INTERVAL`
+Fly 앱 Secrets:
+- (필요 시) `OPENAI_API_KEY` 등 향후 CSP/AI 의존성.
 
-## 기타
+## 참고
 
-- NestJS 빌드 시 `scheduler-backend/Dockerfile`이 프로젝트 루트 `src/`를 함께 복사해 `@web/*` alias를 해석합니다.
-- `tsconfig.json`에서 `scheduler-backend/**/*`를 제외해 Next.js 타입체크에 영향 없도록 했습니다.
+- Dockerfile은 `scheduler-worker/Dockerfile`에 정의되어 있으며 Python 3.12 slim 이미지를 사용합니다.
+- Fly에서 기본 포트는 8080이므로 `fly.toml`의 `internal_port`도 8080으로 설정되어 있습니다.

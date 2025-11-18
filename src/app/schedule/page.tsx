@@ -50,6 +50,10 @@ import { useScheduleFilters, type ScheduleView } from "@/hooks/useScheduleFilter
 import { ScheduleSkeleton } from "@/components/schedule/ScheduleSkeleton";
 import { LottieLoadingOverlay } from "@/components/common/LottieLoadingOverlay";
 import type { SSEEvent } from "@/lib/sse/events";
+import {
+  SchedulerAdvancedSettings,
+  mergeSchedulerAdvancedSettings,
+} from "@/lib/config/schedulerAdvanced";
 // import { useSSEContext } from "@/providers/SSEProvider";
 
 // 스케줄 페이지에서 사용하는 확장된 ScheduleAssignment 타입
@@ -448,6 +452,7 @@ function SchedulePageContent() {
 
   // 스케줄 생성 모달 상태
   const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [isMilpScheduleMode, setIsMilpScheduleMode] = useState(false);
 
   // Handle URL parameter changes for view
   useEffect(() => {
@@ -968,8 +973,8 @@ function SchedulePageContent() {
   });
 
   // Load shift config (나이트 집중 근무 유급 휴가 설정 등)
-  const { data: shiftConfigData } = api.configs.getByKey.useQuery({
-    configKey: 'shiftConfig',
+  const { data: preferencesConfigData } = api.configs.getByKey.useQuery({
+    configKey: 'preferences',
     departmentId: configDepartmentId, // Use department-specific config
   }, {
     staleTime: 60 * 60 * 1000, // 1시간 동안 fresh 유지
@@ -980,16 +985,19 @@ function SchedulePageContent() {
   });
 
   const nightLeaveSetting = React.useMemo(() => {
-    const shiftConfigValue = (shiftConfigData?.configValue ?? {}) as {
-      preferences?: { nightIntensivePaidLeaveDays?: number };
+    const prefValue = (preferencesConfigData?.configValue ?? {}) as {
       nightIntensivePaidLeaveDays?: number;
+      schedulerAdvanced?: Partial<SchedulerAdvancedSettings>;
     };
-    return (
-      shiftConfigValue.preferences?.nightIntensivePaidLeaveDays ??
-      shiftConfigValue.nightIntensivePaidLeaveDays ??
-      0
-    );
-  }, [shiftConfigData]);
+    return prefValue.nightIntensivePaidLeaveDays ?? 0;
+  }, [preferencesConfigData]);
+
+  const schedulerAdvancedSettings = React.useMemo(() => {
+    const prefValue = (preferencesConfigData?.configValue ?? {}) as {
+      schedulerAdvanced?: Partial<SchedulerAdvancedSettings>;
+    };
+    return mergeSchedulerAdvancedSettings(prefValue.schedulerAdvanced);
+  }, [preferencesConfigData]);
 
   // Fetch teams from database
   const { data: dbTeams = [] } = api.teams.getAll.useQuery(undefined, {
@@ -1963,7 +1971,7 @@ function SchedulePageContent() {
   };
 
   // 스케줄 생성 시작 핸들러
-  const handleInitiateScheduleGeneration = () => {
+  const handleInitiateScheduleGeneration = (useMilpScheduler = schedulerAdvancedSettings.useMilpEngine) => {
     if (!canManageSchedules) {
       alert('스케줄 생성 권한이 없습니다.');
       return;
@@ -1974,9 +1982,9 @@ function SchedulePageContent() {
       return;
     }
 
-      // Show generate modal with shift requirements
-      setShowGenerateModal(true);
-    };
+    setIsMilpScheduleMode(useMilpScheduler);
+    setShowGenerateModal(true);
+  };
 
   useEffect(() => {
     if (!isGenerating) {
@@ -2000,7 +2008,10 @@ function SchedulePageContent() {
       window.clearInterval(intervalId);
     };
   }, [isGenerating, generationSteps.length]);
-  const handleGenerateSchedule = async (shiftRequirements: Record<string, number>) => {
+  const generateScheduleInternal = async (
+    shiftRequirements: Record<string, number>,
+    useMilpEngine: boolean
+  ) => {
     if (!canManageSchedules) {
       alert('스케줄 생성 권한이 없습니다.');
       return;
@@ -2286,7 +2297,9 @@ function SchedulePageContent() {
         requiredStaffPerShift,
         optimizationGoal: 'balanced' as const,
         nightIntensivePaidLeaveDays: nightLeaveSetting,
-        enableAI: aiEnabled && isProfessionalPlan, // AI Polish 활성화
+        enableAI: !useMilpEngine && aiEnabled && isProfessionalPlan, // AI Polish 활성화 (MILP에서는 비활성)
+        useMilpEngine,
+        schedulerAdvanced: schedulerAdvancedSettings,
       };
 
       const result = await generateScheduleMutation.mutateAsync(payload);
@@ -2318,16 +2331,19 @@ function SchedulePageContent() {
       setOriginalSchedule(normalizedAssignments);
       setIsConfirmed(false);
       setLoadedScheduleId(result.scheduleId);
-      setIsAiGenerated(aiEnabled && isProfessionalPlan); // Mark schedule as AI-generated
+      setIsAiGenerated(!useMilpEngine && aiEnabled && isProfessionalPlan); // Mark schedule as AI-generated
       if (result.generationResult) {
         setGenerationResult({
           success: true,
           schedule: undefined,
           violations: result.generationResult.violations,
           score: result.generationResult.score,
-          iterations: 0,
+          iterations: result.generationResult.iterations ?? 0,
           computationTime: result.generationResult.computationTime,
           offAccruals: result.generationResult.offAccruals,
+          diagnostics: result.generationResult.diagnostics,
+          stats: result.generationResult.stats,
+          postprocess: result.generationResult.postprocess,
         });
         setOffAccrualSummaries(result.generationResult.offAccruals ?? []);
       } else {
@@ -2381,6 +2397,14 @@ function SchedulePageContent() {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleGenerateSchedule = async (shiftRequirements: Record<string, number>) => {
+    await generateScheduleInternal(shiftRequirements, false);
+  };
+
+  const handleGenerateMilpSchedule = async (shiftRequirements: Record<string, number>) => {
+    await generateScheduleInternal(shiftRequirements, true);
   };
 
   // 🆕 스케줄 개선 핸들러
@@ -2988,10 +3012,13 @@ function SchedulePageContent() {
 
                     {!isMember && (
                       <div className="flex flex-wrap items-center gap-2">
-                        {/* HS 스케줄 생성 버튼 */}
+                        {/* MILP/CSP 스케줄 생성 버튼 */}
                         <button
                           onClick={() => {
-                            alert('HS 스케줄 생성 기능은 현재 MILP/CSP 엔진 준비 중입니다.');
+                            if (isGenerating) {
+                              return;
+                            }
+                            handleInitiateScheduleGeneration(true);
                           }}
                           disabled={isGenerating}
                           className={`inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg ${
@@ -3009,8 +3036,8 @@ function SchedulePageContent() {
                           ) : (
                             <>
                               <Wand2 className="w-4 h-4" />
-                              <span className="hidden sm:inline">HS 스케줄 생성</span>
-                              <span className="sm:hidden">HS 생성</span>
+                              <span className="hidden sm:inline">MILP/CSP 스케줄 생성</span>
+                              <span className="sm:hidden">MILP/CSP</span>
                             </>
                           )}
                         </button>
@@ -3563,8 +3590,9 @@ function SchedulePageContent() {
         isOpen={showGenerateModal}
         onClose={() => {
           setShowGenerateModal(false);
+      setIsMilpScheduleMode(false);
         }}
-        onGenerate={handleGenerateSchedule}
+        onGenerate={isMilpScheduleMode ? handleGenerateMilpSchedule : handleGenerateSchedule}
         departmentId={
           currentUser.dbUser?.departmentId ||
           memberDepartmentId ||

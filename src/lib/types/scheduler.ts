@@ -138,6 +138,85 @@ export interface ConstraintViolation {
   cost: number;  // 위반 비용 (최적화용)
 }
 
+export interface StaffingShortageInfo {
+  date: string;
+  shiftType: string;
+  required: number;
+  covered: number;
+  shortage: number;
+}
+
+export interface TeamCoverageGapInfo {
+  date: string;
+  shiftType: string;
+  teamId: string;
+  shortage: number;
+}
+
+export interface SpecialRequestMissInfo {
+  employeeId: string;
+  date: string;
+  shiftType: string;
+}
+
+export interface CareerGroupCoverageGapInfo {
+  date: string;
+  shiftType: string;
+  careerGroupAlias: string;
+  shortage: number;
+}
+
+export interface OffBalanceGapInfo {
+  teamId: string;
+  employeeA: string;
+  employeeB: string;
+  difference: number;
+  tolerance: number;
+}
+
+export interface ShiftPatternBreakInfo {
+  employeeId: string;
+  shiftType: string;
+  startDate: string;
+  window: number;
+  excess: number;
+}
+
+export interface TeamWorkloadGapInfo {
+  teamA: string;
+  teamB: string;
+  difference: number;
+  tolerance: number;
+}
+
+export interface AvoidPatternViolationInfo {
+  employeeId: string;
+  startDate: string;
+  pattern: string[];
+}
+
+export interface PostprocessStats {
+  initialPenalty?: number;
+  finalPenalty?: number;
+  iterations?: number;
+  improvements?: number;
+  acceptedWorse?: number;
+  temperature?: number;
+}
+
+export interface GenerationDiagnostics {
+  staffingShortages?: StaffingShortageInfo[];
+  teamCoverageGaps?: TeamCoverageGapInfo[];
+  careerGroupCoverageGaps?: CareerGroupCoverageGapInfo[];
+  specialRequestMisses?: SpecialRequestMissInfo[];
+  offBalanceGaps?: OffBalanceGapInfo[];
+  shiftPatternBreaks?: ShiftPatternBreakInfo[];
+  teamWorkloadGaps?: TeamWorkloadGapInfo[];
+  avoidPatternViolations?: AvoidPatternViolationInfo[];
+  preflightIssues?: Array<Record<string, unknown>>;
+  postprocess?: PostprocessStats;
+}
+
 // 패턴 정의
 export interface ShiftPattern {
   id: string;
@@ -182,6 +261,13 @@ export interface SchedulingResult {
   computationTime: number;  // ms
   suggestions?: ScheduleSuggestion[];
   offAccruals?: OffAccrualSummary[];
+  diagnostics?: GenerationDiagnostics;
+  stats?: {
+    fairnessIndex?: number;
+    coverageRate?: number;
+    preferenceScore?: number;
+  };
+  postprocess?: PostprocessStats;
 }
 
 // 스케줄 점수

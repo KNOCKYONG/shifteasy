@@ -1,0 +1,85 @@
+{
+  "description": "13명/3주 - 행정 인력 2명 동시 커버 + 야간 집중 혼합",
+  "scheduleInput": {
+    "name": "Test Schedule - Admin Support",
+    "departmentId": "dept-admin",
+    "startDate": "2025-03-01",
+    "endDate": "2025-03-21",
+    "employees": [
+      { "id": "emp-01", "name": "Aaron", "role": "RN", "teamId": "team-a", "workPatternType": "three-shift" },
+      { "id": "emp-02", "name": "Bella", "role": "RN", "teamId": "team-a", "workPatternType": "three-shift" },
+      { "id": "emp-03", "name": "Caleb", "role": "RN", "teamId": "team-a", "workPatternType": "three-shift", "preferredShiftTypes": { "E": 0.7 } },
+      { "id": "emp-04", "name": "Dana", "role": "RN", "teamId": "team-b", "workPatternType": "three-shift" },
+      { "id": "emp-05", "name": "Elliot", "role": "RN", "teamId": "team-b", "workPatternType": "three-shift" },
+      { "id": "emp-06", "name": "Faith", "role": "RN", "teamId": "team-b", "workPatternType": "three-shift" },
+      { "id": "emp-07", "name": "George", "role": "RN", "teamId": "team-b", "workPatternType": "three-shift" },
+      { "id": "emp-08", "name": "Helen", "role": "RN", "teamId": "team-b", "workPatternType": "three-shift" },
+      { "id": "emp-09", "name": "Ian", "role": "RN", "teamId": "team-b", "workPatternType": "night-intensive" },
+      { "id": "emp-10", "name": "Jade", "role": "Admin", "teamId": null, "workPatternType": "three-shift", "preferredShiftTypes": { "A": 0.95 } },
+      { "id": "emp-11", "name": "Kevin", "role": "Admin", "teamId": null, "workPatternType": "three-shift", "preferredShiftTypes": { "A": 0.95 } },
+      { "id": "emp-12", "name": "Lara", "role": "RN", "teamId": "team-a", "workPatternType": "three-shift", "maxConsecutiveDaysPreferred": 4 },
+      { "id": "emp-13", "name": "Mia", "role": "RN", "teamId": "team-b", "workPatternType": "three-shift" }
+    ],
+    "shifts": [
+      { "id": "shift-day", "code": "D", "type": "day", "name": "Day", "time": { "start": "07:00", "end": "15:00", "hours": 8 }, "color": "#FCD34D", "requiredStaff": 3 },
+      { "id": "shift-evening", "code": "E", "type": "evening", "name": "Evening", "time": { "start": "15:00", "end": "23:00", "hours": 8 }, "color": "#FB923C", "requiredStaff": 3 },
+      { "id": "shift-night", "code": "N", "type": "night", "name": "Night", "time": { "start": "23:00", "end": "07:00", "hours": 8 }, "color": "#4C1D95", "requiredStaff": 2 },
+      { "id": "shift-admin", "code": "A", "type": "custom", "name": "Admin", "time": { "start": "09:00", "end": "18:00", "hours": 9 }, "color": "#14B8A6", "requiredStaff": 2 },
+      { "id": "shift-off", "code": "O", "type": "off", "name": "Off", "time": { "start": "00:00", "end": "00:00", "hours": 0 }, "color": "#CBD5F5", "requiredStaff": 0 }
+    ],
+    "teamPattern": {
+      "pattern": ["D", "E", "N", "O", "D", "E"],
+      "avoidPatterns": [["E", "E", "E"], ["N", "N", "N", "N"]]
+    },
+    "specialRequests": [
+      { "employeeId": "emp-03", "date": "2025-03-05", "requestType": "evening", "shiftTypeCode": "E" },
+      { "employeeId": "emp-06", "date": "2025-03-11", "requestType": "day-off", "shiftTypeCode": "O" },
+      { "employeeId": "emp-10", "date": "2025-03-18", "requestType": "admin", "shiftTypeCode": "A" }
+    ],
+    "holidays": [
+      { "date": "2025-03-02", "name": "Sunday" },
+      { "date": "2025-03-09", "name": "Sunday" },
+      { "date": "2025-03-16", "name": "Sunday" }
+    ],
+    "requiredStaffPerShift": { "D": 2, "E": 2, "N": 1, "A": 2 },
+    "nightIntensivePaidLeaveDays": 1
+  },
+  "careerGroupsConfig": [
+    { "code": "JR", "name": "Junior", "minYears": 0, "maxYears": 2 },
+    { "code": "MD", "name": "Mid", "minYears": 3, "maxYears": 5 },
+    { "code": "SR", "name": "Senior", "minYears": 6 }
+  ],
+  "yearsOfService": {
+    "emp-01": 1,
+    "emp-02": 4,
+    "emp-03": 3,
+    "emp-04": 5,
+    "emp-05": 2,
+    "emp-06": 6,
+    "emp-07": 4,
+    "emp-08": 7,
+    "emp-09": 5,
+    "emp-10": 8,
+    "emp-11": 9,
+    "emp-12": 2,
+    "emp-13": 4
+  },
+  "validationRules": {
+    "enforceSpecialRequests": true,
+    "requiredStaffShifts": ["D", "E", "N", "A"],
+    "teamCoverage": {
+      "shifts": ["D", "E"],
+      "teams": ["team-a", "team-b"]
+    },
+    "careerGroupCoverage": {
+      "shifts": ["D", "E"],
+      "groups": ["JR", "MD", "SR"],
+      "tolerance": 1
+    },
+    "nightIntensiveOnlyNO": true,
+    "maxOffDifference": {
+      "workPatternType": "three-shift",
+      "tolerance": 2
+    }
+  }
+}

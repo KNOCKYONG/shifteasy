@@ -11,11 +11,23 @@ import { api as trpc } from "@/lib/trpc/client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { SavedConfigPresetsModal } from "@/components/config/SavedConfigPresetsModal";
 import { SavedPatternPresetsModal } from "@/components/config/SavedPatternPresetsModal";
+import {
+  DEFAULT_SCHEDULER_ADVANCED,
+  SchedulerAdvancedSettings,
+  ConstraintWeightsConfig,
+  CspSettingsConfig,
+  CspAnnealingConfig,
+  mergeSchedulerAdvancedSettings,
+  MilpSolverType,
+} from "@/lib/config/schedulerAdvanced";
+
+interface ConfigPreferences {
+  nightIntensivePaidLeaveDays: number;
+  schedulerAdvanced: SchedulerAdvancedSettings;
+}
 
 interface ConfigData {
-  preferences: {
-    nightIntensivePaidLeaveDays: number; // 나이트 집중 근무 월별 유급 휴가 일수 (0이면 비활성화)
-  };
+  preferences: ConfigPreferences;
 }
 
 type ShiftConfig = {
@@ -49,6 +61,11 @@ const normalizeShiftTypes = (list: ShiftConfig[]): ShiftConfig[] => {
 
   return Array.from(deduped.values());
 };
+
+const mergePreferencesConfig = (value?: Partial<ConfigPreferences>): ConfigPreferences => ({
+  nightIntensivePaidLeaveDays: value?.nightIntensivePaidLeaveDays ?? 0,
+  schedulerAdvanced: mergeSchedulerAdvancedSettings(value?.schedulerAdvanced),
+});
 
 function ConfigPageContent() {
   const searchParams = useSearchParams();
@@ -151,13 +168,16 @@ function ConfigPageContent() {
 
     // Load preferences
     if (allConfigs.preferences) {
-      setConfig({ preferences: allConfigs.preferences });
+      setConfig({ preferences: mergePreferencesConfig(allConfigs.preferences) });
+    } else {
+      setConfig({ preferences: mergePreferencesConfig() });
     }
   }, [allConfigs]);
 
   const [config, setConfig] = useState<ConfigData>({
     preferences: {
-      nightIntensivePaidLeaveDays: 2, // 기본값: 월 2회
+      nightIntensivePaidLeaveDays: 2,
+      schedulerAdvanced: DEFAULT_SCHEDULER_ADVANCED,
     },
   });
   const [isSavingShiftTypes, setIsSavingShiftTypes] = useState(false);
@@ -168,6 +188,57 @@ function ConfigPageContent() {
   // Preset modal state
   const [showPresetsModal, setShowPresetsModal] = useState(false);
   const [showPatternsModal, setShowPatternsModal] = useState(false);
+  const schedulerAdvanced = config.preferences.schedulerAdvanced;
+
+  const updateSchedulerAdvanced = (updater: (current: SchedulerAdvancedSettings) => SchedulerAdvancedSettings) => {
+    setConfig((prev) => ({
+      ...prev,
+      preferences: {
+        ...prev.preferences,
+        schedulerAdvanced: updater(prev.preferences.schedulerAdvanced),
+      },
+    }));
+  };
+
+  const handleSolverPreferenceChange = (value: MilpSolverType) => {
+    updateSchedulerAdvanced((current) => ({
+      ...current,
+      solverPreference: value,
+    }));
+  };
+
+  const handleConstraintWeightChange = (key: keyof ConstraintWeightsConfig, value: number) => {
+    updateSchedulerAdvanced((current) => ({
+      ...current,
+      constraintWeights: {
+        ...current.constraintWeights,
+        [key]: Number.isFinite(value) ? value : current.constraintWeights[key],
+      },
+    }));
+  };
+
+  const handleCspSettingChange = (key: keyof Omit<CspSettingsConfig, 'annealing'>, value: number) => {
+    updateSchedulerAdvanced((current) => ({
+      ...current,
+      cspSettings: {
+        ...current.cspSettings,
+        [key]: Number.isFinite(value) ? value : current.cspSettings[key],
+      },
+    }));
+  };
+
+  const handleAnnealingChange = (key: keyof CspAnnealingConfig, value: number) => {
+    updateSchedulerAdvanced((current) => ({
+      ...current,
+      cspSettings: {
+        ...current.cspSettings,
+        annealing: {
+          ...current.cspSettings.annealing,
+          [key]: Number.isFinite(value) ? value : current.cspSettings.annealing[key],
+        },
+      },
+    }));
+  };
 
   // Preset save mutation
   const savePresetMutation = trpc.configs.savePreset.useMutation({
@@ -220,8 +291,15 @@ function ConfigPageContent() {
       await setConfigMutation.mutateAsync({
         configKey: 'preferences',
         configValue: config.preferences,
+        departmentId: managedDepartmentId ?? undefined,
       });
-      await utils.configs.getAll.invalidate();
+      await Promise.all([
+        utils.configs.getAll.invalidate(),
+        utils.configs.getByKey.invalidate({
+          configKey: 'preferences',
+          departmentId: managedDepartmentId ?? undefined,
+        }),
+      ]);
       alert('나이트 집중 근무 설정이 저장되었습니다.');
     } catch (error) {
       console.error('Failed to save preference config:', error);
@@ -513,6 +591,202 @@ function ConfigPageContent() {
                     )}
                   </button>
                 </div>
+              </div>
+            </div>
+
+            {/* Advanced Scheduler Settings */}
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 p-6 space-y-6">
+              <div className="flex items-start gap-3">
+                <Settings className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-1" />
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    고급 스케줄 제약 (MILP / CSP)
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    MILP/CSP 스케줄 엔진의 제약 강도를 조정하고 탐색 파라미터를 커스터마이징합니다. 조직별 우선순위에 맞게 팀/경력 균형이나 휴무 공정을 강조할 수 있습니다.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 px-4 py-3 rounded-lg border border-gray-100 dark:border-gray-700">
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">기본 MILP/CSP 스케줄 엔진 사용</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    활성화 시 기본 스케줄 생성 버튼도 MILP/CSP 엔진을 사용합니다. (버튼에서 수동 선택도 가능)
+                  </p>
+                </div>
+                <label className="inline-flex items-center cursor-pointer gap-2">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">OFF</span>
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={schedulerAdvanced.useMilpEngine}
+                    onChange={(e) => updateSchedulerAdvanced((current) => ({ ...current, useMilpEngine: e.target.checked }))}
+                  />
+                  <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600" />
+                  <span className="text-sm text-gray-900 dark:text-gray-100">ON</span>
+                </label>
+              </div>
+
+              <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 rounded-lg border border-gray-100 dark:border-gray-700">
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">선호 Solver</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                  OR-Tools가 실패하면 자동으로 HiGHS로 전환합니다. 필요 시 기본 Solver를 강제로 선택할 수 있습니다.
+                </p>
+                <select
+                  value={schedulerAdvanced.solverPreference}
+                  onChange={(e) => handleSolverPreferenceChange(e.target.value as MilpSolverType)}
+                  className="mt-1 w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="auto">자동 (OR-Tools 우선, 실패 시 HiGHS)</option>
+                  <option value="ortools">OR-Tools만 사용</option>
+                  <option value="highs">항상 HiGHS 사용</option>
+                </select>
+              </div>
+
+              <div>
+                <h4 className="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">제약 가중치</h4>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-4">
+                  값이 높을수록 해당 제약 위반을 더 강하게 페널티 처리합니다. (기본 1.0)
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {([
+                    { key: 'staffing', label: '필수 인원 충족' },
+                    { key: 'teamBalance', label: '팀 커버리지' },
+                    { key: 'careerBalance', label: '경력 그룹 균형' },
+                    { key: 'offBalance', label: '휴무 편차' },
+                  ] as { key: keyof ConstraintWeightsConfig; label: string }[]).map(({ key, label }) => (
+                    <label key={key} className="flex flex-col text-sm text-gray-700 dark:text-gray-300">
+                      <span className="font-medium">{label}</span>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="5"
+                        value={schedulerAdvanced.constraintWeights[key]}
+                        onChange={(e) => handleConstraintWeightChange(key, parseFloat(e.target.value))}
+                        className="mt-1 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      {schedulerAdvanced.constraintWeights[key] < 0.5 && (
+                        <span className="text-xs text-red-500 dark:text-red-300 mt-1">너무 낮으면 제약이 무시될 수 있습니다.</span>
+                      )}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">CSP 탐색 파라미터</h4>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-4">
+                  Tabu/어닐링 탐색 한도와 휴무 허용치를 조정해 후처리 탐색을 세밀하게 제어합니다.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <label className="flex flex-col text-sm text-gray-700 dark:text-gray-300">
+                    <span className="font-medium">최대 반복 횟수</span>
+                    <input
+                      type="number"
+                      min="50"
+                      max="2000"
+                      value={schedulerAdvanced.cspSettings.maxIterations}
+                      onChange={(e) => handleCspSettingChange('maxIterations', parseInt(e.target.value) || schedulerAdvanced.cspSettings.maxIterations)}
+                      className="mt-1 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    {schedulerAdvanced.cspSettings.maxIterations > 1500 && (
+                      <span className="text-xs text-red-500 dark:text-red-300 mt-1">반복 횟수가 많으면 시간이 오래 걸릴 수 있습니다.</span>
+                    )}
+                  </label>
+                  <label className="flex flex-col text-sm text-gray-700 dark:text-gray-300">
+                    <span className="font-medium">탐색 시간 제한 (ms)</span>
+                    <input
+                      type="number"
+                      min="500"
+                      max="15000"
+                      step="100"
+                      value={schedulerAdvanced.cspSettings.timeLimitMs}
+                      onChange={(e) => handleCspSettingChange('timeLimitMs', parseInt(e.target.value) || schedulerAdvanced.cspSettings.timeLimitMs)}
+                      className="mt-1 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    {schedulerAdvanced.cspSettings.timeLimitMs > 10000 && (
+                      <span className="text-xs text-red-500 dark:text-red-300 mt-1">시간 제한이 길면 스케줄 생성이 지연될 수 있습니다.</span>
+                    )}
+                  </label>
+                  <label className="flex flex-col text-sm text-gray-700 dark:text-gray-300">
+                    <span className="font-medium">Tabu 크기</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="128"
+                      value={schedulerAdvanced.cspSettings.tabuSize}
+                      onChange={(e) => handleCspSettingChange('tabuSize', parseInt(e.target.value) || schedulerAdvanced.cspSettings.tabuSize)}
+                      className="mt-1 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </label>
+                  <label className="flex flex-col text-sm text-gray-700 dark:text-gray-300">
+                    <span className="font-medium">동일 시프트 허용</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="4"
+                      value={schedulerAdvanced.cspSettings.maxSameShift}
+                      onChange={(e) => handleCspSettingChange('maxSameShift', parseInt(e.target.value) || schedulerAdvanced.cspSettings.maxSameShift)}
+                      className="mt-1 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </label>
+                  <label className="flex flex-col text-sm text-gray-700 dark:text-gray-300">
+                    <span className="font-medium">휴무 편차 허용 (일)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="5"
+                      value={schedulerAdvanced.cspSettings.offTolerance}
+                      onChange={(e) => handleCspSettingChange('offTolerance', parseInt(e.target.value) || schedulerAdvanced.cspSettings.offTolerance)}
+                      className="mt-1 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </label>
+                  <label className="flex flex-col text-sm text-gray-700 dark:text-gray-300">
+                    <span className="font-medium">어닐링 온도</span>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={schedulerAdvanced.cspSettings.annealing.temperature}
+                      onChange={(e) => handleAnnealingChange('temperature', parseFloat(e.target.value))}
+                      className="mt-1 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </label>
+                  <label className="flex flex-col text-sm text-gray-700 dark:text-gray-300">
+                    <span className="font-medium">냉각률</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.5"
+                      max="0.99"
+                      value={schedulerAdvanced.cspSettings.annealing.coolingRate}
+                      onChange={(e) => handleAnnealingChange('coolingRate', parseFloat(e.target.value))}
+                      className="mt-1 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  onClick={handleNightPreferenceSave}
+                  disabled={isSavingNightPreference}
+                  className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {isSavingNightPreference ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      적용 중...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      고급 설정 저장
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>

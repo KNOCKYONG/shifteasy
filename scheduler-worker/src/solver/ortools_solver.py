@@ -1,0 +1,894 @@
+from __future__ import annotations
+
+from datetime import date, timedelta
+from typing import Any, Dict, List, Tuple, Set
+
+from ortools.linear_solver import pywraplp
+
+from models import Assignment, ScheduleInput
+
+
+class OrToolsMilpSolver:
+  def __init__(self, schedule: ScheduleInput):
+    self.schedule = schedule
+    self.options = getattr(schedule, "options", {}) or {}
+    self.constraint_weights = self.options.get("constraintWeights", {}) or {}
+    self.csp_options = self.options.get("cspSettings", {}) or {}
+    self.date_range = self._build_date_range()
+    self.shift_codes = self._build_shift_codes()
+    self.shift_code_set = {code.upper() for code in self.shift_codes}
+    self.solver = pywraplp.Solver.CreateSolver("CBC_MIXED_INTEGER_PROGRAMMING")
+    if not self.solver:
+      raise RuntimeError("Failed to initialize CBC solver")
+    self.variables: Dict[Tuple[str, str, str], pywraplp.Variable] = {}
+    self.variable_name_map: Dict[str, Tuple[str, str, str]] = {}
+    self.staffing_requirements: Dict[Tuple[str, str], int] = {}
+    self.shift_min_staff: Dict[str, int] = {}
+    self.shift_max_staff: Dict[str, int] = {}
+    self.team_slacks: Dict[Tuple[str, str, str], pywraplp.Variable] = {}
+    self.team_requirements: Dict[Tuple[str, str, str], int] = {}
+    self.special_request_slacks: Dict[Tuple[str, str, str], pywraplp.Variable] = {}
+    self.career_group_slacks: Dict[Tuple[str, str, str], pywraplp.Variable] = {}
+    self.off_balance_slacks: List[pywraplp.Variable] = []
+    self.off_count_vars: Dict[str, pywraplp.Variable] = {}
+    self.shift_repeat_entries: List[Dict[str, Any]] = []
+    self.preference_penalty_map: Dict[Tuple[str, str, str], float] = {}
+    self.team_total_vars: Dict[str, pywraplp.Variable] = {}
+    self.team_balance_entries: List[Dict[str, Any]] = []
+    self.team_ids: List[str] = sorted(
+      {emp.teamId for emp in self.schedule.employees if getattr(emp, "teamId", None)}
+    )
+    self.team_members_map: Dict[str, List[Any]] = {}
+    for emp in self.schedule.employees:
+      if emp.teamId:
+        self.team_members_map.setdefault(emp.teamId, []).append(emp)
+    self.career_group_aliases: List[str] = sorted(
+      {emp.careerGroupAlias for emp in self.schedule.employees if getattr(emp, "careerGroupAlias", None)}
+    )
+    self.career_group_total_vars: Dict[str, pywraplp.Variable] = {}
+    self.career_group_balance_slacks: List[pywraplp.Variable] = []
+    self.holiday_set = {holiday.date for holiday in (schedule.holidays or [])}
+    required_staff = self.schedule.requiredStaffPerShift or {}
+    self.team_coverage_shift_codes = {
+      code.upper()
+      for code, value in required_staff.items()
+      if value and code.upper() not in ("O", "A")
+    }
+    self.career_group_balance_shift_codes = {
+      code.upper()
+      for code, value in required_staff.items()
+      if value and code.upper() not in ("O", "A", "N")
+    }
+    self.default_required_staff = {"D": 5, "E": 4, "N": 3}
+    for shift in self.schedule.shifts:
+      code = (shift.code or shift.name or shift.id).upper()
+      if shift.minStaff is not None:
+        self.shift_min_staff[code] = max(0, int(shift.minStaff))
+      if shift.maxStaff is not None:
+        self.shift_max_staff[code] = max(0, int(shift.maxStaff))
+    self.required_off = self._calculate_required_off_days()
+    self.preflight_issues = self._run_preflight_checks()
+    self._init_preference_penalties()
+
+  def _build_date_range(self) -> List[date]:
+    current = self.schedule.startDate
+    dates: List[date] = []
+    while current <= self.schedule.endDate:
+      dates.append(current)
+      current += timedelta(days=1)
+    return dates
+
+  def _build_shift_codes(self) -> List[str]:
+    codes: Set[str] = set()
+    for shift in self.schedule.shifts:
+      code = (shift.code or shift.name or shift.id).upper()
+      codes.add(code)
+    codes.add("O")
+    return sorted(codes)
+
+  def _var_name(self, employee_id: str, date_key: str, shift_code: str) -> str:
+    safe_emp = employee_id.replace("-", "_")
+    safe_date = date_key.replace("-", "_")
+    safe_shift = shift_code.replace("-", "_")
+    return f"x_{safe_emp}_{safe_date}_{safe_shift}"
+
+  def _get_shift_id(self, shift_code: str) -> str:
+    upper = shift_code.upper()
+    for shift in self.schedule.shifts:
+      code = (shift.code or shift.name or "").upper()
+      if code == upper:
+        return shift.id
+    return f"shift-{upper.lower()}"
+
+  @staticmethod
+  def _is_weekend(day: date) -> bool:
+    return day.weekday() >= 5
+
+  def _is_weekend_or_holiday(self, day: date) -> bool:
+    return self._is_weekend(day) or day.isoformat() in self.holiday_set
+
+  def _is_shift_allowed(self, emp, day: date, shift_code: str) -> bool:
+    upper = shift_code.upper()
+    if emp.workPatternType == "night-intensive":
+      return upper in ("N", "O")
+    if emp.workPatternType == "weekday-only":
+      if self._is_weekend_or_holiday(day):
+        return upper == "O"
+      return upper == "A"
+    return True
+
+  def _calculate_required_off_days(self) -> Dict[str, int]:
+    required: Dict[str, int] = {}
+    weekend_holiday_count = sum(1 for day in self.date_range if self._is_weekend_or_holiday(day))
+    night_bonus = max(0, int(getattr(self.schedule, "nightIntensivePaidLeaveDays", 0) or 0))
+    for emp in self.schedule.employees:
+      base = max(0, self.schedule.previousOffAccruals.get(emp.id, 0))
+      if emp.workPatternType == "three-shift":
+        guaranteed = getattr(emp, "guaranteedOffDays", None)
+        target = weekend_holiday_count + base
+        if isinstance(guaranteed, int) and guaranteed >= 0:
+          target = max(target, guaranteed + base)
+        if target > 0:
+          required[emp.id] = target
+      elif emp.workPatternType == "night-intensive":
+        target = weekend_holiday_count + base + night_bonus
+        if target > 0:
+          required[emp.id] = target
+    return required
+
+  def _create_variables(self):
+    for emp in self.schedule.employees:
+      for day in self.date_range:
+        day_key = day.isoformat()
+        for code in self.shift_codes:
+          var = self.solver.BoolVar(self._var_name(emp.id, day_key, code))
+          self.variables[(emp.id, day_key, code)] = var
+          self.variable_name_map[var.name()] = (emp.id, day_key, code)
+
+  def _init_preference_penalties(self):
+    team_pattern = getattr(self.schedule, "teamPattern", None)
+    pattern_sequence: List[str] = []
+    if team_pattern and getattr(team_pattern, "pattern", None):
+      pattern_sequence = [
+        str(code).upper() for code in team_pattern.pattern if isinstance(code, str) and code.strip()
+      ]
+    team_pattern_penalty = 40.0
+    preference_penalty_base = 20.0
+    for day_index, day in enumerate(self.date_range):
+      day_key = day.isoformat()
+      expected_shift = None
+      if pattern_sequence:
+        expected_shift = pattern_sequence[day_index % len(pattern_sequence)]
+      for emp in self.schedule.employees:
+        pref_map: Dict[str, float] = {}
+        if emp.preferredShiftTypes:
+          pref_map = {
+            key.upper(): float(value)
+            for key, value in emp.preferredShiftTypes.items()
+            if isinstance(key, str) and isinstance(value, (int, float))
+          }
+        for code in self.shift_codes:
+          upper = code.upper()
+          penalty = 0.0
+          if expected_shift and emp.workPatternType == "three-shift":
+            if upper != expected_shift:
+              penalty += team_pattern_penalty
+          if pref_map:
+            weight = pref_map.get(upper)
+            if weight is not None:
+              penalty += max(0.0, 1.0 - max(0.0, min(1.0, weight))) * preference_penalty_base
+          if penalty > 0:
+            self.preference_penalty_map[(emp.id, day_key, upper)] = penalty
+
+  def _add_daily_assignment_constraints(self):
+    for emp in self.schedule.employees:
+      for day in self.date_range:
+        day_key = day.isoformat()
+        constraint = self.solver.RowConstraint(1, 1, f"daily_{emp.id}_{day_key}")
+        for code in self.shift_codes:
+          constraint.SetCoefficient(self.variables[(emp.id, day_key, code)], 1)
+
+  def _add_special_request_constraints(self):
+    for req_index, req in enumerate(self.schedule.specialRequests or []):
+      if not req.shiftTypeCode:
+        continue
+      target_code = req.shiftTypeCode.upper()
+      day_key = req.date
+      var = self.variables.get((req.employeeId, day_key, target_code))
+      if not var:
+        continue
+      slack = self.solver.BoolVar(f"special_req_slack_{req.employeeId}_{day_key}_{target_code}_{req_index}")
+      constraint = self.solver.RowConstraint(1, self.solver.infinity(), f"special_req_{req.employeeId}_{day_key}_{target_code}")
+      constraint.SetCoefficient(var, 1)
+      constraint.SetCoefficient(slack, 1)
+      self.special_request_slacks[(req.employeeId, day_key, target_code)] = slack
+
+  def _add_pattern_constraints(self):
+    for emp in self.schedule.employees:
+      for day in self.date_range:
+        day_key = day.isoformat()
+        for code in self.shift_codes:
+          var = self.variables[(emp.id, day_key, code)]
+          if not self._is_shift_allowed(emp, day, code):
+            self.solver.Add(var == 0)
+
+  def _add_avoid_pattern_constraints(self):
+    team_pattern = getattr(self.schedule, "teamPattern", None)
+    avoid_patterns = getattr(team_pattern, "avoidPatterns", None) if team_pattern else None
+    if not avoid_patterns:
+      return
+    normalized_patterns: List[List[str]] = []
+    for pattern in avoid_patterns:
+      if not isinstance(pattern, list):
+        continue
+      normalized = [str(code).upper() for code in pattern if isinstance(code, str) and code.strip()]
+      if normalized:
+        normalized_patterns.append(normalized)
+    if not normalized_patterns:
+      return
+    for emp in self.schedule.employees:
+      for pattern in normalized_patterns:
+        pattern_length = len(pattern)
+        if pattern_length > len(self.date_range):
+          continue
+        for start in range(0, len(self.date_range) - pattern_length + 1):
+          constraint = self.solver.RowConstraint(-self.solver.infinity(), pattern_length - 1, f"avoid_{emp.id}_{pattern_length}_{start}")
+          for offset, code in enumerate(pattern):
+            day_key = self.date_range[start + offset].isoformat()
+            var = self.variables.get((emp.id, day_key, code))
+            if var:
+              constraint.SetCoefficient(var, 1)
+
+  def _add_staffing_constraints(self):
+    required = self.schedule.requiredStaffPerShift or {}
+    for day in self.date_range:
+      day_key = day.isoformat()
+      for code in self.shift_codes:
+        upper = code.upper()
+        min_required = required.get(upper)
+        if min_required is None:
+          min_required = self.shift_min_staff.get(upper)
+        if min_required is None:
+          min_required = self.default_required_staff.get(upper)
+        max_allowed = self.shift_max_staff.get(upper)
+        if min_required is None and max_allowed is None:
+          continue
+        lower_bound = min_required if min_required is not None else 0
+        upper_bound = max_allowed if max_allowed is not None else self.solver.infinity()
+        constraint = self.solver.RowConstraint(lower_bound, upper_bound, f"staff_{day_key}_{code}")
+        for emp in self.schedule.employees:
+          constraint.SetCoefficient(self.variables[(emp.id, day_key, code)], 1)
+        if min_required is not None and min_required > 0:
+          self.staffing_requirements[(day_key, code)] = min_required
+
+  def _add_team_coverage_constraints(self):
+    if not self.team_ids:
+      return
+    for day in self.date_range:
+      day_key = day.isoformat()
+      for code in self.shift_codes:
+        for team_id in self.team_ids:
+          if code.upper() not in self.team_coverage_shift_codes:
+            continue
+          eligible = [
+            emp for emp in self.schedule.employees if emp.teamId == team_id and self._is_shift_allowed(emp, day, code)
+          ]
+          if not eligible:
+            continue
+          constraint = self.solver.RowConstraint(1, self.solver.infinity(), f"team_cover_{day_key}_{code}_{team_id}")
+          for emp in eligible:
+            constraint.SetCoefficient(self.variables[(emp.id, day_key, code)], 1)
+          slack_var = self.solver.IntVar(0, self.solver.infinity(), f"team_cover_slack_{day_key}_{code}_{team_id}")
+          constraint.SetCoefficient(slack_var, 1)
+          self.team_slacks[(day_key, code, team_id)] = slack_var
+          self.team_requirements[(day_key, code, team_id)] = 1
+
+  def _add_career_group_constraints(self):
+    if not self.career_group_aliases:
+      return
+    for day in self.date_range:
+      day_key = day.isoformat()
+      for code in self.shift_codes:
+        if code.upper() not in self.team_coverage_shift_codes:
+          continue
+        for group_alias in self.career_group_aliases:
+          eligible = [
+            emp
+            for emp in self.schedule.employees
+            if emp.careerGroupAlias == group_alias and self._is_shift_allowed(emp, day, code)
+          ]
+          if not eligible:
+            continue
+          constraint = self.solver.RowConstraint(
+            1, self.solver.infinity(), f"career_cover_{day_key}_{code}_{group_alias}"
+          )
+          for emp in eligible:
+            constraint.SetCoefficient(self.variables[(emp.id, day_key, code)], 1)
+          slack_var = self.solver.IntVar(
+            0, self.solver.infinity(), f"career_cover_slack_{day_key}_{code}_{group_alias}"
+          )
+          constraint.SetCoefficient(slack_var, 1)
+          self.career_group_slacks[(day_key, code, group_alias)] = slack_var
+  def _add_career_group_balance_constraints(self, tolerance: int = 1):
+    if len(self.career_group_aliases) < 2 or not self.career_group_balance_shift_codes:
+      return
+    total_days = len(self.date_range)
+    max_assignments = total_days * len(self.schedule.employees)
+    for alias in self.career_group_aliases:
+      total_var = self.solver.IntVar(0, max_assignments, f"career_group_total_{alias}")
+      self.career_group_total_vars[alias] = total_var
+      equality = self.solver.RowConstraint(0, 0, f"career_group_total_eq_{alias}")
+      for emp in self.schedule.employees:
+        if emp.careerGroupAlias != alias:
+          continue
+        for day in self.date_range:
+          day_key = day.isoformat()
+          for code in self.career_group_balance_shift_codes:
+            var = self.variables.get((emp.id, day_key, code))
+            if var:
+              equality.SetCoefficient(var, 1)
+      equality.SetCoefficient(total_var, -1)
+    for i in range(len(self.career_group_aliases)):
+      for j in range(i + 1, len(self.career_group_aliases)):
+        alias_i = self.career_group_aliases[i]
+        alias_j = self.career_group_aliases[j]
+        slack_ij = self.solver.IntVar(0, self.solver.infinity(), f"career_group_balance_{alias_i}_{alias_j}")
+        constraint_ij = self.solver.RowConstraint(
+          -self.solver.infinity(), tolerance, f"career_group_balance_constraint_{alias_i}_{alias_j}"
+        )
+        constraint_ij.SetCoefficient(self.career_group_total_vars[alias_i], 1)
+        constraint_ij.SetCoefficient(self.career_group_total_vars[alias_j], -1)
+        constraint_ij.SetCoefficient(slack_ij, -1)
+        self.career_group_balance_slacks.append(slack_ij)
+        slack_ji = self.solver.IntVar(0, self.solver.infinity(), f"career_group_balance_{alias_j}_{alias_i}")
+        constraint_ji = self.solver.RowConstraint(
+          -self.solver.infinity(), tolerance, f"career_group_balance_constraint_{alias_j}_{alias_i}"
+        )
+        constraint_ji.SetCoefficient(self.career_group_total_vars[alias_j], 1)
+        constraint_ji.SetCoefficient(self.career_group_total_vars[alias_i], -1)
+        constraint_ji.SetCoefficient(slack_ji, -1)
+        self.career_group_balance_slacks.append(slack_ji)
+
+  def _add_team_balance_constraints(self, tolerance: int = 2):
+    if len(self.team_ids) < 2:
+      return
+    total_days = len(self.date_range)
+    relevant_shifts = {code for code in self.shift_codes if code.upper() not in {"O", "A"}}
+    for team_id in self.team_ids:
+      total_var = self.solver.IntVar(0, len(self.schedule.employees) * total_days, f"team_total_{team_id}")
+      self.team_total_vars[team_id] = total_var
+      equality = self.solver.RowConstraint(0, 0, f"team_total_eq_{team_id}")
+      for emp in self.schedule.employees:
+        if emp.teamId != team_id:
+          continue
+        for day in self.date_range:
+          day_key = day.isoformat()
+          for code in relevant_shifts:
+            var = self.variables.get((emp.id, day_key, code))
+            if var:
+              equality.SetCoefficient(var, 1)
+      equality.SetCoefficient(total_var, -1)
+    for i in range(len(self.team_ids)):
+      for j in range(i + 1, len(self.team_ids)):
+        team_i = self.team_ids[i]
+        team_j = self.team_ids[j]
+        slack_ij = self.solver.IntVar(0, self.solver.infinity(), f"team_balance_{team_i}_{team_j}")
+        constraint_ij = self.solver.RowConstraint(-self.solver.infinity(), tolerance, f"team_balance_constraint_{team_i}_{team_j}")
+        constraint_ij.SetCoefficient(self.team_total_vars[team_i], 1)
+        constraint_ij.SetCoefficient(self.team_total_vars[team_j], -1)
+        constraint_ij.SetCoefficient(slack_ij, -1)
+        self.team_balance_entries.append(
+          {
+            "var": slack_ij,
+            "teamA": team_i,
+            "teamB": team_j,
+            "tolerance": tolerance,
+          }
+        )
+        slack_ji = self.solver.IntVar(0, self.solver.infinity(), f"team_balance_{team_j}_{team_i}")
+        constraint_ji = self.solver.RowConstraint(-self.solver.infinity(), tolerance, f"team_balance_constraint_{team_j}_{team_i}")
+        constraint_ji.SetCoefficient(self.team_total_vars[team_j], 1)
+        constraint_ji.SetCoefficient(self.team_total_vars[team_i], -1)
+        constraint_ji.SetCoefficient(slack_ji, -1)
+        self.team_balance_entries.append(
+          {
+            "var": slack_ji,
+            "teamA": team_j,
+            "teamB": team_i,
+            "tolerance": tolerance,
+          }
+        )
+
+  def _add_off_day_constraints(self):
+    for emp in self.schedule.employees:
+      off_count_var = self.solver.IntVar(0, len(self.date_range), f"off_count_{emp.id}")
+      self.off_count_vars[emp.id] = off_count_var
+      equality = self.solver.RowConstraint(0, 0, f"offcount_eq_{emp.id}")
+      for day in self.date_range:
+        day_key = day.isoformat()
+        var = self.variables[(emp.id, day_key, "O")]
+        equality.SetCoefficient(var, 1)
+      equality.SetCoefficient(off_count_var, -1)
+      target = self.required_off.get(emp.id)
+      if target is None:
+        continue
+      lower_bound = max(0, target - 2)
+      upper_bound = target + 2
+      constraint = self.solver.RowConstraint(lower_bound, upper_bound, f"offdays_{emp.id}")
+      for day in self.date_range:
+        day_key = day.isoformat()
+        var = self.variables[(emp.id, day_key, "O")]
+        constraint.SetCoefficient(var, 1)
+
+  def _add_off_balance_constraints(self, tolerance: int = 2):
+    for team_id, members in self.team_members_map.items():
+      if len(members) < 2:
+        continue
+      for i in range(len(members)):
+        for j in range(i + 1, len(members)):
+          emp_a = members[i]
+          emp_b = members[j]
+          if emp_a.id not in self.off_count_vars or emp_b.id not in self.off_count_vars:
+            continue
+          slack_ab = self.solver.IntVar(0, self.solver.infinity(), f"off_balance_{team_id}_{emp_a.id}_{emp_b.id}")
+          constraint_ab = self.solver.RowConstraint(
+            -self.solver.infinity(), tolerance, f"off_balance_constraint_{team_id}_{emp_a.id}_{emp_b.id}"
+          )
+          constraint_ab.SetCoefficient(self.off_count_vars[emp_a.id], 1)
+          constraint_ab.SetCoefficient(self.off_count_vars[emp_b.id], -1)
+          constraint_ab.SetCoefficient(slack_ab, -1)
+          self.off_balance_slacks.append(slack_ab)
+          slack_ba = self.solver.IntVar(0, self.solver.infinity(), f"off_balance_{team_id}_{emp_b.id}_{emp_a.id}")
+          constraint_ba = self.solver.RowConstraint(
+            -self.solver.infinity(), tolerance, f"off_balance_constraint_{team_id}_{emp_b.id}_{emp_a.id}"
+          )
+          constraint_ba.SetCoefficient(self.off_count_vars[emp_b.id], 1)
+          constraint_ba.SetCoefficient(self.off_count_vars[emp_a.id], -1)
+          constraint_ba.SetCoefficient(slack_ba, -1)
+          self.off_balance_slacks.append(slack_ba)
+
+  def _add_shift_repeat_constraints(self, max_same_shift: int = 2):
+    window = max_same_shift + 1
+    for emp in self.schedule.employees:
+      if window > len(self.date_range):
+        continue
+      for code in self.shift_codes:
+        upper = code.upper()
+        if upper in {"O"}:
+          continue
+        for start in range(0, len(self.date_range) - window + 1):
+          constraint = self.solver.RowConstraint(
+            -self.solver.infinity(), max_same_shift, f"repeat_{emp.id}_{upper}_{start}"
+          )
+          has_var = False
+          for offset in range(window):
+            day_key = self.date_range[start + offset].isoformat()
+            var = self.variables.get((emp.id, day_key, code))
+            if not var:
+              continue
+            has_var = True
+            constraint.SetCoefficient(var, 1)
+          if not has_var:
+            continue
+          slack = self.solver.IntVar(0, self.solver.infinity(), f"repeat_slack_{emp.id}_{upper}_{start}")
+          constraint.SetCoefficient(slack, -1)
+          self.shift_repeat_entries.append(
+            {
+              "employeeId": emp.id,
+              "shiftType": upper,
+              "startDate": self.date_range[start].isoformat(),
+              "window": window,
+              "var": slack,
+            }
+          )
+
+  def _add_consecutive_constraints(self):
+    total_days = len(self.date_range)
+    for emp in self.schedule.employees:
+      max_consecutive_days = getattr(emp, "maxConsecutiveDaysPreferred", None)
+      if isinstance(max_consecutive_days, int) and max_consecutive_days >= 0:
+        window = max_consecutive_days + 1
+        if window <= total_days:
+          for start in range(0, total_days - max_consecutive_days):
+            constraint = self.solver.RowConstraint(
+              1, self.solver.infinity(), f"max_consecutive_work_{emp.id}_{start}"
+            )
+            for offset in range(window):
+              day_key = self.date_range[start + offset].isoformat()
+              constraint.SetCoefficient(self.variables[(emp.id, day_key, "O")], 1)
+      max_consecutive_nights = getattr(emp, "maxConsecutiveNightsPreferred", None)
+      if (
+        isinstance(max_consecutive_nights, int)
+        and max_consecutive_nights >= 0
+        and "N" in self.shift_code_set
+      ):
+        window = max_consecutive_nights + 1
+        if window <= total_days:
+          for start in range(0, total_days - max_consecutive_nights):
+            constraint = self.solver.RowConstraint(
+              0, max_consecutive_nights, f"max_consecutive_nights_{emp.id}_{start}"
+            )
+            for offset in range(window):
+              day_key = self.date_range[start + offset].isoformat()
+              night_var = self.variables.get((emp.id, day_key, "N"))
+              if night_var:
+                constraint.SetCoefficient(night_var, 1)
+
+  def _add_night_intensive_pattern_constraints(self):
+    total_days = len(self.date_range)
+    if total_days == 0:
+      return
+    for emp in self.schedule.employees:
+      if emp.workPatternType != "night-intensive":
+        continue
+      if total_days >= 4:
+        for start in range(0, total_days - 3):
+          constraint = self.solver.RowConstraint(-self.solver.infinity(), 3, f"night_limit_{emp.id}_{start}")
+          slack = self.solver.IntVar(0, self.solver.infinity(), f"night_limit_slack_{emp.id}_{start}")
+          for offset in range(4):
+            day_key = self.date_range[start + offset].isoformat()
+            night_var = self.variables.get((emp.id, day_key, "N"))
+            if night_var:
+              constraint.SetCoefficient(night_var, 1)
+          constraint.SetCoefficient(slack, -1)
+          self.shift_repeat_entries.append(
+            {
+              "employeeId": emp.id,
+              "shiftType": "N",
+              "startDate": self.date_range[start].isoformat(),
+              "window": 4,
+              "var": slack,
+            }
+          )
+      if total_days >= 5:
+        for start in range(0, total_days - 4):
+          constraint = self.solver.RowConstraint(2, self.solver.infinity(), f"night_off_buffer_{emp.id}_{start}")
+          slack = self.solver.IntVar(0, self.solver.infinity(), f"night_off_slack_{emp.id}_{start}")
+          for offset in range(5):
+            day_key = self.date_range[start + offset].isoformat()
+            off_var = self.variables.get((emp.id, day_key, "O"))
+            if off_var:
+              constraint.SetCoefficient(off_var, 1)
+          constraint.SetCoefficient(slack, 1)
+          self.shift_repeat_entries.append(
+            {
+              "employeeId": emp.id,
+              "shiftType": "O",
+              "startDate": self.date_range[start].isoformat(),
+              "window": 5,
+              "var": slack,
+            }
+          )
+
+  def _run_preflight_checks(self) -> List[Dict[str, Any]]:
+    issues: List[Dict[str, Any]] = []
+    required = self.schedule.requiredStaffPerShift or {}
+    employee_map = {emp.id: emp for emp in self.schedule.employees}
+    total_days = len(self.date_range)
+
+    for emp in self.schedule.employees:
+      target = self.required_off.get(emp.id)
+      if target and target > total_days:
+        issues.append(
+          {
+            "type": "offRequirementImpossible",
+            "employeeId": emp.id,
+            "requiredOffDays": target,
+            "availableDays": total_days,
+          }
+        )
+
+    for day in self.date_range:
+      day_key = day.isoformat()
+      for code, min_required in required.items():
+        available = sum(1 for emp in self.schedule.employees if self._is_shift_allowed(emp, day, code))
+        if available < min_required:
+          issues.append(
+            {
+              "type": "insufficientPotentialStaff",
+              "date": day_key,
+              "shiftType": code.upper(),
+              "required": min_required,
+              "available": available,
+            }
+          )
+        for team_id in self.team_ids:
+          if code.upper() not in self.team_coverage_shift_codes:
+            continue
+          team_available = sum(
+            1
+            for emp in self.schedule.employees
+            if emp.teamId == team_id and self._is_shift_allowed(emp, day, code)
+          )
+          if team_available == 0:
+            issues.append(
+              {
+                "type": "teamCoverageImpossible",
+                "date": day_key,
+                "shiftType": code.upper(),
+                "teamId": team_id,
+              }
+            )
+        for group_alias in self.career_group_aliases:
+          if code.upper() not in self.team_coverage_shift_codes:
+            continue
+          group_available = sum(
+            1
+            for emp in self.schedule.employees
+            if emp.careerGroupAlias == group_alias and self._is_shift_allowed(emp, day, code)
+          )
+          if group_available == 0:
+            issues.append(
+              {
+                "type": "careerGroupCoverageImpossible",
+                "date": day_key,
+                "shiftType": code.upper(),
+                "careerGroupAlias": group_alias,
+              }
+            )
+
+    for req in self.schedule.specialRequests or []:
+      if not req.shiftTypeCode:
+        continue
+      emp = employee_map.get(req.employeeId)
+      if not emp:
+        issues.append({"type": "specialRequestUnknownEmployee", "employeeId": req.employeeId, "date": req.date})
+        continue
+      try:
+        req_date = date.fromisoformat(req.date)
+      except ValueError:
+        issues.append({"type": "specialRequestInvalidDate", "employeeId": req.employeeId, "date": req.date})
+        continue
+      if not self._is_shift_allowed(emp, req_date, req.shiftTypeCode):
+        issues.append(
+          {
+            "type": "specialRequestPatternConflict",
+            "employeeId": emp.id,
+            "date": req.date,
+            "requestedShift": req.shiftTypeCode,
+            "workPatternType": emp.workPatternType,
+          }
+        )
+
+    return issues
+
+  def build_model(self):
+    self._create_variables()
+    self._add_daily_assignment_constraints()
+    self._add_special_request_constraints()
+    self._add_pattern_constraints()
+    self._add_avoid_pattern_constraints()
+    self._add_staffing_constraints()
+    self._add_team_coverage_constraints()
+    self._add_career_group_constraints()
+    self._add_career_group_balance_constraints()
+    if self.team_ids:
+      self._add_team_balance_constraints()
+    self._add_off_day_constraints()
+    self._add_off_balance_constraints()
+    self._add_shift_repeat_constraints()
+    self._add_consecutive_constraints()
+    self._add_night_intensive_pattern_constraints()
+
+  def _collect_staffing_shortages(self):
+    shortages = []
+    if not self.staffing_requirements:
+      return shortages
+    coverage: Dict[Tuple[str, str], float] = {}
+    for (employee_id, day_key, code), var in self.variables.items():
+      key = (day_key, code)
+      if key not in self.staffing_requirements:
+        continue
+      value = var.solution_value()
+      if value is None or value <= 1e-6:
+        continue
+      coverage[key] = coverage.get(key, 0.0) + value
+    for (day_key, code), required in self.staffing_requirements.items():
+      covered_value = coverage.get((day_key, code), 0.0)
+      if covered_value + 1e-6 < required:
+        shortages.append(
+          {
+            "date": day_key,
+            "shiftType": code.upper(),
+            "required": required,
+            "covered": int(round(covered_value)),
+            "shortage": int(round(required - covered_value)),
+          }
+        )
+    return shortages
+
+  def _collect_team_shortages(self):
+    gaps = []
+    for (day_key, code, team_id), slack_var in self.team_slacks.items():
+      shortage = slack_var.solution_value()
+      if shortage is None:
+        continue
+      if shortage > 1e-6:
+        gaps.append(
+          {
+            "date": day_key,
+            "shiftType": code.upper(),
+            "teamId": team_id,
+            "shortage": int(round(shortage)),
+          }
+        )
+    return gaps
+
+  def _collect_career_group_gaps(self):
+    gaps = []
+    for (day_key, code, group_alias), slack_var in self.career_group_slacks.items():
+      shortage = slack_var.solution_value()
+      if shortage is None:
+        continue
+      if shortage > 1e-6:
+        gaps.append(
+          {
+            "date": day_key,
+            "shiftType": code.upper(),
+            "careerGroupAlias": group_alias,
+            "shortage": int(round(shortage)),
+          }
+        )
+    return gaps
+
+  def _collect_special_request_misses(self):
+    misses = []
+    for (employee_id, day_key, code), slack_var in self.special_request_slacks.items():
+      value = slack_var.solution_value()
+      if value is None:
+        continue
+      if value > 0.5:
+        misses.append(
+          {
+            "employeeId": employee_id,
+            "date": day_key,
+            "shiftType": code,
+          }
+        )
+    return misses
+
+  def _collect_off_balance_gaps(self, tolerance: int = 2):
+    gaps = []
+    for team_id, members in self.team_members_map.items():
+      if len(members) < 2:
+        continue
+      for i in range(len(members)):
+        for j in range(i + 1, len(members)):
+          if members[i].id not in self.off_count_vars or members[j].id not in self.off_count_vars:
+            continue
+          count_a = self.off_count_vars[members[i].id].solution_value()
+          count_b = self.off_count_vars[members[j].id].solution_value()
+          if count_a is None or count_b is None:
+            continue
+          diff = abs(count_a - count_b)
+          if diff > tolerance + 1e-6:
+            gaps.append(
+              {
+                "teamId": team_id,
+                "employeeA": members[i].id,
+                "employeeB": members[j].id,
+                "difference": int(round(diff)),
+                "tolerance": tolerance,
+              }
+            )
+    return gaps
+
+  def _collect_team_balance_gaps(self):
+    gaps = []
+    for entry in self.team_balance_entries:
+      value = entry["var"].solution_value()
+      if value is None or value <= 1e-6:
+        continue
+      gaps.append(
+        {
+          "teamA": entry["teamA"],
+          "teamB": entry["teamB"],
+          "difference": int(round(value + entry["tolerance"])),
+          "tolerance": entry["tolerance"],
+        }
+      )
+    return gaps
+
+  def _collect_shift_repeat_breaks(self):
+    violations = []
+    for entry in self.shift_repeat_entries:
+      slack_var = entry["var"]
+      value = slack_var.solution_value()
+      if value is None or value <= 1e-6:
+        continue
+      violations.append(
+        {
+          "employeeId": entry["employeeId"],
+          "shiftType": entry["shiftType"],
+          "startDate": entry["startDate"],
+          "window": entry["window"],
+          "excess": int(round(value)),
+        }
+      )
+    return violations
+
+  def solve(self) -> Tuple[List[Assignment], Dict[str, Any]]:
+    self.build_model()
+    staffing_penalty = 1000 * self._weight_scalar("staffing", 1.0)
+    team_penalty = 500 * self._weight_scalar("teamBalance", 1.0)
+    special_request_penalty = 600
+    career_group_penalty = 450 * self._weight_scalar("careerBalance", 1.0)
+    career_group_balance_penalty = 600 * self._weight_scalar("careerBalance", 1.0)
+    off_balance_penalty = 800 * self._weight_scalar("offBalance", 1.0)
+    shift_repeat_penalty = 350
+    objective = self.solver.Objective()
+    for (employee_id, day_key, shift_code), var in self.variables.items():
+      penalty = self.preference_penalty_map.get((employee_id, day_key, shift_code.upper()), 0.0)
+      objective.SetCoefficient(var, penalty)
+    for slack_var in self.team_slacks.values():
+      objective.SetCoefficient(slack_var, team_penalty)
+    for slack_var in self.special_request_slacks.values():
+      objective.SetCoefficient(slack_var, special_request_penalty)
+    for slack_var in self.career_group_slacks.values():
+      objective.SetCoefficient(slack_var, career_group_penalty)
+    for slack_var in self.career_group_balance_slacks:
+      objective.SetCoefficient(slack_var, career_group_balance_penalty)
+    for entry in self.team_balance_entries:
+      objective.SetCoefficient(entry["var"], team_penalty)
+    for slack_var in self.off_balance_slacks:
+      objective.SetCoefficient(slack_var, off_balance_penalty)
+    for entry in self.shift_repeat_entries:
+      objective.SetCoefficient(entry["var"], shift_repeat_penalty)
+    objective.SetMinimization()
+    status = self.solver.Solve()
+    if status not in (pywraplp.Solver.OPTIMAL, pywraplp.Solver.FEASIBLE):
+      raise RuntimeError("Solver failed to find feasible schedule")
+    assignments: List[Assignment] = []
+    for (employee_id, day_key, shift_code), var in self.variables.items():
+      if var.solution_value() >= 0.9:
+        assignments.append(
+          Assignment(
+            employeeId=employee_id,
+            date=day_key,
+            shiftId=self._get_shift_id(shift_code),
+            shiftType=shift_code.upper(),
+          )
+        )
+    diagnostics: Dict[str, Any] = {
+      "staffingShortages": self._collect_staffing_shortages(),
+      "teamCoverageGaps": self._collect_team_shortages(),
+      "careerGroupCoverageGaps": self._collect_career_group_gaps(),
+      "teamWorkloadGaps": self._collect_team_balance_gaps(),
+      "offBalanceGaps": self._collect_off_balance_gaps(),
+      "shiftPatternBreaks": self._collect_shift_repeat_breaks(),
+      "specialRequestMisses": self._collect_special_request_misses(),
+      "preflightIssues": self.preflight_issues,
+    }
+    return assignments, diagnostics
+
+  def build_assignments_from_names(self, active_names: Set[str]) -> List[Assignment]:
+    assignments: List[Assignment] = []
+    for name in active_names:
+      key = self.variable_name_map.get(name)
+      if not key:
+        continue
+      employee_id, day_key, shift_code = key
+      assignments.append(
+        Assignment(
+          employeeId=employee_id,
+          date=day_key,
+          shiftId=self._get_shift_id(shift_code),
+          shiftType=shift_code.upper(),
+        )
+      )
+    return assignments
+
+  def _weight_scalar(self, key: str, default: float) -> float:
+    value = self.constraint_weights.get(key)
+    if value is None:
+      return default
+    try:
+      scalar = float(value)
+      return max(0.1, scalar)
+    except (TypeError, ValueError):
+      return default
+
+
+def solve_with_ortools(schedule: ScheduleInput) -> Tuple[List[Assignment], Dict[str, Any]]:
+  solver = OrToolsMilpSolver(schedule)
+  return solver.solve()

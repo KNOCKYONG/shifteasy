@@ -1,0 +1,76 @@
+{
+  "description": "6명/1주 기본 시나리오 - 팀/경력 균형 + 특별 요청",
+  "scheduleInput": {
+    "name": "Test Schedule - Basic Balance",
+    "departmentId": "dept-test",
+    "startDate": "2025-01-01",
+    "endDate": "2025-01-31",
+    "employees": [
+      { "id": "emp-01", "name": "Alice", "role": "RN", "teamId": "team-a", "workPatternType": "three-shift" },
+      { "id": "emp-02", "name": "Bruno", "role": "RN", "teamId": "team-a", "workPatternType": "three-shift" },
+      { "id": "emp-03", "name": "Clara", "role": "RN", "teamId": "team-b", "workPatternType": "three-shift" },
+      { "id": "emp-04", "name": "Daniel", "role": "RN", "teamId": "team-b", "workPatternType": "three-shift" },
+      { "id": "emp-05", "name": "Eve", "role": "RN", "teamId": "team-a", "workPatternType": "night-intensive" },
+      { "id": "emp-06", "name": "Frank", "role": "RN", "teamId": "team-b", "workPatternType": "weekday-only" },
+      { "id": "emp-07", "name": "Gina", "role": "RN", "teamId": "team-a", "workPatternType": "three-shift" },
+      { "id": "emp-08", "name": "Henry", "role": "RN", "teamId": "team-b", "workPatternType": "three-shift" }
+    ],
+    "shifts": [
+      { "id": "shift-day", "code": "D", "type": "day", "name": "Day", "time": { "start": "08:00", "end": "16:00", "hours": 8 }, "color": "#EAB308", "requiredStaff": 2 },
+      { "id": "shift-evening", "code": "E", "type": "evening", "name": "Evening", "time": { "start": "16:00", "end": "00:00", "hours": 8 }, "color": "#F97316", "requiredStaff": 2 },
+      { "id": "shift-night", "code": "N", "type": "night", "name": "Night", "time": { "start": "00:00", "end": "08:00", "hours": 8 }, "color": "#4338CA", "requiredStaff": 1 },
+      { "id": "shift-admin", "code": "A", "type": "custom", "name": "Admin", "time": { "start": "09:00", "end": "18:00", "hours": 8 }, "color": "#10B981", "requiredStaff": 1 },
+      { "id": "shift-off", "code": "O", "type": "off", "name": "Off", "time": { "start": "00:00", "end": "00:00", "hours": 0 }, "color": "#94A3B8", "requiredStaff": 0 }
+    ],
+    "constraints": [],
+    "specialRequests": [
+      { "employeeId": "emp-01", "date": "2025-01-08", "requestType": "day-off", "shiftTypeCode": "O" },
+      { "employeeId": "emp-04", "date": "2025-01-10", "requestType": "night-preference", "shiftTypeCode": "N" },
+      { "employeeId": "emp-03", "date": "2025-01-20", "requestType": "evening", "shiftTypeCode": "E" }
+    ],
+    "holidays": [
+      { "date": "2025-01-05", "name": "Sunday" },
+      { "date": "2025-01-12", "name": "Sunday" },
+      { "date": "2025-01-19", "name": "Sunday" },
+      { "date": "2025-01-26", "name": "Sunday" }
+    ],
+    "teamPattern": {
+      "pattern": ["D", "E", "N", "O"],
+      "avoidPatterns": [["N", "N", "N"]]
+    },
+    "requiredStaffPerShift": { "D": 2, "E": 2, "N": 1 },
+    "nightIntensivePaidLeaveDays": 1
+  },
+  "careerGroupsConfig": [
+    { "code": "JR", "name": "Junior", "minYears": 0, "maxYears": 2 },
+    { "code": "SR", "name": "Senior", "minYears": 3 }
+  ],
+  "yearsOfService": {
+    "emp-01": 1,
+    "emp-02": 3,
+    "emp-03": 2,
+    "emp-04": 5,
+    "emp-05": 4,
+    "emp-06": 1,
+    "emp-07": 2,
+    "emp-08": 3
+  },
+  "validationRules": {
+    "enforceSpecialRequests": false,
+    "requiredStaffShifts": ["D", "E", "N"],
+    "teamCoverage": {
+      "shifts": ["D", "E"],
+      "teams": ["team-a", "team-b"]
+    },
+    "careerGroupCoverage": {
+      "shifts": ["D", "E"],
+      "groups": ["JR", "SR"],
+      "tolerance": 1
+    },
+    "nightIntensiveOnlyNO": true,
+    "weekdayOnlyPattern": {
+      "weekdayShift": "A",
+      "weekendShift": "O"
+    }
+  }
+}

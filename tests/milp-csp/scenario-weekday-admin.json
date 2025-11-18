@@ -1,0 +1,66 @@
+{
+  "description": "7일 간 7명 (행정/나이트 포함) - 평일 행정, 팀 커버리지, 휴무 편차 검증",
+  "scheduleInput": {
+    "name": "Test Schedule - Weekday Admin",
+    "departmentId": "dept-test",
+    "startDate": "2025-03-01",
+    "endDate": "2025-03-31",
+    "employees": [
+      { "id": "emp-a1", "name": "Alice", "role": "RN", "teamId": "team-a", "workPatternType": "three-shift" },
+      { "id": "emp-a2", "name": "Bruno", "role": "RN", "teamId": "team-a", "workPatternType": "three-shift" },
+      { "id": "emp-b1", "name": "Clara", "role": "RN", "teamId": "team-b", "workPatternType": "three-shift" },
+      { "id": "emp-b2", "name": "Daniel", "role": "RN", "teamId": "team-b", "workPatternType": "three-shift" },
+      { "id": "emp-night", "name": "Eva", "role": "RN", "teamId": "team-a", "workPatternType": "night-intensive" },
+      { "id": "emp-admin1", "name": "Fiona", "role": "Admin", "teamId": "team-admin", "workPatternType": "weekday-only" },
+      { "id": "emp-admin2", "name": "Grant", "role": "Admin", "teamId": "team-admin", "workPatternType": "weekday-only" }
+    ],
+    "shifts": [
+      { "id": "shift-day", "code": "D", "type": "day", "name": "Day", "time": { "start": "08:00", "end": "16:00", "hours": 8 }, "color": "#EAB308", "requiredStaff": 2 },
+      { "id": "shift-evening", "code": "E", "type": "evening", "name": "Evening", "time": { "start": "16:00", "end": "00:00", "hours": 8 }, "color": "#F97316", "requiredStaff": 2 },
+      { "id": "shift-night", "code": "N", "type": "night", "name": "Night", "time": { "start": "00:00", "end": "08:00", "hours": 8 }, "color": "#4338CA", "requiredStaff": 1 },
+      { "id": "shift-admin", "code": "A", "type": "custom", "name": "Admin", "time": { "start": "09:00", "end": "18:00", "hours": 8 }, "color": "#10B981", "requiredStaff": 1 },
+      { "id": "shift-off", "code": "O", "type": "off", "name": "Off", "time": { "start": "00:00", "end": "00:00", "hours": 0 }, "color": "#94A3B8", "requiredStaff": 0 }
+    ],
+    "specialRequests": [
+      { "employeeId": "emp-admin2", "date": "2025-03-05", "requestType": "admin", "shiftTypeCode": "A" }
+    ],
+    "holidays": [
+      { "date": "2025-03-02", "name": "Sunday" },
+      { "date": "2025-03-09", "name": "Sunday" },
+      { "date": "2025-03-16", "name": "Sunday" },
+      { "date": "2025-03-23", "name": "Sunday" },
+      { "date": "2025-03-30", "name": "Sunday" }
+    ],
+    "teamPattern": null,
+    "requiredStaffPerShift": { "D": 1, "E": 1, "N": 1, "A": 1 },
+    "nightIntensivePaidLeaveDays": 1
+  },
+  "careerGroupsConfig": [
+    { "code": "JR", "name": "Junior", "minYears": 0, "maxYears": 2 },
+    { "code": "MD", "name": "Mid", "minYears": 3, "maxYears": 5 },
+    { "code": "SR", "name": "Senior", "minYears": 6 }
+  ],
+  "yearsOfService": {
+    "emp-a1": 1,
+    "emp-a2": 5,
+    "emp-b1": 2,
+    "emp-b2": 6,
+    "emp-night": 4,
+    "emp-admin1": 3,
+    "emp-admin2": 7
+  },
+  "validationRules": {
+    "enforceSpecialRequests": true,
+    "requiredStaffShifts": ["D", "E", "N"],
+    "careerGroupCoverage": {
+      "shifts": ["D", "E"],
+      "groups": ["JR", "MD", "SR"],
+      "tolerance": 1
+    },
+    "nightIntensiveOnlyNO": true,
+    "weekdayOnlyPattern": {
+      "weekdayShift": "A",
+      "weekendShift": "O"
+    }
+  }
+}
