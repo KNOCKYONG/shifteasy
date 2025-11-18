@@ -81,6 +81,7 @@ TOSS_WEBHOOK_SECRET=whsec_xxx
 NODE_ENV=development
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 SCHEDULER_BACKEND_URL=http://localhost:4000      # (legacy) 기존 NestJS 백엔드 사용 시
+MILP_SCHEDULER_LOCAL_URL=http://127.0.0.1:4000   # (선택) 우선 시도할 로컬 MILP 워커
 MILP_SCHEDULER_BACKEND_URL=http://localhost:4000 # Python FastAPI MILP 워커
 SCHEDULER_JOB_TIMEOUT_MS=180000
 SCHEDULER_JOB_POLL_INTERVAL_MS=2000
@@ -117,7 +118,7 @@ npm run dev
 
 ### 4. 스케줄러 워커 (Python FastAPI + OR-Tools)
 
-1. `.env.local`에 `MILP_SCHEDULER_BACKEND_URL` 값을 추가합니다. (예: `http://localhost:4000` 혹은 Fly URL)
+1. `.env.local`에 `MILP_SCHEDULER_LOCAL_URL`(로컬 워커)과 필요한 경우 `MILP_SCHEDULER_BACKEND_URL`(Fly 등 원격 워커)을 설정합니다. 기본값이 없으면 `http://127.0.0.1:4000` → `MILP_SCHEDULER_BACKEND_URL` 순으로 자동 폴백합니다.
 2. Python 워커 실행:
    ```bash
    cd scheduler-worker

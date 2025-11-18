@@ -247,22 +247,29 @@ async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function requestScheduleGenerationFromBackend(
-  payload: SchedulerBackendPayload,
-  options?: { useMilpBackend?: boolean }
-): Promise<SchedulerBackendResult> {
-  const schedulerBackendUrl = options?.useMilpBackend
-    ? process.env.MILP_SCHEDULER_BACKEND_URL ?? process.env.SCHEDULER_BACKEND_URL
-    : process.env.SCHEDULER_BACKEND_URL;
-  if (!schedulerBackendUrl) {
-    throw new Error(
-      options?.useMilpBackend
-        ? 'MILP_SCHEDULER_BACKEND_URL is not configured'
-        : 'SCHEDULER_BACKEND_URL is not configured'
-    );
+function buildSchedulerBackendCandidates(useMilpBackend?: boolean): string[] {
+  const candidates: string[] = [];
+  const localUrl =
+    process.env.MILP_SCHEDULER_LOCAL_URL ??
+    (process.env.NODE_ENV === 'development' ? 'http://127.0.0.1:4000' : undefined);
+  if (useMilpBackend) {
+    if (localUrl) {
+      candidates.push(localUrl);
+    }
+    if (process.env.MILP_SCHEDULER_BACKEND_URL) {
+      candidates.push(process.env.MILP_SCHEDULER_BACKEND_URL);
+    }
+    if (process.env.SCHEDULER_BACKEND_URL) {
+      candidates.push(process.env.SCHEDULER_BACKEND_URL);
+    }
+  } else if (process.env.SCHEDULER_BACKEND_URL) {
+    candidates.push(process.env.SCHEDULER_BACKEND_URL);
   }
+  return [...new Set(candidates.filter(Boolean))];
+}
 
-  const enqueueResponse = await fetch(`${schedulerBackendUrl}/scheduler/jobs`, {
+async function runSchedulerJob(baseUrl: string, payload: SchedulerBackendPayload): Promise<SchedulerBackendResult> {
+  const enqueueResponse = await fetch(`${baseUrl}/scheduler/jobs`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -277,7 +284,7 @@ async function requestScheduleGenerationFromBackend(
   const timeoutAt = Date.now() + DEFAULT_JOB_TIMEOUT_MS;
 
   while (Date.now() < timeoutAt) {
-    const statusResponse = await fetch(`${schedulerBackendUrl}/scheduler/jobs/${jobId}`);
+    const statusResponse = await fetch(`${baseUrl}/scheduler/jobs/${jobId}`);
     if (!statusResponse.ok) {
       throw new Error(`Failed to fetch job status (${statusResponse.status})`);
     }
@@ -294,6 +301,34 @@ async function requestScheduleGenerationFromBackend(
   }
 
   throw new Error('Scheduler backend timeout');
+}
+
+async function requestScheduleGenerationFromBackend(
+  payload: SchedulerBackendPayload,
+  options?: { useMilpBackend?: boolean }
+): Promise<SchedulerBackendResult> {
+  const candidates = buildSchedulerBackendCandidates(options?.useMilpBackend);
+  if (candidates.length === 0) {
+    throw new Error(
+      options?.useMilpBackend
+        ? 'No MILP scheduler backend URL configured'
+        : 'SCHEDULER_BACKEND_URL is not configured'
+    );
+  }
+
+  const errors: { url: string; message: string }[] = [];
+  for (const url of candidates) {
+    try {
+      return await runSchedulerJob(url, payload);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      errors.push({ url, message });
+      console.warn(`[Scheduler] Backend ${url} failed, trying next candidate`, { message });
+    }
+  }
+
+  const aggregated = errors.map(({ url, message }) => `${url}: ${message}`).join(' | ');
+  throw new Error(`All scheduler backends failed. Details: ${aggregated}`);
 }
 
 export const scheduleRouter = createTRPCRouter({
@@ -803,9 +838,13 @@ export const scheduleRouter = createTRPCRouter({
               // Fallback: derive OFF ledger only from assignments with a simple rule
               for (const employeeId of employeeIds) {
                 const employeeAssignments = assignments.filter((a) => a.employeeId === employeeId);
-                const actualOffDays = employeeAssignments.filter((a) =>
-                  a.shiftType === 'O' || a.shiftType === 'OFF'
-                ).length;
+                const actualOffDays = employeeAssignments.filter((a) => {
+                  if (!a.shiftType) {
+                    return false;
+                  }
+                  const normalized = a.shiftType.replace('^', '').toUpperCase();
+                  return normalized === 'O' || normalized === 'OFF';
+                }).length;
 
                 const guaranteedOffDays = 8;
                 const remainingOffDays = guaranteedOffDays - actualOffDays;

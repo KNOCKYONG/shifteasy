@@ -4,7 +4,8 @@ import time
 import json
 import copy
 import os
-from datetime import datetime
+from collections import defaultdict
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Literal, Optional
 from uuid import uuid4
@@ -95,8 +96,91 @@ def serialize_assignments(assignments: list[Assignment]) -> list[Dict[str, Any]]
         "shiftType": assignment.shiftType,
         "isLocked": assignment.isLocked,
       }
-    )
+  )
   return serialized
+
+
+def _build_date_range(start: date, end: date) -> list[date]:
+  current = start
+  days: list[date] = []
+  while current <= end:
+    days.append(current)
+    current += timedelta(days=1)
+  return days
+
+
+def _normalize_shift_code(value: Optional[str]) -> str:
+  if not value:
+    return ""
+  return value.replace("^", "").strip().upper()
+
+
+def _derive_shift_code_from_id(shift_id: Optional[str]) -> str:
+  if not shift_id:
+    return ""
+  trimmed = shift_id.strip()
+  code = trimmed[6:] if trimmed.lower().startswith("shift-") else trimmed
+  upper = code.upper()
+  return "O" if upper == "OFF" else upper
+
+
+def compute_off_accruals(schedule: ScheduleInput, assignments: list[Assignment]) -> list[Dict[str, Any]]:
+  if not schedule or not assignments:
+    return []
+
+  date_range = _build_date_range(schedule.startDate, schedule.endDate)
+  if not date_range:
+    return []
+
+  weekend_count = sum(1 for day in date_range if day.weekday() >= 5)
+  holiday_dates = {holiday.date for holiday in (schedule.holidays or [])}
+  holiday_count = sum(1 for day in date_range if day.isoformat() in holiday_dates)
+  night_bonus = max(0, int(getattr(schedule, "nightIntensivePaidLeaveDays", 0) or 0))
+  previous_off = getattr(schedule, "previousOffAccruals", {}) or {}
+  shift_lookup = {shift.id: (shift.code or shift.name or shift.id).upper() for shift in schedule.shifts}
+  off_shift_codes = {"O", "OFF"}
+
+  actual_off_counts: dict[str, int] = defaultdict(int)
+  for assignment in assignments:
+    code = _normalize_shift_code(getattr(assignment, "shiftType", None))
+    if not code:
+      shift_id = getattr(assignment, "shiftId", None)
+      if shift_id:
+        code = _normalize_shift_code(shift_lookup.get(shift_id, ""))
+        if not code:
+          code = _derive_shift_code_from_id(shift_id)
+    if not code:
+      continue
+    normalized = "O" if code == "OFF" else code
+    if normalized not in off_shift_codes:
+      continue
+    actual_off_counts[assignment.employeeId] += 1
+
+  summaries: list[Dict[str, Any]] = []
+  for employee in schedule.employees:
+    carry_over = max(0, int(previous_off.get(employee.id, 0) or 0))
+    pattern = (getattr(employee, "workPatternType", "three-shift") or "three-shift").lower()
+    guaranteed = 0
+    if pattern == "three-shift":
+      base = holiday_count + weekend_count
+      guaranteed = base + carry_over
+    elif pattern == "night-intensive":
+      guaranteed = holiday_count + weekend_count + night_bonus + carry_over
+    elif pattern == "weekday-only":
+      guaranteed = holiday_count + carry_over
+    else:
+      guaranteed = holiday_count + weekend_count + carry_over
+    guaranteed = max(0, int(guaranteed))
+    actual = actual_off_counts.get(employee.id, 0)
+    summaries.append(
+      {
+        "employeeId": employee.id,
+        "guaranteedOffDays": guaranteed,
+        "actualOffDays": actual,
+        "extraOffDays": guaranteed - actual,
+      }
+    )
+  return summaries
 
 
 def log_json(prefix: str, payload: Dict[str, Any]) -> Optional[str]:
@@ -112,6 +196,7 @@ def log_json(prefix: str, payload: Dict[str, Any]) -> Optional[str]:
 
 
 def build_solver_result(
+  schedule: ScheduleInput,
   assignments: list[Assignment],
   computation_time: float,
   diagnostics: Optional[Dict[str, Any]] = None,
@@ -125,6 +210,8 @@ def build_solver_result(
   shift_repeat_breaks = diagnostics.get("shiftPatternBreaks", [])
   request_misses = diagnostics.get("specialRequestMisses", [])
   preflight_issues = diagnostics.get("preflightIssues", [])
+  postprocess_stats = diagnostics.get("postprocess")
+  off_accruals = compute_off_accruals(schedule, assignments)
   violations = [
     {
       "type": "staffingShortage",
@@ -223,7 +310,7 @@ def build_solver_result(
         "constraintSatisfaction": 100,
         "breakdown": [],
       },
-      "offAccruals": [],
+      "offAccruals": off_accruals,
       "stats": {
         "fairnessIndex": 1.0,
         "coverageRate": 1.0,
@@ -378,7 +465,7 @@ async def process_job(job: InternalJobState, payload: SchedulerJobRequest):
     start_time = time.perf_counter()
     assignments, diagnostics = await loop.run_in_executor(None, solve_job, schedule, payload.solver)
     elapsed = time.perf_counter() - start_time
-    job.mark_completed(build_solver_result(assignments, elapsed, diagnostics))
+    job.mark_completed(build_solver_result(schedule, assignments, elapsed, diagnostics))
     post_stats = job.result.get("generationResult", {}).get("postprocess") if job.result else None
     if post_stats:
       print(

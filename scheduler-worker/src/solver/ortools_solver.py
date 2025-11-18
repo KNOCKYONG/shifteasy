@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
-from typing import Any, Dict, List, Tuple, Set
+from typing import Any, Dict, List, Tuple, Set, Optional
 
 from ortools.linear_solver import pywraplp
 
 from models import Assignment, ScheduleInput
+
+DEFAULT_REQUIRED_STAFF = {"D": 5, "E": 4, "N": 3}
 
 
 class OrToolsMilpSolver:
@@ -15,6 +17,10 @@ class OrToolsMilpSolver:
     self.constraint_weights = self.options.get("constraintWeights", {}) or {}
     self.csp_options = self.options.get("cspSettings", {}) or {}
     self.date_range = self._build_date_range()
+    self.special_request_targets = self._build_special_request_targets()
+    self.special_request_codes = {code for (_, _, code) in self.special_request_targets}
+    self.required_staff_map = self._build_required_staff_map()
+    self.default_required_staff = DEFAULT_REQUIRED_STAFF
     self.shift_codes = self._build_shift_codes()
     self.shift_code_set = {code.upper() for code in self.shift_codes}
     self.solver = pywraplp.Solver.CreateSolver("CBC_MIXED_INTEGER_PROGRAMMING")
@@ -48,18 +54,16 @@ class OrToolsMilpSolver:
     self.career_group_total_vars: Dict[str, pywraplp.Variable] = {}
     self.career_group_balance_slacks: List[pywraplp.Variable] = []
     self.holiday_set = {holiday.date for holiday in (schedule.holidays or [])}
-    required_staff = self.schedule.requiredStaffPerShift or {}
     self.team_coverage_shift_codes = {
-      code.upper()
-      for code, value in required_staff.items()
-      if value and code.upper() not in ("O", "A")
+      code
+      for code, value in self.required_staff_map.items()
+      if value and code not in {"O", "A"}
     }
     self.career_group_balance_shift_codes = {
-      code.upper()
-      for code, value in required_staff.items()
-      if value and code.upper() not in ("O", "A", "N")
+      code
+      for code, value in self.required_staff_map.items()
+      if value and code not in {"O", "A", "N"}
     }
-    self.default_required_staff = {"D": 5, "E": 4, "N": 3}
     for shift in self.schedule.shifts:
       code = (shift.code or shift.name or shift.id).upper()
       if shift.minStaff is not None:
@@ -78,12 +82,53 @@ class OrToolsMilpSolver:
       current += timedelta(days=1)
     return dates
 
+  @staticmethod
+  def _sanitize_shift_code(code: Optional[str]) -> Optional[str]:
+    if not code:
+      return None
+    normalized = code.replace("^", "").strip().upper()
+    return normalized or None
+
+  @staticmethod
+  def _normalize_day_key(raw: str) -> str:
+    try:
+      return date.fromisoformat(raw).isoformat()
+    except ValueError:
+      return raw
+
+  def _build_special_request_targets(self) -> Set[Tuple[str, str, str]]:
+    targets: Set[Tuple[str, str, str]] = set()
+    for request in self.schedule.specialRequests or []:
+      shift_code = self._sanitize_shift_code(request.shiftTypeCode)
+      if not shift_code:
+        continue
+      day_key = self._normalize_day_key(request.date)
+      targets.add((request.employeeId, day_key, shift_code))
+    return targets
+
+  def _build_required_staff_map(self) -> Dict[str, int]:
+    required: Dict[str, int] = {}
+    raw_required = self.schedule.requiredStaffPerShift or {}
+    for code, value in raw_required.items():
+      if not code:
+        continue
+      try:
+        parsed = int(value)
+      except (TypeError, ValueError):
+        continue
+      required[code.upper()] = max(0, parsed)
+    for code, default_value in DEFAULT_REQUIRED_STAFF.items():
+      required.setdefault(code, default_value)
+    return required
+
   def _build_shift_codes(self) -> List[str]:
-    codes: Set[str] = set()
-    for shift in self.schedule.shifts:
-      code = (shift.code or shift.name or shift.id).upper()
-      codes.add(code)
+    codes: Set[str] = {
+      code for code, value in self.required_staff_map.items() if value and value > 0
+    }
+    if any(emp.workPatternType == "weekday-only" for emp in self.schedule.employees):
+      codes.add("A")
     codes.add("O")
+    codes.update(self.special_request_codes)
     return sorted(codes)
 
   def _var_name(self, employee_id: str, date_key: str, shift_code: str) -> str:
@@ -108,13 +153,17 @@ class OrToolsMilpSolver:
     return self._is_weekend(day) or day.isoformat() in self.holiday_set
 
   def _is_shift_allowed(self, emp, day: date, shift_code: str) -> bool:
-    upper = shift_code.upper()
+    upper = shift_code.replace("^", "").upper()
+    if upper == "V":
+      return True
     if emp.workPatternType == "night-intensive":
-      return upper in ("N", "O")
+      return upper in ("N", "O", "V")
     if emp.workPatternType == "weekday-only":
       if self._is_weekend_or_holiday(day):
-        return upper == "O"
-      return upper == "A"
+        return upper in ("O", "V")
+      return upper in ("A", "V")
+    if upper == "A":
+      return False
     return True
 
   def _calculate_required_off_days(self) -> Dict[str, int]:
@@ -124,10 +173,7 @@ class OrToolsMilpSolver:
     for emp in self.schedule.employees:
       base = max(0, self.schedule.previousOffAccruals.get(emp.id, 0))
       if emp.workPatternType == "three-shift":
-        guaranteed = getattr(emp, "guaranteedOffDays", None)
         target = weekend_holiday_count + base
-        if isinstance(guaranteed, int) and guaranteed >= 0:
-          target = max(target, guaranteed + base)
         if target > 0:
           required[emp.id] = target
       elif emp.workPatternType == "night-intensive":
@@ -192,8 +238,10 @@ class OrToolsMilpSolver:
     for req_index, req in enumerate(self.schedule.specialRequests or []):
       if not req.shiftTypeCode:
         continue
-      target_code = req.shiftTypeCode.upper()
-      day_key = req.date
+      target_code = self._sanitize_shift_code(req.shiftTypeCode)
+      if not target_code:
+        continue
+      day_key = self._normalize_day_key(req.date)
       var = self.variables.get((req.employeeId, day_key, target_code))
       if not var:
         continue
@@ -202,6 +250,22 @@ class OrToolsMilpSolver:
       constraint.SetCoefficient(var, 1)
       constraint.SetCoefficient(slack, 1)
       self.special_request_slacks[(req.employeeId, day_key, target_code)] = slack
+
+  def _restrict_special_only_shifts(self):
+    special_only_codes = {
+      code for code in self.special_request_codes if code not in self.required_staff_map and code not in {"A", "O"}
+    }
+    if not special_only_codes:
+      return
+    for emp in self.schedule.employees:
+      for day in self.date_range:
+        day_key = day.isoformat()
+        for code in special_only_codes:
+          if (emp.id, day_key, code) in self.special_request_targets:
+            continue
+          var = self.variables.get((emp.id, day_key, code))
+          if var:
+            self.solver.Add(var == 0)
 
   def _add_pattern_constraints(self):
     for emp in self.schedule.employees:
@@ -240,7 +304,7 @@ class OrToolsMilpSolver:
               constraint.SetCoefficient(var, 1)
 
   def _add_staffing_constraints(self):
-    required = self.schedule.requiredStaffPerShift or {}
+    required = self.required_staff_map
     for day in self.date_range:
       day_key = day.isoformat()
       for code in self.shift_codes:
@@ -406,19 +470,32 @@ class OrToolsMilpSolver:
       equality = self.solver.RowConstraint(0, 0, f"offcount_eq_{emp.id}")
       for day in self.date_range:
         day_key = day.isoformat()
-        var = self.variables[(emp.id, day_key, "O")]
-        equality.SetCoefficient(var, 1)
+        off_var = self.variables[(emp.id, day_key, "O")]
+        equality.SetCoefficient(off_var, 1)
+        vacation_var = self.variables.get((emp.id, day_key, "V"))
+        if vacation_var:
+          equality.SetCoefficient(vacation_var, 1)
       equality.SetCoefficient(off_count_var, -1)
       target = self.required_off.get(emp.id)
       if target is None:
         continue
-      lower_bound = max(0, target - 2)
-      upper_bound = target + 2
-      constraint = self.solver.RowConstraint(lower_bound, upper_bound, f"offdays_{emp.id}")
+      if emp.workPatternType == "night-intensive":
+        constraint = self.solver.RowConstraint(target, self.solver.infinity(), f"offdays_{emp.id}")
+      elif emp.workPatternType == "three-shift":
+        lower_bound = max(0, target - 2)
+        upper_bound = target + 2
+        constraint = self.solver.RowConstraint(lower_bound, upper_bound, f"offdays_{emp.id}")
+      else:
+        lower_bound = max(0, target - 2)
+        upper_bound = target + 2
+        constraint = self.solver.RowConstraint(lower_bound, upper_bound, f"offdays_{emp.id}")
       for day in self.date_range:
         day_key = day.isoformat()
         var = self.variables[(emp.id, day_key, "O")]
         constraint.SetCoefficient(var, 1)
+        vacation_var = self.variables.get((emp.id, day_key, "V"))
+        if vacation_var:
+          constraint.SetCoefficient(vacation_var, 1)
 
   def _add_off_balance_constraints(self, tolerance: int = 2):
     for team_id, members in self.team_members_map.items():
@@ -562,7 +639,7 @@ class OrToolsMilpSolver:
 
   def _run_preflight_checks(self) -> List[Dict[str, Any]]:
     issues: List[Dict[str, Any]] = []
-    required = self.schedule.requiredStaffPerShift or {}
+    required = {code: value for code, value in self.required_staff_map.items() if value and value > 0}
     employee_map = {emp.id: emp for emp in self.schedule.employees}
     total_days = len(self.date_range)
 
@@ -656,6 +733,7 @@ class OrToolsMilpSolver:
     self._create_variables()
     self._add_daily_assignment_constraints()
     self._add_special_request_constraints()
+    self._restrict_special_only_shifts()
     self._add_pattern_constraints()
     self._add_avoid_pattern_constraints()
     self._add_staffing_constraints()
@@ -841,12 +919,14 @@ class OrToolsMilpSolver:
     assignments: List[Assignment] = []
     for (employee_id, day_key, shift_code), var in self.variables.items():
       if var.solution_value() >= 0.9:
+        is_locked = (employee_id, day_key, shift_code.upper()) in self.special_request_targets
         assignments.append(
           Assignment(
             employeeId=employee_id,
             date=day_key,
             shiftId=self._get_shift_id(shift_code),
             shiftType=shift_code.upper(),
+            isLocked=is_locked,
           )
         )
     diagnostics: Dict[str, Any] = {
@@ -868,12 +948,14 @@ class OrToolsMilpSolver:
       if not key:
         continue
       employee_id, day_key, shift_code = key
+      is_locked = (employee_id, day_key, shift_code.upper()) in self.special_request_targets
       assignments.append(
         Assignment(
           employeeId=employee_id,
           date=day_key,
           shiftId=self._get_shift_id(shift_code),
           shiftType=shift_code.upper(),
+          isLocked=is_locked,
         )
       )
     return assignments

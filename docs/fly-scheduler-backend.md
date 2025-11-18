@@ -44,11 +44,14 @@ uvicorn src.app:app --host 0.0.0.0 --port 4000 --reload
 
 ## 환경 변수
 
-Vercel/로컬 `.env.local`:
+Vercel/로컬 `.env.local` 예시:
 
 ```
-MILP_SCHEDULER_BACKEND_URL=https://shifteasy-milp-worker.fly.dev
+MILP_SCHEDULER_LOCAL_URL=http://127.0.0.1:4000            # 로컬 FastAPI 워커
+MILP_SCHEDULER_BACKEND_URL=https://shifteasy-milp-worker.fly.dev  # (선택) Fly 백업 워커
 ```
+
+애플리케이션은 `MILP_SCHEDULER_LOCAL_URL` → `MILP_SCHEDULER_BACKEND_URL` 순으로 자동 폴백하므로, Fly 인스턴스는 필요할 때만 켜 두고 평소에는 scale 0으로 비용을 줄일 수 있습니다.
 
 Fly 앱 Secrets:
 - (필요 시) `OPENAI_API_KEY` 등 향후 CSP/AI 의존성.

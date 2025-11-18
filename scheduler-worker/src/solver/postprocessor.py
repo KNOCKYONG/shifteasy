@@ -12,13 +12,14 @@ from typing import Any, Deque, Dict, List, Optional, Set, Tuple
 from models import Assignment, Employee, ScheduleInput
 
 MAX_SAME_SHIFT = int(os.getenv("MILP_POSTPROCESS_MAX_SAME_SHIFT", "2"))
-IGNORE_SHIFT_CODES = {"O"}
+IGNORE_SHIFT_CODES = {"O", "V"}
 DEFAULT_MAX_ITERATIONS = int(os.getenv("MILP_POSTPROCESS_MAX_ITERATIONS", "400"))
 DEFAULT_TIME_LIMIT_MS = int(os.getenv("MILP_POSTPROCESS_TIME_LIMIT_MS", "4000"))
 DEFAULT_TABU_SIZE = int(os.getenv("MILP_POSTPROCESS_TABU_SIZE", "32"))
 DEFAULT_ANNEALING_TEMP = float(os.getenv("MILP_POSTPROCESS_ANNEAL_TEMP", "5.0"))
 DEFAULT_ANNEALING_COOL = float(os.getenv("MILP_POSTPROCESS_ANNEAL_COOL", "0.92"))
 OFF_BALANCE_TOLERANCE = int(os.getenv("MILP_POSTPROCESS_OFF_TOLERANCE", "2"))
+DEFAULT_REQUIRED_STAFF = {"D": 5, "E": 4, "N": 3}
 
 
 def _normalize_shift_code(shift_code: Optional[str]) -> str:
@@ -89,16 +90,20 @@ class ScheduleState:
     employee = self.employee_map.get(employee_id)
     if not employee or not shift_code:
       return False
-    upper = shift_code.upper()
+    upper = shift_code.replace("^", "").upper()
     day = self.day_lookup.get(day_key)
     if not day:
       return False
+    if upper == "V":
+      return True
     if employee.workPatternType == "night-intensive":
-      return upper in {"N", "O"}
+      return upper in {"N", "O", "V"}
     if employee.workPatternType == "weekday-only":
       if day.weekday() >= 5:
-        return upper == "O"
-      return upper == "A"
+        return upper in {"O", "V"}
+      return upper in {"A", "V"}
+    if upper == "A":
+      return False
     return True
 
 
@@ -113,7 +118,19 @@ class SchedulePostProcessor:
     self.schedule = schedule
     self.options = solver_options or {}
     self.state = ScheduleState(schedule, assignments)
-    self.required_staff = schedule.requiredStaffPerShift or {}
+    raw_required = schedule.requiredStaffPerShift or {}
+    normalized_required: Dict[str, int] = {}
+    for code, value in raw_required.items():
+      if not code:
+        continue
+      try:
+        parsed = int(value)
+      except (TypeError, ValueError):
+        continue
+      normalized_required[code.upper()] = max(0, parsed)
+    for code, default_value in DEFAULT_REQUIRED_STAFF.items():
+      normalized_required.setdefault(code, default_value)
+    self.required_staff = {code: value for code, value in normalized_required.items() if value > 0}
     self.team_ids = sorted({emp.teamId for emp in schedule.employees if emp.teamId})
     self.team_members: Dict[str, List[Employee]] = defaultdict(list)
     for emp in schedule.employees:
@@ -531,12 +548,17 @@ class SchedulePostProcessor:
     lookup = self.state.assignment_map
     for request in self.schedule.specialRequests or []:
       shift = _normalize_shift_code(request.shiftTypeCode)
-      assignment = lookup.get((request.employeeId, request.date))
+      day_key = request.date
+      try:
+        day_key = date.fromisoformat(request.date).isoformat()
+      except ValueError:
+        pass
+      assignment = lookup.get((request.employeeId, day_key))
       if not assignment:
-        misses.append({"employeeId": request.employeeId, "date": request.date, "shiftType": shift})
+        misses.append({"employeeId": request.employeeId, "date": day_key, "shiftType": shift})
         continue
       if shift and _normalize_shift_code(assignment.shiftType) != shift:
-        misses.append({"employeeId": request.employeeId, "date": request.date, "shiftType": shift})
+        misses.append({"employeeId": request.employeeId, "date": day_key, "shiftType": shift})
     return misses
 
   def _detect_off_balance_gaps(self) -> List[Dict[str, str]]:
@@ -566,7 +588,7 @@ class SchedulePostProcessor:
       if not employee or not employee.teamId:
         continue
       code = _normalize_shift_code(assignment.shiftType)
-      if code in {"O", "A"}:
+      if code in {"O", "A", "V"}:
         continue
       workloads[employee.teamId] += 1
     gaps: List[Dict[str, str]] = []
@@ -623,7 +645,8 @@ class SchedulePostProcessor:
   def _off_day_counts(self) -> Dict[str, int]:
     counts: Dict[str, int] = Counter()
     for assignment in self.state.assignments:
-      if _normalize_shift_code(assignment.shiftType) == "O":
+      code = _normalize_shift_code(assignment.shiftType)
+      if code in {"O", "V"}:
         counts[assignment.employeeId] += 1
     return counts
 
@@ -794,13 +817,17 @@ class SchedulePostProcessor:
 
   @staticmethod
   def _is_shift_allowed(employee: Employee, day: date, shift_code: str) -> bool:
-    upper = shift_code.upper()
+    upper = shift_code.replace("^", "").upper()
+    if upper == "V":
+      return True
     if employee.workPatternType == "night-intensive":
-      return upper in {"N", "O"}
+      return upper in {"N", "O", "V"}
     if employee.workPatternType == "weekday-only":
       if day.weekday() >= 5:
-        return upper == "O"
-      return upper == "A"
+        return upper in {"O", "V"}
+      return upper in {"A", "V"}
+    if upper == "A":
+      return False
     return True
 
   def _employee_in_team(self, employee_id: str, team_id: str) -> bool:

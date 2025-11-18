@@ -113,6 +113,8 @@ type Holiday = {
   name: string;
 };
 
+const OFF_SHIFT_CODES = new Set(['O', 'OFF']);
+
 // 사용자 데이터 타입 (API 응답)
 type UserDataItem = {
   id: string;
@@ -1523,21 +1525,16 @@ function SchedulePageContent() {
         });
       });
     }
-    if (offAccrualSummaries.length > 0) {
-      offAccrualSummaries.forEach(record => {
-        const entry = map.get(record.employeeId) || {
-          accumulatedOffDays: 0,
-          allocatedToAccumulation: 0,
-          allocatedToAllowance: 0,
-          allocationStatus: 'pending',
-          departmentId: offBalanceDepartmentId ?? null,
-        };
-        entry.pendingExtraOffDays = (entry.pendingExtraOffDays || 0) + record.extraOffDays;
-        map.set(record.employeeId, entry);
-      });
-    }
     return map;
   }, [offBalanceData, offAccrualSummaries, offBalanceDepartmentId]);
+
+  const pendingOffMap = React.useMemo(() => {
+    const map = new Map<string, number>();
+    offAccrualSummaries.forEach((record) => {
+      map.set(record.employeeId, record.extraOffDays);
+    });
+    return map;
+  }, [offAccrualSummaries]);
 
   const recomputeOffAccrualSummaries = React.useCallback((): OffAccrualSummary[] => {
     if (currentMonthAssignments.length === 0) {
@@ -1575,9 +1572,11 @@ function SchedulePageContent() {
 
     currentMonthAssignments.forEach((assignment) => {
       employeeIds.add(assignment.employeeId);
-      const shiftCode =
-        (assignment.shiftType?.toUpperCase() ?? deriveShiftTypeFromId(assignment.shiftId)) || 'CUSTOM';
-      if (shiftCode === 'O' || shiftCode === 'OFF') {
+      const rawShift =
+        assignment.shiftType ??
+        deriveShiftTypeFromId(assignment.shiftId);
+      const normalizedShift = rawShift ? rawShift.replace('^', '').toUpperCase() : 'CUSTOM';
+      if (OFF_SHIFT_CODES.has(normalizedShift)) {
         offCounts.set(assignment.employeeId, (offCounts.get(assignment.employeeId) ?? 0) + 1);
       }
     });
@@ -1615,7 +1614,7 @@ function SchedulePageContent() {
         employeeId,
         guaranteedOffDays,
         actualOffDays,
-        extraOffDays: Math.max(0, guaranteedOffDays - actualOffDays),
+        extraOffDays: guaranteedOffDays - actualOffDays,
       });
     });
 
@@ -2168,19 +2167,6 @@ function SchedulePageContent() {
       } catch (error) {
         console.warn('Failed to load holidays from DB:', error);
       }
-
-      const allDaysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
-      allDaysInMonth.forEach(day => {
-        if (isWeekend(day)) {
-          const dateStr = format(day, 'yyyy-MM-dd');
-          if (!holidays.find(h => h.date === dateStr)) {
-            holidays.push({
-              date: dateStr,
-              name: day.getDay() === 0 ? '일요일' : '토요일',
-            });
-          }
-        }
-      });
 
       let teamPatternPayload: { pattern: string[]; avoidPatterns?: string[][] } | null = null;
       if (teamPattern?.defaultPatterns?.length) {
@@ -3391,6 +3377,7 @@ function SchedulePageContent() {
                     onCellClick={isManager ? handleManagerCellClick : undefined}
                     enableManagerEdit={isManager}
                     offBalanceData={offBalanceMap}
+                    pendingOffData={pendingOffMap}
                     showOffBalance={true}
                   />
                 ) : (

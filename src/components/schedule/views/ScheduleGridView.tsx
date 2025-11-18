@@ -39,6 +39,7 @@ interface ScheduleGridViewProps {
   selectedSwapCell?: { date: string; employeeId: string } | null;
   onCellClick?: (date: Date, employeeId: string, assignment: GridAssignment | null) => void;
   offBalanceData?: Map<string, OffBalanceInfo>;
+  pendingOffData?: Map<string, number>;
   showOffBalance?: boolean;
   enableManagerEdit?: boolean;
 }
@@ -60,6 +61,7 @@ export const ScheduleGridView = React.memo(function ScheduleGridView({
   selectedSwapCell,
   onCellClick,
   offBalanceData,
+  pendingOffData,
   showOffBalance = true,
   enableManagerEdit = false,
 }: ScheduleGridViewProps) {
@@ -183,24 +185,40 @@ export const ScheduleGridView = React.memo(function ScheduleGridView({
 
               {showOffBalance && (
                 <div className="p-1 border-l border-gray-100 dark:border-gray-800 flex flex-col items-center justify-center">
-                  {offBalanceData?.get(member.id) ? (
-                    <div className="text-[10px] text-center leading-tight">
-                      <span className="text-red-600 dark:text-red-400">
-                        {offBalanceData.get(member.id)!.allocatedToAccumulation}일 적립
-                      </span>
-                      <span className="text-gray-400 dark:text-gray-500"> / </span>
-                      <span className="text-blue-600 dark:text-blue-400">
-                        {offBalanceData.get(member.id)!.allocatedToAllowance}일 수당
-                      </span>
-                      {offBalanceData.get(member.id)!.pendingExtraOffDays ? (
-                        <div className="text-amber-600 dark:text-amber-400 mt-0.5">
-                          +{offBalanceData.get(member.id)!.pendingExtraOffDays}일 예정
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <div className="text-[10px] text-gray-400 dark:text-gray-500">-</div>
-                  )}
+                  {(() => {
+                    const offEntry = offBalanceData?.get(member.id);
+                    const pendingFromMetadata = pendingOffData?.get(member.id);
+                    const hasLedgerData = Boolean(offEntry);
+                    const hasPendingData = pendingFromMetadata !== undefined || offEntry?.pendingExtraOffDays !== undefined;
+                    if (!hasLedgerData && !hasPendingData) {
+                      return <div className="text-[10px] text-gray-400 dark:text-gray-500">-</div>;
+                    }
+                    const accumulation = offEntry?.allocatedToAccumulation ?? 0;
+                    const allowance = offEntry?.allocatedToAllowance ?? 0;
+                    const pendingValue = pendingFromMetadata ?? offEntry?.pendingExtraOffDays ?? 0;
+                    return (
+                      <div className="text-[10px] text-center leading-tight">
+                        <span className="text-red-600 dark:text-red-400">
+                          {accumulation}일 적립
+                        </span>
+                        <span className="text-gray-400 dark:text-gray-500"> / </span>
+                        <span className="text-blue-600 dark:text-blue-400">
+                          {allowance}일 수당
+                        </span>
+                        {pendingValue !== 0 && (
+                          pendingValue > 0 ? (
+                            <div className="text-amber-600 dark:text-amber-400 mt-0.5">
+                              +{pendingValue}일 예정
+                            </div>
+                          ) : (
+                            <div className="text-emerald-600 dark:text-emerald-400 mt-0.5">
+                              -{Math.abs(pendingValue)}일 초과
+                            </div>
+                          )
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
