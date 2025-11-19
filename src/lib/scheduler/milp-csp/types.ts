@@ -70,6 +70,11 @@ export interface MilpConstraintWeights {
   offBalance?: number;
 }
 
+export interface MilpMultiRunOptions {
+  attempts?: number;
+  weightJitterPct?: number;
+}
+
 export interface MilpCspSettingsOptions {
   maxIterations?: number;
   tabuSize?: number;
@@ -91,6 +96,7 @@ export interface MilpCspSolverOptions {
   logLevel?: 'silent' | 'info' | 'debug';
   constraintWeights?: MilpConstraintWeights;
   cspSettings?: MilpCspSettingsOptions;
+  multiRun?: MilpMultiRunOptions;
 }
 
 export interface MilpCspScheduleInput {

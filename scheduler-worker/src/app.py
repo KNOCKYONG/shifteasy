@@ -4,6 +4,7 @@ import time
 import json
 import copy
 import os
+import random
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -403,7 +404,7 @@ def build_relaxed_schedule(schedule: ScheduleInput, relax_level: int, diagnostic
   return relaxed
 
 
-def solve_job(schedule: ScheduleInput, preferred_solver: Optional[str] = None) -> tuple[list[Assignment], Dict[str, Any]]:
+def _solve_single_attempt(schedule: ScheduleInput, preferred_solver: Optional[str] = None) -> tuple[list[Assignment], Dict[str, Any]]:
   env_solver = os.environ.get("MILP_DEFAULT_SOLVER", "auto").lower()
   solver_choice = (preferred_solver or env_solver or "auto").lower()
   if solver_choice not in {"auto", "ortools", "highs"}:
@@ -455,6 +456,115 @@ def solve_job(schedule: ScheduleInput, preferred_solver: Optional[str] = None) -
       except Exception as highs_error:
         log_json("milp-error", {"phase": "highs-fallback", "error": str(highs_error)})
     raise
+
+
+def _apply_weight_jitter(schedule: ScheduleInput, jitter_fraction: float, rng: random.Random):
+  if jitter_fraction <= 0:
+    return
+  options = dict(getattr(schedule, "options", {}) or {})
+  weights = dict(options.get("constraintWeights") or {})
+  changed = False
+  for key in ("staffing", "teamBalance", "careerBalance", "offBalance"):
+    base_value = weights.get(key, 1.0)
+    try:
+      base_float = float(base_value)
+    except (TypeError, ValueError):
+      base_float = 1.0
+    offset = rng.uniform(-jitter_fraction, jitter_fraction)
+    weights[key] = max(0.1, base_float * (1.0 + offset))
+    changed = True
+  if changed:
+    options["constraintWeights"] = weights
+    schedule.options = options
+
+
+def _safe_float(value: Any, default: float = 0.0) -> float:
+  try:
+    return float(value)
+  except (TypeError, ValueError):
+    return default
+
+
+def _compute_solution_penalty(diagnostics: Optional[Dict[str, Any]]) -> float:
+  if not isinstance(diagnostics, dict):
+    return float("inf")
+  post = diagnostics.get("postprocess")
+  if isinstance(post, dict):
+    final_penalty = post.get("finalPenalty")
+    if isinstance(final_penalty, (int, float)):
+      return float(final_penalty)
+  penalty = 0.0
+  for shortage in diagnostics.get("staffingShortages", []):
+    penalty += 1000 * max(0.0, _safe_float(shortage.get("shortage", 0)))
+  for gap in diagnostics.get("teamCoverageGaps", []):
+    penalty += 400 * max(0.0, _safe_float(gap.get("shortage", 0)))
+  for gap in diagnostics.get("careerGroupCoverageGaps", []):
+    penalty += 350 * max(0.0, _safe_float(gap.get("shortage", 0)))
+  for gap in diagnostics.get("teamWorkloadGaps", []):
+    penalty += 200 * max(0.0, _safe_float(gap.get("difference", 0)))
+  for gap in diagnostics.get("offBalanceGaps", []):
+    penalty += 180 * max(0.0, _safe_float(gap.get("difference", 0)))
+  for issue in diagnostics.get("shiftPatternBreaks", []):
+    penalty += 120 * max(0.0, _safe_float(issue.get("excess", 0)))
+  penalty += 150 * len(diagnostics.get("specialRequestMisses", []) or [])
+  return penalty
+
+
+def solve_job(schedule: ScheduleInput, preferred_solver: Optional[str] = None) -> tuple[list[Assignment], Dict[str, Any]]:
+  options = getattr(schedule, "options", {}) or {}
+  multi_run: Dict[str, Any] = options.get("multiRun") or {}
+  try:
+    attempts = int(multi_run.get("attempts", 1))
+  except (ValueError, TypeError):
+    attempts = 1
+  attempts = max(1, min(10, attempts))
+  try:
+    jitter_pct = float(multi_run.get("weightJitterPct", 0.0))
+  except (ValueError, TypeError):
+    jitter_pct = 0.0
+  jitter_fraction = max(0.0, jitter_pct) / 100.0
+  rng = random.Random()
+  best_result: Optional[Dict[str, Any]] = None
+  last_error: Optional[Exception] = None
+
+  for attempt_index in range(attempts):
+    candidate = copy.deepcopy(schedule)
+    should_jitter = jitter_fraction > 0 and (attempts == 1 or attempt_index > 0)
+    if should_jitter:
+      _apply_weight_jitter(candidate, jitter_fraction, rng)
+    try:
+      assignments, diagnostics = _solve_single_attempt(candidate, preferred_solver)
+    except Exception as exc:
+      last_error = exc
+      continue
+    penalty = _compute_solution_penalty(diagnostics)
+    if best_result is None or penalty < best_result["penalty"]:
+      best_result = {
+        "assignments": assignments,
+        "diagnostics": diagnostics,
+        "penalty": penalty,
+        "attempt": attempt_index + 1,
+      }
+    if penalty <= 0:
+      break
+
+  if best_result:
+    diagnostics = best_result["diagnostics"]
+    if attempts > 1 or jitter_fraction > 0:
+      diagnostics.setdefault("preflightIssues", []).append(
+        {
+          "type": "multiRunSummary",
+          "message": f"MILP multi-run selected attempt {best_result['attempt']} / {attempts}",
+          "attempts": attempts,
+          "bestAttempt": best_result["attempt"],
+          "bestPenalty": best_result["penalty"],
+        }
+      )
+    return best_result["assignments"], diagnostics
+
+  if last_error:
+    raise last_error
+  raise RuntimeError("MILP solver failed for all attempts")
 
 
 async def process_job(job: InternalJobState, payload: SchedulerJobRequest):

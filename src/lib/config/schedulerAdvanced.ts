@@ -21,11 +21,17 @@ export interface CspSettingsConfig {
 
 export type MilpSolverType = 'auto' | 'ortools' | 'highs';
 
+export interface MilpMultiRunConfig {
+  attempts: number;
+  weightJitterPct: number;
+}
+
 export interface SchedulerAdvancedSettings {
   useMilpEngine: boolean;
   solverPreference: MilpSolverType;
   constraintWeights: ConstraintWeightsConfig;
   cspSettings: CspSettingsConfig;
+  multiRun: MilpMultiRunConfig;
 }
 
 export const DEFAULT_SCHEDULER_ADVANCED: SchedulerAdvancedSettings = {
@@ -47,6 +53,10 @@ export const DEFAULT_SCHEDULER_ADVANCED: SchedulerAdvancedSettings = {
       temperature: 5,
       coolingRate: 0.92,
     },
+  },
+  multiRun: {
+    attempts: 1,
+    weightJitterPct: 0,
   },
 };
 
@@ -73,6 +83,10 @@ export const mergeSchedulerAdvancedSettings = (
         temperature: value?.cspSettings?.annealing?.temperature ?? base.cspSettings.annealing.temperature,
         coolingRate: value?.cspSettings?.annealing?.coolingRate ?? base.cspSettings.annealing.coolingRate,
       },
+    },
+    multiRun: {
+      attempts: value?.multiRun?.attempts ?? base.multiRun.attempts,
+      weightJitterPct: value?.multiRun?.weightJitterPct ?? base.multiRun.weightJitterPct,
     },
   };
 };

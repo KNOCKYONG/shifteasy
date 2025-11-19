@@ -41,11 +41,17 @@ const cspSettingsSchema = z.object({
   }).optional(),
 });
 
+const multiRunSchema = z.object({
+  attempts: z.number().int().min(1).max(10).default(1),
+  weightJitterPct: z.number().min(0).max(30).default(0),
+});
+
 const schedulerAdvancedSchema = z.object({
   useMilpEngine: z.boolean().optional(),
   solverPreference: z.enum(['auto', 'ortools', 'highs']).optional(),
   constraintWeights: constraintWeightsSchema.partial().optional(),
   cspSettings: cspSettingsSchema.partial().optional(),
+  multiRun: multiRunSchema.partial().optional(),
 });
 
 const mapAdvancedSettingsToSolverOptions = (
@@ -67,6 +73,12 @@ const mapAdvancedSettingsToSolverOptions = (
     options.cspSettings = {
       ...advanced.cspSettings,
       annealing: advanced.cspSettings.annealing,
+    };
+  }
+  if (advanced.multiRun) {
+    options.multiRun = {
+      attempts: advanced.multiRun.attempts,
+      weightJitterPct: advanced.multiRun.weightJitterPct,
     };
   }
   return options;

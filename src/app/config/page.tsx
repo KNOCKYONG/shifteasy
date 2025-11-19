@@ -19,6 +19,7 @@ import {
   CspAnnealingConfig,
   mergeSchedulerAdvancedSettings,
   MilpSolverType,
+  MilpMultiRunConfig,
 } from "@/lib/config/schedulerAdvanced";
 
 interface ConfigPreferences {
@@ -66,6 +67,64 @@ const mergePreferencesConfig = (value?: Partial<ConfigPreferences>): ConfigPrefe
   nightIntensivePaidLeaveDays: value?.nightIntensivePaidLeaveDays ?? 0,
   schedulerAdvanced: mergeSchedulerAdvancedSettings(value?.schedulerAdvanced),
 });
+
+interface SliderFieldProps {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  suffix?: string;
+  helpText?: string;
+  warning?: string;
+  formatValue?: (value: number) => string;
+  onChange: (value: number) => void;
+}
+
+const SliderField = ({
+  label,
+  value,
+  min,
+  max,
+  step,
+  suffix = '',
+  helpText,
+  warning,
+  formatValue,
+  onChange,
+}: SliderFieldProps) => {
+  const displayValue = formatValue ? formatValue(value) : value.toFixed(step < 1 ? 1 : 0);
+  const ratio = max > min ? Math.min(1, Math.max(0, (value - min) / (max - min))) : 0;
+
+  return (
+    <label className="flex flex-col text-sm text-gray-700 dark:text-gray-300">
+      <div className="flex items-center justify-between text-xs font-medium text-gray-500 dark:text-gray-400">
+        <span>{label}</span>
+        <span className="text-gray-900 dark:text-gray-100 font-semibold">
+          {displayValue}
+          {suffix}
+        </span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="mt-2 accent-blue-600 dark:accent-blue-400"
+      />
+      <div className="mt-2 h-1 rounded-full bg-gray-200 dark:bg-gray-700">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-400 dark:to-blue-300"
+          style={{ width: `${ratio * 100}%` }}
+        />
+      </div>
+      {helpText && <span className="mt-1 text-xs text-gray-500 dark:text-gray-400">{helpText}</span>}
+      {warning && <span className="mt-1 text-xs text-red-500 dark:text-red-400">{warning}</span>}
+    </label>
+  );
+};
 
 function ConfigPageContent() {
   const searchParams = useSearchParams();
@@ -236,6 +295,16 @@ function ConfigPageContent() {
           ...current.cspSettings.annealing,
           [key]: Number.isFinite(value) ? value : current.cspSettings.annealing[key],
         },
+      },
+    }));
+  };
+
+  const handleMultiRunChange = (key: keyof MilpMultiRunConfig, value: number) => {
+    updateSchedulerAdvanced((current) => ({
+      ...current,
+      multiRun: {
+        ...current.multiRun,
+        [key]: Number.isFinite(value) ? value : current.multiRun[key],
       },
     }));
   };
@@ -656,21 +725,21 @@ function ConfigPageContent() {
                     { key: 'careerBalance', label: '경력 그룹 균형' },
                     { key: 'offBalance', label: '휴무 편차' },
                   ] as { key: keyof ConstraintWeightsConfig; label: string }[]).map(({ key, label }) => (
-                    <label key={key} className="flex flex-col text-sm text-gray-700 dark:text-gray-300">
-                      <span className="font-medium">{label}</span>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        max="5"
-                        value={schedulerAdvanced.constraintWeights[key]}
-                        onChange={(e) => handleConstraintWeightChange(key, parseFloat(e.target.value))}
-                        className="mt-1 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      {schedulerAdvanced.constraintWeights[key] < 0.5 && (
-                        <span className="text-xs text-red-500 dark:text-red-300 mt-1">너무 낮으면 제약이 무시될 수 있습니다.</span>
-                      )}
-                    </label>
+                    <SliderField
+                      key={key}
+                      label={label}
+                      min={0}
+                      max={5}
+                      step={0.1}
+                      value={schedulerAdvanced.constraintWeights[key]}
+                      formatValue={(val) => val.toFixed(1)}
+                      warning={
+                        schedulerAdvanced.constraintWeights[key] < 0.5
+                          ? '너무 낮으면 제약이 무시될 수 있습니다.'
+                          : undefined
+                      }
+                      onChange={(val) => handleConstraintWeightChange(key, val)}
+                    />
                   ))}
                 </div>
               </div>
@@ -681,91 +750,107 @@ function ConfigPageContent() {
                   Tabu/어닐링 탐색 한도와 휴무 허용치를 조정해 후처리 탐색을 세밀하게 제어합니다.
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <label className="flex flex-col text-sm text-gray-700 dark:text-gray-300">
-                    <span className="font-medium">최대 반복 횟수</span>
-                    <input
-                      type="number"
-                      min="50"
-                      max="2000"
-                      value={schedulerAdvanced.cspSettings.maxIterations}
-                      onChange={(e) => handleCspSettingChange('maxIterations', parseInt(e.target.value) || schedulerAdvanced.cspSettings.maxIterations)}
-                      className="mt-1 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    {schedulerAdvanced.cspSettings.maxIterations > 1500 && (
-                      <span className="text-xs text-red-500 dark:text-red-300 mt-1">반복 횟수가 많으면 시간이 오래 걸릴 수 있습니다.</span>
-                    )}
-                  </label>
-                  <label className="flex flex-col text-sm text-gray-700 dark:text-gray-300">
-                    <span className="font-medium">탐색 시간 제한 (ms)</span>
-                    <input
-                      type="number"
-                      min="500"
-                      max="15000"
-                      step="100"
-                      value={schedulerAdvanced.cspSettings.timeLimitMs}
-                      onChange={(e) => handleCspSettingChange('timeLimitMs', parseInt(e.target.value) || schedulerAdvanced.cspSettings.timeLimitMs)}
-                      className="mt-1 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    {schedulerAdvanced.cspSettings.timeLimitMs > 10000 && (
-                      <span className="text-xs text-red-500 dark:text-red-300 mt-1">시간 제한이 길면 스케줄 생성이 지연될 수 있습니다.</span>
-                    )}
-                  </label>
-                  <label className="flex flex-col text-sm text-gray-700 dark:text-gray-300">
-                    <span className="font-medium">Tabu 크기</span>
-                    <input
-                      type="number"
-                      min="0"
-                      max="128"
-                      value={schedulerAdvanced.cspSettings.tabuSize}
-                      onChange={(e) => handleCspSettingChange('tabuSize', parseInt(e.target.value) || schedulerAdvanced.cspSettings.tabuSize)}
-                      className="mt-1 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </label>
-                  <label className="flex flex-col text-sm text-gray-700 dark:text-gray-300">
-                    <span className="font-medium">동일 시프트 허용</span>
-                    <input
-                      type="number"
-                      min="1"
-                      max="4"
-                      value={schedulerAdvanced.cspSettings.maxSameShift}
-                      onChange={(e) => handleCspSettingChange('maxSameShift', parseInt(e.target.value) || schedulerAdvanced.cspSettings.maxSameShift)}
-                      className="mt-1 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </label>
-                  <label className="flex flex-col text-sm text-gray-700 dark:text-gray-300">
-                    <span className="font-medium">휴무 편차 허용 (일)</span>
-                    <input
-                      type="number"
-                      min="0"
-                      max="5"
-                      value={schedulerAdvanced.cspSettings.offTolerance}
-                      onChange={(e) => handleCspSettingChange('offTolerance', parseInt(e.target.value) || schedulerAdvanced.cspSettings.offTolerance)}
-                      className="mt-1 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </label>
-                  <label className="flex flex-col text-sm text-gray-700 dark:text-gray-300">
-                    <span className="font-medium">어닐링 온도</span>
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      value={schedulerAdvanced.cspSettings.annealing.temperature}
-                      onChange={(e) => handleAnnealingChange('temperature', parseFloat(e.target.value))}
-                      className="mt-1 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </label>
-                  <label className="flex flex-col text-sm text-gray-700 dark:text-gray-300">
-                    <span className="font-medium">냉각률</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0.5"
-                      max="0.99"
-                      value={schedulerAdvanced.cspSettings.annealing.coolingRate}
-                      onChange={(e) => handleAnnealingChange('coolingRate', parseFloat(e.target.value))}
-                      className="mt-1 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </label>
+                  <SliderField
+                    label="최대 반복 횟수"
+                    min={50}
+                    max={2000}
+                    step={50}
+                    value={schedulerAdvanced.cspSettings.maxIterations}
+                    suffix="회"
+                    warning={
+                      schedulerAdvanced.cspSettings.maxIterations > 1500
+                        ? '반복 횟수가 많으면 시간이 오래 걸릴 수 있습니다.'
+                        : undefined
+                    }
+                    onChange={(val) => handleCspSettingChange('maxIterations', val)}
+                  />
+                  <SliderField
+                    label="탐색 시간 제한"
+                    min={500}
+                    max={20000}
+                    step={500}
+                    value={schedulerAdvanced.cspSettings.timeLimitMs}
+                    suffix="ms"
+                    warning={
+                      schedulerAdvanced.cspSettings.timeLimitMs > 10000
+                        ? '시간 제한이 길면 스케줄 생성이 지연될 수 있습니다.'
+                        : undefined
+                    }
+                    onChange={(val) => handleCspSettingChange('timeLimitMs', val)}
+                  />
+                  <SliderField
+                    label="Tabu 크기"
+                    min={0}
+                    max={256}
+                    step={1}
+                    value={schedulerAdvanced.cspSettings.tabuSize}
+                    suffix="건"
+                    onChange={(val) => handleCspSettingChange('tabuSize', val)}
+                  />
+                  <SliderField
+                    label="동일 시프트 허용"
+                    min={1}
+                    max={5}
+                    step={1}
+                    value={schedulerAdvanced.cspSettings.maxSameShift}
+                    suffix="회"
+                    onChange={(val) => handleCspSettingChange('maxSameShift', val)}
+                  />
+                  <SliderField
+                    label="휴무 편차 허용"
+                    min={0}
+                    max={5}
+                    step={1}
+                    value={schedulerAdvanced.cspSettings.offTolerance}
+                    suffix="일"
+                    onChange={(val) => handleCspSettingChange('offTolerance', val)}
+                  />
+                  <SliderField
+                    label="어닐링 온도"
+                    min={0}
+                    max={20}
+                    step={0.5}
+                    value={schedulerAdvanced.cspSettings.annealing.temperature}
+                    onChange={(val) => handleAnnealingChange('temperature', val)}
+                  />
+                  <SliderField
+                    label="냉각률"
+                    min={0.5}
+                    max={0.99}
+                    step={0.01}
+                    value={schedulerAdvanced.cspSettings.annealing.coolingRate}
+                    formatValue={(val) => val.toFixed(2)}
+                    onChange={(val) => handleAnnealingChange('coolingRate', parseFloat(val.toFixed(2)))}
+                  />
+                </div>
+              </div>
+
+              <div className="bg-gray-50 dark:bg-gray-800 px-4 py-4 rounded-lg border border-gray-100 dark:border-gray-700">
+                <h4 className="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">다중 MILP 반복</h4>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-4">
+                  동일 입력을 여러 번 계산해 가장 균형 잡힌 해를 선택합니다. 가중치 편차가 클수록 다양한 조합을 탐색합니다.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <SliderField
+                    label="반복 횟수"
+                    min={1}
+                    max={10}
+                    step={1}
+                    value={schedulerAdvanced.multiRun.attempts}
+                    suffix="회"
+                    helpText="최대 10회까지 반복 실행합니다."
+                    onChange={(val) => handleMultiRunChange('attempts', val)}
+                  />
+                  <SliderField
+                    label="가중치 랜덤 편차"
+                    min={0}
+                    max={30}
+                    step={1}
+                    value={schedulerAdvanced.multiRun.weightJitterPct}
+                    suffix="%"
+                    helpText="각 반복마다 제약 가중치를 ±편차% 범위에서 랜덤 조정합니다."
+                    onChange={(val) => handleMultiRunChange('weightJitterPct', val)}
+                  />
                 </div>
               </div>
 
