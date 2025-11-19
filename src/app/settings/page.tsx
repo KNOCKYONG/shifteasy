@@ -27,11 +27,13 @@ interface CurrentUser {
   department?: string;
 }
 
+type SettingsTab = "profile" | "security" | "notifications" | "secretCode" | "department";
+
 function SettingsContent() {
   const { t } = useTranslation(['settings', 'common']);
   const searchParams = useSearchParams();
   const currentUserHook = useCurrentUser();
-  const [activeTab, setActiveTab] = useState<"profile" | "security" | "notifications" | "secretCode" | "department">("profile");
+  const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
   // Department secret code state (admin/owner only)
@@ -215,6 +217,35 @@ function SettingsContent() {
   // Show department tab only for admins and owners (managers use /config page)
   const showDepartmentTab = currentUser && (currentUser.role === 'admin' || currentUser.role === 'owner');
 
+  useEffect(() => {
+    if (!showSecretCodeTab && activeTab === 'secretCode') {
+      setActiveTab('profile');
+    }
+    if (!showDepartmentTab && activeTab === 'department') {
+      setActiveTab('profile');
+    }
+  }, [showSecretCodeTab, showDepartmentTab, activeTab]);
+
+  const tabOptions: Array<{ value: SettingsTab; label: string }> = [
+    { value: 'profile', label: t('tabs.profile', { ns: 'settings', defaultValue: '프로필' }) },
+    { value: 'security', label: t('tabs.security', { ns: 'settings', defaultValue: '보안' }) },
+    { value: 'notifications', label: t('tabs.notifications', { ns: 'settings', defaultValue: '알림' }) },
+  ];
+
+  if (showSecretCodeTab) {
+    tabOptions.push({
+      value: 'secretCode',
+      label: t('tabs.secretCode', { ns: 'settings', defaultValue: '시크릿 코드' }),
+    });
+  }
+
+  if (showDepartmentTab) {
+    tabOptions.push({
+      value: 'department',
+      label: t('tabs.department', { ns: 'settings', defaultValue: '부서 코드' }),
+    });
+  }
+
   return (
     <RoleGuard>
       <MainLayout>
@@ -232,7 +263,20 @@ function SettingsContent() {
 
           {/* Tabs */}
           <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
-            <nav className="flex gap-8">
+            <div className="md:hidden mb-4">
+              <select
+                value={activeTab}
+                onChange={(e) => setActiveTab(e.target.value as SettingsTab)}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                {tabOptions.map((tab) => (
+                  <option key={tab.value} value={tab.value}>
+                    {tab.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <nav className="hidden md:flex gap-8">
               <button
                 onClick={() => setActiveTab("profile")}
                 className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
