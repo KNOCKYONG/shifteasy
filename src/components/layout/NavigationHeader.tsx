@@ -259,16 +259,16 @@ export function NavigationHeader() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
             {/* Left side: Logo and Desktop Navigation */}
-            <div className="flex items-center gap-8">
-              <Link
-                href="/dashboard"
-                className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-              >
-                ShiftEasy
-              </Link>
+          <div className="flex items-center gap-3 sm:gap-8">
+            <Link
+              href="/dashboard"
+              className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+            >
+              ShiftEasy
+            </Link>
 
-              {/* Desktop Navigation Items */}
-              <nav className="hidden md:flex items-center gap-6">
+            {/* Desktop Navigation Items */}
+            <nav className="hidden md:flex items-center gap-6">
                 {navItems.map((item) => {
                   const isActive = pathname === item.href ||
                     (item.href !== '/' && pathname?.startsWith(item.href));
@@ -480,6 +480,11 @@ export function NavigationHeader() {
               </div>
 
               {/* Mobile Menu Button */}
+              <div className="flex items-center text-right mr-2 md:hidden">
+                <span className="text-sm font-medium text-gray-900 dark:text-gray-100 max-w-[140px] truncate">
+                  {currentUser?.name || '사용자'}
+                </span>
+              </div>
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="md:hidden p-2 rounded-md text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -646,8 +651,7 @@ export function NavigationHeader() {
             );
           })}
 
-          {/* Mobile Account + Settings */}
-          <div className="mt-auto rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+          <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -664,7 +668,7 @@ export function NavigationHeader() {
                 <Link
                   href="/settings"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="rounded-full border border-gray-200 dark:border-gray-700 p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  className="h-10 w-10 rounded-full border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center justify-center"
                   aria-label="프로필 설정"
                 >
                   <UserIcon className="h-4 w-4" />
@@ -675,45 +679,45 @@ export function NavigationHeader() {
                     setMobileMenuOpen(false);
                     handleSignOut();
                   }}
-                  className="rounded-full border border-gray-200 dark:border-gray-700 p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  className="h-10 w-10 rounded-full border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center justify-center"
                   aria-label="로그아웃"
                 >
                   <LogOut className="h-4 w-4" />
                 </button>
               </div>
             </div>
+          </div>
 
-            <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">설정</p>
-              <div className="mt-3">
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-300">언어</label>
-                <select
-                  value={currentLang}
-                  onChange={(e) => handleLanguageChange(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {languages.map((lang) => (
-                    <option key={lang.code} value={lang.code}>
-                      {lang.flag} {lang.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <button
-                type="button"
-                onClick={toggleTheme}
-                className="mt-3 flex w-full items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">설정</p>
+            <div className="mt-3">
+              <label className="text-xs font-medium text-gray-600 dark:text-gray-300">언어</label>
+              <select
+                value={currentLang}
+                onChange={(e) => handleLanguageChange(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">다크모드</span>
-                <div className={`relative h-6 w-12 rounded-full transition-colors ${theme === 'dark' ? 'bg-blue-600' : 'bg-gray-300'}`}>
-                  <div
-                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
-                      theme === 'dark' ? 'translate-x-6' : 'translate-x-0'
-                    }`}
-                  />
-                </div>
-              </button>
+                {languages.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.flag} {lang.name}
+                  </option>
+                ))}
+              </select>
             </div>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="mt-3 flex w-full items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">다크모드</span>
+              <div className={`relative h-6 w-12 rounded-full transition-colors ${theme === 'dark' ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                <div
+                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                    theme === 'dark' ? 'translate-x-6' : 'translate-x-0'
+                  }`}
+                />
+              </div>
+            </button>
           </div>
         </nav>
       </div>
