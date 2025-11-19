@@ -1526,7 +1526,7 @@ function SchedulePageContent() {
       });
     }
     return map;
-  }, [offBalanceData, offAccrualSummaries, offBalanceDepartmentId]);
+  }, [offBalanceData]);
 
   const pendingOffMap = React.useMemo(() => {
     const map = new Map<string, number>();
