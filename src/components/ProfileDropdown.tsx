@@ -1,17 +1,15 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useSupabaseClient } from '@supabase/auth-helpers-react';
-import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { User, LogOut, ChevronDown } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useFullSignOut } from '@/hooks/useFullSignOut';
 
 export function ProfileDropdown() {
-  const supabase = useSupabaseClient();
   const currentUser = useCurrentUser();
-  const queryClient = useQueryClient();
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const handleSignOut = useFullSignOut();
 
   const [showDropdown, setShowDropdown] = useState(false);
 
@@ -24,36 +22,6 @@ export function ProfileDropdown() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const handleSignOut = async () => {
-    try {
-      // 1. Clear all TanStack Query cache
-      queryClient.clear();
-
-      // 2. Clear localStorage (keep only theme preference)
-      const theme = localStorage.getItem('theme');
-      const language = localStorage.getItem('i18nextLng');
-      localStorage.clear();
-      if (theme) localStorage.setItem('theme', theme);
-      if (language) localStorage.setItem('i18nextLng', language);
-
-      // 3. Clear sessionStorage
-      sessionStorage.clear();
-
-      // 4. Sign out from Supabase
-      await supabase.auth.signOut();
-
-      // 5. Force full page reload to clear all state
-      window.location.href = '/sign-in';
-    } catch (error) {
-      console.error('Sign out error:', error);
-      // Force cleanup and redirect even if there's an error
-      queryClient.clear();
-      localStorage.clear();
-      sessionStorage.clear();
-      window.location.href = '/sign-in';
-    }
-  };
 
   return (
     <div className="relative" ref={dropdownRef}>

@@ -9,6 +9,8 @@ import { useEffect, useState } from 'react';
 import { Menu, X, Bell, ChevronDown } from 'lucide-react';
 import { getNavigationForRole, type Role } from '@/lib/permissions';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useTheme } from 'next-themes';
+import { useFullSignOut } from '@/hooks/useFullSignOut';
 
 interface NavItem {
   href: string;
@@ -33,10 +35,16 @@ interface Notification {
   actionUrl?: string | null;
 }
 
+const languages = [
+  { code: 'ko', name: '한국어', flag: '🇰🇷' },
+  { code: 'en', name: 'English', flag: '🇺🇸' },
+  { code: 'ja', name: '日本語', flag: '🇯🇵' },
+];
+
 export function NavigationHeader() {
   const pathname = usePathname();
   const router = useRouter();
-  const { t, ready } = useTranslation('common');
+  const { t, ready, i18n } = useTranslation('common');
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
@@ -46,6 +54,9 @@ export function NavigationHeader() {
   const [userInfo, setUserInfo] = useState<{ id: string; tenantId: string } | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const { theme, setTheme } = useTheme();
+  const [currentLang, setCurrentLang] = useState('ko');
+  const handleSignOut = useFullSignOut();
 
   const teamSubMenuItems: SubMenuItem[] = [
     { label: t('teamMenu.pattern', { defaultValue: '부서 패턴 설정' }), value: 'pattern' },
@@ -167,8 +178,25 @@ export function NavigationHeader() {
     return new Date(date).toLocaleDateString('ko-KR');
   };
 
+  const handleLanguageChange = (langCode: string) => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem('i18nextLng', langCode);
+    setCurrentLang(langCode);
+    i18n.changeLanguage(langCode);
+  };
+
+  const toggleTheme = () => {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  };
+
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const savedLang = localStorage.getItem('i18nextLng') || 'ko';
+    setCurrentLang(savedLang);
   }, []);
 
   // 페이지 변경 시 모바일 메뉴 닫기
@@ -369,87 +397,87 @@ export function NavigationHeader() {
 
             {/* Right side: Profile, Notification Bell, and Mobile Menu Button */}
             <div className="flex items-center gap-2 sm:gap-4">
-              <ProfileDropdown />
+              <div className="hidden md:flex items-center gap-2 sm:gap-4">
+                <ProfileDropdown />
 
-              {/* Notification Dropdown */}
-              <div className="relative notification-dropdown">
-                <button
-                  onClick={() => setShowNotificationDropdown(!showNotificationDropdown)}
-                  className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                >
-                  <Bell className={`w-5 h-5 ${unreadCount > 0 ? 'text-yellow-500' : 'text-gray-600 dark:text-gray-400'}`} />
-                  {unreadCount > 0 && (
-                    <span className="absolute top-0 right-0 w-5 h-5 bg-yellow-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
-                  )}
-                </button>
+                {/* Notification Dropdown */}
+                <div className="relative notification-dropdown">
+                  <button
+                    onClick={() => setShowNotificationDropdown(!showNotificationDropdown)}
+                    className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    <Bell className={`w-5 h-5 ${unreadCount > 0 ? 'text-yellow-500' : 'text-gray-600 dark:text-gray-400'}`} />
+                    {unreadCount > 0 && (
+                      <span className="absolute top-0 right-0 w-5 h-5 bg-yellow-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </button>
 
-                {/* Notification Dropdown Menu */}
-                {showNotificationDropdown && (
-                  <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg dark:shadow-gray-900/50 z-50">
-                    <div className="p-3 border-b border-gray-100 dark:border-gray-700">
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">알림</h3>
-                    </div>
+                  {/* Notification Dropdown Menu */}
+                  {showNotificationDropdown && (
+                    <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg dark:shadow-gray-900/50 z-50">
+                      <div className="p-3 border-b border-gray-100 dark:border-gray-700">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">알림</h3>
+                      </div>
 
-                    {/* Notification List */}
-                    <div className="max-h-96 overflow-y-auto">
-                      {notifications.length > 0 ? (
-                        notifications.map((notification) => (
-                          <div
-                            key={notification.id}
-                            onClick={async () => {
-                              // Mark as read if unread
-                              if (!notification.readAt) {
-                                await markNotificationAsRead(notification.id);
-                              }
+                      {/* Notification List */}
+                      <div className="max-h-96 overflow-y-auto">
+                        {notifications.length > 0 ? (
+                          notifications.map((notification) => (
+                            <div
+                              key={notification.id}
+                              onClick={async () => {
+                                if (!notification.readAt) {
+                                  await markNotificationAsRead(notification.id);
+                                }
 
-                              // Navigate to action URL
-                              if (notification.actionUrl) {
-                                router.push(notification.actionUrl);
-                                setShowNotificationDropdown(false);
-                              }
-                            }}
-                            className={`p-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer ${
-                              !notification.readAt ? 'bg-blue-50 dark:bg-blue-900/10' : ''
-                            }`}
-                          >
-                            <p className={`text-sm text-gray-900 dark:text-gray-100 ${
-                              !notification.readAt ? 'font-semibold' : ''
-                            }`}>
-                              {notification.title}
-                            </p>
-                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                              {notification.message}
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                              {formatTimeAgo(notification.createdAt)}
-                            </p>
+                                if (notification.actionUrl) {
+                                  router.push(notification.actionUrl);
+                                  setShowNotificationDropdown(false);
+                                }
+                              }}
+                              className={`p-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer ${
+                                !notification.readAt ? 'bg-blue-50 dark:bg-blue-900/10' : ''
+                              }`}
+                            >
+                              <p className={`text-sm text-gray-900 dark:text-gray-100 ${
+                                !notification.readAt ? 'font-semibold' : ''
+                              }`}>
+                                {notification.title}
+                              </p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                {notification.message}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                                {formatTimeAgo(notification.createdAt)}
+                              </p>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                            새로운 알림이 없습니다.
                           </div>
-                        ))
-                      ) : (
-                        <div className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                          새로운 알림이 없습니다.
-                        </div>
-                      )}
-                    </div>
+                        )}
+                      </div>
 
-                    {/* View All Button */}
-                    <div className="p-2 border-t border-gray-100 dark:border-gray-700">
-                      <Link
-                        href="/notifications"
-                        onClick={() => setShowNotificationDropdown(false)}
-                        className="block w-full text-center px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md transition-colors"
-                      >
-                        자세히 보기
-                      </Link>
+                      {/* View All Button */}
+                      <div className="p-2 border-t border-gray-100 dark:border-gray-700">
+                        <Link
+                          href="/notifications"
+                          onClick={() => setShowNotificationDropdown(false)}
+                          className="block w-full text-center px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md transition-colors"
+                        >
+                          자세히 보기
+                        </Link>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
+
+                {/* Settings Menu */}
+                <SettingsMenu />
               </div>
-
-              {/* Settings Menu */}
-              <SettingsMenu />
 
               {/* Mobile Menu Button */}
               <button
@@ -482,7 +510,35 @@ export function NavigationHeader() {
           mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        <nav className="flex flex-col p-4 space-y-2">
+        <nav className="flex h-full flex-col gap-4 overflow-y-auto p-4">
+          {/* Profile quick actions */}
+          <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 p-4">
+            <p className="text-sm text-gray-500 dark:text-gray-400">로그인 계정</p>
+            <p className="mt-1 text-base font-semibold text-gray-900 dark:text-gray-100">
+              {currentUser?.name || '사용자'}
+            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">{currentUser?.email || '이메일 정보 없음'}</p>
+            <div className="mt-4 flex flex-col gap-2">
+              <Link
+                href="/settings"
+                onClick={() => setMobileMenuOpen(false)}
+                className="rounded-lg bg-white dark:bg-gray-900 px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/40 text-center"
+              >
+                프로필 설정
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  handleSignOut();
+                }}
+                className="rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                로그아웃
+              </button>
+            </div>
+          </div>
+
           {/* Mobile Notification Link */}
           <Link
             href="/notifications"
@@ -617,6 +673,39 @@ export function NavigationHeader() {
               </Link>
             );
           })}
+
+          {/* Mobile Settings */}
+          <div className="mt-auto rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">설정</p>
+            <div className="mt-3">
+              <label className="text-xs font-medium text-gray-600 dark:text-gray-300">언어</label>
+              <select
+                value={currentLang}
+                onChange={(e) => handleLanguageChange(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {languages.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.flag} {lang.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="mt-3 flex w-full items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">다크모드</span>
+              <div className={`relative h-6 w-12 rounded-full transition-colors ${theme === 'dark' ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                <div
+                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                    theme === 'dark' ? 'translate-x-6' : 'translate-x-0'
+                  }`}
+                />
+              </div>
+            </button>
+          </div>
         </nav>
       </div>
     </>

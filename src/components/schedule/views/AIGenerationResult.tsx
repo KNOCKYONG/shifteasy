@@ -32,6 +32,22 @@ export const AIGenerationResult = React.memo(function AIGenerationResult({ gener
 
   const hardViolations = generationResult.violations.filter(v => v.type === 'hard');
   const diagnostics = generationResult.diagnostics;
+  const rawMultiRunSummary = Array.isArray(diagnostics?.preflightIssues)
+    ? diagnostics?.preflightIssues.find(
+        (issue) => typeof issue === 'object' && issue && 'type' in issue && (issue as { type?: string }).type === 'multiRunSummary'
+      )
+    : undefined;
+  const multiRunSummary =
+    rawMultiRunSummary && typeof rawMultiRunSummary === 'object'
+      ? (rawMultiRunSummary as {
+          attempts?: number;
+          bestAttempt?: number;
+          bestPenalty?: number;
+          seed?: number;
+          weightJitterPct?: number;
+          message?: string;
+        })
+      : null;
   const postprocess = generationResult.postprocess ?? generationResult.diagnostics?.postprocess;
   const diagSummaries = [
     {
@@ -110,6 +126,39 @@ export const AIGenerationResult = React.memo(function AIGenerationResult({ gener
           <X className="w-4 h-4" />
         </button>
       </div>
+
+      {multiRunSummary && (
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 bg-white/90 dark:bg-gray-900/40 rounded-lg p-3 border border-purple-100 dark:border-purple-700">
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">반복 횟수</p>
+            <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              {typeof multiRunSummary.attempts === 'number' ? multiRunSummary.attempts : '-'}회
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">선택된 시도</p>
+            <p className="text-lg font-semibold text-purple-700 dark:text-purple-300">
+              {typeof multiRunSummary.bestAttempt === 'number' ? multiRunSummary.bestAttempt : '-'}회차
+            </p>
+            {typeof multiRunSummary.bestPenalty === 'number' && (
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                Penalty {multiRunSummary.bestPenalty.toFixed(1)}
+              </p>
+            )}
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">랜덤 시드</p>
+            <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              {typeof multiRunSummary.seed === 'number' ? multiRunSummary.seed : '자동'}
+            </p>
+            {typeof multiRunSummary.weightJitterPct === 'number' && (
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                가중치 편차 {multiRunSummary.weightJitterPct.toFixed(0)}%
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {hardViolations.length > 0 && (
         <div className="mt-3 p-2 bg-red-50 dark:bg-red-950/30 rounded-lg">
