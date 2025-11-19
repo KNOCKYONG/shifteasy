@@ -6,7 +6,7 @@ import { ProfileDropdown } from '@/components/ProfileDropdown';
 import { SettingsMenu } from '@/components/SettingsMenu';
 import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
-import { Menu, X, Bell, ChevronDown } from 'lucide-react';
+import { Menu, X, Bell, ChevronDown, User as UserIcon, LogOut } from 'lucide-react';
 import { getNavigationForRole, type Role } from '@/lib/permissions';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useTheme } from 'next-themes';
@@ -511,34 +511,6 @@ export function NavigationHeader() {
         }`}
       >
         <nav className="flex h-full flex-col gap-4 overflow-y-auto p-4">
-          {/* Profile quick actions */}
-          <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 p-4">
-            <p className="text-sm text-gray-500 dark:text-gray-400">로그인 계정</p>
-            <p className="mt-1 text-base font-semibold text-gray-900 dark:text-gray-100">
-              {currentUser?.name || '사용자'}
-            </p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">{currentUser?.email || '이메일 정보 없음'}</p>
-            <div className="mt-4 flex flex-col gap-2">
-              <Link
-                href="/settings"
-                onClick={() => setMobileMenuOpen(false)}
-                className="rounded-lg bg-white dark:bg-gray-900 px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/40 text-center"
-              >
-                프로필 설정
-              </Link>
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  handleSignOut();
-                }}
-                className="rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              >
-                로그아웃
-              </button>
-            </div>
-          </div>
-
           {/* Mobile Notification Link */}
           <Link
             href="/notifications"
@@ -674,37 +646,74 @@ export function NavigationHeader() {
             );
           })}
 
-          {/* Mobile Settings */}
+          {/* Mobile Account + Settings */}
           <div className="mt-auto rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">설정</p>
-            <div className="mt-3">
-              <label className="text-xs font-medium text-gray-600 dark:text-gray-300">언어</label>
-              <select
-                value={currentLang}
-                onChange={(e) => handleLanguageChange(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {languages.map((lang) => (
-                  <option key={lang.code} value={lang.code}>
-                    {lang.flag} {lang.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="mt-3 flex w-full items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-            >
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">다크모드</span>
-              <div className={`relative h-6 w-12 rounded-full transition-colors ${theme === 'dark' ? 'bg-blue-600' : 'bg-gray-300'}`}>
-                <div
-                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
-                    theme === 'dark' ? 'translate-x-6' : 'translate-x-0'
-                  }`}
-                />
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  로그인 계정
+                </p>
+                <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">
+                  {currentUser?.name || '사용자'}
+                </p>
+                <p className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-[140px]">
+                  {currentUser?.email || '이메일 정보 없음'}
+                </p>
               </div>
-            </button>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/settings"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="rounded-full border border-gray-200 dark:border-gray-700 p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  aria-label="프로필 설정"
+                >
+                  <UserIcon className="h-4 w-4" />
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    handleSignOut();
+                  }}
+                  className="rounded-full border border-gray-200 dark:border-gray-700 p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  aria-label="로그아웃"
+                >
+                  <LogOut className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">설정</p>
+              <div className="mt-3">
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-300">언어</label>
+                <select
+                  value={currentLang}
+                  onChange={(e) => handleLanguageChange(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {languages.map((lang) => (
+                    <option key={lang.code} value={lang.code}>
+                      {lang.flag} {lang.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="mt-3 flex w-full items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">다크모드</span>
+                <div className={`relative h-6 w-12 rounded-full transition-colors ${theme === 'dark' ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                  <div
+                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                      theme === 'dark' ? 'translate-x-6' : 'translate-x-0'
+                    }`}
+                  />
+                </div>
+              </button>
+            </div>
           </div>
         </nav>
       </div>
