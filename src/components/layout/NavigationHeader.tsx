@@ -480,10 +480,29 @@ export function NavigationHeader() {
               </div>
 
               {/* Mobile Menu Button */}
-              <div className="flex items-center text-right mr-2 md:hidden">
-                <span className="text-sm font-medium text-gray-900 dark:text-gray-100 max-w-[140px] truncate">
+              <div className="flex items-center gap-2 md:hidden">
+                <span className="text-sm font-medium text-gray-900 dark:text-gray-100 max-w-[120px] truncate">
                   {currentUser?.name || '사용자'}
                 </span>
+                <Link
+                  href="/settings"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="h-9 w-9 rounded-full border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  aria-label="프로필 설정"
+                >
+                  <UserIcon className="h-4 w-4" />
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    handleSignOut();
+                  }}
+                  className="h-9 w-9 rounded-full border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  aria-label="로그아웃"
+                >
+                  <LogOut className="h-4 w-4" />
+                </button>
               </div>
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -650,43 +669,6 @@ export function NavigationHeader() {
               </Link>
             );
           })}
-
-          <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  로그인 계정
-                </p>
-                <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {currentUser?.name || '사용자'}
-                </p>
-                <p className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-[140px]">
-                  {currentUser?.email || '이메일 정보 없음'}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Link
-                  href="/settings"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="h-10 w-10 rounded-full border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center justify-center"
-                  aria-label="프로필 설정"
-                >
-                  <UserIcon className="h-4 w-4" />
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    handleSignOut();
-                  }}
-                  className="h-10 w-10 rounded-full border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center justify-center"
-                  aria-label="로그아웃"
-                >
-                  <LogOut className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          </div>
 
           <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">설정</p>

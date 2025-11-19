@@ -523,7 +523,14 @@ def solve_job(schedule: ScheduleInput, preferred_solver: Optional[str] = None) -
   except (ValueError, TypeError):
     jitter_pct = 0.0
   jitter_fraction = max(0.0, jitter_pct) / 100.0
-  rng = random.Random()
+  try:
+    requested_seed = multi_run.get("seed")
+    seed_value = int(requested_seed) if requested_seed is not None else None
+  except (ValueError, TypeError):
+    seed_value = None
+  if seed_value is None:
+    seed_value = random.SystemRandom().randrange(1_000_000_000)
+  rng = random.Random(seed_value)
   best_result: Optional[Dict[str, Any]] = None
   last_error: Optional[Exception] = None
 
@@ -558,6 +565,8 @@ def solve_job(schedule: ScheduleInput, preferred_solver: Optional[str] = None) -
           "attempts": attempts,
           "bestAttempt": best_result["attempt"],
           "bestPenalty": best_result["penalty"],
+          "seed": seed_value,
+          "weightJitterPct": jitter_pct,
         }
       )
     return best_result["assignments"], diagnostics

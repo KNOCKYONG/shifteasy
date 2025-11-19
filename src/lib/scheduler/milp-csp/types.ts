@@ -73,6 +73,7 @@ export interface MilpConstraintWeights {
 export interface MilpMultiRunOptions {
   attempts?: number;
   weightJitterPct?: number;
+  seed?: number | null;
 }
 
 export interface MilpCspSettingsOptions {

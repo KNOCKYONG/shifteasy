@@ -44,6 +44,7 @@ const cspSettingsSchema = z.object({
 const multiRunSchema = z.object({
   attempts: z.number().int().min(1).max(10).default(1),
   weightJitterPct: z.number().min(0).max(30).default(0),
+  seed: z.number().int().min(0).max(1_000_000_000).nullable().optional(),
 });
 
 const schedulerAdvancedSchema = z.object({
@@ -79,6 +80,7 @@ const mapAdvancedSettingsToSolverOptions = (
     options.multiRun = {
       attempts: advanced.multiRun.attempts,
       weightJitterPct: advanced.multiRun.weightJitterPct,
+      seed: advanced.multiRun.seed,
     };
   }
   return options;

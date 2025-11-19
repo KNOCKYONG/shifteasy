@@ -126,6 +126,13 @@ const SliderField = ({
   );
 };
 
+const CONSTRAINT_WEIGHT_FIELDS: Array<{ key: keyof ConstraintWeightsConfig; label: string; accent: string }> = [
+  { key: 'staffing', label: '필수 인원', accent: 'bg-blue-500 dark:bg-blue-400' },
+  { key: 'teamBalance', label: '팀 커버리지', accent: 'bg-emerald-500 dark:bg-emerald-400' },
+  { key: 'careerBalance', label: '경력 그룹', accent: 'bg-indigo-500 dark:bg-indigo-400' },
+  { key: 'offBalance', label: '휴무 편차', accent: 'bg-amber-500 dark:bg-amber-400' },
+];
+
 function ConfigPageContent() {
   const searchParams = useSearchParams();
   const { t } = useTranslation(['config', 'common']);
@@ -299,12 +306,15 @@ function ConfigPageContent() {
     }));
   };
 
-  const handleMultiRunChange = (key: keyof MilpMultiRunConfig, value: number) => {
+  const handleMultiRunChange = <K extends keyof MilpMultiRunConfig>(key: K, value: MilpMultiRunConfig[K]) => {
     updateSchedulerAdvanced((current) => ({
       ...current,
       multiRun: {
         ...current.multiRun,
-        [key]: Number.isFinite(value) ? value : current.multiRun[key],
+        [key]:
+          typeof value === 'number'
+            ? (Number.isFinite(value) ? value : current.multiRun[key])
+            : value,
       },
     }));
   };
@@ -672,17 +682,17 @@ function ConfigPageContent() {
                     고급 스케줄 제약 (MILP / CSP)
                   </h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    MILP/CSP 스케줄 엔진의 제약 강도를 조정하고 탐색 파라미터를 커스터마이징합니다. 조직별 우선순위에 맞게 팀/경력 균형이나 휴무 공정을 강조할 수 있습니다.
+                    아래 슬라이더는 “어떤 규칙을 얼마나 우선시할지”를 정하는 곳입니다. 숫자가 높을수록 해당 규칙을 더 강하게 지키려 하고, 낮추면 다른 규칙에 양보합니다.
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 px-4 py-3 rounded-lg border border-gray-100 dark:border-gray-700">
                 <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">기본 MILP/CSP 스케줄 엔진 사용</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                    활성화 시 기본 스케줄 생성 버튼도 MILP/CSP 엔진을 사용합니다. (버튼에서 수동 선택도 가능)
-                  </p>
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">기본 MILP/CSP 스케줄 엔진 사용</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  ON으로 두면 스케줄 생성 버튼을 눌렀을 때 언제나 MILP/CSP 엔진이 먼저 실행됩니다. OFF면 기존 AI 방식이 기본이지만, 생성 시에는 여전히 직접 선택할 수 있습니다.
+                </p>
                 </div>
                 <label className="inline-flex items-center cursor-pointer gap-2">
                   <span className="text-sm text-gray-600 dark:text-gray-400">OFF</span>
@@ -700,7 +710,7 @@ function ConfigPageContent() {
               <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 rounded-lg border border-gray-100 dark:border-gray-700">
                 <p className="text-sm font-medium text-gray-900 dark:text-gray-100">선호 Solver</p>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-                  OR-Tools가 실패하면 자동으로 HiGHS로 전환합니다. 필요 시 기본 Solver를 강제로 선택할 수 있습니다.
+                  “자동”은 OR-Tools로 시도했다가 실패하면 HiGHS로 넘어갑니다. 특정 솔버만 쓰고 싶으면 아래에서 직접 고를 수 있습니다.
                 </p>
                 <select
                   value={schedulerAdvanced.solverPreference}
@@ -716,15 +726,10 @@ function ConfigPageContent() {
               <div>
                 <h4 className="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">제약 가중치</h4>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mb-4">
-                  값이 높을수록 해당 제약 위반을 더 강하게 페널티 처리합니다. (기본 1.0)
+                  “이 항목이 얼마나 중요한가?”를 설정하는 슬라이더입니다. 기본값은 1이며, 높일수록 해당 제약을 더 우선합니다.
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {([
-                    { key: 'staffing', label: '필수 인원 충족' },
-                    { key: 'teamBalance', label: '팀 커버리지' },
-                    { key: 'careerBalance', label: '경력 그룹 균형' },
-                    { key: 'offBalance', label: '휴무 편차' },
-                  ] as { key: keyof ConstraintWeightsConfig; label: string }[]).map(({ key, label }) => (
+                  {CONSTRAINT_WEIGHT_FIELDS.map(({ key, label }) => (
                     <SliderField
                       key={key}
                       label={label}
@@ -742,12 +747,53 @@ function ConfigPageContent() {
                     />
                   ))}
                 </div>
+                {(() => {
+                  const totalWeight = CONSTRAINT_WEIGHT_FIELDS.reduce(
+                    (sum, field) => sum + (schedulerAdvanced.constraintWeights[field.key] ?? 0),
+                    0
+                  );
+                  if (totalWeight <= 0) {
+                    return null;
+                  }
+                  return (
+                    <div className="mt-4">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">현재 비중</p>
+                      <div className="flex h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                        {CONSTRAINT_WEIGHT_FIELDS.map(({ key, accent }) => {
+                          const ratio = (schedulerAdvanced.constraintWeights[key] ?? 0) / totalWeight;
+                          if (!ratio) {
+                            return null;
+                          }
+                          return (
+                            <div
+                              key={key}
+                              className={`${accent} transition-all duration-300`}
+                              style={{ width: `${Math.max(ratio * 100, 1)}%` }}
+                            />
+                          );
+                        })}
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-gray-600 dark:text-gray-400">
+                        {CONSTRAINT_WEIGHT_FIELDS.map(({ key, label, accent }) => {
+                          const ratio = (schedulerAdvanced.constraintWeights[key] ?? 0) / totalWeight;
+                          return (
+                            <div key={key} className="flex items-center gap-2">
+                              <span className={`inline-block h-2 w-2 rounded-full ${accent}`} />
+                              <span className="font-medium text-gray-700 dark:text-gray-200">{label}</span>
+                              <span>{(ratio * 100).toFixed(0)}%</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               <div>
                 <h4 className="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">CSP 탐색 파라미터</h4>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mb-4">
-                  Tabu/어닐링 탐색 한도와 휴무 허용치를 조정해 후처리 탐색을 세밀하게 제어합니다.
+                  MILP가 만든 초안을 얼마나 오래, 얼마나 과감하게 다시 섞어볼지를 정합니다. 대부분의 경우 기본값이면 충분합니다.
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <SliderField
@@ -828,7 +874,7 @@ function ConfigPageContent() {
               <div className="bg-gray-50 dark:bg-gray-800 px-4 py-4 rounded-lg border border-gray-100 dark:border-gray-700">
                 <h4 className="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">다중 MILP 반복</h4>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mb-4">
-                  동일 입력을 여러 번 계산해 가장 균형 잡힌 해를 선택합니다. 가중치 편차가 클수록 다양한 조합을 탐색합니다.
+                  동일한 입력을 여러 번 계산해 보고 가장 좋은 해를 고릅니다. 편차를 주면 매번 조금씩 다른 가중치로 계산하여 더 다양한 조합을 탐색합니다.
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <SliderField
@@ -838,7 +884,7 @@ function ConfigPageContent() {
                     step={1}
                     value={schedulerAdvanced.multiRun.attempts}
                     suffix="회"
-                    helpText="최대 10회까지 반복 실행합니다."
+                    helpText="최대 10회까지 반복 실행합니다. 횟수가 많을수록 생성 시간이 길어집니다."
                     onChange={(val) => handleMultiRunChange('attempts', val)}
                   />
                   <SliderField
@@ -848,9 +894,44 @@ function ConfigPageContent() {
                     step={1}
                     value={schedulerAdvanced.multiRun.weightJitterPct}
                     suffix="%"
-                    helpText="각 반복마다 제약 가중치를 ±편차% 범위에서 랜덤 조정합니다."
+                    helpText="각 반복마다 가중치를 ±편차% 범위에서 섞어 새로운 조합을 찾습니다."
                     onChange={(val) => handleMultiRunChange('weightJitterPct', val)}
                   />
+                  <div className="flex flex-col text-sm text-gray-700 dark:text-gray-300">
+                    <span className="font-medium">고정 시드 (선택)</span>
+                    <div className="mt-1 flex gap-2">
+                      <input
+                        type="number"
+                        min="0"
+                        max="1000000000"
+                        value={schedulerAdvanced.multiRun.seed ?? ''}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          if (!raw) {
+                            handleMultiRunChange('seed', null);
+                            return;
+                          }
+                          const parsed = parseInt(raw, 10);
+                          if (Number.isFinite(parsed)) {
+                            const clamped = Math.min(1000000000, Math.max(0, parsed));
+                            handleMultiRunChange('seed', clamped);
+                          }
+                        }}
+                        placeholder="자동"
+                        className="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        type="button"
+                        className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+                        onClick={() => handleMultiRunChange('seed', null)}
+                      >
+                        랜덤
+                      </button>
+                    </div>
+                    <span className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      빈칸이면 실행 시마다 다른 랜덤 시드를 사용합니다.
+                    </span>
+                  </div>
                 </div>
               </div>
 

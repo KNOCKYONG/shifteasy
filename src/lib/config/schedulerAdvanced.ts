@@ -24,6 +24,7 @@ export type MilpSolverType = 'auto' | 'ortools' | 'highs';
 export interface MilpMultiRunConfig {
   attempts: number;
   weightJitterPct: number;
+  seed: number | null;
 }
 
 export interface SchedulerAdvancedSettings {
@@ -57,6 +58,7 @@ export const DEFAULT_SCHEDULER_ADVANCED: SchedulerAdvancedSettings = {
   multiRun: {
     attempts: 1,
     weightJitterPct: 0,
+    seed: null,
   },
 };
 
@@ -87,6 +89,7 @@ export const mergeSchedulerAdvancedSettings = (
     multiRun: {
       attempts: value?.multiRun?.attempts ?? base.multiRun.attempts,
       weightJitterPct: value?.multiRun?.weightJitterPct ?? base.multiRun.weightJitterPct,
+      seed: typeof value?.multiRun?.seed === 'number' || value?.multiRun?.seed === null ? value?.multiRun?.seed : base.multiRun.seed,
     },
   };
 };
