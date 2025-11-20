@@ -131,6 +131,7 @@ class SchedulePostProcessor:
     for code, default_value in DEFAULT_REQUIRED_STAFF.items():
       normalized_required.setdefault(code, default_value)
     self.required_staff = {code: value for code, value in normalized_required.items() if value > 0}
+    self.core_shift_codes = [code for code in ("D", "E", "N") if code in self.required_staff]
     self.team_ids = sorted({emp.teamId for emp in schedule.employees if emp.teamId})
     self.team_members: Dict[str, List[Employee]] = defaultdict(list)
     for emp in schedule.employees:
@@ -160,6 +161,7 @@ class SchedulePostProcessor:
     self.tabu_size = max(0, int(csp_options.get("tabuSize", DEFAULT_TABU_SIZE)))
     self.max_same_shift = int(csp_options.get("maxSameShift", MAX_SAME_SHIFT))
     self.off_balance_tolerance = int(csp_options.get("offTolerance", OFF_BALANCE_TOLERANCE))
+    self.shift_balance_tolerance = max(1, int(csp_options.get("shiftBalanceTolerance", 4)))
     self.team_workload_tolerance = max(1, self.off_balance_tolerance)
     self.tabu_queue: Deque[Tuple[Tuple[str, str], Tuple[str, str]]] = deque(maxlen=self.tabu_size)
     self.tabu_set: Set[Tuple[Tuple[str, str], Tuple[str, str]]] = set()
@@ -209,6 +211,7 @@ class SchedulePostProcessor:
     priority_order = [
       ("staffingShortages", "staffingShortage"),
       ("shiftPatternBreaks", "shiftPatternBreak"),
+      ("shiftBalanceGaps", "shiftBalance"),
       ("teamCoverageGaps", "teamCoverage"),
       ("careerGroupCoverageGaps", "careerGroup"),
       ("teamWorkloadGaps", "teamWorkload"),
@@ -235,6 +238,8 @@ class SchedulePostProcessor:
       return self._resolve_off_balance_gap(data)
     if violation_type == "shiftPatternBreak":
       return self._resolve_shift_violation(data)
+    if violation_type == "shiftBalance":
+      return self._resolve_shift_balance_violation(data)
     if violation_type == "avoidPattern":
       return self._resolve_avoid_pattern_violation(data)
     if violation_type == "staffingShortage":
@@ -269,6 +274,36 @@ class SchedulePostProcessor:
           candidates.insert(0, (day_key, employee_id, day_key, other_id))
         else:
           candidates.append((day_key, employee_id, day_key, other_id))
+    return self._apply_best_swap(candidates)
+
+  def _resolve_shift_balance_violation(self, violation: Dict[str, str]) -> Optional[Tuple[float, Dict[str, List[Dict[str, str]]]]]:
+    employee_id = violation["employeeId"]
+    dominant = violation.get("dominantShift")
+    lacking = violation.get("lackingShift")
+    if not dominant or not lacking:
+      return None
+    dominant_days = [
+      day_key
+      for day_key in self.state.day_keys
+      if (assignment := self.state.assignment_map.get((employee_id, day_key)))
+      and _normalize_shift_code(assignment.shiftType) == dominant
+    ]
+    candidates: List[Tuple[str, str, str, str]] = []
+    for day_key in dominant_days:
+      day_assignments = self.state.assignments_by_day.get(day_key, {})
+      for other_id, other_assignment in day_assignments.items():
+        if other_id == employee_id or other_assignment.isLocked:
+          continue
+        other_code = _normalize_shift_code(other_assignment.shiftType)
+        if other_code in {"O", "V", "A"} or other_code == dominant:
+          continue
+        pair = (day_key, employee_id, day_key, other_id)
+        if other_code == lacking:
+          candidates.insert(0, pair)
+        else:
+          candidates.append(pair)
+    if not candidates:
+      return None
     return self._apply_best_swap(candidates)
 
   def _evaluate(self, with_diagnostics: bool = False) -> Tuple[float, Optional[Dict[str, List[Dict[str, str]]]]]:
@@ -472,6 +507,7 @@ class SchedulePostProcessor:
       "shiftPatternBreaks": [],
       "teamWorkloadGaps": [],
       "avoidPatternViolations": [],
+      "shiftBalanceGaps": [],
     }
     shift_lookup: Dict[Tuple[str, str], List[Assignment]] = defaultdict(list)
     for assignment in self.state.assignments:
@@ -525,6 +561,7 @@ class SchedulePostProcessor:
     diagnostics["offBalanceGaps"] = self._detect_off_balance_gaps()
     diagnostics["teamWorkloadGaps"] = self._detect_team_workload_gaps()
     diagnostics["avoidPatternViolations"] = self._detect_avoid_pattern_violations()
+    diagnostics["shiftBalanceGaps"] = self._detect_shift_balance_gaps()
     return diagnostics
 
   def _team_has_eligible_member(self, team_id: str, day_key: str, shift_code: str) -> bool:
@@ -645,6 +682,40 @@ class SchedulePostProcessor:
             break
     return violations
 
+  def _detect_shift_balance_gaps(self) -> List[Dict[str, str]]:
+    gaps: List[Dict[str, str]] = []
+    if len(self.core_shift_codes) < 2:
+      return gaps
+    tolerance = self.shift_balance_tolerance
+    for emp in self.schedule.employees:
+      if emp.workPatternType != "three-shift":
+        continue
+      counts: Dict[str, int] = {code: 0 for code in self.core_shift_codes}
+      for day_key in self.state.day_keys:
+        assignment = self.state.assignment_map.get((emp.id, day_key))
+        if not assignment:
+          continue
+        code = _normalize_shift_code(assignment.shiftType)
+        if code not in counts:
+          continue
+        counts[code] = counts.get(code, 0) + 1
+      if not counts:
+        continue
+      max_code, max_count = max(counts.items(), key=lambda item: item[1])
+      min_code, min_count = min(counts.items(), key=lambda item: item[1])
+      diff = max_count - min_count
+      if diff > tolerance:
+        gaps.append(
+          {
+            "employeeId": emp.id,
+            "dominantShift": max_code,
+            "lackingShift": min_code,
+            "difference": diff,
+            "tolerance": tolerance,
+          }
+        )
+    return gaps
+
   def _off_day_counts(self) -> Dict[str, int]:
     counts: Dict[str, int] = Counter()
     for assignment in self.state.assignments:
@@ -695,6 +766,7 @@ class SchedulePostProcessor:
       + 20 * len(diagnostics["offBalanceGaps"]) * self._weight("offBalance")
       + 10 * len(diagnostics["shiftPatternBreaks"]) * self._weight("shiftPattern")
       + 10 * len(diagnostics["avoidPatternViolations"])
+      + 12 * len(diagnostics["shiftBalanceGaps"]) * self._weight("shiftPattern")
     )
 
   def _apply_best_swap(self, candidates: List[Tuple[str, str, str, str]]) -> Optional[Tuple[float, Dict[str, List[Dict[str, str]]]]]:

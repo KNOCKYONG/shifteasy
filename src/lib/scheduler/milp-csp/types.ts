@@ -87,6 +87,7 @@ export interface MilpCspSettingsOptions {
   timeLimitMs?: number;
   maxSameShift?: number;
   offTolerance?: number;
+  shiftBalanceTolerance?: number;
   annealing?: {
     temperature?: number;
     coolingRate?: number;

@@ -41,6 +41,7 @@ class OrToolsMilpSolver:
     self.off_count_vars: Dict[str, pywraplp.Variable] = {}
     self.shift_repeat_entries: List[Dict[str, Any]] = []
     self.rest_after_night_entries: List[Dict[str, Any]] = []
+    self.shift_balance_entries: List[Dict[str, Any]] = []
     self.preference_penalty_map: Dict[Tuple[str, str, str], float] = {}
     self.team_total_vars: Dict[str, pywraplp.Variable] = {}
     self.team_balance_entries: List[Dict[str, Any]] = []
@@ -74,6 +75,7 @@ class OrToolsMilpSolver:
       if shift.maxStaff is not None:
         self.shift_max_staff[code] = max(0, int(shift.maxStaff))
     self.max_same_shift = self._get_max_same_shift()
+    self.shift_balance_tolerance = self._get_shift_balance_tolerance()
     self.required_off = self._calculate_required_off_days()
     self.preflight_issues = self._run_preflight_checks()
     self._init_preference_penalties()
@@ -194,6 +196,14 @@ class OrToolsMilpSolver:
       return max(1, min(parsed, 10))
     except (TypeError, ValueError):
       return 2
+
+  def _get_shift_balance_tolerance(self) -> int:
+    raw = self.csp_options.get("shiftBalanceTolerance")
+    try:
+      parsed = int(raw)
+      return max(1, min(parsed, 20))
+    except (TypeError, ValueError):
+      return 4
 
   def _create_variables(self):
     for emp in self.schedule.employees:
@@ -669,6 +679,59 @@ class OrToolsMilpSolver:
             }
           )
 
+  def _add_shift_balance_constraints(self, tolerance: Optional[int] = None):
+    effective_tolerance = tolerance if tolerance is not None else self.shift_balance_tolerance
+    core_shifts = [code for code in ("D", "E", "N") if code in self.shift_code_set]
+    if len(core_shifts) < 2:
+      return
+    total_days = len(self.date_range)
+    for emp in self.schedule.employees:
+      if emp.workPatternType != "three-shift":
+        continue
+      counts: Dict[str, pywraplp.Variable] = {}
+      for code in core_shifts:
+        count_var = self.solver.IntVar(0, total_days, f"shift_count_{emp.id}_{code}")
+        counts[code] = count_var
+        equality = self.solver.RowConstraint(0, 0, f"shift_count_eq_{emp.id}_{code}")
+        for day in self.date_range:
+          day_key = day.isoformat()
+          var = self.variables.get((emp.id, day_key, code))
+          if var:
+            equality.SetCoefficient(var, 1)
+        equality.SetCoefficient(count_var, -1)
+      for i in range(len(core_shifts)):
+        for j in range(i + 1, len(core_shifts)):
+          code_i = core_shifts[i]
+          code_j = core_shifts[j]
+          slack_ij = self.solver.IntVar(0, self.solver.infinity(), f"shift_balance_{emp.id}_{code_i}_{code_j}")
+          constraint_ij = self.solver.RowConstraint(-self.solver.infinity(), effective_tolerance, f"shift_balance_constraint_{emp.id}_{code_i}_{code_j}")
+          constraint_ij.SetCoefficient(counts[code_i], 1)
+          constraint_ij.SetCoefficient(counts[code_j], -1)
+          constraint_ij.SetCoefficient(slack_ij, -1)
+          self.shift_balance_entries.append(
+            {
+              "var": slack_ij,
+              "employeeId": emp.id,
+              "shiftA": code_i,
+              "shiftB": code_j,
+              "tolerance": effective_tolerance,
+            }
+          )
+          slack_ji = self.solver.IntVar(0, self.solver.infinity(), f"shift_balance_{emp.id}_{code_j}_{code_i}")
+          constraint_ji = self.solver.RowConstraint(-self.solver.infinity(), effective_tolerance, f"shift_balance_constraint_{emp.id}_{code_j}_{code_i}")
+          constraint_ji.SetCoefficient(counts[code_j], 1)
+          constraint_ji.SetCoefficient(counts[code_i], -1)
+          constraint_ji.SetCoefficient(slack_ji, -1)
+          self.shift_balance_entries.append(
+            {
+              "var": slack_ji,
+              "employeeId": emp.id,
+              "shiftA": code_j,
+              "shiftB": code_i,
+              "tolerance": effective_tolerance,
+            }
+          )
+
   def _add_rest_after_night_constraints(self):
     if "N" not in self.shift_code_set:
       return
@@ -809,6 +872,7 @@ class OrToolsMilpSolver:
     self._add_consecutive_constraints()
     self._add_night_intensive_pattern_constraints()
     self._add_rest_after_night_constraints()
+    self._add_shift_balance_constraints()
 
   def _collect_staffing_shortages(self):
     shortages = []
@@ -961,6 +1025,23 @@ class OrToolsMilpSolver:
       )
     return violations
 
+  def _collect_shift_balance_gaps(self):
+    gaps = []
+    for entry in self.shift_balance_entries:
+      value = entry["var"].solution_value()
+      if value is None or value <= 1e-6:
+        continue
+      gaps.append(
+        {
+          "employeeId": entry["employeeId"],
+          "shiftA": entry["shiftA"],
+          "shiftB": entry["shiftB"],
+          "difference": int(round(value + entry["tolerance"])),
+          "tolerance": entry["tolerance"],
+        }
+      )
+    return gaps
+
   def solve(self) -> Tuple[List[Assignment], Dict[str, Any]]:
     self.build_model()
     staffing_penalty = 1000 * self._weight_scalar("staffing", 1.0)
@@ -971,6 +1052,7 @@ class OrToolsMilpSolver:
     off_balance_penalty = 800 * self._weight_scalar("offBalance", 1.0)
     shift_repeat_penalty = 350 * self._weight_scalar("shiftPattern", 1.0)
     rest_penalty = 500 * self._weight_scalar("shiftPattern", 1.0)
+    shift_balance_penalty = 250 * self._weight_scalar("shiftPattern", 1.0)
     objective = self.solver.Objective()
     for (employee_id, day_key, shift_code), var in self.variables.items():
       penalty = self.preference_penalty_map.get((employee_id, day_key, shift_code.upper()), 0.0)
@@ -991,6 +1073,8 @@ class OrToolsMilpSolver:
       objective.SetCoefficient(entry["var"], shift_repeat_penalty)
     for entry in self.rest_after_night_entries:
       objective.SetCoefficient(entry["var"], rest_penalty)
+    for entry in self.shift_balance_entries:
+      objective.SetCoefficient(entry["var"], shift_balance_penalty)
     objective.SetMinimization()
     status = self.solver.Solve()
     if status not in (pywraplp.Solver.OPTIMAL, pywraplp.Solver.FEASIBLE):
@@ -1019,6 +1103,7 @@ class OrToolsMilpSolver:
       "offBalanceGaps": self._collect_off_balance_gaps(),
       "shiftPatternBreaks": self._collect_shift_repeat_breaks(),
       "specialRequestMisses": self._collect_special_request_misses(),
+      "shiftBalanceGaps": self._collect_shift_balance_gaps(),
       "preflightIssues": self.preflight_issues,
     }
     return assignments, diagnostics

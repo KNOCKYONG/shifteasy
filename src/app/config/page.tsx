@@ -872,9 +872,9 @@ function ConfigPageContent() {
                 <p className="text-xs text-gray-600 dark:text-gray-400 mb-4">
                   MILP가 만든 초안을 얼마나 오래, 얼마나 과감하게 다시 섞어볼지를 정합니다. 대부분의 경우 기본값이면 충분합니다.
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <SliderField
-                    label="최대 반복 횟수"
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <SliderField
+                  label="최대 반복 횟수"
                     min={50}
                     max={2000}
                     step={50}
@@ -919,17 +919,27 @@ function ConfigPageContent() {
                     suffix="회"
                     onChange={(val) => handleCspSettingChange('maxSameShift', val)}
                   />
-                  <SliderField
-                    label="휴무 편차 허용"
-                    min={0}
-                    max={5}
-                    step={1}
-                    value={schedulerAdvanced.cspSettings.offTolerance}
-                    suffix="일"
-                    onChange={(val) => handleCspSettingChange('offTolerance', val)}
-                  />
-                  <SliderField
-                    label="어닐링 온도"
+                <SliderField
+                  label="휴무 편차 허용"
+                  min={0}
+                  max={5}
+                  step={1}
+                  value={schedulerAdvanced.cspSettings.offTolerance}
+                  suffix="일"
+                  onChange={(val) => handleCspSettingChange('offTolerance', val)}
+                />
+                <SliderField
+                  label="시프트 분배 허용"
+                  min={1}
+                  max={10}
+                  step={1}
+                  value={schedulerAdvanced.cspSettings.shiftBalanceTolerance}
+                  suffix="일"
+                  helpText="3교대 직원이 가장 많이/적게 서는 시프트 간 허용 편차"
+                  onChange={(val) => handleCspSettingChange('shiftBalanceTolerance', val)}
+                />
+                <SliderField
+                  label="어닐링 온도"
                     min={0}
                     max={20}
                     step={0.5}

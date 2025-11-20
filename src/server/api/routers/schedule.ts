@@ -38,6 +38,7 @@ const cspSettingsSchema = z.object({
   timeLimitMs: z.number().int().min(500).max(20000).default(4000),
   maxSameShift: z.number().int().min(1).max(5).default(2),
   offTolerance: z.number().int().min(0).max(5).default(2),
+  shiftBalanceTolerance: z.number().int().min(1).max(10).default(4),
   annealing: z.object({
     temperature: z.number().min(0).max(20).default(5),
     coolingRate: z.number().min(0.5).max(0.99).default(0.92),

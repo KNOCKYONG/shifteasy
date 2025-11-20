@@ -17,6 +17,7 @@ export interface CspSettingsConfig {
   timeLimitMs: number;
   maxSameShift: number;
   offTolerance: number;
+  shiftBalanceTolerance: number;
   annealing: CspAnnealingConfig;
 }
 
@@ -57,6 +58,7 @@ export const DEFAULT_SCHEDULER_ADVANCED: SchedulerAdvancedSettings = {
     timeLimitMs: 4000,
     maxSameShift: 2,
     offTolerance: 2,
+    shiftBalanceTolerance: 4,
     annealing: {
       temperature: 5,
       coolingRate: 0.92,
@@ -92,6 +94,7 @@ export const mergeSchedulerAdvancedSettings = (
       timeLimitMs: value?.cspSettings?.timeLimitMs ?? base.cspSettings.timeLimitMs,
       maxSameShift: value?.cspSettings?.maxSameShift ?? base.cspSettings.maxSameShift,
       offTolerance: value?.cspSettings?.offTolerance ?? base.cspSettings.offTolerance,
+      shiftBalanceTolerance: value?.cspSettings?.shiftBalanceTolerance ?? base.cspSettings.shiftBalanceTolerance,
       annealing: {
         temperature: value?.cspSettings?.annealing?.temperature ?? base.cspSettings.annealing.temperature,
         coolingRate: value?.cspSettings?.annealing?.coolingRate ?? base.cspSettings.annealing.coolingRate,
