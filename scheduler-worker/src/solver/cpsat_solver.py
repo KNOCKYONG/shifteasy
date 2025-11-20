@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from datetime import date, timedelta
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -74,6 +75,7 @@ class CpSatScheduler:
     self.required_off = self._calculate_required_off_days()
     self.preflight_issues = self._run_preflight_checks()
     self._init_preference_penalties()
+    self.total_staff_capacity = 0
 
   def _build_date_range(self) -> List[date]:
     current = self.schedule.startDate
@@ -312,6 +314,7 @@ class CpSatScheduler:
             self.model.Add(sum(terms) <= pattern_length - 1)
 
   def _add_staffing_constraints(self):
+    self.total_staff_capacity = 0
     required = self.required_staff_map
     for day in self.date_range:
       day_key = day.isoformat()
@@ -326,6 +329,11 @@ class CpSatScheduler:
         if min_required is not None and eligible_count == 0:
           min_required = None
         max_allowed = self.shift_max_staff.get(upper)
+        if min_required is not None:
+          if max_allowed is None:
+            max_allowed = min_required
+          else:
+            max_allowed = max(max_allowed, min_required)
         if min_required is None and max_allowed is None:
           continue
         if min_required is not None:
@@ -335,6 +343,7 @@ class CpSatScheduler:
         if max_allowed is not None:
           constraint_vars = [self.variables[(emp.id, day_key, code)] for emp in self.schedule.employees]
           self.model.Add(sum(constraint_vars) <= max_allowed)
+          self.total_staff_capacity += max_allowed
 
   def _add_team_coverage_constraints(self):
     if not self.team_ids:
@@ -444,6 +453,12 @@ class CpSatScheduler:
         )
 
   def _add_off_day_constraints(self):
+    total_assignments = len(self.schedule.employees) * len(self.date_range)
+    off_eligible_count = sum(1 for emp in self.schedule.employees if emp.workPatternType != "weekday-only")
+    off_per_employee_hint = 0
+    if off_eligible_count > 0:
+      off_per_employee_hint = math.ceil(max(0, total_assignments - self.total_staff_capacity) / off_eligible_count)
+
     for emp in self.schedule.employees:
       off_count_var = self.model.NewIntVar(0, len(self.date_range), f"off_count_{emp.id}")
       self.off_count_vars[emp.id] = off_count_var
@@ -463,7 +478,8 @@ class CpSatScheduler:
         self.model.Add(off_count_var >= target)
       else:
         lower_bound = max(0, target - 2)
-        upper_bound = target + 2
+        upper_bound = max(target + 2, off_per_employee_hint, lower_bound)
+        upper_bound = min(upper_bound, len(self.date_range))
         self.model.Add(off_count_var >= lower_bound)
         self.model.Add(off_count_var <= upper_bound)
 

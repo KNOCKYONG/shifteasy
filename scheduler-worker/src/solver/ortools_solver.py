@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from datetime import date, timedelta
 from typing import Any, Dict, List, Tuple, Set, Optional
 
@@ -76,6 +77,7 @@ class OrToolsMilpSolver:
     self.required_off = self._calculate_required_off_days()
     self.preflight_issues = self._run_preflight_checks()
     self._init_preference_penalties()
+    self.total_staff_capacity = 0
 
   def _build_date_range(self) -> List[date]:
     current = self.schedule.startDate
@@ -315,6 +317,7 @@ class OrToolsMilpSolver:
               constraint.SetCoefficient(var, 1)
 
   def _add_staffing_constraints(self):
+    self.total_staff_capacity = 0
     required = self.required_staff_map
     for day in self.date_range:
       day_key = day.isoformat()
@@ -329,6 +332,11 @@ class OrToolsMilpSolver:
         if min_required is not None and eligible_count == 0:
           min_required = None
         max_allowed = self.shift_max_staff.get(upper)
+        if min_required is not None:
+          if max_allowed is None:
+            max_allowed = min_required
+          else:
+            max_allowed = max(max_allowed, min_required)
         if min_required is None and max_allowed is None:
           continue
         lower_bound = min_required if min_required is not None else 0
@@ -338,6 +346,8 @@ class OrToolsMilpSolver:
           constraint.SetCoefficient(self.variables[(emp.id, day_key, code)], 1)
         if min_required is not None and min_required > 0:
           self.staffing_requirements[(day_key, code)] = min_required
+        if upper_bound < self.solver.infinity():
+          self.total_staff_capacity += upper_bound
 
   def _add_team_coverage_constraints(self):
     if not self.team_ids:
@@ -478,6 +488,12 @@ class OrToolsMilpSolver:
         )
 
   def _add_off_day_constraints(self):
+    total_assignments = len(self.schedule.employees) * len(self.date_range)
+    off_eligible_count = sum(1 for emp in self.schedule.employees if emp.workPatternType != "weekday-only")
+    off_per_employee_hint = 0
+    if off_eligible_count > 0:
+      off_per_employee_hint = math.ceil(max(0, total_assignments - self.total_staff_capacity) / off_eligible_count)
+
     for emp in self.schedule.employees:
       off_count_var = self.solver.IntVar(0, len(self.date_range), f"off_count_{emp.id}")
       self.off_count_vars[emp.id] = off_count_var
@@ -497,11 +513,13 @@ class OrToolsMilpSolver:
         constraint = self.solver.RowConstraint(target, self.solver.infinity(), f"offdays_{emp.id}")
       elif emp.workPatternType == "three-shift":
         lower_bound = max(0, target - 2)
-        upper_bound = target + 2
+        upper_bound = max(target + 2, off_per_employee_hint, lower_bound)
+        upper_bound = min(upper_bound, len(self.date_range))
         constraint = self.solver.RowConstraint(lower_bound, upper_bound, f"offdays_{emp.id}")
       else:
         lower_bound = max(0, target - 2)
-        upper_bound = target + 2
+        upper_bound = max(target + 2, off_per_employee_hint, lower_bound)
+        upper_bound = min(upper_bound, len(self.date_range))
         constraint = self.solver.RowConstraint(lower_bound, upper_bound, f"offdays_{emp.id}")
       for day in self.date_range:
         day_key = day.isoformat()
