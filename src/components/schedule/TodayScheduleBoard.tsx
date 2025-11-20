@@ -86,7 +86,7 @@ export function TodayScheduleBoard({
   const usedShiftCodes = new Set(
     todayAssignments
       .map(a => a.shiftId.replace('shift-', '').toUpperCase())
-      .filter(code => code !== 'A' && code !== 'O') // Exclude administrative and off shifts
+      .filter(code => code !== 'A' && code !== 'O' && code !== 'V') // Exclude administrative, off, and vacation
   );
 
   // Get shift types for today, sorted by start time

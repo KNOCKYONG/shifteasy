@@ -770,6 +770,19 @@ export const scheduleRouter = createTRPCRouter({
         ...assignment,
         date: assignment.date instanceof Date ? assignment.date.toISOString() : assignment.date,
       }));
+      const workPatternMap = new Map<string, string>();
+      schedulerEmployees.forEach((emp) => {
+        if (emp.id) {
+          workPatternMap.set(emp.id, emp.workPatternType ?? 'three-shift');
+        }
+      });
+      const normalizedOffAccruals = (generationResult.offAccruals ?? []).map((entry) => {
+        const pattern = workPatternMap.get(entry.employeeId);
+        if (pattern === 'weekday-only') {
+          return { ...entry, actualOffDays: 0 };
+        }
+        return entry;
+      });
 
       const [schedule] = await tenantDb.insert(schedules, {
         name: input.name,
@@ -785,7 +798,7 @@ export const scheduleRouter = createTRPCRouter({
             stats: generationResult.stats,
             score: finalScore,
             violations: generationResult.violations,
-            offAccruals: generationResult.offAccruals,
+            offAccruals: normalizedOffAccruals,
             diagnostics: generationDiagnostics,
             schedulerAdvanced,
             aiEnabled: resolvedAiFlag,
@@ -821,7 +834,7 @@ export const scheduleRouter = createTRPCRouter({
           computationTime: generationResult.computationTime,
           score: finalScore,
           violations: generationResult.violations,
-          offAccruals: generationResult.offAccruals,
+          offAccruals: normalizedOffAccruals,
           stats: generationResult.stats,
           diagnostics: generationDiagnostics,
           postprocess: generationPostprocess,
