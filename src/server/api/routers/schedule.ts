@@ -22,12 +22,14 @@ import { getShiftTypes } from '@/lib/config/shiftTypes';
 import { loadCareerGroups, loadYearsOfServiceMap } from '../utils/milp-data-loader';
 import { serializeMilpCspInput } from '@/lib/scheduler/milp-csp/serializer';
 import type { MilpCspScheduleInput, MilpCspSolverOptions } from '@/lib/scheduler/milp-csp/types';
+import { DEFAULT_SCHEDULER_ADVANCED } from '@/lib/config/schedulerAdvanced';
 
 const constraintWeightsSchema = z.object({
   staffing: z.number().min(0).max(10).default(1),
   teamBalance: z.number().min(0).max(10).default(1),
   careerBalance: z.number().min(0).max(10).default(1),
   offBalance: z.number().min(0).max(10).default(1),
+  shiftPattern: z.number().min(0).max(10).default(1),
 });
 
 const cspSettingsSchema = z.object({
@@ -48,12 +50,22 @@ const multiRunSchema = z.object({
   seed: z.number().int().min(0).max(1_000_000_000).nullable().optional(),
 });
 
+const patternConstraintsSchema = z.object({
+  maxConsecutiveDaysThreeShift: z
+    .number()
+    .int()
+    .min(3)
+    .max(7)
+    .default(DEFAULT_SCHEDULER_ADVANCED.patternConstraints.maxConsecutiveDaysThreeShift),
+});
+
 const schedulerAdvancedSchema = z.object({
   useMilpEngine: z.boolean().optional(),
   solverPreference: z.enum(['auto', 'ortools', 'highs', 'cpsat']).optional(),
   constraintWeights: constraintWeightsSchema.partial().optional(),
   cspSettings: cspSettingsSchema.partial().optional(),
   multiRun: multiRunSchema.partial().optional(),
+  patternConstraints: patternConstraintsSchema.partial().optional(),
 });
 
 const mapAdvancedSettingsToSolverOptions = (
@@ -69,12 +81,18 @@ const mapAdvancedSettingsToSolverOptions = (
       teamBalance: advanced.constraintWeights.teamBalance,
       careerBalance: advanced.constraintWeights.careerBalance,
       offBalance: advanced.constraintWeights.offBalance,
+      shiftPattern: advanced.constraintWeights.shiftPattern,
     };
   }
   if (advanced.cspSettings) {
     options.cspSettings = {
       ...advanced.cspSettings,
       annealing: advanced.cspSettings.annealing,
+    };
+  }
+  if (advanced.patternConstraints) {
+    options.patternConstraints = {
+      maxConsecutiveDaysThreeShift: advanced.patternConstraints.maxConsecutiveDaysThreeShift,
     };
   }
   if (advanced.multiRun) {
@@ -260,6 +278,8 @@ type SchedulerBackendPayload = Omit<ScheduleGenerationInput, 'startDate' | 'endD
 
 const DEFAULT_JOB_TIMEOUT_MS = Number(process.env.SCHEDULER_JOB_TIMEOUT_MS ?? 120000);
 const DEFAULT_JOB_POLL_INTERVAL_MS = Number(process.env.SCHEDULER_JOB_POLL_INTERVAL_MS ?? 2000);
+const DEFAULT_MAX_CONSECUTIVE_DAYS_THREE_SHIFT =
+  DEFAULT_SCHEDULER_ADVANCED.patternConstraints.maxConsecutiveDaysThreeShift;
 const DEFAULT_REMOTE_MILP_BACKEND_URL =
   process.env.MILP_SCHEDULER_DEFAULT_URL ??
   (process.env.NODE_ENV === 'production' ? 'https://shifteasy-milp-worker.fly.dev' : undefined);
@@ -581,9 +601,24 @@ export const scheduleRouter = createTRPCRouter({
 
       const schedulerAdvanced = input.schedulerAdvanced;
 
+      const patternConstraints = schedulerAdvanced?.patternConstraints;
+      const maxConsecutiveThreeShift =
+        patternConstraints?.maxConsecutiveDaysThreeShift ?? DEFAULT_MAX_CONSECUTIVE_DAYS_THREE_SHIFT;
+
+      const schedulerEmployees = employeesWithGuarantees.map((emp) => {
+        const workPattern = emp.workPatternType ?? 'three-shift';
+        if (workPattern === 'three-shift') {
+          return {
+            ...emp,
+            maxConsecutiveDaysPreferred: maxConsecutiveThreeShift,
+          };
+        }
+        return emp;
+      });
+
       let milpInput: MilpCspScheduleInput | undefined;
       if (input.useMilpEngine) {
-        const employeeIds = employeesWithGuarantees.map((emp) => emp.id);
+        const employeeIds = schedulerEmployees.map((emp) => emp.id);
         const [careerGroups, yearsOfServiceMap] = await Promise.all([
           loadCareerGroups(tenantId, input.departmentId),
           loadYearsOfServiceMap(tenantId, employeeIds),
@@ -595,7 +630,7 @@ export const scheduleRouter = createTRPCRouter({
             departmentId: input.departmentId,
             startDate: input.startDate,
             endDate: input.endDate,
-            employees: employeesWithGuarantees,
+            employees: schedulerEmployees,
             shifts: input.shifts,
             constraints: input.constraints,
             specialRequests: input.specialRequests,
@@ -618,7 +653,7 @@ export const scheduleRouter = createTRPCRouter({
         departmentId: input.departmentId,
         startDate: input.startDate.toISOString(),
         endDate: input.endDate.toISOString(),
-        employees: employeesWithGuarantees,
+        employees: schedulerEmployees,
         shifts: input.shifts,
         constraints: input.constraints,
         specialRequests: input.specialRequests,

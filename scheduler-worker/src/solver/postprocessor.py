@@ -208,11 +208,11 @@ class SchedulePostProcessor:
   def _pick_violation(self, diagnostics: Dict[str, List[Dict[str, str]]]) -> Optional[Dict[str, Dict[str, str]]]:
     priority_order = [
       ("staffingShortages", "staffingShortage"),
+      ("shiftPatternBreaks", "shiftPatternBreak"),
       ("teamCoverageGaps", "teamCoverage"),
       ("careerGroupCoverageGaps", "careerGroup"),
       ("teamWorkloadGaps", "teamWorkload"),
       ("offBalanceGaps", "offBalance"),
-      ("shiftPatternBreaks", "shiftPatternBreak"),
       ("avoidPatternViolations", "avoidPattern"),
       ("specialRequestMisses", "specialRequest"),
     ]
@@ -265,7 +265,10 @@ class SchedulePostProcessor:
           continue
         if _normalize_shift_code(other_assignment.shiftType) == _normalize_shift_code(violation["shiftType"]):
           continue
-        candidates.append((day_key, employee_id, day_key, other_id))
+        if _normalize_shift_code(other_assignment.shiftType) in {"O", "V"}:
+          candidates.insert(0, (day_key, employee_id, day_key, other_id))
+        else:
+          candidates.append((day_key, employee_id, day_key, other_id))
     return self._apply_best_swap(candidates)
 
   def _evaluate(self, with_diagnostics: bool = False) -> Tuple[float, Optional[Dict[str, List[Dict[str, str]]]]]:
@@ -690,7 +693,7 @@ class SchedulePostProcessor:
       + 35 * len(diagnostics["teamWorkloadGaps"]) * self._weight("teamBalance")
       + 30 * len(diagnostics["specialRequestMisses"])
       + 20 * len(diagnostics["offBalanceGaps"]) * self._weight("offBalance")
-      + 10 * len(diagnostics["shiftPatternBreaks"])
+      + 10 * len(diagnostics["shiftPatternBreaks"]) * self._weight("shiftPattern")
       + 10 * len(diagnostics["avoidPatternViolations"])
     )
 

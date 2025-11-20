@@ -942,8 +942,8 @@ class OrToolsMilpSolver:
     career_group_penalty = 450 * self._weight_scalar("careerBalance", 1.0)
     career_group_balance_penalty = 600 * self._weight_scalar("careerBalance", 1.0)
     off_balance_penalty = 800 * self._weight_scalar("offBalance", 1.0)
-    shift_repeat_penalty = 350
-    rest_penalty = 500
+    shift_repeat_penalty = 350 * self._weight_scalar("shiftPattern", 1.0)
+    rest_penalty = 500 * self._weight_scalar("shiftPattern", 1.0)
     objective = self.solver.Objective()
     for (employee_id, day_key, shift_code), var in self.variables.items():
       penalty = self.preference_penalty_map.get((employee_id, day_key, shift_code.upper()), 0.0)

@@ -473,7 +473,7 @@ def build_relaxed_schedule(schedule: ScheduleInput, relax_level: int, diagnostic
   options = dict(getattr(relaxed, "options", {}) or {})
   weights = dict(options.get("constraintWeights") or {})
   decay = [0.8, 0.6, 0.4][min(relax_level, 2)]
-  for key in ("staffing", "teamBalance", "careerBalance", "offBalance"):
+  for key in ("staffing", "teamBalance", "careerBalance", "offBalance", "shiftPattern"):
     current = float(weights.get(key, 1.0))
     weights[key] = max(0.2, current * decay)
   options["constraintWeights"] = weights
@@ -637,6 +637,16 @@ def _compute_solution_penalty(diagnostics: Optional[Dict[str, Any]]) -> float:
 
 def solve_job(schedule: ScheduleInput, preferred_solver: Optional[str] = None) -> tuple[list[Assignment], Dict[str, Any]]:
   options = getattr(schedule, "options", {}) or {}
+  pattern_constraints = options.get("patternConstraints") or {}
+  try:
+    override_consecutive = int(pattern_constraints.get("maxConsecutiveDaysThreeShift", 0))
+  except (TypeError, ValueError):
+    override_consecutive = 0
+  if override_consecutive > 0:
+    for employee in schedule.employees:
+      work_pattern = getattr(employee, "workPatternType", "three-shift") or "three-shift"
+      if work_pattern == "three-shift":
+        employee.maxConsecutiveDaysPreferred = override_consecutive
   multi_run: Dict[str, Any] = options.get("multiRun") or {}
   try:
     attempts = int(multi_run.get("attempts", 1))

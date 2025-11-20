@@ -3,6 +3,7 @@ export interface ConstraintWeightsConfig {
   teamBalance: number;
   careerBalance: number;
   offBalance: number;
+  shiftPattern: number;
 }
 
 export interface CspAnnealingConfig {
@@ -33,6 +34,11 @@ export interface SchedulerAdvancedSettings {
   constraintWeights: ConstraintWeightsConfig;
   cspSettings: CspSettingsConfig;
   multiRun: MilpMultiRunConfig;
+  patternConstraints: PatternConstraintsConfig;
+}
+
+export interface PatternConstraintsConfig {
+  maxConsecutiveDaysThreeShift: number;
 }
 
 export const DEFAULT_SCHEDULER_ADVANCED: SchedulerAdvancedSettings = {
@@ -43,6 +49,7 @@ export const DEFAULT_SCHEDULER_ADVANCED: SchedulerAdvancedSettings = {
     teamBalance: 1,
     careerBalance: 1,
     offBalance: 1,
+    shiftPattern: 1,
   },
   cspSettings: {
     maxIterations: 400,
@@ -60,6 +67,9 @@ export const DEFAULT_SCHEDULER_ADVANCED: SchedulerAdvancedSettings = {
     weightJitterPct: 0,
     seed: null,
   },
+  patternConstraints: {
+    maxConsecutiveDaysThreeShift: 5,
+  },
 };
 
 export const mergeSchedulerAdvancedSettings = (
@@ -74,6 +84,7 @@ export const mergeSchedulerAdvancedSettings = (
       teamBalance: value?.constraintWeights?.teamBalance ?? base.constraintWeights.teamBalance,
       careerBalance: value?.constraintWeights?.careerBalance ?? base.constraintWeights.careerBalance,
       offBalance: value?.constraintWeights?.offBalance ?? base.constraintWeights.offBalance,
+      shiftPattern: value?.constraintWeights?.shiftPattern ?? base.constraintWeights.shiftPattern,
     },
     cspSettings: {
       maxIterations: value?.cspSettings?.maxIterations ?? base.cspSettings.maxIterations,
@@ -90,6 +101,11 @@ export const mergeSchedulerAdvancedSettings = (
       attempts: value?.multiRun?.attempts ?? base.multiRun.attempts,
       weightJitterPct: value?.multiRun?.weightJitterPct ?? base.multiRun.weightJitterPct,
       seed: typeof value?.multiRun?.seed === 'number' || value?.multiRun?.seed === null ? value?.multiRun?.seed : base.multiRun.seed,
+    },
+    patternConstraints: {
+      maxConsecutiveDaysThreeShift:
+        value?.patternConstraints?.maxConsecutiveDaysThreeShift ??
+        base.patternConstraints.maxConsecutiveDaysThreeShift,
     },
   };
 };

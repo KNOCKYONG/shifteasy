@@ -7,6 +7,7 @@ interface Member {
   id: string;
   name: string;
   position?: string;
+  workPatternType?: 'three-shift' | 'night-intensive' | 'weekday-only';
 }
 
 interface GridAssignment {
@@ -196,6 +197,8 @@ export const ScheduleGridView = React.memo(function ScheduleGridView({
                     const accumulation = offEntry?.allocatedToAccumulation ?? 0;
                     const allowance = offEntry?.allocatedToAllowance ?? 0;
                     const pendingValue = pendingFromMetadata ?? offEntry?.pendingExtraOffDays ?? 0;
+                    const isWeekdayOnly = member.workPatternType === 'weekday-only';
+                    const shouldShowPending = !isWeekdayOnly && pendingValue !== 0;
                     return (
                       <div className="text-[10px] text-center leading-tight">
                         <span className="text-red-600 dark:text-red-400">
@@ -205,7 +208,7 @@ export const ScheduleGridView = React.memo(function ScheduleGridView({
                         <span className="text-blue-600 dark:text-blue-400">
                           {allowance}일 수당
                         </span>
-                        {pendingValue !== 0 && (
+                        {shouldShowPending && (
                           pendingValue > 0 ? (
                             <div className="text-amber-600 dark:text-amber-400 mt-0.5">
                               +{pendingValue}일 예정

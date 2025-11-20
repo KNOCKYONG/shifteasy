@@ -131,6 +131,7 @@ const CONSTRAINT_WEIGHT_FIELDS: Array<{ key: keyof ConstraintWeightsConfig; labe
   { key: 'teamBalance', label: '팀 커버리지', accent: 'bg-emerald-500 dark:bg-emerald-400' },
   { key: 'careerBalance', label: '경력 그룹', accent: 'bg-indigo-500 dark:bg-indigo-400' },
   { key: 'offBalance', label: '휴무 편차', accent: 'bg-amber-500 dark:bg-amber-400' },
+  { key: 'shiftPattern', label: '연속 근무', accent: 'bg-rose-500 dark:bg-rose-400' },
 ];
 
 function ConfigPageContent() {
@@ -332,6 +333,17 @@ function ConfigPageContent() {
           typeof value === 'number'
             ? (Number.isFinite(value) ? value : current.multiRun[key])
             : value,
+      },
+    }));
+  };
+
+  const handlePatternConstraintChange = (value: number) => {
+    const clamped = Math.min(7, Math.max(3, Math.round(value)));
+    updateSchedulerAdvanced((current) => ({
+      ...current,
+      patternConstraints: {
+        ...current.patternConstraints,
+        maxConsecutiveDaysThreeShift: clamped,
       },
     }));
   };
@@ -831,6 +843,28 @@ function ConfigPageContent() {
                     </div>
                   );
                 })()}
+              </div>
+
+              <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 rounded-lg border border-gray-100 dark:border-gray-700">
+                <h4 className="text-md font-semibold text-gray-900 dark:text-gray-100 mb-2">연속 근무 제한</h4>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-4">
+                  3교대 근무자의 최대 연속 근무일을 지정합니다. 낮출수록 중간에 OFF가 더 자주 들어가고, 늘리면 긴 연속 근무를 허용합니다.
+                </p>
+                <SliderField
+                  label="3교대 최대 연속 근무일"
+                  min={3}
+                  max={7}
+                  step={1}
+                  value={schedulerAdvanced.patternConstraints.maxConsecutiveDaysThreeShift}
+                  suffix="일"
+                  helpText="3~7일 사이에서 선택할 수 있습니다."
+                  warning={
+                    schedulerAdvanced.patternConstraints.maxConsecutiveDaysThreeShift >= 7
+                      ? '연속 근무 허용치가 높으면 휴무 배치가 어려워질 수 있습니다.'
+                      : undefined
+                  }
+                  onChange={handlePatternConstraintChange}
+                />
               </div>
 
               <div>

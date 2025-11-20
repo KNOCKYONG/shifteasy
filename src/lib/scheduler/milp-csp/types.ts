@@ -68,12 +68,17 @@ export interface MilpConstraintWeights {
   teamBalance?: number;
   careerBalance?: number;
   offBalance?: number;
+  shiftPattern?: number;
 }
 
 export interface MilpMultiRunOptions {
   attempts?: number;
   weightJitterPct?: number;
   seed?: number | null;
+}
+
+export interface MilpPatternConstraintOptions {
+  maxConsecutiveDaysThreeShift?: number;
 }
 
 export interface MilpCspSettingsOptions {
@@ -98,6 +103,7 @@ export interface MilpCspSolverOptions {
   constraintWeights?: MilpConstraintWeights;
   cspSettings?: MilpCspSettingsOptions;
   multiRun?: MilpMultiRunOptions;
+  patternConstraints?: MilpPatternConstraintOptions;
 }
 
 export interface MilpCspScheduleInput {

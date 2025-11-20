@@ -500,6 +500,7 @@ function SchedulePageContent() {
       teamBalance: Math.max(0.3, merged.constraintWeights.teamBalance * 0.7),
       careerBalance: Math.max(0.3, merged.constraintWeights.careerBalance * 0.7),
       offBalance: Math.max(0.3, merged.constraintWeights.offBalance * 0.7),
+      shiftPattern: Math.max(0.3, merged.constraintWeights.shiftPattern * 0.7),
     };
     adjustments.push('constraintWeights: 30% 감소 적용');
     merged.cspSettings = {
