@@ -783,7 +783,7 @@ export const scheduleRouter = createTRPCRouter({
           return {
             ...entry,
             actualOffDays: 0,
-            extraOffDays: resolvedGenerationMethod === 'milp-engine' ? 0 : entry.extraOffDays,
+            extraOffDays: 0,
           };
         }
         return entry;
