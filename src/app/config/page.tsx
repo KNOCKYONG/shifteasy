@@ -396,10 +396,10 @@ function ConfigPageContent() {
           departmentId: managedDepartmentId ?? undefined,
         }),
       ]);
-      alert('나이트 집중 근무 설정이 저장되었습니다.');
+      alert('고급 설정이 저장되었습니다.');
     } catch (error) {
       console.error('Failed to save preference config:', error);
-      alert('나이트 집중 근무 설정 저장 중 오류가 발생했습니다.');
+      alert('고급 설정 저장 중 오류가 발생했습니다.');
     } finally {
       setIsSavingNightPreference(false);
     }
