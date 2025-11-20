@@ -780,7 +780,11 @@ export const scheduleRouter = createTRPCRouter({
       const normalizedOffAccruals = (generationResult.offAccruals ?? []).map((entry) => {
         const pattern = workPatternMap.get(entry.employeeId);
         if (pattern === 'weekday-only') {
-          return { ...entry, actualOffDays: 0 };
+          return {
+            ...entry,
+            actualOffDays: 0,
+            extraOffDays: resolvedGenerationMethod === 'milp-engine' ? 0 : entry.extraOffDays,
+          };
         }
         return entry;
       });
