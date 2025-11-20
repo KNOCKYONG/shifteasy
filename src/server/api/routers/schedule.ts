@@ -13,6 +13,7 @@ import type {
   ScheduleScore,
   OffAccrualSummary,
   PostprocessStats,
+  GenerationDiagnostics,
 } from '@/lib/types/scheduler';
 import { sse } from '@/lib/sse/broadcaster';
 import { notificationService } from '@/lib/notifications/notification-service';
@@ -49,7 +50,7 @@ const multiRunSchema = z.object({
 
 const schedulerAdvancedSchema = z.object({
   useMilpEngine: z.boolean().optional(),
-  solverPreference: z.enum(['auto', 'ortools', 'highs']).optional(),
+  solverPreference: z.enum(['auto', 'ortools', 'highs', 'cpsat']).optional(),
   constraintWeights: constraintWeightsSchema.partial().optional(),
   cspSettings: cspSettingsSchema.partial().optional(),
   multiRun: multiRunSchema.partial().optional(),
@@ -85,6 +86,8 @@ const mapAdvancedSettingsToSolverOptions = (
   }
   return options;
 };
+
+type SchedulerJobError = Error & { diagnostics?: GenerationDiagnostics | Record<string, unknown> };
 
 export const scheduleGenerationInputSchema = z.object({
   name: z.string().default('AI Generated Schedule'),
@@ -241,6 +244,7 @@ interface SchedulerBackendJobStatusResponse {
   status: 'queued' | 'processing' | 'completed' | 'failed';
   result?: SchedulerBackendResult | null;
   error?: string | null;
+  errorDiagnostics?: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -251,7 +255,7 @@ type SchedulerBackendPayload = Omit<ScheduleGenerationInput, 'startDate' | 'endD
   previousOffAccruals: Record<string, number>;
   milpInput?: MilpCspScheduleInput;
   schedulerAdvanced?: z.infer<typeof schedulerAdvancedSchema>;
-  solver?: 'auto' | 'ortools' | 'highs';
+  solver?: 'auto' | 'ortools' | 'highs' | 'cpsat';
 };
 
 const DEFAULT_JOB_TIMEOUT_MS = Number(process.env.SCHEDULER_JOB_TIMEOUT_MS ?? 120000);
@@ -308,7 +312,11 @@ async function runSchedulerJob(baseUrl: string, payload: SchedulerBackendPayload
       return jobStatus.result;
     }
     if (jobStatus.status === 'failed') {
-      throw new Error(jobStatus.error ?? 'Scheduler job failed');
+      const err: SchedulerJobError = new Error(jobStatus.error ?? 'Scheduler job failed');
+      if (jobStatus.errorDiagnostics) {
+        err.diagnostics = jobStatus.errorDiagnostics as GenerationDiagnostics;
+      }
+      throw err;
     }
 
     await sleep(DEFAULT_JOB_POLL_INTERVAL_MS);
@@ -599,38 +607,47 @@ export const scheduleRouter = createTRPCRouter({
 
       const enableAIFlag = input.useMilpEngine ? false : input.enableAI;
 
-      const backendResult = await requestScheduleGenerationFromBackend({
-        name: input.name,
-        departmentId: input.departmentId,
-        startDate: input.startDate.toISOString(),
-        endDate: input.endDate.toISOString(),
-        employees: employeesWithGuarantees,
-        shifts: input.shifts,
-        constraints: input.constraints,
-        specialRequests: input.specialRequests,
-        holidays: input.holidays,
-        teamPattern: input.teamPattern ?? null,
-        requiredStaffPerShift: input.requiredStaffPerShift,
-        optimizationGoal: input.optimizationGoal,
-        nightIntensivePaidLeaveDays: input.nightIntensivePaidLeaveDays,
-        enableAI: enableAIFlag,
-        useMilpEngine: input.useMilpEngine,
-        previousOffAccruals,
-        milpInput,
-        schedulerAdvanced,
-        solver: schedulerAdvanced?.solverPreference ?? 'auto',
-      }, { useMilpBackend: input.useMilpEngine });
+      let backendResult: SchedulerBackendResult;
+      try {
+        backendResult = await requestScheduleGenerationFromBackend({
+          name: input.name,
+          departmentId: input.departmentId,
+          startDate: input.startDate.toISOString(),
+          endDate: input.endDate.toISOString(),
+          employees: employeesWithGuarantees,
+          shifts: input.shifts,
+          constraints: input.constraints,
+          specialRequests: input.specialRequests,
+          holidays: input.holidays,
+          teamPattern: input.teamPattern ?? null,
+          requiredStaffPerShift: input.requiredStaffPerShift,
+          optimizationGoal: input.optimizationGoal,
+          nightIntensivePaidLeaveDays: input.nightIntensivePaidLeaveDays,
+          enableAI: enableAIFlag,
+          useMilpEngine: input.useMilpEngine,
+          previousOffAccruals,
+          milpInput,
+          schedulerAdvanced,
+          solver: schedulerAdvanced?.solverPreference ?? 'auto',
+        }, { useMilpBackend: input.useMilpEngine });
+      } catch (error) {
+        const diagnostics = (error as SchedulerJobError).diagnostics;
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error instanceof Error ? error.message : 'Scheduler backend failed',
+          cause: diagnostics || error,
+        });
+      }
 
       const finalAssignments = backendResult.assignments.map((assignment) => ({
         ...assignment,
         date: new Date(assignment.date),
       }));
       const generationResult = backendResult.generationResult;
-      const finalScore = generationResult.score;
-      const aiPolishResult = backendResult.aiPolishResult;
       const generationDiagnostics = generationResult.diagnostics ?? {};
       const generationPostprocess = generationResult.postprocess ?? generationDiagnostics.postprocess;
-
+      const finalScore = generationResult.score;
+      const aiPolishResult = backendResult.aiPolishResult;
       const serializedAssignments = finalAssignments.map((assignment) => ({
         ...assignment,
         date: assignment.date instanceof Date ? assignment.date.toISOString() : assignment.date,

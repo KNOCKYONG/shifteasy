@@ -23,7 +23,8 @@
 		"db:cleanup-profile": "tsx scripts/cleanup-user-profile.ts",
 		"import:users": "tsx scripts/import-users-from-roster.ts --dir ./roster_src --tenant dev-org-id --department \"테스트부서\" --deptCode TEST",
 		"fix:missing-user": "tsx scripts/fix-missing-user.ts",
-		"test:milp": "tsx tests/milp-csp/run-harness.ts"
+		"test:milp": "tsx tests/milp-csp/run-harness.ts",
+		"test:milp:all": "tsx tests/milp-csp/run-all.ts"
 	},
 	"dependencies": {
 		"@aws-sdk/client-s3": "^3.932.0",
@@ -80,6 +81,7 @@
 		"superjson": "^2.2.2",
 		"tailwindcss": "^3.4.17",
 		"tsx": "^4.20.5",
+		"p-limit": "^4.0.0",
 		"zod": "^4.1.8"
 	},
 	"devDependencies": {

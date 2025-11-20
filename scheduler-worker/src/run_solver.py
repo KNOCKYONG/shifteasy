@@ -10,6 +10,8 @@ if str(CURRENT_DIR) not in sys.path:
 from models import Assignment, parse_schedule_input
 from solver.ortools_solver import solve_with_ortools
 from solver.highs_solver import solve_with_highs
+from solver.cpsat_solver import solve_with_cpsat
+from solver.exceptions import SolverFailure
 
 
 def load_input(path: Path):
@@ -42,12 +44,26 @@ def main():
   schedule = parse_schedule_input(payload)
 
   solver_choice = os.environ.get("MILP_SOLVER", "ortools").lower()
-  if solver_choice == "highs":
-    solver_fn = solve_with_highs
-  else:
-    solver_fn = solve_with_ortools
-
-  assignments, diagnostics = solver_fn(schedule)
+  assignments: list[Assignment]
+  diagnostics: dict
+  try:
+    if solver_choice == "highs":
+      solver_fn = solve_with_highs
+      assignments, diagnostics = solver_fn(schedule)
+    elif solver_choice == "cpsat":
+      assignments, diagnostics = solve_with_cpsat(schedule)
+    elif solver_choice == "auto":
+      try:
+        assignments, diagnostics = solve_with_ortools(schedule)
+      except Exception:
+        assignments, diagnostics = solve_with_cpsat(schedule)
+    else:
+      assignments, diagnostics = solve_with_ortools(schedule)
+  except SolverFailure as exc:
+    print(f"[MILP] Solver failed: {exc}")
+    if getattr(exc, "diagnostics", None):
+      print(json.dumps({"diagnostics": exc.diagnostics}, ensure_ascii=False, indent=2))
+    raise
   output = assignments_to_json(assignments)
 
   with output_path.open("w", encoding="utf-8") as f:

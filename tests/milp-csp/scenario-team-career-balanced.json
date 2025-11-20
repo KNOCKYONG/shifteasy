@@ -1,0 +1,59 @@
+{
+  "description": "7일, 팀/경력 그룹 커버리지와 최소 인원 동시 검증",
+  "scheduleInput": {
+    "name": "Team Career Balanced",
+    "departmentId": "dept-test",
+    "startDate": "2025-03-01",
+    "endDate": "2025-03-07",
+    "employees": [
+      { "id": "emp-a-jr", "name": "Alice JR", "role": "RN", "teamId": "team-a", "workPatternType": "three-shift" },
+      { "id": "emp-a-md", "name": "Allan MD", "role": "RN", "teamId": "team-a", "workPatternType": "three-shift" },
+      { "id": "emp-b-jr", "name": "Bella JR", "role": "RN", "teamId": "team-b", "workPatternType": "three-shift" },
+      { "id": "emp-b-md", "name": "Ben MD", "role": "RN", "teamId": "team-b", "workPatternType": "three-shift" },
+      { "id": "emp-flex-1", "name": "Chloe Flex", "role": "RN", "teamId": "team-a", "workPatternType": "three-shift" },
+      { "id": "emp-flex-2", "name": "Dylan Flex", "role": "RN", "teamId": "team-b", "workPatternType": "three-shift" }
+    ],
+    "shifts": [
+      { "id": "shift-day", "code": "D", "type": "day", "name": "Day", "time": { "start": "08:00", "end": "16:00", "hours": 8 }, "color": "#F59E0B", "requiredStaff": 2 },
+      { "id": "shift-evening", "code": "E", "type": "evening", "name": "Evening", "time": { "start": "16:00", "end": "00:00", "hours": 8 }, "color": "#10B981", "requiredStaff": 2 },
+      { "id": "shift-night", "code": "N", "type": "night", "name": "Night", "time": { "start": "00:00", "end": "08:00", "hours": 8 }, "color": "#6366F1", "requiredStaff": 1 },
+      { "id": "shift-off", "code": "O", "type": "off", "name": "Off", "time": { "start": "00:00", "end": "00:00", "hours": 0 }, "color": "#94A3B8", "requiredStaff": 0 }
+    ],
+    "specialRequests": [],
+    "holidays": [
+      { "date": "2025-03-02", "name": "Sunday" }
+    ],
+    "teamPattern": null,
+    "requiredStaffPerShift": { "D": 2, "E": 2, "N": 1 },
+    "nightIntensivePaidLeaveDays": 0
+  },
+  "careerGroupsConfig": [
+    { "code": "JR", "name": "Junior", "minYears": 0, "maxYears": 2 },
+    { "code": "MD", "name": "Mid", "minYears": 3, "maxYears": 5 }
+  ],
+  "yearsOfService": {
+    "emp-a-jr": 1,
+    "emp-a-md": 4,
+    "emp-b-jr": 2,
+    "emp-b-md": 3,
+    "emp-flex-1": 1,
+    "emp-flex-2": 4
+  },
+  "validationRules": {
+    "requiredStaffShifts": ["D", "E", "N"],
+    "teamCoverage": {
+      "shifts": ["D", "E"],
+      "teams": ["team-a", "team-b"]
+    },
+    "careerGroupCoverage": {
+      "shifts": ["D", "E"],
+      "groups": ["JR", "MD"],
+      "tolerance": 1
+    },
+    "nightIntensiveOnlyNO": false,
+    "weekdayOnlyPattern": {
+      "weekdayShift": "D",
+      "weekendShift": "O"
+    }
+  }
+}

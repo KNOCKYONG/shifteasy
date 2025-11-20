@@ -10,7 +10,14 @@ import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterv
 import { Download, Upload, Lock, Wand2, RefreshCcw, FileText, Heart, MoreVertical, Settings, FolderOpen, Save, Loader2, Sparkles, TrendingUp, Pencil, Check, X } from "lucide-react";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { api } from "../../lib/trpc/client";
-import { type Employee, type Constraint, type ScheduleAssignment, type SchedulingResult, type OffAccrualSummary } from "@/lib/types/scheduler";
+import {
+  type Employee,
+  type Constraint,
+  type ScheduleAssignment,
+  type SchedulingResult,
+  type OffAccrualSummary,
+  type GenerationDiagnostics,
+} from "@/lib/types/scheduler";
 import type { Assignment } from "@/types/schedule";
 import { EmployeeAdapter } from "../../lib/adapters/employee-adapter";
 import type { UnifiedEmployee } from "@/lib/types/unified-employee";
@@ -52,6 +59,7 @@ import { LottieLoadingOverlay } from "@/components/common/LottieLoadingOverlay";
 import type { SSEEvent } from "@/lib/sse/events";
 import {
   SchedulerAdvancedSettings,
+  DEFAULT_SCHEDULER_ADVANCED,
   mergeSchedulerAdvancedSettings,
 } from "@/lib/config/schedulerAdvanced";
 // import { useSSEContext } from "@/providers/SSEProvider";
@@ -312,6 +320,7 @@ function SchedulePageContent() {
   // SSE context available but not currently used in this component
   // const { isConnected: isSSEConnected, reconnectAttempt } = useSSEContext();
   const generateScheduleMutation = api.schedule.generate.useMutation();
+  type GenerateScheduleInput = Parameters<typeof generateScheduleMutation.mutateAsync>[0];
   const deleteMutation = api.schedule.delete.useMutation();
 
   // 🆕 스케줄 개선 mutation
@@ -370,6 +379,21 @@ function SchedulePageContent() {
     'AI가 스케줄을 마무리하고 있어요...',
   ];
   const [generationResult, setGenerationResult] = useState<SchedulingResult | null>(null);
+  type FailureDiagnostics = GenerationDiagnostics & {
+    preflightIssues?: Array<{ type?: string; shiftTypeCode?: string; available?: number; [key: string]: unknown }>;
+    guidance?: string[] | Record<string, string[]>;
+    autoAdjustments?: string[];
+    [key: string]: unknown;
+  };
+  const [generationError, setGenerationError] = useState<{ message: string; guidance?: string[]; diagnostics?: FailureDiagnostics } | null>(null);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
+  const [showErrorConstraints, setShowErrorConstraints] = useState(false);
+  const [autoAdjusted, setAutoAdjusted] = useState(false);
+  const [autoAdjustmentDetails, setAutoAdjustmentDetails] = useState<string[]>([]);
+  const [showAutoAdjustModal, setShowAutoAdjustModal] = useState(false);
+  const [preflightWarnings, setPreflightWarnings] = useState<string[]>([]);
+  const lastPayloadRef = useRef<GenerateScheduleInput | null>(null);
+  const lastDiagnosticsRef = useRef<FailureDiagnostics | null>(null);
   const [offAccrualSummaries, setOffAccrualSummaries] = useState<OffAccrualSummary[]>([]);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isPreparingConfirmation, setIsPreparingConfirmation] = useState(false);
@@ -416,6 +440,83 @@ function SchedulePageContent() {
   const [isImproving, setIsImproving] = useState(false);
   const [improvementReport, setImprovementReport] = useState<ImprovementReport | null>(null);
   const [showImprovementModal, setShowImprovementModal] = useState(false);
+  const extractErrorInfo = (error: unknown) => {
+    const asObj = error as { cause?: unknown; data?: { cause?: unknown }; diagnostics?: unknown };
+    const diagFromCause = (asObj.cause as { diagnostics?: FailureDiagnostics })?.diagnostics as FailureDiagnostics | undefined;
+    const diagFromData = (asObj.data?.cause as { diagnostics?: FailureDiagnostics })?.diagnostics as FailureDiagnostics | undefined;
+    const diagFromDirect = asObj.diagnostics as FailureDiagnostics | undefined;
+    const diagnostics: FailureDiagnostics | undefined =
+      diagFromCause || diagFromData || diagFromDirect || (asObj.cause as FailureDiagnostics) || (asObj as FailureDiagnostics);
+    const guidance = diagnostics?.guidance;
+    return {
+      message: error instanceof Error ? error.message : '스케줄 생성 중 오류가 발생했습니다.',
+      guidance: Array.isArray(guidance) ? guidance : undefined,
+      diagnostics,
+    };
+  };
+
+  const clonePayload = (payload: GenerateScheduleInput) => {
+    if (typeof structuredClone === 'function') {
+      return structuredClone(payload);
+    }
+    return JSON.parse(JSON.stringify(payload)) as GenerateScheduleInput;
+  };
+
+  const buildAutoAdjustedPayload = (payload: GenerateScheduleInput, diagnostics: FailureDiagnostics | null) => {
+    const next = clonePayload(payload);
+    const adjustments: string[] = [];
+    const shortages =
+      diagnostics?.staffingShortages ||
+      (diagnostics?.preflightIssues || []).filter((i) => i?.type === 'insufficientPotentialStaff');
+    const requiredMap: Record<string, number> = {
+      ...((next as { requiredStaffPerShift?: Record<string, number> }).requiredStaffPerShift || {}),
+    };
+    (shortages || []).forEach((s) => {
+      let rawCode = '';
+      if (typeof s.shiftType === 'string') {
+        rawCode = s.shiftType;
+      } else if (typeof (s as { shiftTypeCode?: unknown }).shiftTypeCode === 'string') {
+        rawCode = (s as { shiftTypeCode?: string }).shiftTypeCode ?? '';
+      }
+      const code = rawCode.toUpperCase();
+      if (!code) return;
+      const current = requiredMap[code] ?? 0;
+      const available = (s as { available?: number }).available;
+      if (typeof available === 'number') {
+        requiredMap[code] = Math.max(0, Math.min(current, available));
+        adjustments.push(`requiredStaffPerShift[${code}]: ${current} → ${requiredMap[code]} (가능 인원=${available})`);
+      } else {
+        requiredMap[code] = Math.max(0, current - 1);
+        adjustments.push(`requiredStaffPerShift[${code}]: ${current} → ${requiredMap[code]} (자동 -1)`);
+      }
+    });
+    (next as { requiredStaffPerShift?: Record<string, number> }).requiredStaffPerShift = requiredMap;
+
+    const merged = mergeSchedulerAdvancedSettings(
+      (next as { schedulerAdvanced?: SchedulerAdvancedSettings }).schedulerAdvanced || DEFAULT_SCHEDULER_ADVANCED
+    );
+    merged.constraintWeights = {
+      staffing: Math.max(0.3, merged.constraintWeights.staffing * 0.7),
+      teamBalance: Math.max(0.3, merged.constraintWeights.teamBalance * 0.7),
+      careerBalance: Math.max(0.3, merged.constraintWeights.careerBalance * 0.7),
+      offBalance: Math.max(0.3, merged.constraintWeights.offBalance * 0.7),
+    };
+    adjustments.push('constraintWeights: 30% 감소 적용');
+    merged.cspSettings = {
+      ...merged.cspSettings,
+      offTolerance: (merged.cspSettings.offTolerance || 2) + 1,
+      maxSameShift: (merged.cspSettings.maxSameShift || 2) + 1,
+      timeLimitMs: Math.round((merged.cspSettings.timeLimitMs || 4000) * 1.5),
+    };
+    adjustments.push(
+      `cspSettings.offTolerance: ${(merged.cspSettings.offTolerance || 0) - 1} → ${merged.cspSettings.offTolerance}`,
+      `cspSettings.maxSameShift: ${(merged.cspSettings.maxSameShift || 0) - 1} → ${merged.cspSettings.maxSameShift}`,
+      `cspSettings.timeLimitMs: ~${Math.round((merged.cspSettings.timeLimitMs || 0) / 1.5)} → ${merged.cspSettings.timeLimitMs}`
+    );
+    (next as { schedulerAdvanced?: SchedulerAdvancedSettings }).schedulerAdvanced = merged;
+    (next as { useMilpEngine?: boolean }).useMilpEngine = true;
+    return { payload: next, adjustments };
+  };
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -922,8 +1023,7 @@ function SchedulePageContent() {
         employeeId: assignment.employeeId,
         shiftId: assignment.shiftId,
         date: toUTCDateISOString(assignment.date),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        isLocked: (assignment as any).isLocked ?? false,
+        isLocked: (assignment as { isLocked?: boolean }).isLocked ?? false,
         shiftType: deriveShiftTypeFromId(assignment.shiftId),
       })),
       status: 'draft' as const,
@@ -2288,98 +2388,68 @@ function SchedulePageContent() {
         schedulerAdvanced: schedulerAdvancedSettings,
       };
 
-      const result = await generateScheduleMutation.mutateAsync(payload);
-      const normalizedAssignments: ScheduleAssignment[] = result.assignments.map((assignment: DbAssignment) => ({
-        ...assignment,
-        date: new Date(assignment.date),
-        id: assignment.id || `${assignment.employeeId}-${assignment.date}`,
-        isLocked: assignment.isLocked || false,
-      }));
-
-      // AI Polish 결과 처리
-      if (result.aiPolishResult?.improved) {
-        // AI Polish improvements notification
-        console.log(`✨ AI가 ${result.aiPolishResult.improvements.length}개 이슈를 자동 해결했습니다!`);
-        console.log('AI Polish improvements:',
-          result.aiPolishResult.improvements
-            .slice(0, 2)
-            .map((imp: { description: string }) => `• ${imp.description}`)
-            .join('\n')
-        );
-        console.log('[AI Polish] Score improvement:', {
-          before: result.aiPolishResult.beforeScore,
-          after: result.aiPolishResult.afterScore,
-          delta: result.aiPolishResult.afterScore - result.aiPolishResult.beforeScore,
+      // 사전 경고: 인원 부족/커버리지 불가 등 간단한 체크
+      const warnings: string[] = [];
+      const required = payload.requiredStaffPerShift || {};
+      const employeesByShift = new Map<string, number>();
+      generationShiftTypes.forEach((sh) => {
+        const code = (sh.code || sh.name || '').toUpperCase();
+        employeesByShift.set(code, 0);
+      });
+      employees.forEach(() => {
+        // allow all non-off (rough check)
+        Object.keys(required).forEach((code) => {
+          employeesByShift.set(code.toUpperCase(), (employeesByShift.get(code.toUpperCase()) || 0) + 1);
         });
-      }
-
-      setSchedule(normalizedAssignments);
-      setOriginalSchedule(normalizedAssignments);
-      setIsConfirmed(false);
-      setLoadedScheduleId(result.scheduleId);
-      setIsAiGenerated(!useMilpEngine && aiEnabled && isProfessionalPlan); // Mark schedule as AI-generated
-      if (result.generationResult) {
-        setGenerationResult({
-          success: true,
-          schedule: undefined,
-          violations: result.generationResult.violations,
-          score: result.generationResult.score,
-          iterations: result.generationResult.iterations ?? 0,
-          computationTime: result.generationResult.computationTime,
-          offAccruals: result.generationResult.offAccruals,
-          diagnostics: result.generationResult.diagnostics,
-          stats: result.generationResult.stats,
-          postprocess: result.generationResult.postprocess,
-        });
-        setOffAccrualSummaries(result.generationResult.offAccruals ?? []);
-      } else {
-        setGenerationResult(null);
-        setOffAccrualSummaries([]);
-      }
-
-      // AI로 생성한 경우 자동 저장
-      if (aiEnabled && isProfessionalPlan) {
-        try {
-          const saveDraftResponse = await fetchWithAuth('/api/schedule/save-draft', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              schedule: {
-                departmentId: inferredDepartmentId,
-                startDate: format(monthStart, 'yyyy-MM-dd'),
-                endDate: format(monthEnd, 'yyyy-MM-dd'),
-                assignments: normalizedAssignments.map(a => ({
-                  employeeId: a.employeeId,
-                  shiftId: a.shiftId,
-                  date: format(a.date, 'yyyy-MM-dd'),
-                  isLocked: a.isLocked,
-                  shiftType: a.shiftType,
-                })),
-              },
-              name: `AI 생성 - ${format(monthStart, 'yyyy년 MM월')}`,
-              metadata: {
-                aiGenerated: true,
-                generatedAt: new Date().toISOString(),
-              },
-            }),
-          });
-
-          if (saveDraftResponse.ok) {
-            const saveData = await saveDraftResponse.json();
-            console.log('AI 생성 스케줄 자동 저장 완료:', saveData);
-            // 스케줄 목록 갱신
-            await utils.schedule.invalidate();
-          }
-        } catch (saveError) {
-          console.error('자동 저장 실패:', saveError);
-          // 저장 실패해도 스케줄 생성은 성공했으므로 에러를 무시
+      });
+      Object.entries(required).forEach(([code, min]) => {
+        const avail = employeesByShift.get(code.toUpperCase()) || 0;
+        if (min > avail) {
+          warnings.push(`시프트 ${code}: 필요 ${min}명 > 잠재 배치 ${avail}명`);
         }
+      });
+      const teamIds = Array.from(new Set(employees.map((emp) => emp.teamId).filter(Boolean))) as string[];
+      teamIds.forEach((teamId) => {
+        const teamCount = employees.filter((emp) => emp.teamId === teamId).length;
+        if (teamCount === 0) {
+          warnings.push(`팀 ${teamId} 배치 가능 인원 0명 → 커버리지 불가`);
+        }
+      });
+      const careerIds = Array.from(
+        new Set(employees.map((emp) => (emp as { careerGroupAlias?: string | null }).careerGroupAlias).filter(Boolean))
+      ) as string[];
+      Object.entries(required).forEach(([code, min]) => {
+        if (min <= 0) return;
+        careerIds.forEach((alias) => {
+          const count = employees.filter((emp) => (emp as { careerGroupAlias?: string | null }).careerGroupAlias === alias).length;
+          if (count === 0) {
+            warnings.push(`경력그룹 ${alias} 인원 0명 → 시프트 ${code} 커버리지 불가`);
+          }
+        });
+      });
+      if (warnings.length > 0) {
+        setPreflightWarnings(warnings);
+      } else {
+        setPreflightWarnings([]);
       }
+
+      lastPayloadRef.current = payload;
+      const result = await generateScheduleMutation.mutateAsync(payload);
+      lastDiagnosticsRef.current = null;
+      setGenerationError(null);
+      const normalizedResult = {
+        ...result,
+        generationResult: { success: true, ...result.generationResult },
+      };
+      await handleGenerationSuccess(normalizedResult, useMilpEngine, aiEnabled, inferredDepartmentId, monthStart, monthEnd);
     } catch (error) {
       console.error('AI schedule generation failed:', error);
-      alert('스케줄 생성 중 오류가 발생했습니다. 다시 시도해주세요.');
+      const info = extractErrorInfo(error);
+      setGenerationError(info);
+      setGenerationResult(null);
+      setOffAccrualSummaries([]);
+      lastDiagnosticsRef.current = info.diagnostics;
+      alert('스케줄 생성 중 오류가 발생했습니다. 아래 안내를 확인하세요.');
     } finally {
       setIsGenerating(false);
     }
@@ -2393,7 +2463,129 @@ function SchedulePageContent() {
     await generateScheduleInternal(shiftRequirements, true);
   };
 
+  const handleAutoAdjustAndRetry = async () => {
+    if (!lastPayloadRef.current) {
+      alert('이전 생성 시도가 없습니다. 다시 생성해 주세요.');
+      return;
+    }
+    const { payload: adjustedPayload, adjustments } = buildAutoAdjustedPayload(lastPayloadRef.current, lastDiagnosticsRef.current);
+    setIsGenerating(true);
+    setGenerationError(null);
+    try {
+      const result = await generateScheduleMutation.mutateAsync(adjustedPayload);
+      lastPayloadRef.current = adjustedPayload;
+      lastDiagnosticsRef.current = null;
+      const normalizedResult = {
+        ...result,
+        generationResult: { success: true, ...result.generationResult },
+      };
+      await handleGenerationSuccess(
+        normalizedResult,
+        adjustedPayload.useMilpEngine ?? false,
+        adjustedPayload.enableAI ?? false,
+        adjustedPayload.departmentId,
+        adjustedPayload.startDate,
+        adjustedPayload.endDate,
+        adjustments
+      );
+    } catch (error) {
+      const info = extractErrorInfo(error);
+      setGenerationError(info);
+      lastDiagnosticsRef.current = info.diagnostics;
+      console.error('Auto-adjust retry failed:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   // 🆕 스케줄 개선 핸들러
+  const handleGenerationSuccess = async (
+    result: { scheduleId: string; assignments: DbAssignment[]; generationResult: SchedulingResult; aiPolishResult: unknown },
+    useMilpEngine: boolean,
+    aiEnabledFlag: boolean,
+    inferredDepartmentId: string,
+    monthStartDate: Date,
+    monthEndDate: Date,
+    autoAdjustments: string[] = [],
+  ) => {
+    const normalizedAssignments: ScheduleAssignment[] = result.assignments.map((assignment: DbAssignment) => ({
+      ...assignment,
+      date: new Date(assignment.date),
+      id: assignment.id || `${assignment.employeeId}-${assignment.date}`,
+      isLocked: assignment.isLocked || false,
+    }));
+
+    setSchedule(normalizedAssignments);
+    setOriginalSchedule(normalizedAssignments);
+    setIsConfirmed(false);
+    setLoadedScheduleId(result.scheduleId);
+    const effectiveAutoAdjustments =
+      autoAdjustments.length > 0 ? autoAdjustments : result.generationResult.diagnostics?.autoAdjustments || [];
+
+    setIsAiGenerated(!useMilpEngine && aiEnabledFlag && isProfessionalPlan);
+    setAutoAdjusted(effectiveAutoAdjustments.length > 0);
+    setAutoAdjustmentDetails(effectiveAutoAdjustments);
+    if (result.generationResult) {
+      setGenerationResult({
+        success: true,
+        schedule: undefined,
+        violations: result.generationResult.violations,
+        score: result.generationResult.score,
+        iterations: result.generationResult.iterations ?? 0,
+        computationTime: result.generationResult.computationTime,
+        offAccruals: result.generationResult.offAccruals,
+        diagnostics: {
+          ...result.generationResult.diagnostics,
+          autoAdjustments: effectiveAutoAdjustments,
+        },
+        stats: result.generationResult.stats,
+        postprocess: result.generationResult.postprocess,
+      });
+      setOffAccrualSummaries(result.generationResult.offAccruals ?? []);
+    } else {
+      setGenerationResult(null);
+      setOffAccrualSummaries([]);
+    }
+
+    if (aiEnabledFlag && isProfessionalPlan) {
+      try {
+        const saveDraftResponse = await fetchWithAuth('/api/schedule/save-draft', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            schedule: {
+              departmentId: inferredDepartmentId,
+              startDate: format(monthStartDate, 'yyyy-MM-dd'),
+              endDate: format(monthEndDate, 'yyyy-MM-dd'),
+              assignments: normalizedAssignments.map(a => ({
+                employeeId: a.employeeId,
+                shiftId: a.shiftId,
+                date: format(a.date, 'yyyy-MM-dd'),
+                isLocked: a.isLocked,
+                shiftType: a.shiftType,
+              })),
+            },
+            name: `AI 생성 - ${format(monthStartDate, 'yyyy년 MM월')}`,
+            metadata: {
+              aiGenerated: true,
+              generatedAt: new Date().toISOString(),
+            },
+          }),
+        });
+
+        if (saveDraftResponse.ok) {
+          const saveData = await saveDraftResponse.json();
+          console.log('AI 생성 스케줄 자동 저장 완료:', saveData);
+          await utils.schedule.invalidate();
+        }
+      } catch (saveError) {
+        console.error('자동 저장 실패:', saveError);
+      }
+    }
+  };
+
   const handleImproveSchedule = async () => {
     if (!canManageSchedules) {
       alert('스케줄 개선 권한이 없습니다.');
@@ -2902,6 +3094,139 @@ function SchedulePageContent() {
 
   return (
     <MainLayout>
+        {generationError && (
+          <div className="mb-4 sm:mb-6 rounded-lg border border-red-200 bg-red-50 text-sm text-red-800 dark:border-red-700/70 dark:bg-red-950/30 dark:text-red-100">
+            <div className="font-semibold">스케줄 생성 실패: {generationError.message}</div>
+            <div className="mt-1 text-xs text-red-700 dark:text-red-200">
+              제약을 완화하거나 설정을 조정한 뒤 다시 시도하세요.
+            </div>
+            {generationError.guidance && generationError.guidance.length > 0 && (
+              <ul className="mt-2 space-y-1 list-disc list-inside">
+                {generationError.guidance.map((tip, idx) => (
+                  <li key={idx}>{tip}</li>
+                ))}
+              </ul>
+            )}
+            {!generationError.guidance && (
+              <div className="mt-2 text-xs text-red-700 dark:text-red-200">
+                입력 제약을 완화하거나 requiredStaff/offTolerance/팀 커버리지를 확인한 뒤 다시 시도해주세요.
+              </div>
+            )}
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleAutoAdjustAndRetry}
+                className="inline-flex items-center gap-2 rounded-md bg-red-600 px-3 py-1.5 text-white text-xs font-semibold hover:bg-red-700"
+              >
+                자동 완화 후 재시도
+              </button>
+              {generationError.diagnostics && (
+                <button
+                  type="button"
+                  onClick={() => setShowErrorDetails((prev) => !prev)}
+                  className="inline-flex items-center gap-2 rounded-md border border-red-300 px-3 py-1.5 text-red-700 text-xs font-semibold hover:bg-red-100 dark:border-red-700 dark:text-red-100 dark:hover:bg-red-900/40"
+                >
+                  {showErrorDetails ? '진단 닫기' : '진단 상세 보기'}
+                </button>
+              )}
+              {generationError.diagnostics && (
+                <button
+                  type="button"
+                  onClick={() => setShowErrorConstraints((prev) => !prev)}
+                  className="inline-flex items-center gap-2 rounded-md border border-red-300 px-3 py-1.5 text-red-700 text-xs font-semibold hover:bg-red-100 dark:border-red-700 dark:text-red-100 dark:hover:bg-red-900/40"
+                >
+                  {showErrorConstraints ? '제약 요약 숨기기' : '제약 요약 보기'}
+                </button>
+              )}
+            </div>
+            {showErrorConstraints && generationError.diagnostics && (
+              <div className="mt-2 rounded-md border border-red-200 dark:border-red-800 bg-white/70 dark:bg-red-950/40 p-2 text-xs text-red-800 dark:text-red-100 space-y-1">
+                {(() => {
+                  const diagnostics = generationError.diagnostics as FailureDiagnostics;
+                  return (
+                    <>
+                <div className="font-semibold">주요 제약 요약</div>
+                {Array.isArray(diagnostics.staffingShortages) &&
+                  diagnostics.staffingShortages.map((s, idx) => (
+                    <div key={`staff-${idx}`}>인원 부족: {s.date} {s.shiftType} 필요 {s.required} / 배정 {s.covered}</div>
+                  ))}
+                {Array.isArray(diagnostics.teamCoverageGaps) &&
+                  diagnostics.teamCoverageGaps.map((g, idx) => (
+                    <div key={`team-${idx}`}>팀 커버리지: {g.date} {g.shiftType} 팀 {g.teamId} 부족 {g.shortage}</div>
+                  ))}
+                {Array.isArray(diagnostics.careerGroupCoverageGaps) &&
+                  diagnostics.careerGroupCoverageGaps.map((g, idx) => (
+                    <div key={`cg-${idx}`}>경력 커버리지: {g.date} {g.shiftType} 그룹 {g.careerGroupAlias} 부족 {g.shortage}</div>
+                  ))}
+                {Array.isArray(diagnostics.specialRequestMisses) &&
+                  diagnostics.specialRequestMisses.map((m, idx) => (
+                    <div key={`req-${idx}`}>특별 요청 미충족: {m.date} {m.employeeId} → {m.shiftType}</div>
+                  ))}
+                {Array.isArray(diagnostics.shiftPatternBreaks) &&
+                  diagnostics.shiftPatternBreaks.map((b, idx) => (
+                    <div key={`pat-${idx}`}>패턴 위반: {b.employeeId} {b.shiftType} 시작 {b.startDate} 초과 {b.excess}</div>
+                  ))}
+                {Array.isArray(diagnostics.preflightIssues) &&
+                  diagnostics.preflightIssues
+                    .filter((issue) => issue?.type === 'insufficientPotentialStaff')
+                    .map((issue, idx) => (
+                      <div key={`pre-${idx}`}>사전 경고: {String(issue.shiftTypeCode ?? '?')} 커버 가능한 인원이 부족합니다.</div>
+                    ))}
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+            {showErrorDetails && generationError.diagnostics && (
+              <pre className="mt-2 whitespace-pre-wrap break-all text-xs bg-white/70 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-md p-2 text-red-800 dark:text-red-100">
+                {JSON.stringify(generationError.diagnostics, null, 2)}
+              </pre>
+            )}
+          </div>
+        )}
+        {autoAdjustmentDetails.length > 0 && (
+          <div
+            className={`fixed inset-0 z-50 flex items-center justify-center px-4 ${showAutoAdjustModal ? '' : 'pointer-events-none opacity-0'}`}
+            aria-hidden={!showAutoAdjustModal}
+          >
+            <div className="absolute inset-0 bg-black/40" onClick={() => setShowAutoAdjustModal(false)} />
+            <div className="relative w-full max-w-md rounded-lg bg-white dark:bg-gray-900 shadow-lg border border-gray-200 dark:border-gray-700 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">자동 완화 적용 내역</div>
+                  <p className="text-xs text-gray-600 dark:text-gray-300">실패 후 재시도 시 조정된 항목 요약</p>
+                </div>
+                <button onClick={() => setShowAutoAdjustModal(false)} className="text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <ul className="text-xs text-gray-800 dark:text-gray-100 space-y-1">
+                {autoAdjustmentDetails.map((item, idx) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <RefreshCcw className="w-3.5 h-3.5 text-amber-600 mt-0.5" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3 text-[11px] text-gray-500 dark:text-gray-400">
+                * 자동 완화가 적용된 상태로 생성되었습니다. 필요한 경우 설정을 직접 조정해 주세요.
+              </div>
+            </div>
+          </div>
+        )}
+        {preflightWarnings.length > 0 && (
+          <div className="mb-4 sm:mb-6 rounded-lg border border-amber-200 bg-amber-50 text-sm text-amber-800 dark:border-amber-700/70 dark:bg-amber-950/30 dark:text-amber-100">
+            <div className="font-semibold">생성 전에 확인하세요</div>
+            <ul className="mt-1 list-disc list-inside space-y-1">
+              {preflightWarnings.map((w, idx) => (
+                <li key={idx}>{w}</li>
+              ))}
+            </ul>
+            <div className="mt-1 text-xs text-amber-700 dark:text-amber-200">
+              필요 인원이나 커버리지 요구가 현재 인원보다 높을 수 있습니다. 설정을 조정한 뒤 생성하면 실패를 줄일 수 있습니다.
+            </div>
+          </div>
+        )}
         {/* My Preferences Section - member 권한에서만 표시 */}
         {(isMember || isManager)  && (
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 border border-blue-200 dark:border-blue-800">
@@ -3090,10 +3415,30 @@ function SchedulePageContent() {
                           </span>
                         </div>
 
-                        {isAiGenerated && hasSchedule && (
-                          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border border-purple-200 dark:border-purple-700 rounded-lg">
-                            <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                            <span className="text-xs font-medium text-purple-700 dark:text-purple-300">AI 생성</span>
+                        {(isAiGenerated || autoAdjusted) && hasSchedule && (
+                          <div className="flex items-center gap-2">
+                            {isAiGenerated && (
+                              <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border border-purple-200 dark:border-purple-700 rounded-lg">
+                                <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                                <span className="text-xs font-medium text-purple-700 dark:text-purple-300">AI 생성</span>
+                              </div>
+                            )}
+              {autoAdjusted && (
+                              <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg" title="자동 완화 설정으로 생성되었습니다.">
+                                <RefreshCcw className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                                <span className="text-xs font-medium text-amber-700 dark:text-amber-200">자동 완화 적용</span>
+                                {autoAdjustmentDetails.length > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowAutoAdjustModal(true)}
+                                    className="text-[10px] underline text-amber-700 dark:text-amber-200"
+                                    title="자동 완화 내역 보기"
+                                  >
+                                    상세
+                                  </button>
+                                )}
+                              </div>
+                            )}
                           </div>
                         )}
 

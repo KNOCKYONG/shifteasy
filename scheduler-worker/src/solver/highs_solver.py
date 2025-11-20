@@ -9,6 +9,7 @@ import highspy
 from models import Assignment, ScheduleInput
 from solver.ortools_solver import OrToolsMilpSolver
 from solver.postprocessor import SchedulePostProcessor
+from solver.exceptions import SolverFailure
 
 
 def _solve_highs_from_lp(lp_content: str) -> tuple[highspy.HighsModelStatus, highspy.HighsSolution, List[str]]:
@@ -45,7 +46,10 @@ def solve_with_highs(schedule: ScheduleInput) -> tuple[list[Assignment], Dict[st
     highspy.HighsModelStatus.kObjectiveBound,
     highspy.HighsModelStatus.kObjectiveTarget,
   ):
-    raise RuntimeError(f"HiGHS solver returned status {model_status}")
+    raise SolverFailure(
+      f"HiGHS solver returned status {model_status}",
+      diagnostics={"preflightIssues": builder.preflight_issues},
+    )
 
   active_names: Set[str] = set()
   for idx, value in enumerate(getattr(solution, "col_value", []) or []):

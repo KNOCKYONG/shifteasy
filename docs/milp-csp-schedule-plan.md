@@ -36,11 +36,13 @@
    - `specialRequests`에 있는 날짜/시프트를 먼저 고정한다. `lock[e,d,s] = 1`이면 `x[e,d,s]=1`.
    - 출력 시 `shiftType`에 `^` 표시 등은 새 파이프라인에서도 동일하게 유지.
    - 행정/나이트 집중 근무자는 `A`, `V`(휴가) 코드에 대한 요청을 포함할 수 있으며, 해당 요청은 항상 유효한 근무 조합으로 간주한다.
+   - 기본은 hard에 준하는 soft 제약(높은 penalty 적용)으로 처리하며, 위반 시 `diagnostics.specialRequestMisses`로 즉시 리포트한다.
 2. **행정 근무(weekday-only)**
    - 평일은 `A`, 휴일은 `O`. 다른 시프트는 허용하지 않는다.
 3. **나이트 집중 근무(night-intensive)**
    - 근무는 `N`만 허용, 휴무(O)는 주말·휴일 + `nightIntensivePaidLeaveDays`.
    - 미리 정의된 패턴 집합(N,N,N,O,O / N,N,O,O / N,O,O / N,O 등) 중 하나를 반복 가능하도록 제약.
+   - 휴식 보호: `N` 다음날에 `D`/`E`가 오는 조합은 slack을 두고 억제한다(`diagnostics.shiftPatternBreaks`에 표기).
 4. **팀 밸런스**
    - 각 날짜/시프트에서 모든 팀이 최소 1명 이상 포함.
    - 기간 전체에서 팀별 근무일 편차가 최소가 되도록 목적함수에 포함.
@@ -84,6 +86,7 @@
 - `x[e,d,s]`는 OR-Tools BoolVar로 모델링되며, 특수 요청·패턴 제약은 slack(페널티)을 둬 infeasible 대신 “위반”으로 보고한다.  
 - `f[d,s,t]`, `cg[d,s,c]`는 각각 `teamCoverageGap`, `careerGroupCoverageGap` 진단으로 표면화된다.  
 - 추가 slack 변수: `staff_shortage`, `off_balance`, `repeat_slack`, `special_req_slack`. 모두 `generationResult.diagnostics`에 기록해 UI에서 바로 확인한다.
+- 휴무 카운트는 `o[e,d] = x[e,d,'O'] + x[e,d,'V']`로 연결해 휴가 배정을 휴무 목표 계산에 포함한다.
 
 필요에 따라 연속 근무나 패턴을 위한 보조 변수 (예: `y[e,d]` = 직전 근무 타입)도 추가한다.
 
@@ -91,7 +94,7 @@
 
 ### 4.1 기본 제약 (프롬프트 규칙 1~7, 9~10)
 1. **단일 근무**: `∑_s x[e,d,s] = 1` (행정/휴무 포함). 휴무는 `s='O'`로 취급.
-2. **특별 요청**: `lock[e,d,s]=1`이면 `x[e,d,s]=1` 강제, 다른 시프트는 0.
+2. **특별 요청**: `lock[e,d,s]=1`이면 `x[e,d,s]=1` 강제, 다른 시프트는 0. 불가피한 경우 Bool slack을 두고 높은 패널티(1200)로 완화하며 `diagnostics.specialRequestMisses`에 보고한다.
 3. **Work Pattern 타입별 처리**  
    - `weekday-only`: 평일은 `A`, 휴일은 `O`. MILP에서 `weekday(e,d)` 상수로 제약.
    - `night-intensive`: `x`를 연속 패턴으로 모델링. 가장 간단한 방식은 `nightOnly[e]` 플래그로 `∑_{s≠N,O} x[e,d,s]=0`을 강제하고, 휴가 일수만큼 `O`를 분산하도록 추가 제약.
@@ -114,6 +117,7 @@
   - 최대 연속 근무일, 최대 연속 야간일: `x[e,d,N] + x[e,d+1,N] + ... ≤ max`.
   - 부서 패턴(예: `["D","E","N","O"]`)은 sliding window로 설정. 예) 길이 4 패턴이면 `x[e,d+i, pattern[i]] = 1`을 강제하거나 soft constraint로 처리.
   - `avoidPatterns`: 해당 시퀀스가 나오지 않도록 `∑ matchVars ≤ len-1`.
+  - 야간 후 회복: `x[e,d,N] + x[e,d+1,D/E] ≤ 1 + slack`으로 회복일을 보장(위반 시 `shiftPatternBreaks`에 기록).
 
 ### 4.4 목적 함수
 `minimize( w_teamBalance * ∑ f + w_careerBalance * ∑ cg + w_offSlack * ∑ |off-target| + w_pref * ∑(penalties) )`
@@ -124,8 +128,8 @@
 - 휴무 slack은 낮지만 0에 가깝게 유지.
 
 ### 4.5 솔버 고려
-- OR-Tools CBC를 기본으로 사용하며, 실패 시 HiGHS(MIP) 폴백을 자동 시도한다. `/config → 고급 설정`에서 “선호 Solver(자동/OR-Tools/HiGHS)”를 선택해 강제로 HiGHS만 사용하거나 OR-Tools만 사용하도록 지정할 수 있다.
-- 한 달 30일, 30명, 4시프트 기준 변수 ≈ 3,600개 → CBC도 수 초~분 단위 계산 가능. HiGHS는 동일 모델을 LP 포맷으로 내보내 실행한다.
+- OR-Tools CBC를 기본으로 사용하며, 실패 시 HiGHS(MIP) 폴백을 자동 시도한다. 패턴/시퀀스 제약을 강하게 풀고 싶을 때는 OR-Tools **CP-SAT**를 선호 Solver로 직접 선택할 수 있다(`/config → 고급 설정` 드롭다운에 추가됨).
+- 한 달 30일, 30명, 4시프트 기준 변수 ≈ 3,600개 → CBC도 수 초~분 단위 계산 가능. HiGHS는 동일 모델을 LP 포맷으로 내보내 실행하며, CP-SAT은 Bool/indicator 기반으로 시퀀스 제약을 안정적으로 처리한다.
 
 ## 6. CSP/휴리스틱 후처리
 MILP 해가 존재하더라도 아래 조정이 필요할 수 있다:
@@ -177,15 +181,16 @@ MILP 해가 존재하더라도 아래 조정이 필요할 수 있다:
  - Career group/연차 로딩 로직 모듈화 (`src/server/api/utils/milp-data-loader.ts`).
  - MILP 입력 DTO 정의 (`MilpCspScheduleInput` 등 새 타입명 사용) 및 serializer 작성.
 2. **MILP 모듈**  
- - OR-Tools/HiGHS 기반 solver util (Python 워커 `scheduler-worker/src/solver`).  
+ - OR-Tools(CBC/CP-SAT)/HiGHS 기반 solver util (Python 워커 `scheduler-worker/src/solver`).  
  - JSON 형태로 제약/결과를 주고받는 래퍼 작성.
  - 구현된 제약 요약:
    - 특수 요청을 소프트 제약(slack)으로 처리, 위반 시 `specialRequestMisses`.
    - 팀/경력 그룹 커버리지 최소 1명 + 부족 slack (`teamCoverageGaps`, `careerGroupCoverageGaps`).
    - 필수 인원 부족 slack (`staffingShortages`), 휴무 편차 ±2 slack (`offBalanceGaps`).
-   - 최대 연속 근무/야간, 동일 시프트 3일 연속 금지 slack (`shiftPatternBreaks`).
+   - 최대 연속 근무/야간, 동일 시프트 3일 연속 금지 slack (`shiftPatternBreaks`), 야간 이후 주간/저녁 배치 억제 slack 추가.
    - 개인 선호·부서 패턴을 목적함수에 가중치로 반영해 선호도 높은 배치를 우선.
    - 진단 정보(`generationResult.diagnostics`)를 TRPC/DB 저장 메타데이터에 포함해 UI에서 바로 노출.
+   - Solver preference에 `cpsat` 옵션을 추가해 패턴/시퀀스 제약이 많은 부서에서 CP-SAT을 직접 선택 가능.
 3. **CSP/휴리스틱 모듈**  
  - 스케줄 상태 구조체, swap 함수, 제약 평가기 작성. → `scheduler-worker/src/solver/postprocessor.py` 구현 완료 (Greedy swap + Tabu + Simulated Annealing, 반복 시프트·팀/경력·휴무 편차 재평가).  
  - 반복 횟수/시간 제한, Tabu 크기, 최대 연속 허용, 휴무 편차 허용, annealing 온도/냉각률 등을 환경 변수(`MILP_POSTPROCESS_MAX_ITERATIONS`, `MILP_POSTPROCESS_TIME_LIMIT_MS`, `MILP_POSTPROCESS_TABU_SIZE`, `MILP_POSTPROCESS_MAX_SAME_SHIFT`, `MILP_POSTPROCESS_OFF_TOLERANCE`, `MILP_POSTPROCESS_ANNEAL_TEMP`, `MILP_POSTPROCESS_ANNEAL_COOL`)로 조정 가능.  
@@ -205,6 +210,8 @@ MILP 해가 존재하더라도 아래 조정이 필요할 수 있다:
 - **성능**: MILP 계산 시간이 늘어나면 워커/큐 기반 비동기 처리 권장 (upstash 의 redis, NestJS 는 fly.io 에서 구동)
 - **Fallback**: MILP infeasible 시 자동으로 제약 가중치를 낮추고 휴무 허용치를 넓힌 relaxed run을 한 번 더 시도하며, 실패한 입력/출력을 `logs/` 폴더에 JSON으로 남긴다.
 - **관찰 가능성**: 모든 실행에 대해 solver 입력/결과/후처리 통계를 JSON 로그와 UI(AI 생성 결과 카드, 상세 리포트)에 노출해 재현성을 확보한다.
+- **실패 가이드**: 스케줄 생성 실패 시 preflight/diagnostics와 함께 “어느 제약을 완화하면 되는지” 요약 가이드(예: 필요한 인원 부족 → requiredStaffPerShift 낮추기, 팀/경력 커버리지 불가 → 커버 요구 완화)를 반환해 사용자에게 바로 보여준다.
+- **자동 완화 재시도**: 사용자가 동의하면 requiredStaffPerShift 하향, constraintWeights 30% 감소, offTolerance/maxSameShift/timeLimit 증가 등 안전한 범위 내에서 자동 완화를 적용한 뒤 재시도한다. 적용된 완화안은 UI에 명시된다. 실패 가이드는 staffing/coverage/requests/patterns/general 카테고리로 세분화해 반환한다.
 - **Config 확장**: 향후 career group별 목표 비율(%)을 `configs`에 추가하여 MILP 목적함수 가중치로 반영할 수 있게 설계한다.
 
 ---

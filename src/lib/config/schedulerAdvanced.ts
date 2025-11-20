@@ -19,7 +19,7 @@ export interface CspSettingsConfig {
   annealing: CspAnnealingConfig;
 }
 
-export type MilpSolverType = 'auto' | 'ortools' | 'highs';
+export type MilpSolverType = 'auto' | 'ortools' | 'highs' | 'cpsat';
 
 export interface MilpMultiRunConfig {
   attempts: number;

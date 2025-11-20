@@ -14,6 +14,7 @@ from dataclasses import asdict
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
+import copy
 
 CURRENT_DIR = Path(__file__).resolve().parent
 if str(CURRENT_DIR) not in sys.path:
@@ -22,7 +23,9 @@ if str(CURRENT_DIR) not in sys.path:
 from models import Assignment, parse_schedule_input, ScheduleInput  # noqa: E402
 from solver.ortools_solver import solve_with_ortools  # noqa: E402
 from solver.highs_solver import solve_with_highs  # noqa: E402
+from solver.cpsat_solver import solve_with_cpsat  # noqa: E402
 from solver.postprocessor import SchedulePostProcessor  # noqa: E402
+from solver.exceptions import SolverFailure  # noqa: E402
 
 LOG_DIR = Path(os.environ.get("MILP_LOG_DIR", CURRENT_DIR / "logs"))
 
@@ -31,7 +34,7 @@ class SchedulerJobRequest(BaseModel):
   milpInput: Dict[str, Any]
   name: Optional[str] = None
   departmentId: Optional[str] = None
-  solver: Optional[Literal['auto', 'ortools', 'highs']] = 'auto'
+  solver: Optional[Literal['auto', 'ortools', 'highs', 'cpsat']] = 'auto'
 
 
 class SchedulerJobStatus(BaseModel):
@@ -39,6 +42,7 @@ class SchedulerJobStatus(BaseModel):
   status: Literal['queued', 'processing', 'completed', 'failed']
   result: Optional[Dict[str, Any]] = None
   error: Optional[str] = None
+  errorDiagnostics: Optional[Dict[str, Any]] = None
   createdAt: str
   updatedAt: str
 
@@ -54,6 +58,7 @@ class InternalJobState:
     self.status: Literal['queued', 'processing', 'completed', 'failed'] = 'queued'
     self.result: Optional[Dict[str, Any]] = None
     self.error: Optional[str] = None
+    self.error_diagnostics: Optional[Dict[str, Any]] = None
     self.created_at = now
     self.updated_at = now
 
@@ -63,6 +68,7 @@ class InternalJobState:
       status=self.status,
       result=self.result,
       error=self.error,
+      errorDiagnostics=self.error_diagnostics,
       createdAt=self.created_at,
       updatedAt=self.updated_at,
     )
@@ -76,9 +82,11 @@ class InternalJobState:
     self.result = result
     self.updated_at = datetime.utcnow().isoformat()
 
-  def mark_failed(self, error: str):
+  def mark_failed(self, error: str, diagnostics: Optional[Dict[str, Any]] = None):
     self.status = 'failed'
     self.error = error
+    if diagnostics:
+      self.error_diagnostics = diagnostics
     self.updated_at = datetime.utcnow().isoformat()
 
 
@@ -334,6 +342,58 @@ def build_solver_result(
   }
 
 
+def _build_failure_guidance(diagnostics: Optional[Dict[str, Any]]) -> Dict[str, list[str]]:
+  guidance: Dict[str, list[str]] = {"staffing": [], "coverage": [], "requests": [], "patterns": [], "general": []}
+  if not isinstance(diagnostics, dict):
+    return guidance
+  for issue in diagnostics.get("preflightIssues", []) or []:
+    issue_type = issue.get("type")
+    if issue_type == "insufficientPotentialStaff":
+      guidance["staffing"].append(
+        f"{issue.get('date')} {issue.get('shiftType')}: 필요 {issue.get('required')}명 > 가능 {issue.get('available')}명 → requiredStaffPerShift↓ 또는 해당 시프트 가능한 인원 추가"
+      )
+    elif issue_type == "teamCoverageImpossible":
+      guidance["coverage"].append(
+        f"{issue.get('date')} {issue.get('shiftType')} 팀 {issue.get('teamId')}: 배치 가능 0명 → 팀 커버 요구 완화 또는 팀 구성 조정"
+      )
+    elif issue_type == "careerGroupCoverageImpossible":
+      guidance["coverage"].append(
+        f"{issue.get('date')} {issue.get('shiftType')} 경력그룹 {issue.get('careerGroupAlias')}: 배치 가능 0명 → 그룹 커버 요구 완화/구성 조정"
+      )
+    elif issue_type == "specialRequestPatternConflict":
+      guidance["requests"].append(
+        f"{issue.get('date')} {issue.get('employeeId')}: 요청 시프트가 패턴과 충돌 → 요청 변경 또는 해당 직원 패턴 완화"
+      )
+  for miss in diagnostics.get("specialRequestMisses", []) or []:
+    guidance["requests"].append(
+      f"{miss.get('date')} {miss.get('employeeId')} 요청 {miss.get('shiftType')} 배정 불가 → 요청 변경 또는 requiredStaff/패턴 완화"
+    )
+  for short in diagnostics.get("staffingShortages", []) or []:
+    guidance["staffing"].append(
+      f"{short.get('date')} {short.get('shiftType')}: 필요 {short.get('required')}명, 배정 {short.get('covered')}명 → min 인원↓ 또는 offTolerance/csp 시간↑"
+    )
+  for gap in diagnostics.get("teamCoverageGaps", []) or []:
+    guidance["coverage"].append(
+      f"{gap.get('date')} {gap.get('shiftType')} 팀 {gap.get('teamId')} 부족 {gap.get('shortage')} → 팀 커버 요구 완화/팀 배치 가능 인원 추가"
+    )
+  for gap in diagnostics.get("careerGroupCoverageGaps", []) or []:
+    guidance["coverage"].append(
+      f"{gap.get('date')} {gap.get('shiftType')} 경력그룹 {gap.get('careerGroupAlias')} 부족 {gap.get('shortage')} → 그룹 커버 요구 완화/구성 조정"
+    )
+  for issue in diagnostics.get("shiftPatternBreaks", []) or []:
+    if issue.get("shiftType", "").startswith("N->"):
+      guidance["patterns"].append(
+        f"{issue.get('employeeId')} {issue.get('startDate')} 야간 직후 {issue.get('shiftType')} 배치 → rest 제약 완화 또는 offTolerance↑"
+      )
+    else:
+      guidance["patterns"].append(
+        f"{issue.get('employeeId')} {issue.get('shiftType')} 연속 초과 → maxSameShift↑ 또는 가중치↓"
+      )
+  if not any(guidance.values()):
+    guidance["general"].append("제약 가중치(staffing/team/career/off)↓, offTolerance/maxSameShift↑, requiredStaffPerShift↓ 후 재시도")
+  return guidance
+
+
 def serialize_schedule(schedule: ScheduleInput) -> Dict[str, Any]:
   return asdict(schedule)
 
@@ -361,6 +421,26 @@ def attempt_schedule_run(schedule: ScheduleInput, label: str) -> tuple[list[Assi
 def attempt_highs_schedule_run(schedule: ScheduleInput, label: str) -> tuple[list[Assignment], Dict[str, Any]]:
   log_json(f"{label}-milp-input", serialize_schedule(schedule))
   assignments, diagnostics = solve_with_highs(schedule)
+  log_json(
+    f"{label}-milp-output",
+    {
+      "diagnostics": diagnostics,
+      "assignments": serialize_assignments(assignments),
+    },
+  )
+  return assignments, diagnostics
+
+
+def attempt_cpsat_schedule_run(schedule: ScheduleInput, label: str) -> tuple[list[Assignment], Dict[str, Any]]:
+  log_json(f"{label}-milp-input", serialize_schedule(schedule))
+  assignments, diagnostics = solve_with_cpsat(schedule)
+  postprocessor = SchedulePostProcessor(
+    schedule,
+    assignments,
+    diagnostics,
+    getattr(schedule, "options", None),
+  )
+  assignments, diagnostics = postprocessor.run()
   log_json(
     f"{label}-milp-output",
     {
@@ -407,7 +487,7 @@ def build_relaxed_schedule(schedule: ScheduleInput, relax_level: int, diagnostic
 def _solve_single_attempt(schedule: ScheduleInput, preferred_solver: Optional[str] = None) -> tuple[list[Assignment], Dict[str, Any]]:
   env_solver = os.environ.get("MILP_DEFAULT_SOLVER", "auto").lower()
   solver_choice = (preferred_solver or env_solver or "auto").lower()
-  if solver_choice not in {"auto", "ortools", "highs"}:
+  if solver_choice not in {"auto", "ortools", "highs", "cpsat"}:
     solver_choice = "auto"
 
   def run_highs(phase: str):
@@ -420,6 +500,26 @@ def _solve_single_attempt(schedule: ScheduleInput, preferred_solver: Optional[st
       }
     )
     return assignments, diagnostics
+
+  def run_cpsat(phase: str):
+    assignments, diagnostics = attempt_cpsat_schedule_run(schedule, phase)
+    diagnostics.setdefault("preflightIssues", []).append(
+      {
+        "type": "solverInfo",
+        "message": f"Schedule generated via CP-SAT ({phase}).",
+        "solver": "cpsat",
+      }
+    )
+    return assignments, diagnostics
+
+  if solver_choice == "cpsat":
+    try:
+      return run_cpsat("cpsat-primary")
+    except Exception as cpsat_error:
+      log_json("milp-error", {"phase": "cpsat-primary", "error": str(cpsat_error)})
+      if preferred_solver == "cpsat":
+        raise
+      solver_choice = "auto"
 
   if solver_choice == "highs":
     try:
@@ -450,6 +550,11 @@ def _solve_single_attempt(schedule: ScheduleInput, preferred_solver: Optional[st
       except Exception as relaxed_error:
         log_json("milp-error", {"phase": f"relaxed-{level+1}", "error": str(relaxed_error)})
         diagnostics_snapshot = getattr(relaxed_error, "diagnostics", diagnostics_snapshot)
+    if solver_choice in {"auto", "cpsat"}:
+      try:
+        return run_cpsat("cpsat-fallback")
+      except Exception as cpsat_error:
+        log_json("milp-error", {"phase": "cpsat-fallback", "error": str(cpsat_error)})
     if solver_choice in {"auto", "highs"}:
       try:
         return run_highs("highs-fallback")
@@ -592,6 +697,11 @@ async def process_job(job: InternalJobState, payload: SchedulerJobRequest):
         f"improvements={post_stats.get('improvements')} accepted_worse={post_stats.get('acceptedWorse')} "
         f"final_penalty={post_stats.get('finalPenalty')}"
       )
+  except SolverFailure as exc:
+    diag_obj = copy.deepcopy(getattr(exc, "diagnostics", None)) or {}
+    guidance = _build_failure_guidance(diag_obj)
+    diag_obj["guidance"] = guidance
+    job.mark_failed(str(exc), diag_obj)
   except Exception as exc:
     job.mark_failed(str(exc))
 

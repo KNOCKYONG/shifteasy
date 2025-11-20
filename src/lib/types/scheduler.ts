@@ -214,6 +214,8 @@ export interface GenerationDiagnostics {
   teamWorkloadGaps?: TeamWorkloadGapInfo[];
   avoidPatternViolations?: AvoidPatternViolationInfo[];
   preflightIssues?: Array<Record<string, unknown>>;
+  guidance?: string[] | Record<string, string[]>;
+  autoAdjustments?: string[];
   postprocess?: PostprocessStats;
 }
 

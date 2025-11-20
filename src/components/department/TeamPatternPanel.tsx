@@ -284,6 +284,7 @@ export function TeamPatternPanel({
     }));
   };
 
+
   // 패턴 삭제
   const removePattern = (index: number) => {
     setPattern(prev => ({
