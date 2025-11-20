@@ -182,7 +182,7 @@ function ConfigPageContent() {
     code: '',
     name: '',
     minYears: 0,
-    maxYears: 2,
+    maxYears: 0,
     description: '',
   });
 
@@ -1192,30 +1192,6 @@ function ConfigPageContent() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    코드
-                  </label>
-                  <input
-                    type="text"
-                    value={newCareerGroup.code}
-                    onChange={(e) => setNewCareerGroup({ ...newCareerGroup, code: e.target.value.toUpperCase() })}
-                    placeholder="예: Y1-2"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    이름
-                  </label>
-                  <input
-                    type="text"
-                    value={newCareerGroup.name}
-                    onChange={(e) => setNewCareerGroup({ ...newCareerGroup, name: e.target.value })}
-                    placeholder="예: 1-2년차"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     최소 년수
                   </label>
                   <input
@@ -1236,7 +1212,7 @@ function ConfigPageContent() {
                     min="0"
                     value={newCareerGroup.maxYears === 0 ? '' : newCareerGroup.maxYears}
                     onChange={(e) => setNewCareerGroup({ ...newCareerGroup, maxYears: e.target.value === '' ? 0 : parseInt(e.target.value) })}
-                    placeholder="0"
+                    placeholder="예: 2"
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
                   />
                 </div>
@@ -1255,17 +1231,34 @@ function ConfigPageContent() {
               </div>
               <button
                 onClick={async () => {
-                  if (!newCareerGroup.code || !newCareerGroup.name || isSavingCareerGroups) {
+                  if (isSavingCareerGroups) {
                     return;
                   }
-                  const updatedGroups = [...careerGroups, { ...newCareerGroup }];
+                  const minYears = Math.max(0, newCareerGroup.minYears);
+                  const maxYears = Math.max(minYears, newCareerGroup.maxYears);
+                  if (maxYears === 0) {
+                    alert('최대 년수를 입력해주세요.');
+                    return;
+                  }
+
+                  const generatedCode = `Y${minYears}-${maxYears}`;
+                  const generatedName = `${minYears}-${maxYears}년차`;
+                  const nextGroup = {
+                    ...newCareerGroup,
+                    code: generatedCode,
+                    name: generatedName,
+                    minYears,
+                    maxYears,
+                  };
+
+                  const updatedGroups = [...careerGroups, nextGroup];
                   try {
                     await persistCareerGroups(updatedGroups);
                     setNewCareerGroup({
                       code: '',
                       name: '',
                       minYears: 0,
-                      maxYears: 2,
+                      maxYears: 0,
                       description: '',
                     });
                   } catch {
