@@ -36,7 +36,6 @@ const ManageSchedulesModal = dynamicImport(() => import("@/components/schedule/m
 const SwapRequestModal = dynamicImport(() => import("@/components/schedule/modals/SwapRequestModal").then(mod => ({ default: mod.SwapRequestModal })), { ssr: false });
 const ScheduleSwapModal = dynamicImport(() => import("@/components/schedule/modals/ScheduleSwapModal").then(mod => ({ default: mod.ScheduleSwapModal })), { ssr: false });
 const ImprovementResultModal = dynamicImport(() => import("@/components/schedule/modals/ImprovementResultModal").then(mod => ({ default: mod.ImprovementResultModal })), { ssr: false });
-const GenerateScheduleModal = dynamicImport(() => import("@/components/schedule/modals/GenerateScheduleModal").then(mod => ({ default: mod.GenerateScheduleModal })), { ssr: false });
 import {
   ViewTabs,
   ShiftTypeFilters,
@@ -554,10 +553,6 @@ function SchedulePageContent() {
     employeeId: string;
     currentShift?: Assignment | null;
   } | null>(null);
-
-  // 스케줄 생성 모달 상태
-  const [showGenerateModal, setShowGenerateModal] = useState(false);
-  const [isMilpScheduleMode, setIsMilpScheduleMode] = useState(false);
 
   // Handle URL parameter changes for view
   useEffect(() => {
@@ -2103,7 +2098,7 @@ function SchedulePageContent() {
   };
 
   // 스케줄 생성 시작 핸들러
-  const handleInitiateScheduleGeneration = (useMilpScheduler = schedulerAdvancedSettings.useMilpEngine) => {
+  const handleInitiateScheduleGeneration = async (useMilpScheduler = schedulerAdvancedSettings.useMilpEngine) => {
     if (!canManageSchedules) {
       alert('스케줄 생성 권한이 없습니다.');
       return;
@@ -2114,8 +2109,11 @@ function SchedulePageContent() {
       return;
     }
 
-    setIsMilpScheduleMode(useMilpScheduler);
-    setShowGenerateModal(true);
+    if (useMilpScheduler) {
+      await handleGenerateMilpSchedule();
+    } else {
+      await handleGenerateSchedule();
+    }
   };
 
   useEffect(() => {
@@ -2141,7 +2139,7 @@ function SchedulePageContent() {
     };
   }, [isGenerating, generationSteps.length]);
   const generateScheduleInternal = async (
-    shiftRequirements: Record<string, number>,
+    shiftRequirements: Record<string, number> | undefined,
     useMilpEngine: boolean
   ) => {
     if (!canManageSchedules) {
@@ -2221,7 +2219,7 @@ function SchedulePageContent() {
       // 2. Load department pattern and use provided shift requirements
       let teamPattern: TeamPattern | null = null;
       try {
-        const teamPatternResponse = await fetch(`/api/department-patterns?departmentId=${inferredDepartmentId}`);
+      const teamPatternResponse = await fetch(`/api/department-patterns?departmentId=${inferredDepartmentId}`);
         const teamPatternData = await teamPatternResponse.json() as TeamPattern & { pattern?: TeamPattern; defaultPattern?: TeamPattern };
         teamPattern = teamPatternData.pattern || teamPatternData.defaultPattern || teamPatternData;
 
@@ -2488,11 +2486,11 @@ function SchedulePageContent() {
     }
   };
 
-  const handleGenerateSchedule = async (shiftRequirements: Record<string, number>) => {
+  const handleGenerateSchedule = async (shiftRequirements?: Record<string, number>) => {
     await generateScheduleInternal(shiftRequirements, false);
   };
 
-  const handleGenerateMilpSchedule = async (shiftRequirements: Record<string, number>) => {
+  const handleGenerateMilpSchedule = async (shiftRequirements?: Record<string, number>) => {
     await generateScheduleInternal(shiftRequirements, true);
   };
 
@@ -3957,24 +3955,6 @@ function SchedulePageContent() {
           </div>
         </div>
       )}
-
-      {/* Generate Schedule Modal */}
-      <GenerateScheduleModal
-        isOpen={showGenerateModal}
-        onClose={() => {
-          setShowGenerateModal(false);
-      setIsMilpScheduleMode(false);
-        }}
-        onGenerate={isMilpScheduleMode ? handleGenerateMilpSchedule : handleGenerateSchedule}
-        departmentId={
-          currentUser.dbUser?.departmentId ||
-          memberDepartmentId ||
-          (filteredMembers[0]?.departmentId ?? '') ||
-          selectedDepartment ||
-          null
-        }
-        customShiftTypes={customShiftTypes}
-      />
 
       {/* Employee Preferences Modal */}
       {modals.isPreferencesModalOpen && selectedEmployee && (

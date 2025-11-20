@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Settings, Save, Trash2, Activity, Plus, Edit2, Briefcase, Loader2, FolderOpen, Download, ChevronDown } from "lucide-react";
+import { Settings, Save, Trash2, Activity, Plus, Edit2, Briefcase, Loader2, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { RoleGuard } from "@/components/auth/RoleGuard";
@@ -9,8 +9,6 @@ import { ShiftTypesTab } from "./ShiftTypesTab";
 import { HandoffTemplatesTab } from "./HandoffTemplatesTab";
 import { api as trpc } from "@/lib/trpc/client";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { SavedConfigPresetsModal } from "@/components/config/SavedConfigPresetsModal";
-import { SavedPatternPresetsModal } from "@/components/config/SavedPatternPresetsModal";
 import {
   DEFAULT_SCHEDULER_ADVANCED,
   SchedulerAdvancedSettings,
@@ -269,9 +267,6 @@ function ConfigPageContent() {
   const [isSavingPositions, setIsSavingPositions] = useState(false);
   const [isSavingCareerGroups, setIsSavingCareerGroups] = useState(false);
 
-  // Preset modal state
-  const [showPresetsModal, setShowPresetsModal] = useState(false);
-  const [showPatternsModal, setShowPatternsModal] = useState(false);
   const schedulerAdvanced = config.preferences.schedulerAdvanced;
 
   const updateSchedulerAdvanced = (updater: (current: SchedulerAdvancedSettings) => SchedulerAdvancedSettings) => {
@@ -347,16 +342,6 @@ function ConfigPageContent() {
       },
     }));
   };
-
-  // Preset save mutation
-  const savePresetMutation = trpc.configs.savePreset.useMutation({
-    onSuccess: () => {
-      alert('설정 프리셋이 저장되었습니다!');
-    },
-    onError: (error) => {
-      alert(`프리셋 저장 실패: ${error.message}`);
-    },
-  });
 
   const persistShiftTypes = async (updatedList: ShiftConfig[]) => {
     const previous = shiftTypes;
@@ -451,62 +436,6 @@ function ConfigPageContent() {
     }
   };
 
-  // Save current config as preset
-  const handleSavePreset = async () => {
-    const presetName = prompt('프리셋 이름을 입력하세요:');
-    if (!presetName) return;
-
-    const currentConfig = {
-      positions,
-      shift_types: shiftTypes,
-      career_groups: careerGroups,
-      preferences: config.preferences,
-    };
-
-    try {
-      await savePresetMutation.mutateAsync({
-        name: presetName,
-        data: currentConfig,
-      });
-    } catch (error) {
-      console.error('Failed to save preset:', error);
-    }
-  };
-
-  // Load preset and apply to current state
-  const handleLoadPreset = async (presetData: {
-    positions?: unknown[];
-    shift_types?: unknown[];
-    career_groups?: unknown[];
-    preferences?: unknown;
-  }) => {
-    try {
-      // Apply loaded data to state
-      if (presetData.positions) {
-        setPositions(presetData.positions as typeof positions);
-        await setConfigMutation.mutateAsync({ configKey: 'positions', configValue: presetData.positions });
-      }
-      if (presetData.shift_types) {
-        setShiftTypes(presetData.shift_types as typeof shiftTypes);
-        await setConfigMutation.mutateAsync({ configKey: 'shift_types', configValue: presetData.shift_types });
-      }
-      if (presetData.career_groups) {
-        setCareerGroups(presetData.career_groups as typeof careerGroups);
-        await setConfigMutation.mutateAsync({ configKey: 'career_groups', configValue: presetData.career_groups });
-      }
-      if (presetData.preferences) {
-        setConfig({ preferences: presetData.preferences as ConfigData['preferences'] });
-        await setConfigMutation.mutateAsync({ configKey: 'preferences', configValue: presetData.preferences });
-      }
-
-      await utils.configs.getAll.invalidate();
-      alert('프리셋을 불러왔습니다!');
-    } catch (error) {
-      console.error('Failed to load preset:', error);
-      alert('프리셋 불러오기 중 오류가 발생했습니다.');
-    }
-  };
-
   return (
     <RoleGuard>
       <MainLayout>
@@ -519,39 +448,6 @@ function ConfigPageContent() {
                 {t('title', { ns: 'config' })}
               </h2>
               <p className="mt-2 text-gray-600 dark:text-gray-400">{t('subtitle', { ns: 'config' })}</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleSavePreset}
-                disabled={savePresetMutation.isPending}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-60 transition-colors"
-              >
-                {savePresetMutation.isPending ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    저장 중...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4" />
-                    현재 설정 저장
-                  </>
-                )}
-              </button>
-              <button
-                onClick={() => setShowPresetsModal(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-              >
-                <FolderOpen className="w-4 h-4" />
-                설정 프리셋
-              </button>
-              <button
-                onClick={() => setShowPatternsModal(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                부서 패턴
-              </button>
             </div>
           </div>
         </div>
@@ -1424,24 +1320,7 @@ function ConfigPageContent() {
 
         {/* Handoff Templates Tab */}
         {activeTab === "handoffTemplates" && <HandoffTemplatesTab />}
-
-        {/* Saved Presets Modal */}
-        <SavedConfigPresetsModal
-          isOpen={showPresetsModal}
-          onClose={() => setShowPresetsModal(false)}
-          onPresetLoad={handleLoadPreset}
-        />
-
-        {/* Saved Patterns Modal */}
-        <SavedPatternPresetsModal
-          isOpen={showPatternsModal}
-          onClose={() => setShowPatternsModal(false)}
-          onPatternLoad={(pattern) => {
-            console.log('Pattern loaded:', pattern);
-            alert(`부서 "${pattern.department?.name}" 패턴을 확인했습니다.`);
-          }}
-        />
-    </MainLayout>
+      </MainLayout>
     </RoleGuard>
   );
 }
