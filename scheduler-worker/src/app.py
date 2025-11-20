@@ -34,7 +34,7 @@ class SchedulerJobRequest(BaseModel):
   milpInput: Dict[str, Any]
   name: Optional[str] = None
   departmentId: Optional[str] = None
-  solver: Optional[Literal['ortools', 'cpsat']] = 'ortools'
+  solver: Optional[Literal['ortools', 'cpsat', 'hybrid']] = 'ortools'
 
 
 class SchedulerJobStatus(BaseModel):
@@ -454,6 +454,20 @@ def attempt_cpsat_schedule_run(schedule: ScheduleInput, label: str) -> tuple[lis
   return assignments, diagnostics
 
 
+def attempt_hybrid_schedule_run(schedule: ScheduleInput, label: str) -> tuple[list[Assignment], Dict[str, Any]]:
+  cpsat_assignments, cpsat_diagnostics = attempt_cpsat_schedule_run(schedule, f"{label}-cpsat")
+  assignments, diagnostics = attempt_schedule_run(schedule, f"{label}-ortools")
+  diagnostics.setdefault("preflightIssues", []).append(
+    {
+      "type": "solverInfo",
+      "message": "Hybrid solver: CP-SAT then OR-Tools",
+      "solver": "hybrid",
+    }
+  )
+  diagnostics["hybrid"] = {"cpsatDiagnostics": cpsat_diagnostics}
+  return assignments, diagnostics
+
+
 def build_relaxed_schedule(schedule: ScheduleInput, relax_level: int, diagnostics: Optional[Dict[str, Any]]) -> ScheduleInput:
   relaxed = copy.deepcopy(schedule)
   options = dict(getattr(relaxed, "options", {}) or {})
@@ -490,7 +504,7 @@ def build_relaxed_schedule(schedule: ScheduleInput, relax_level: int, diagnostic
 def _solve_single_attempt(schedule: ScheduleInput, preferred_solver: Optional[str] = None) -> tuple[list[Assignment], Dict[str, Any]]:
   env_solver = os.environ.get("MILP_DEFAULT_SOLVER", "ortools").lower()
   solver_choice = (preferred_solver or env_solver or "ortools").lower()
-  if solver_choice not in {"ortools", "cpsat"}:
+  if solver_choice not in {"ortools", "cpsat", "hybrid"}:
     solver_choice = "ortools"
 
   def run_cpsat(phase: str):
@@ -504,12 +518,25 @@ def _solve_single_attempt(schedule: ScheduleInput, preferred_solver: Optional[st
     )
     return assignments, diagnostics
 
+  def run_hybrid():
+    assignments, diagnostics = attempt_hybrid_schedule_run(schedule, "hybrid")
+    return assignments, diagnostics
+
   if solver_choice == "cpsat":
     try:
       return run_cpsat("cpsat-primary")
     except Exception as cpsat_error:
       log_json("milp-error", {"phase": "cpsat-primary", "error": str(cpsat_error)})
       if preferred_solver == "cpsat":
+        raise
+      solver_choice = "ortools"
+
+  if solver_choice == "hybrid":
+    try:
+      return run_hybrid()
+    except Exception as hybrid_error:
+      log_json("milp-error", {"phase": "hybrid", "error": str(hybrid_error)})
+      if preferred_solver == "hybrid":
         raise
       solver_choice = "ortools"
 

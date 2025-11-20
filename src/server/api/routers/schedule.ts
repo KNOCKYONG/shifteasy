@@ -62,7 +62,7 @@ const patternConstraintsSchema = z.object({
 
 const schedulerAdvancedSchema = z.object({
   useMilpEngine: z.boolean().optional(),
-  solverPreference: z.enum(['ortools', 'cpsat']).optional(),
+  solverPreference: z.enum(['ortools', 'cpsat', 'hybrid']).optional(),
   constraintWeights: constraintWeightsSchema.partial().optional(),
   cspSettings: cspSettingsSchema.partial().optional(),
   multiRun: multiRunSchema.partial().optional(),
@@ -274,7 +274,7 @@ type SchedulerBackendPayload = Omit<ScheduleGenerationInput, 'startDate' | 'endD
   previousOffAccruals: Record<string, number>;
   milpInput?: MilpCspScheduleInput;
   schedulerAdvanced?: z.infer<typeof schedulerAdvancedSchema>;
-  solver?: 'ortools' | 'cpsat';
+  solver?: 'ortools' | 'cpsat' | 'hybrid';
 };
 
 const DEFAULT_JOB_TIMEOUT_MS = Number(process.env.SCHEDULER_JOB_TIMEOUT_MS ?? 300000);

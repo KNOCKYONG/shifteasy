@@ -21,7 +21,7 @@ export interface CspSettingsConfig {
   annealing: CspAnnealingConfig;
 }
 
-export type MilpSolverType = 'ortools' | 'cpsat';
+export type MilpSolverType = 'ortools' | 'cpsat' | 'hybrid';
 
 export interface MilpMultiRunConfig {
   attempts: number;

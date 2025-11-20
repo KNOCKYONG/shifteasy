@@ -660,7 +660,7 @@ function ConfigPageContent() {
               <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 rounded-lg border border-gray-100 dark:border-gray-700">
                 <p className="text-sm font-medium text-gray-900 dark:text-gray-100">선호 Solver</p>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-                  패턴/시퀀스 제약이 많으면 CP-SAT을, 균형/선호 최적화를 우선하면 OR-Tools를 선택하세요.
+                  패턴/시퀀스 제약이 많으면 CP-SAT을, 균형/선호 최적화를 우선하면 OR-Tools를 선택하세요. Hybrid는 CP-SAT 결과를 기반으로 OR-Tools를 한 번 더 돌린 뒤 CSP로 마무리합니다.
                 </p>
                 <select
                   value={schedulerAdvanced.solverPreference}
@@ -669,6 +669,7 @@ function ConfigPageContent() {
                 >
                   <option value="ortools">OR-Tools</option>
                   <option value="cpsat">CP-SAT</option>
+                  <option value="hybrid">Hybrid (CP-SAT → OR-Tools)</option>
                 </select>
               </div>
 
