@@ -442,7 +442,7 @@ class CpSatScheduler:
         day_key = day.isoformat()
         off_terms.append(self.variables[(emp.id, day_key, "O")])
         vacation_var = self.variables.get((emp.id, day_key, "V"))
-        if vacation_var:
+        if vacation_var is not None:
           off_terms.append(vacation_var)
       if off_terms:
         self.model.Add(off_count_var == sum(off_terms))
@@ -518,7 +518,7 @@ class CpSatScheduler:
               day_key = self.date_range[start + offset].isoformat()
               off_terms.append(self.variables[(emp.id, day_key, "O")])
               vacation_var = self.variables.get((emp.id, day_key, "V"))
-              if vacation_var:
+              if vacation_var is not None:
                 off_terms.append(vacation_var)
             if off_terms:
               self.model.Add(sum(off_terms) >= 1)

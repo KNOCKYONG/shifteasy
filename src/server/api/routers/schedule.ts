@@ -276,7 +276,7 @@ type SchedulerBackendPayload = Omit<ScheduleGenerationInput, 'startDate' | 'endD
   solver?: 'auto' | 'ortools' | 'highs' | 'cpsat';
 };
 
-const DEFAULT_JOB_TIMEOUT_MS = Number(process.env.SCHEDULER_JOB_TIMEOUT_MS ?? 120000);
+const DEFAULT_JOB_TIMEOUT_MS = Number(process.env.SCHEDULER_JOB_TIMEOUT_MS ?? 300000);
 const DEFAULT_JOB_POLL_INTERVAL_MS = Number(process.env.SCHEDULER_JOB_POLL_INTERVAL_MS ?? 2000);
 const DEFAULT_MAX_CONSECUTIVE_DAYS_THREE_SHIFT =
   DEFAULT_SCHEDULER_ADVANCED.patternConstraints.maxConsecutiveDaysThreeShift;
@@ -326,7 +326,11 @@ async function runSchedulerJob(baseUrl: string, payload: SchedulerBackendPayload
     throw new Error(`Failed to enqueue schedule job: ${enqueueResponse.status} ${message}`);
   }
 
-  const { jobId } = (await enqueueResponse.json()) as { jobId: string };
+  const enqueueBody = await parseJsonSafe(enqueueResponse);
+  const jobId = enqueueBody?.jobId;
+  if (!jobId || typeof jobId !== 'string') {
+    throw new Error(`Failed to enqueue schedule job: invalid response body (${JSON.stringify(enqueueBody)})`);
+  }
   const timeoutAt = Date.now() + DEFAULT_JOB_TIMEOUT_MS;
 
   while (Date.now() < timeoutAt) {
@@ -335,7 +339,7 @@ async function runSchedulerJob(baseUrl: string, payload: SchedulerBackendPayload
       throw new Error(`Failed to fetch job status (${statusResponse.status})`);
     }
 
-    const jobStatus = (await statusResponse.json()) as SchedulerBackendJobStatusResponse;
+    const jobStatus = (await parseJsonSafe(statusResponse)) as SchedulerBackendJobStatusResponse;
     if (jobStatus.status === 'completed' && jobStatus.result) {
       return jobStatus.result;
     }
@@ -351,6 +355,23 @@ async function runSchedulerJob(baseUrl: string, payload: SchedulerBackendPayload
   }
 
   throw new Error('Scheduler backend timeout');
+}
+
+async function parseJsonSafe(response: Response) {
+  const contentType = response.headers.get('content-type') || '';
+  const text = await response.text();
+  if (contentType.includes('application/json')) {
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error(`Failed to parse JSON response: ${response.status} ${text}`);
+    }
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`Unexpected response (${response.status}): ${text?.slice(0, 500) || '[empty]'}`);
+  }
 }
 
 async function requestScheduleGenerationFromBackend(
@@ -616,37 +637,34 @@ export const scheduleRouter = createTRPCRouter({
         return emp;
       });
 
-      let milpInput: MilpCspScheduleInput | undefined;
-      if (input.useMilpEngine) {
-        const employeeIds = schedulerEmployees.map((emp) => emp.id);
-        const [careerGroups, yearsOfServiceMap] = await Promise.all([
-          loadCareerGroups(tenantId, input.departmentId),
-          loadYearsOfServiceMap(tenantId, employeeIds),
-        ]);
-        const solverOptions = mapAdvancedSettingsToSolverOptions(schedulerAdvanced);
+      const employeeIds = schedulerEmployees.map((emp) => emp.id);
+      const [careerGroups, yearsOfServiceMap] = await Promise.all([
+        loadCareerGroups(tenantId, input.departmentId),
+        loadYearsOfServiceMap(tenantId, employeeIds),
+      ]);
+      const solverOptions = mapAdvancedSettingsToSolverOptions(schedulerAdvanced);
 
-        milpInput = serializeMilpCspInput(
-          {
-            departmentId: input.departmentId,
-            startDate: input.startDate,
-            endDate: input.endDate,
-            employees: schedulerEmployees,
-            shifts: input.shifts,
-            constraints: input.constraints,
-            specialRequests: input.specialRequests,
-            holidays: input.holidays,
-            teamPattern: input.teamPattern ?? null,
-            requiredStaffPerShift: input.requiredStaffPerShift,
-            nightIntensivePaidLeaveDays: input.nightIntensivePaidLeaveDays,
-          },
-          {
-            previousOffAccruals,
-            careerGroups,
-            yearsOfServiceMap,
-            solverOptions,
-          }
-        );
-      }
+      const milpInput: MilpCspScheduleInput | undefined = serializeMilpCspInput(
+        {
+          departmentId: input.departmentId,
+          startDate: input.startDate,
+          endDate: input.endDate,
+          employees: schedulerEmployees,
+          shifts: input.shifts,
+          constraints: input.constraints,
+          specialRequests: input.specialRequests,
+          holidays: input.holidays,
+          teamPattern: input.teamPattern ?? null,
+          requiredStaffPerShift: input.requiredStaffPerShift,
+          nightIntensivePaidLeaveDays: input.nightIntensivePaidLeaveDays,
+        },
+        {
+          previousOffAccruals,
+          careerGroups,
+          yearsOfServiceMap,
+          solverOptions,
+        }
+      );
 
       const basePayload = {
         name: input.name,
@@ -663,6 +681,7 @@ export const scheduleRouter = createTRPCRouter({
         optimizationGoal: input.optimizationGoal,
         nightIntensivePaidLeaveDays: input.nightIntensivePaidLeaveDays,
         previousOffAccruals,
+        milpInput,
       };
 
       const defaultSchedulerPayload: SchedulerBackendPayload = {
