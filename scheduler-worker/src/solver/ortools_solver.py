@@ -72,6 +72,7 @@ class OrToolsMilpSolver:
         self.shift_min_staff[code] = max(0, int(shift.minStaff))
       if shift.maxStaff is not None:
         self.shift_max_staff[code] = max(0, int(shift.maxStaff))
+    self.max_same_shift = self._get_max_same_shift()
     self.required_off = self._calculate_required_off_days()
     self.preflight_issues = self._run_preflight_checks()
     self._init_preference_penalties()
@@ -183,6 +184,14 @@ class OrToolsMilpSolver:
         if target > 0:
           required[emp.id] = target
     return required
+
+  def _get_max_same_shift(self) -> int:
+    raw = self.csp_options.get("maxSameShift")
+    try:
+      parsed = int(raw)
+      return max(1, min(parsed, 10))
+    except (TypeError, ValueError):
+      return 2
 
   def _create_variables(self):
     for emp in self.schedule.employees:
@@ -778,7 +787,7 @@ class OrToolsMilpSolver:
       self._add_team_balance_constraints()
     self._add_off_day_constraints()
     self._add_off_balance_constraints()
-    self._add_shift_repeat_constraints()
+    self._add_shift_repeat_constraints(self.max_same_shift)
     self._add_consecutive_constraints()
     self._add_night_intensive_pattern_constraints()
     self._add_rest_after_night_constraints()

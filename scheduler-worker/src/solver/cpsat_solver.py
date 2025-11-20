@@ -16,6 +16,7 @@ class CpSatScheduler:
     self.schedule = schedule
     self.options = getattr(schedule, "options", {}) or {}
     self.constraint_weights = self.options.get("constraintWeights", {}) or {}
+    self.csp_options = self.options.get("cspSettings", {}) or {}
     self.date_range = self._build_date_range()
     self.special_request_targets = self._build_special_request_targets()
     self.special_request_codes = {code for (_, _, code) in self.special_request_targets}
@@ -69,6 +70,7 @@ class CpSatScheduler:
         self.shift_min_staff[code] = max(0, int(shift.minStaff))
       if shift.maxStaff is not None:
         self.shift_max_staff[code] = max(0, int(shift.maxStaff))
+    self.max_same_shift = self._get_max_same_shift()
     self.required_off = self._calculate_required_off_days()
     self.preflight_issues = self._run_preflight_checks()
     self._init_preference_penalties()
@@ -180,6 +182,14 @@ class CpSatScheduler:
         if target > 0:
           required[emp.id] = target
     return required
+
+  def _get_max_same_shift(self) -> int:
+    raw = self.csp_options.get("maxSameShift")
+    try:
+      parsed = int(raw)
+      return max(1, min(parsed, 10))
+    except (TypeError, ValueError):
+      return 2
 
   def _create_variables(self):
     for emp in self.schedule.employees:
@@ -723,7 +733,7 @@ class CpSatScheduler:
       self._add_team_balance_constraints()
     self._add_off_day_constraints()
     self._add_off_balance_constraints()
-    self._add_shift_repeat_constraints()
+    self._add_shift_repeat_constraints(self.max_same_shift)
     self._add_consecutive_constraints()
     self._add_night_intensive_pattern_constraints()
     self._add_rest_after_night_constraints()
