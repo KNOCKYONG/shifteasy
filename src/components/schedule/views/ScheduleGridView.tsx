@@ -187,7 +187,9 @@ export const ScheduleGridView = React.memo(function ScheduleGridView({
               {showOffBalance && (
                 <div className="p-1 border-l border-gray-100 dark:border-gray-800 flex flex-col items-center justify-center">
                   {(() => {
-                    const isWeekdayOnly = member.workPatternType === 'weekday-only';
+                  const isWeekdayOnly =
+                    member.workPatternType === 'weekday-only' ||
+                    (member.position && member.position.includes('행정'));
                     if (isWeekdayOnly) {
                       return <div className="text-[10px] text-gray-400 dark:text-gray-500">-</div>;
                     }
