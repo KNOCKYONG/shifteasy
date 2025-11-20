@@ -431,7 +431,8 @@ function SchedulePageContent() {
       return [];
     }
   }); // Config의 근무 타입 데이터
-  const [, setLoadedScheduleId] = useState<string | null>(null); // Setter used for state tracking
+  const [loadedScheduleId, setLoadedScheduleId] = useState<string | null>(null); // 현재 로드/생성된 스케줄 ID
+  const pendingGeneratedScheduleRef = useRef<{ id: string; monthKey: string; departmentId?: string } | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(getInitialDate()); // 오늘의 근무 날짜 선택
   const [careerOverrides, setCareerOverrides] = useState<Record<string, { yearsOfService?: number; hireYear?: number }>>({});
   const [aiEnabled, setAiEnabled] = useState(false); // AI 스케줄 검토 기능 토글
@@ -848,12 +849,20 @@ function SchedulePageContent() {
   }, [isScheduleViewActive, requestFullDataPrefetch]);
 
   const shouldLoadFullScheduleData = shouldPrefetchFullData || isScheduleViewActive || isTodayViewActive;
+  const scheduleListDepartmentId = React.useMemo(() => {
+    if ((isManager || isMember) && memberDepartmentId) {
+      return memberDepartmentId;
+    }
+    if (selectedDepartment !== 'all' && selectedDepartment !== 'no-department') {
+      return selectedDepartment;
+    }
+    return undefined;
+  }, [isManager, isMember, memberDepartmentId, selectedDepartment]);
 
   // ✅ Load full month schedule only when 필요 또는 백그라운드 프리패치
   const needsFullSchedule = shouldLoadFullScheduleData;
   const scheduleListQuery = api.schedule.list.useQuery({
-    departmentId: (isManager || isMember) && memberDepartmentId ? memberDepartmentId :
-                  selectedDepartment !== 'all' && selectedDepartment !== 'no-department' ? selectedDepartment : undefined,
+    departmentId: scheduleListDepartmentId,
     status: isMember ? 'published' : undefined, // Members only see published, managers/admins see all including drafts
     startDate: toUTCDateOnly(monthStart),
     endDate: toUTCDateOnly(monthEnd),
@@ -899,7 +908,26 @@ function SchedulePageContent() {
       return;
     }
 
+    if (savedSchedules && savedSchedules.length > 0 && pendingGeneratedScheduleRef.current) {
+      pendingGeneratedScheduleRef.current = null;
+    }
+
     if (!savedSchedules || savedSchedules.length === 0) {
+      const pendingGenerated = pendingGeneratedScheduleRef.current;
+      const currentMonthKey = format(monthStart, 'yyyy-MM');
+      if (
+        pendingGenerated &&
+        pendingGenerated.id === loadedScheduleId &&
+        pendingGenerated.monthKey === currentMonthKey &&
+        pendingGenerated.departmentId === scheduleListDepartmentId
+      ) {
+        return;
+      }
+
+      if (isGenerating) {
+        return;
+      }
+
       // No saved schedule, clear cached state only if previously set
       setLoadedScheduleId((prev) => (prev === null ? prev : null));
       lastLoadedRef.current = null;
@@ -908,6 +936,7 @@ function SchedulePageContent() {
       setIsConfirmed(false);
       setGenerationResult(null);
       setOffAccrualSummaries((prev) => (prev.length === 0 ? prev : []));
+      pendingGeneratedScheduleRef.current = null;
       return;
     }
 
@@ -974,7 +1003,7 @@ function SchedulePageContent() {
     } else {
       setOffAccrualSummaries([]);
     }
-  }, [savedSchedules, monthStart, canManageSchedules, isMember, setSelectedDepartment]);
+  }, [savedSchedules, monthStart, canManageSchedules, isMember, setSelectedDepartment, isGenerating, scheduleListDepartmentId, loadedScheduleId]);
 
   const deriveShiftTypeFromId = (shiftId: string) => {
     if (!shiftId) {
@@ -1306,6 +1335,7 @@ function SchedulePageContent() {
     setOffAccrualSummaries([]);
     setLoadedScheduleId(null); // ✅ Reset to allow loading new month's schedule
     setIsAiGenerated(false);
+    pendingGeneratedScheduleRef.current = null;
   }, []);
 
   const handleNextMonth = React.useCallback(() => {
@@ -1315,6 +1345,7 @@ function SchedulePageContent() {
     setOffAccrualSummaries([]);
     setLoadedScheduleId(null); // ✅ Reset to allow loading new month's schedule
     setIsAiGenerated(false);
+    pendingGeneratedScheduleRef.current = null;
   }, []);
 
   const handleThisMonth = React.useCallback(() => {
@@ -1324,6 +1355,7 @@ function SchedulePageContent() {
     setOffAccrualSummaries([]);
     setLoadedScheduleId(null); // ✅ Reset to allow loading current month's schedule
     setIsAiGenerated(false);
+    pendingGeneratedScheduleRef.current = null;
   }, []);
 
   const defaultScheduleName = React.useMemo(
@@ -2520,6 +2552,11 @@ function SchedulePageContent() {
     setOriginalSchedule(normalizedAssignments);
     setIsConfirmed(false);
     setLoadedScheduleId(result.scheduleId);
+    pendingGeneratedScheduleRef.current = {
+      id: result.scheduleId,
+      monthKey: format(monthStartDate, 'yyyy-MM'),
+      departmentId: scheduleListDepartmentId,
+    };
     const effectiveAutoAdjustments =
       autoAdjustments.length > 0 ? autoAdjustments : result.generationResult.diagnostics?.autoAdjustments || [];
 
@@ -2547,6 +2584,8 @@ function SchedulePageContent() {
       setGenerationResult(null);
       setOffAccrualSummaries([]);
     }
+
+    void utils.schedule.list.invalidate();
 
     if (aiEnabledFlag && isProfessionalPlan) {
       try {
@@ -3790,6 +3829,7 @@ function SchedulePageContent() {
           setOffAccrualSummaries([]);
           setIsConfirmed(false); // Reset confirmed state
           setIsAiGenerated(false);
+          pendingGeneratedScheduleRef.current = null;
         }}
         onScheduleLoad={handleLoadSchedule}
       />
