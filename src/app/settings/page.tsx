@@ -36,6 +36,7 @@ function SettingsContent() {
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [showMobileTabMenu, setShowMobileTabMenu] = useState(false);
+  const isGuestPlan = (currentUserHook.tenantPlan ?? '').toLowerCase() === 'guest';
 
   // Department secret code state (admin/owner only)
   const [allDepartments, setAllDepartments] = useState<Department[]>([]);
@@ -212,8 +213,8 @@ function SettingsContent() {
     }
   };
 
-  // Show secret code tab for managers, admins and owners
-  const showSecretCodeTab = currentUser && (currentUser.role === 'manager' || currentUser.role === 'admin' || currentUser.role === 'owner');
+  // Show secret code tab for managers, admins and owners (but hide for guest plan)
+  const showSecretCodeTab = currentUser && !isGuestPlan && (currentUser.role === 'manager' || currentUser.role === 'admin' || currentUser.role === 'owner');
 
   // Show department tab only for admins and owners (managers use /config page)
   const showDepartmentTab = currentUser && (currentUser.role === 'admin' || currentUser.role === 'owner');

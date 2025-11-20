@@ -6,6 +6,7 @@ import { nursePreferences } from '@/db/schema/nurse-preferences';
 import { sql } from 'drizzle-orm';
 import { ensureNotificationPreferencesColumn } from '@/lib/db/ensureNotificationPreferencesColumn';
 import { applyPlanSettings } from '@/lib/billing/plan-limits';
+import { eq } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 10;
@@ -26,6 +27,33 @@ const supabaseAdmin =
  * - employeeId는 GUEST_0000001 형식으로 자동 생성
  * - 14일 Pro 플랜 무료 체험 제공
  */
+
+const SECRET_CODE_LENGTH = 8;
+const SECRET_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function generateRandomSecretCode() {
+  let code = '';
+  for (let i = 0; i < SECRET_CODE_LENGTH; i += 1) {
+    const idx = Math.floor(Math.random() * SECRET_CHARS.length);
+    code += SECRET_CHARS[idx];
+  }
+  return code;
+}
+
+async function generateUniqueSecretCode() {
+  while (true) {
+    const candidate = generateRandomSecretCode();
+    const existing = await db
+      .select({ id: tenants.id })
+      .from(tenants)
+      .where(eq(tenants.secretCode, candidate))
+      .limit(1);
+    if (existing.length === 0) {
+      return candidate;
+    }
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     if (!supabaseAdmin) {
@@ -86,6 +114,7 @@ export async function POST(request: NextRequest) {
 
     const randomString = Math.random().toString(36).substring(2, 10);
     const guestPrefix = `guest_${randomString}`;
+    const secretCode = await generateUniqueSecretCode();
 
     const planExpiresAt = new Date();
     planExpiresAt.setDate(planExpiresAt.getDate() + 14);
@@ -108,7 +137,7 @@ export async function POST(request: NextRequest) {
       .values({
         name: prefixedHospitalName,
         slug: guestPrefix,
-        secretCode: guestPrefix,
+        secretCode,
         plan: 'guest',
         settings: tenantSettings,
       })
@@ -120,7 +149,7 @@ export async function POST(request: NextRequest) {
         tenantId: tenant.id,
         name: sanitizedDepartmentName,
         code: guestPrefix,
-        secretCode: guestPrefix,
+        secretCode,
         settings: {
           minStaff: 1,
           maxStaff: 50,
