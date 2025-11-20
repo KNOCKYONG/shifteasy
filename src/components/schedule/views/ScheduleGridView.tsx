@@ -187,6 +187,11 @@ export const ScheduleGridView = React.memo(function ScheduleGridView({
               {showOffBalance && (
                 <div className="p-1 border-l border-gray-100 dark:border-gray-800 flex flex-col items-center justify-center">
                   {(() => {
+                    const isWeekdayOnly = member.workPatternType === 'weekday-only';
+                    if (isWeekdayOnly) {
+                      return <div className="text-[10px] text-gray-400 dark:text-gray-500">-</div>;
+                    }
+
                     const offEntry = offBalanceData?.get(member.id);
                     const pendingFromMetadata = pendingOffData?.get(member.id);
                     const hasLedgerData = Boolean(offEntry);
@@ -197,7 +202,6 @@ export const ScheduleGridView = React.memo(function ScheduleGridView({
                     const accumulation = offEntry?.allocatedToAccumulation ?? 0;
                     const allowance = offEntry?.allocatedToAllowance ?? 0;
                     const pendingValue = pendingFromMetadata ?? offEntry?.pendingExtraOffDays ?? 0;
-                    const isWeekdayOnly = member.workPatternType === 'weekday-only';
                     const shouldShowPending = !isWeekdayOnly && pendingValue !== 0;
                     return (
                       <div className="text-[10px] text-center leading-tight">
