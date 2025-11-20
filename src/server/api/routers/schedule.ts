@@ -260,6 +260,9 @@ type SchedulerBackendPayload = Omit<ScheduleGenerationInput, 'startDate' | 'endD
 
 const DEFAULT_JOB_TIMEOUT_MS = Number(process.env.SCHEDULER_JOB_TIMEOUT_MS ?? 120000);
 const DEFAULT_JOB_POLL_INTERVAL_MS = Number(process.env.SCHEDULER_JOB_POLL_INTERVAL_MS ?? 2000);
+const DEFAULT_REMOTE_MILP_BACKEND_URL =
+  process.env.MILP_SCHEDULER_DEFAULT_URL ??
+  (process.env.NODE_ENV === 'production' ? 'https://shifteasy-milp-worker.fly.dev' : undefined);
 
 async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -270,15 +273,20 @@ function buildSchedulerBackendCandidates(useMilpBackend?: boolean): string[] {
   const localUrl =
     process.env.MILP_SCHEDULER_LOCAL_URL ??
     (process.env.NODE_ENV === 'development' ? 'http://127.0.0.1:4000' : undefined);
+  const milpBackendUrl =
+    process.env.MILP_SCHEDULER_BACKEND_URL ?? process.env.NEXT_PUBLIC_MILP_SCHEDULER_BACKEND_URL;
   if (useMilpBackend) {
     if (localUrl) {
       candidates.push(localUrl);
     }
-    if (process.env.MILP_SCHEDULER_BACKEND_URL) {
-      candidates.push(process.env.MILP_SCHEDULER_BACKEND_URL);
+    if (milpBackendUrl) {
+      candidates.push(milpBackendUrl);
     }
     if (process.env.SCHEDULER_BACKEND_URL) {
       candidates.push(process.env.SCHEDULER_BACKEND_URL);
+    }
+    if (DEFAULT_REMOTE_MILP_BACKEND_URL) {
+      candidates.push(DEFAULT_REMOTE_MILP_BACKEND_URL);
     }
   } else if (process.env.SCHEDULER_BACKEND_URL) {
     candidates.push(process.env.SCHEDULER_BACKEND_URL);
@@ -605,37 +613,93 @@ export const scheduleRouter = createTRPCRouter({
         );
       }
 
-      const enableAIFlag = input.useMilpEngine ? false : input.enableAI;
+      const basePayload = {
+        name: input.name,
+        departmentId: input.departmentId,
+        startDate: input.startDate.toISOString(),
+        endDate: input.endDate.toISOString(),
+        employees: employeesWithGuarantees,
+        shifts: input.shifts,
+        constraints: input.constraints,
+        specialRequests: input.specialRequests,
+        holidays: input.holidays,
+        teamPattern: input.teamPattern ?? null,
+        requiredStaffPerShift: input.requiredStaffPerShift,
+        optimizationGoal: input.optimizationGoal,
+        nightIntensivePaidLeaveDays: input.nightIntensivePaidLeaveDays,
+        previousOffAccruals,
+      };
 
-      let backendResult: SchedulerBackendResult;
-      try {
-        backendResult = await requestScheduleGenerationFromBackend({
-          name: input.name,
-          departmentId: input.departmentId,
-          startDate: input.startDate.toISOString(),
-          endDate: input.endDate.toISOString(),
-          employees: employeesWithGuarantees,
-          shifts: input.shifts,
-          constraints: input.constraints,
-          specialRequests: input.specialRequests,
-          holidays: input.holidays,
-          teamPattern: input.teamPattern ?? null,
-          requiredStaffPerShift: input.requiredStaffPerShift,
-          optimizationGoal: input.optimizationGoal,
-          nightIntensivePaidLeaveDays: input.nightIntensivePaidLeaveDays,
-          enableAI: enableAIFlag,
-          useMilpEngine: input.useMilpEngine,
-          previousOffAccruals,
+      const defaultSchedulerPayload: SchedulerBackendPayload = {
+        ...basePayload,
+        enableAI: input.enableAI,
+        useMilpEngine: false,
+      };
+
+      let milpSchedulerPayload: SchedulerBackendPayload | undefined;
+      if (input.useMilpEngine) {
+        milpSchedulerPayload = {
+          ...basePayload,
+          enableAI: false,
+          useMilpEngine: true,
           milpInput,
           schedulerAdvanced,
           solver: schedulerAdvanced?.solverPreference ?? 'auto',
-        }, { useMilpBackend: input.useMilpEngine });
-      } catch (error) {
-        const diagnostics = (error as SchedulerJobError).diagnostics;
+        };
+      }
+
+      const schedulerErrors: SchedulerJobError[] = [];
+      const trySchedulerRequest = async (
+        payload: SchedulerBackendPayload,
+        options?: { useMilpBackend?: boolean }
+      ): Promise<SchedulerBackendResult | undefined> => {
+        try {
+          return await requestScheduleGenerationFromBackend(payload, options);
+        } catch (error) {
+          schedulerErrors.push(error as SchedulerJobError);
+          return undefined;
+        }
+      };
+
+      let backendResult: SchedulerBackendResult | undefined;
+      let resolvedGenerationMethod: 'milp-engine' | 'ai-engine' =
+        defaultSchedulerPayload.useMilpEngine ? 'milp-engine' : 'ai-engine';
+      let resolvedAiFlag = defaultSchedulerPayload.enableAI;
+      if (milpSchedulerPayload) {
+        backendResult = await trySchedulerRequest(milpSchedulerPayload, { useMilpBackend: true });
+        if (backendResult) {
+          resolvedGenerationMethod = 'milp-engine';
+          resolvedAiFlag = milpSchedulerPayload.enableAI;
+        } else {
+          console.warn('[Scheduler] MILP backend failed, falling back to default scheduler', {
+            departmentId: input.departmentId,
+            errors: schedulerErrors.map((err) => err.message),
+          });
+          backendResult = await trySchedulerRequest(defaultSchedulerPayload);
+          if (backendResult) {
+            resolvedGenerationMethod = defaultSchedulerPayload.useMilpEngine ? 'milp-engine' : 'ai-engine';
+            resolvedAiFlag = defaultSchedulerPayload.enableAI;
+          }
+        }
+      } else {
+        backendResult = await trySchedulerRequest(defaultSchedulerPayload);
+        if (backendResult) {
+          resolvedGenerationMethod = defaultSchedulerPayload.useMilpEngine ? 'milp-engine' : 'ai-engine';
+          resolvedAiFlag = defaultSchedulerPayload.enableAI;
+        }
+      }
+
+      if (!backendResult) {
+        const lastError = schedulerErrors[schedulerErrors.length - 1];
+        const aggregated = schedulerErrors.map((err) => err.message).join(' | ');
+        const diagnostics =
+          [...schedulerErrors].reverse().map((err) => err.diagnostics).find(Boolean) ?? lastError?.diagnostics;
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: error instanceof Error ? error.message : 'Scheduler backend failed',
-          cause: diagnostics || error,
+          message: input.useMilpEngine
+            ? `MILP scheduler and fallback both failed. Details: ${aggregated}`
+            : (lastError?.message ?? 'Scheduler backend failed'),
+          cause: diagnostics || lastError || aggregated,
         });
       }
 
@@ -659,20 +723,20 @@ export const scheduleRouter = createTRPCRouter({
         startDate: input.startDate,
         endDate: input.endDate,
         status: 'draft',
-        metadata: {
-          generatedBy: ctx.user?.id || 'system',
-          generationMethod: input.useMilpEngine ? 'milp-engine' : 'ai-engine',
-          constraints: input.constraints,
-          assignments: serializedAssignments,
-          stats: generationResult.stats,
-          score: finalScore,
-          violations: generationResult.violations,
-          offAccruals: generationResult.offAccruals,
-          diagnostics: generationDiagnostics,
-          schedulerAdvanced,
-          aiEnabled: enableAIFlag,
-          aiPolishResult,
-        },
+          metadata: {
+            generatedBy: ctx.user?.id || 'system',
+          generationMethod: resolvedGenerationMethod,
+            constraints: input.constraints,
+            assignments: serializedAssignments,
+            stats: generationResult.stats,
+            score: finalScore,
+            violations: generationResult.violations,
+            offAccruals: generationResult.offAccruals,
+            diagnostics: generationDiagnostics,
+            schedulerAdvanced,
+            aiEnabled: resolvedAiFlag,
+            aiPolishResult,
+          },
       });
 
       await createAuditLog({

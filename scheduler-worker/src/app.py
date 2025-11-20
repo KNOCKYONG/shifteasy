@@ -5,6 +5,7 @@ import json
 import copy
 import os
 import random
+import gc
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -92,6 +93,20 @@ class InternalJobState:
 
 app = FastAPI(title="MILP-CSP Scheduler Worker", version="0.1.0")
 jobs: Dict[str, InternalJobState] = {}
+JOB_RETENTION_SECONDS = int(os.environ.get("SCHEDULER_JOB_TTL_SECONDS", 300))
+
+
+async def _cleanup_job_later(job_id: str):
+  if JOB_RETENTION_SECONDS <= 0:
+    jobs.pop(job_id, None)
+    gc.collect()
+    return
+  await asyncio.sleep(JOB_RETENTION_SECONDS)
+  job_state = jobs.pop(job_id, None)
+  if job_state:
+    job_state.result = None
+    job_state.error_diagnostics = None
+  gc.collect()
 
 
 def serialize_assignments(assignments: list[Assignment]) -> list[Dict[str, Any]]:
@@ -415,6 +430,7 @@ def attempt_schedule_run(schedule: ScheduleInput, label: str) -> tuple[list[Assi
       "assignments": serialize_assignments(assignments),
     },
   )
+  postprocessor = None
   return assignments, diagnostics
 
 
@@ -448,6 +464,7 @@ def attempt_cpsat_schedule_run(schedule: ScheduleInput, label: str) -> tuple[lis
       "assignments": serialize_assignments(assignments),
     },
   )
+  postprocessor = None
   return assignments, diagnostics
 
 
@@ -546,10 +563,13 @@ def _solve_single_attempt(schedule: ScheduleInput, preferred_solver: Optional[st
             "level": level + 1,
           }
         )
+        relaxed_schedule = None
         return assignments, diagnostics
       except Exception as relaxed_error:
         log_json("milp-error", {"phase": f"relaxed-{level+1}", "error": str(relaxed_error)})
         diagnostics_snapshot = getattr(relaxed_error, "diagnostics", diagnostics_snapshot)
+      finally:
+        relaxed_schedule = None
     if solver_choice in {"auto", "cpsat"}:
       try:
         return run_cpsat("cpsat-fallback")
@@ -648,6 +668,7 @@ def solve_job(schedule: ScheduleInput, preferred_solver: Optional[str] = None) -
       assignments, diagnostics = _solve_single_attempt(candidate, preferred_solver)
     except Exception as exc:
       last_error = exc
+      candidate = None
       continue
     penalty = _compute_solution_penalty(diagnostics)
     if best_result is None or penalty < best_result["penalty"]:
@@ -657,10 +678,15 @@ def solve_job(schedule: ScheduleInput, preferred_solver: Optional[str] = None) -
         "penalty": penalty,
         "attempt": attempt_index + 1,
       }
+    else:
+      assignments = None
+      diagnostics = None
+    candidate = None
     if penalty <= 0:
       break
 
   if best_result:
+    assignments = best_result["assignments"]
     diagnostics = best_result["diagnostics"]
     if attempts > 1 or jitter_fraction > 0:
       diagnostics.setdefault("preflightIssues", []).append(
@@ -674,8 +700,11 @@ def solve_job(schedule: ScheduleInput, preferred_solver: Optional[str] = None) -
           "weightJitterPct": jitter_pct,
         }
       )
-    return best_result["assignments"], diagnostics
+    best_result = None
+    gc.collect()
+    return assignments, diagnostics
 
+  gc.collect()
   if last_error:
     raise last_error
   raise RuntimeError("MILP solver failed for all attempts")
@@ -683,6 +712,9 @@ def solve_job(schedule: ScheduleInput, preferred_solver: Optional[str] = None) -
 
 async def process_job(job: InternalJobState, payload: SchedulerJobRequest):
   job.mark_processing()
+  schedule: Optional[ScheduleInput] = None
+  assignments: Optional[list[Assignment]] = None
+  diagnostics: Optional[Dict[str, Any]] = None
   try:
     schedule = parse_schedule_input(payload.milpInput)
     loop = asyncio.get_running_loop()
@@ -702,8 +734,15 @@ async def process_job(job: InternalJobState, payload: SchedulerJobRequest):
     guidance = _build_failure_guidance(diag_obj)
     diag_obj["guidance"] = guidance
     job.mark_failed(str(exc), diag_obj)
+    diag_obj = None
   except Exception as exc:
     job.mark_failed(str(exc))
+  finally:
+    assignments = None
+    diagnostics = None
+    schedule = None
+    asyncio.create_task(_cleanup_job_later(job.id))
+    gc.collect()
 
 
 @app.post("/scheduler/jobs", response_model=SchedulerJobResponse)
