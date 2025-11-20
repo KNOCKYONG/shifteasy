@@ -6,10 +6,9 @@ import { ProfileDropdown } from '@/components/ProfileDropdown';
 import { SettingsMenu } from '@/components/SettingsMenu';
 import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
-import { Menu, X, Bell, ChevronDown, User as UserIcon, LogOut } from 'lucide-react';
+import { Menu, X, Bell, ChevronDown, User as UserIcon, LogOut, Settings } from 'lucide-react';
 import { getNavigationForRole, type Role } from '@/lib/permissions';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useTheme } from 'next-themes';
 import { useFullSignOut } from '@/hooks/useFullSignOut';
 
 interface NavItem {
@@ -35,16 +34,10 @@ interface Notification {
   actionUrl?: string | null;
 }
 
-const languages = [
-  { code: 'ko', name: '한국어', flag: '🇰🇷' },
-  { code: 'en', name: 'English', flag: '🇺🇸' },
-  { code: 'ja', name: '日本語', flag: '🇯🇵' },
-];
-
 export function NavigationHeader() {
   const pathname = usePathname();
   const router = useRouter();
-  const { t, ready, i18n } = useTranslation('common');
+  const { t, ready } = useTranslation('common');
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
@@ -54,8 +47,6 @@ export function NavigationHeader() {
   const [userInfo, setUserInfo] = useState<{ id: string; tenantId: string } | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const { theme, setTheme } = useTheme();
-  const [currentLang, setCurrentLang] = useState('ko');
   const handleSignOut = useFullSignOut();
 
   const teamSubMenuItems: SubMenuItem[] = [
@@ -178,25 +169,8 @@ export function NavigationHeader() {
     return new Date(date).toLocaleDateString('ko-KR');
   };
 
-  const handleLanguageChange = (langCode: string) => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem('i18nextLng', langCode);
-    setCurrentLang(langCode);
-    i18n.changeLanguage(langCode);
-  };
-
-  const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
-  };
-
   useEffect(() => {
     setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const savedLang = localStorage.getItem('i18nextLng') || 'ko';
-    setCurrentLang(savedLang);
   }, []);
 
   // 페이지 변경 시 모바일 메뉴 닫기
@@ -536,25 +510,6 @@ export function NavigationHeader() {
         }`}
       >
         <nav className="flex h-full flex-col gap-4 overflow-y-auto p-4">
-          {/* Mobile Notification Link */}
-          <Link
-            href="/notifications"
-            onClick={() => setMobileMenuOpen(false)}
-            className={`px-4 py-3 rounded-md text-sm font-medium transition-colors flex items-center gap-3 ${
-              pathname === '/notifications'
-                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
-            }`}
-          >
-            <Bell className={`w-5 h-5 ${unreadCount > 0 ? 'text-yellow-500' : ''}`} />
-            <span>알림</span>
-            {unreadCount > 0 && (
-              <span className="ml-auto w-6 h-6 bg-yellow-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
-          </Link>
-
           {/* Mobile Navigation Items */}
           {navItems.map((item) => {
             const isActive = pathname === item.href ||
@@ -671,39 +626,15 @@ export function NavigationHeader() {
             );
           })}
 
-          <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">설정</p>
-            <div className="mt-3">
-              <label className="text-xs font-medium text-gray-600 dark:text-gray-300">언어</label>
-              <select
-                value={currentLang}
-                onChange={(e) => handleLanguageChange(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {languages.map((lang) => (
-                  <option key={lang.code} value={lang.code}>
-                    {lang.flag} {lang.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="mt-3 flex w-full items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          <div className="mt-auto flex items-center justify-end gap-3 border-t border-gray-200 dark:border-gray-700 pt-4">
+            <Link
+              href="/settings"
+              onClick={() => setMobileMenuOpen(false)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              aria-label="설정"
             >
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">다크모드</span>
-              <div className={`relative h-6 w-12 rounded-full transition-colors ${theme === 'dark' ? 'bg-blue-600' : 'bg-gray-300'}`}>
-                <div
-                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
-                    theme === 'dark' ? 'translate-x-6' : 'translate-x-0'
-                  }`}
-                />
-              </div>
-            </button>
-          </div>
-
-          <div className="mt-4 flex justify-end">
+              <Settings className="h-5 w-5" />
+            </Link>
             <button
               type="button"
               onClick={() => {
