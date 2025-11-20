@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { User, Shield, Bell, Key, Copy, Save, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { User, Shield, Bell, Key, Copy, Save, Loader2, AlertCircle, CheckCircle2, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { RoleGuard } from "@/components/auth/RoleGuard";
@@ -35,6 +35,7 @@ function SettingsContent() {
   const currentUserHook = useCurrentUser();
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [showMobileTabMenu, setShowMobileTabMenu] = useState(false);
 
   // Department secret code state (admin/owner only)
   const [allDepartments, setAllDepartments] = useState<Department[]>([]);
@@ -263,18 +264,43 @@ function SettingsContent() {
 
           {/* Tabs */}
           <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
-            <div className="md:hidden mb-4">
-              <select
-                value={activeTab}
-                onChange={(e) => setActiveTab(e.target.value as SettingsTab)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            <div className="md:hidden mb-4 relative">
+              <button
+                type="button"
+                onClick={() => setShowMobileTabMenu((prev) => !prev)}
+                className="w-full flex items-center justify-between px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
-                {tabOptions.map((tab) => (
-                  <option key={tab.value} value={tab.value}>
-                    {tab.label}
-                  </option>
-                ))}
-              </select>
+                <span>{tabOptions.find((tab) => tab.value === activeTab)?.label ?? t('tabs.profile', { ns: 'settings', defaultValue: '프로필' })}</span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${showMobileTabMenu ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showMobileTabMenu && (
+                <>
+                  <div
+                    className="fixed inset-0 z-20"
+                    onClick={() => setShowMobileTabMenu(false)}
+                  />
+                  <div className="absolute z-30 w-full mt-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
+                    {tabOptions.map((tab) => (
+                      <button
+                        key={tab.value}
+                        type="button"
+                        onClick={() => {
+                          setActiveTab(tab.value);
+                          setShowMobileTabMenu(false);
+                        }}
+                        className={`w-full text-left px-4 py-3 text-sm ${
+                          activeTab === tab.value
+                            ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
+                            : 'text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
             <nav className="hidden md:flex gap-8">
               <button

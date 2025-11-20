@@ -6,7 +6,7 @@ import { ProfileDropdown } from '@/components/ProfileDropdown';
 import { SettingsMenu } from '@/components/SettingsMenu';
 import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
-import { Menu, X, Bell, ChevronDown, User as UserIcon, LogOut } from 'lucide-react';
+import { Menu, X, Bell, ChevronDown, LogOut } from 'lucide-react';
 import { getNavigationForRole, type Role } from '@/lib/permissions';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useTheme } from 'next-themes';
@@ -481,16 +481,12 @@ export function NavigationHeader() {
 
               {/* Mobile Menu Button */}
               <div className="flex items-center gap-2 md:hidden">
-                <span className="text-sm font-medium text-gray-900 dark:text-gray-100 max-w-[120px] truncate">
-                  {currentUser?.name || '사용자'}
-                </span>
                 <Link
                   href="/settings"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="h-9 w-9 rounded-full border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                  aria-label="프로필 설정"
+                  className="text-sm font-medium text-gray-900 dark:text-gray-100 max-w-[140px] truncate hover:text-blue-600 dark:hover:text-blue-400"
                 >
-                  <UserIcon className="h-4 w-4" />
+                  {currentUser?.name || '사용자'}
                 </Link>
                 <Link
                   href="/notifications"

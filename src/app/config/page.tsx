@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Settings, Save, Trash2, Activity, Plus, Edit2, Briefcase, Loader2, FolderOpen, Download } from "lucide-react";
+import { Settings, Save, Trash2, Activity, Plus, Edit2, Briefcase, Loader2, FolderOpen, Download, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { RoleGuard } from "@/components/auth/RoleGuard";
@@ -185,6 +185,23 @@ function ConfigPageContent() {
     maxYears: 0,
     description: '',
   });
+  const [showMobileTabMenu, setShowMobileTabMenu] = useState(false);
+
+  const tabLabelMap: Record<typeof activeTab, string> = {
+    preferences: t('tabs.preferences', { ns: 'config' }),
+    positions: t('tabs.positions', { ns: 'config', defaultValue: '직책 관리' }),
+    shifts: t('tabs.shifts', { ns: 'config', defaultValue: '근무 타입' }),
+    careers: t('tabs.careers', { ns: 'config', defaultValue: '경력 그룹' }),
+    handoffTemplates: '인수인계 템플릿',
+    secretCode: '시크릿 코드',
+  };
+  const configTabOptions: Array<{ value: typeof activeTab; label: string }> = [
+    { value: 'preferences', label: tabLabelMap.preferences },
+    { value: 'positions', label: tabLabelMap.positions },
+    { value: 'shifts', label: tabLabelMap.shifts },
+    { value: 'careers', label: tabLabelMap.careers },
+    { value: 'handoffTemplates', label: tabLabelMap.handoffTemplates },
+  ];
 
   // URL 파라미터 변경 시 activeTab 업데이트
   useEffect(() => {
@@ -534,18 +551,43 @@ function ConfigPageContent() {
           </div>
 
           {/* Mobile Dropdown */}
-          <div className="md:hidden mb-4">
-            <select
-              value={activeTab}
-              onChange={(e) => setActiveTab(e.target.value as typeof activeTab)}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          <div className="md:hidden mb-4 relative">
+            <button
+              type="button"
+              onClick={() => setShowMobileTabMenu((prev) => !prev)}
+              className="w-full flex items-center justify-between px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="preferences">{t('tabs.preferences', { ns: 'config' })}</option>
-              <option value="positions">{t('tabs.positions', { ns: 'config', defaultValue: '직책 관리' })}</option>
-              <option value="shifts">{t('tabs.shifts', { ns: 'config', defaultValue: '근무 타입' })}</option>
-              <option value="careers">{t('tabs.careers', { ns: 'config', defaultValue: '경력 그룹' })}</option>
-              <option value="handoffTemplates">인수인계 템플릿</option>
-            </select>
+              <span>{tabLabelMap[activeTab]}</span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${showMobileTabMenu ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showMobileTabMenu && (
+              <>
+                <div
+                  className="fixed inset-0 z-20"
+                  onClick={() => setShowMobileTabMenu(false)}
+                />
+                <div className="absolute z-30 w-full mt-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
+                  {configTabOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => {
+                        setActiveTab(option.value as typeof activeTab);
+                        setShowMobileTabMenu(false);
+                      }}
+                      className={`w-full text-left px-4 py-3 text-sm ${
+                        activeTab === option.value
+                          ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
+                          : 'text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Desktop Tabs */}
