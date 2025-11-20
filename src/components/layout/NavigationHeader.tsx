@@ -492,17 +492,18 @@ export function NavigationHeader() {
                 >
                   <UserIcon className="h-4 w-4" />
                 </Link>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    handleSignOut();
-                  }}
-                  className="h-9 w-9 rounded-full border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                  aria-label="로그아웃"
+                <Link
+                  href="/notifications"
+                  className="relative h-9 w-9 rounded-full border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  aria-label="알림"
                 >
-                  <LogOut className="h-4 w-4" />
-                </button>
+                  <Bell className={`h-4 w-4 ${unreadCount > 0 ? 'text-yellow-500' : ''}`} />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </Link>
               </div>
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -699,6 +700,20 @@ export function NavigationHeader() {
                   }`}
                 />
               </div>
+            </button>
+          </div>
+
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                handleSignOut();
+              }}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+              로그아웃
             </button>
           </div>
         </nav>
