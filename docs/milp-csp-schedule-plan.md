@@ -128,8 +128,8 @@
 - 휴무 slack은 낮지만 0에 가깝게 유지.
 
 ### 4.5 솔버 고려
-- OR-Tools CBC를 기본으로 사용하며, 실패 시 HiGHS(MIP) 폴백을 자동 시도한다. 패턴/시퀀스 제약을 강하게 풀고 싶을 때는 OR-Tools **CP-SAT**를 선호 Solver로 직접 선택할 수 있다(`/config → 고급 설정` 드롭다운에 추가됨).
-- 한 달 30일, 30명, 4시프트 기준 변수 ≈ 3,600개 → CBC도 수 초~분 단위 계산 가능. HiGHS는 동일 모델을 LP 포맷으로 내보내 실행하며, CP-SAT은 Bool/indicator 기반으로 시퀀스 제약을 안정적으로 처리한다.
+- OR-Tools CBC를 기본으로 사용하며, 패턴/시퀀스 제약을 강하게 풀고 싶을 때는 OR-Tools **CP-SAT**를 선호 Solver로 직접 선택할 수 있다(`/config → 고급 설정` 드롭다운에 추가됨).
+- 한 달 30일, 30명, 4시프트 기준 변수 ≈ 3,600개 → CBC도 수 초~분 단위 계산 가능. CP-SAT은 Bool/indicator 기반으로 시퀀스 제약을 안정적으로 처리한다.
 
 ## 6. CSP/휴리스틱 후처리
 MILP 해가 존재하더라도 아래 조정이 필요할 수 있다:
@@ -181,7 +181,7 @@ MILP 해가 존재하더라도 아래 조정이 필요할 수 있다:
  - Career group/연차 로딩 로직 모듈화 (`src/server/api/utils/milp-data-loader.ts`).
  - MILP 입력 DTO 정의 (`MilpCspScheduleInput` 등 새 타입명 사용) 및 serializer 작성.
 2. **MILP 모듈**  
- - OR-Tools(CBC/CP-SAT)/HiGHS 기반 solver util (Python 워커 `scheduler-worker/src/solver`).  
+ - OR-Tools(CBC/CP-SAT) 기반 solver util (Python 워커 `scheduler-worker/src/solver`).  
  - JSON 형태로 제약/결과를 주고받는 래퍼 작성.
  - 구현된 제약 요약:
    - 특수 요청을 소프트 제약(slack)으로 처리, 위반 시 `specialRequestMisses`.

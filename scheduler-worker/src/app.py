@@ -23,7 +23,6 @@ if str(CURRENT_DIR) not in sys.path:
 
 from models import Assignment, parse_schedule_input, ScheduleInput  # noqa: E402
 from solver.ortools_solver import solve_with_ortools  # noqa: E402
-from solver.highs_solver import solve_with_highs  # noqa: E402
 from solver.cpsat_solver import solve_with_cpsat  # noqa: E402
 from solver.postprocessor import SchedulePostProcessor  # noqa: E402
 from solver.exceptions import SolverFailure  # noqa: E402
@@ -35,7 +34,7 @@ class SchedulerJobRequest(BaseModel):
   milpInput: Dict[str, Any]
   name: Optional[str] = None
   departmentId: Optional[str] = None
-  solver: Optional[Literal['auto', 'ortools', 'highs', 'cpsat']] = 'auto'
+  solver: Optional[Literal['ortools', 'cpsat']] = 'ortools'
 
 
 class SchedulerJobStatus(BaseModel):
@@ -434,19 +433,6 @@ def attempt_schedule_run(schedule: ScheduleInput, label: str) -> tuple[list[Assi
   return assignments, diagnostics
 
 
-def attempt_highs_schedule_run(schedule: ScheduleInput, label: str) -> tuple[list[Assignment], Dict[str, Any]]:
-  log_json(f"{label}-milp-input", serialize_schedule(schedule))
-  assignments, diagnostics = solve_with_highs(schedule)
-  log_json(
-    f"{label}-milp-output",
-    {
-      "diagnostics": diagnostics,
-      "assignments": serialize_assignments(assignments),
-    },
-  )
-  return assignments, diagnostics
-
-
 def attempt_cpsat_schedule_run(schedule: ScheduleInput, label: str) -> tuple[list[Assignment], Dict[str, Any]]:
   log_json(f"{label}-milp-input", serialize_schedule(schedule))
   assignments, diagnostics = solve_with_cpsat(schedule)
@@ -502,21 +488,10 @@ def build_relaxed_schedule(schedule: ScheduleInput, relax_level: int, diagnostic
 
 
 def _solve_single_attempt(schedule: ScheduleInput, preferred_solver: Optional[str] = None) -> tuple[list[Assignment], Dict[str, Any]]:
-  env_solver = os.environ.get("MILP_DEFAULT_SOLVER", "auto").lower()
-  solver_choice = (preferred_solver or env_solver or "auto").lower()
-  if solver_choice not in {"auto", "ortools", "highs", "cpsat"}:
-    solver_choice = "auto"
-
-  def run_highs(phase: str):
-    assignments, diagnostics = attempt_highs_schedule_run(schedule, phase)
-    diagnostics.setdefault("preflightIssues", []).append(
-      {
-        "type": "solverInfo",
-        "message": f"Schedule generated via HiGHS ({phase}).",
-        "solver": "highs",
-      }
-    )
-    return assignments, diagnostics
+  env_solver = os.environ.get("MILP_DEFAULT_SOLVER", "ortools").lower()
+  solver_choice = (preferred_solver or env_solver or "ortools").lower()
+  if solver_choice not in {"ortools", "cpsat"}:
+    solver_choice = "ortools"
 
   def run_cpsat(phase: str):
     assignments, diagnostics = attempt_cpsat_schedule_run(schedule, phase)
@@ -536,16 +511,7 @@ def _solve_single_attempt(schedule: ScheduleInput, preferred_solver: Optional[st
       log_json("milp-error", {"phase": "cpsat-primary", "error": str(cpsat_error)})
       if preferred_solver == "cpsat":
         raise
-      solver_choice = "auto"
-
-  if solver_choice == "highs":
-    try:
-      return run_highs("highs-primary")
-    except Exception as highs_error:
-      log_json("milp-error", {"phase": "highs-primary", "error": str(highs_error)})
-      if preferred_solver == "highs":
-        raise
-      solver_choice = "auto"
+      solver_choice = "ortools"
 
   try:
     return attempt_schedule_run(schedule, "primary")
@@ -570,16 +536,11 @@ def _solve_single_attempt(schedule: ScheduleInput, preferred_solver: Optional[st
         diagnostics_snapshot = getattr(relaxed_error, "diagnostics", diagnostics_snapshot)
       finally:
         relaxed_schedule = None
-    if solver_choice in {"auto", "cpsat"}:
+    if solver_choice in {"cpsat", "ortools"}:
       try:
         return run_cpsat("cpsat-fallback")
       except Exception as cpsat_error:
         log_json("milp-error", {"phase": "cpsat-fallback", "error": str(cpsat_error)})
-    if solver_choice in {"auto", "highs"}:
-      try:
-        return run_highs("highs-fallback")
-      except Exception as highs_error:
-        log_json("milp-error", {"phase": "highs-fallback", "error": str(highs_error)})
     raise
 
 

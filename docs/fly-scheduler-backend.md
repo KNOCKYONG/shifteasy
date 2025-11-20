@@ -5,7 +5,7 @@
 ## 구조 요약
 
 - Next.js(TRPC) → `MILP_SCHEDULER_BACKEND_URL` (`https://<app>.fly.dev`) 로 FastAPI 워커 호출.
-- FastAPI → OR-Tools/HiGHS로 MILP 계산, 결과를 `/scheduler/jobs/{id}` 응답으로 반환.
+- FastAPI → OR-Tools(CBC/CP-SAT)로 MILP 계산, 결과를 `/scheduler/jobs/{id}` 응답으로 반환.
 - Next.js는 동일한 큐 인터페이스(POST → 폴링)를 사용하므로 기존 TRPC 로직을 그대로 재사용합니다.
 
 ## 준비 사항

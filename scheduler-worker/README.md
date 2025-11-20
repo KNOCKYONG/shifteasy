@@ -1,17 +1,17 @@
 # Scheduler Worker (MILP/CSP)
 
-이 디렉터리는 `milp-csp-scheduler` Python 워커를 위한 초기 스켈레톤입니다. OR-Tools/HiGHS 기반 MILP 솔버와 향후 CSP 후처리를 구현하여 Fly.io NestJS 워커에서 호출할 수 있도록 설계합니다.
+이 디렉터리는 `milp-csp-scheduler` Python 워커를 위한 초기 스켈레톤입니다. OR-Tools(CBC/CP-SAT) 기반 MILP 솔버와 CSP 후처리를 구현하여 Fly.io NestJS 워커에서 호출할 수 있도록 설계합니다.
 
 ## 구조
 
 ```
 scheduler-worker/
- ├─ requirements.txt         # OR-Tools, highspy, FastAPI 등
+ ├─ requirements.txt         # OR-Tools, FastAPI 등
  └─ src/
     ├─ models.py             # MilpCspScheduleInput 호환 파이썬 모델
     ├─ solver/
     │   ├─ ortools_solver.py # 하드 제약을 해결하는 OR-Tools MILP
-    │   └─ highs_solver.py   # HiGHS 백업 솔버 (추후 구현)
+    │   └─ cpsat_solver.py   # CP-SAT 솔버
     └─ run_solver.py         # CLI/테스트 진입점
 ```
 

@@ -660,17 +660,15 @@ function ConfigPageContent() {
               <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 rounded-lg border border-gray-100 dark:border-gray-700">
                 <p className="text-sm font-medium text-gray-900 dark:text-gray-100">선호 Solver</p>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-                  “자동”은 OR-Tools로 시도했다가 실패하면 HiGHS로 넘어갑니다. 패턴/시퀀스 제약이 많으면 CP-SAT을 직접 선택해 더 빠른 탐색을 시도할 수 있습니다.
+                  패턴/시퀀스 제약이 많으면 CP-SAT을, 균형/선호 최적화를 우선하면 OR-Tools를 선택하세요.
                 </p>
                 <select
                   value={schedulerAdvanced.solverPreference}
                   onChange={(e) => handleSolverPreferenceChange(e.target.value as MilpSolverType)}
                   className="mt-1 w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="auto">자동 (OR-Tools 우선, 실패 시 HiGHS)</option>
-                  <option value="cpsat">CP-SAT (패턴/시퀀스 제약에 강함)</option>
-                  <option value="ortools">OR-Tools만 사용</option>
-                  <option value="highs">항상 HiGHS 사용</option>
+                  <option value="ortools">OR-Tools</option>
+                  <option value="cpsat">CP-SAT</option>
                 </select>
               </div>
 

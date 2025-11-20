@@ -21,7 +21,7 @@ export interface CspSettingsConfig {
   annealing: CspAnnealingConfig;
 }
 
-export type MilpSolverType = 'auto' | 'ortools' | 'highs' | 'cpsat';
+export type MilpSolverType = 'ortools' | 'cpsat';
 
 export interface MilpMultiRunConfig {
   attempts: number;
@@ -44,7 +44,7 @@ export interface PatternConstraintsConfig {
 
 export const DEFAULT_SCHEDULER_ADVANCED: SchedulerAdvancedSettings = {
   useMilpEngine: false,
-  solverPreference: 'auto',
+  solverPreference: 'ortools',
   constraintWeights: {
     staffing: 1,
     teamBalance: 1,

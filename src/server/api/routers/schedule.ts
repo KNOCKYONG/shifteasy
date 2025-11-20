@@ -62,7 +62,7 @@ const patternConstraintsSchema = z.object({
 
 const schedulerAdvancedSchema = z.object({
   useMilpEngine: z.boolean().optional(),
-  solverPreference: z.enum(['auto', 'ortools', 'highs', 'cpsat']).optional(),
+  solverPreference: z.enum(['ortools', 'cpsat']).optional(),
   constraintWeights: constraintWeightsSchema.partial().optional(),
   cspSettings: cspSettingsSchema.partial().optional(),
   multiRun: multiRunSchema.partial().optional(),
@@ -274,7 +274,7 @@ type SchedulerBackendPayload = Omit<ScheduleGenerationInput, 'startDate' | 'endD
   previousOffAccruals: Record<string, number>;
   milpInput?: MilpCspScheduleInput;
   schedulerAdvanced?: z.infer<typeof schedulerAdvancedSchema>;
-  solver?: 'auto' | 'ortools' | 'highs' | 'cpsat';
+  solver?: 'ortools' | 'cpsat';
 };
 
 const DEFAULT_JOB_TIMEOUT_MS = Number(process.env.SCHEDULER_JOB_TIMEOUT_MS ?? 300000);
@@ -699,7 +699,7 @@ export const scheduleRouter = createTRPCRouter({
           useMilpEngine: true,
           milpInput,
           schedulerAdvanced,
-          solver: schedulerAdvanced?.solverPreference ?? 'auto',
+          solver: schedulerAdvanced?.solverPreference ?? 'ortools',
         };
       }
 

@@ -9,7 +9,6 @@ if str(CURRENT_DIR) not in sys.path:
 
 from models import Assignment, parse_schedule_input
 from solver.ortools_solver import solve_with_ortools
-from solver.highs_solver import solve_with_highs
 from solver.cpsat_solver import solve_with_cpsat
 from solver.exceptions import SolverFailure
 
@@ -47,16 +46,8 @@ def main():
   assignments: list[Assignment]
   diagnostics: dict
   try:
-    if solver_choice == "highs":
-      solver_fn = solve_with_highs
-      assignments, diagnostics = solver_fn(schedule)
-    elif solver_choice == "cpsat":
+    if solver_choice == "cpsat":
       assignments, diagnostics = solve_with_cpsat(schedule)
-    elif solver_choice == "auto":
-      try:
-        assignments, diagnostics = solve_with_ortools(schedule)
-      except Exception:
-        assignments, diagnostics = solve_with_cpsat(schedule)
     else:
       assignments, diagnostics = solve_with_ortools(schedule)
   except SolverFailure as exc:
