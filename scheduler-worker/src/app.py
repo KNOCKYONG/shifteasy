@@ -16,13 +16,12 @@ from dataclasses import asdict
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from upstash_client import get_upstash_client
-from loguru import logger
-
 CURRENT_DIR = Path(__file__).resolve().parent
 if str(CURRENT_DIR) not in sys.path:
   sys.path.append(str(CURRENT_DIR))
 
+from upstash_client import get_upstash_client  # noqa: E402
+from loguru import logger  # noqa: E402
 from models import Assignment, parse_schedule_input, ScheduleInput  # noqa: E402
 from solver.ortools_solver import solve_with_ortools  # noqa: E402
 from solver.cpsat_solver import solve_with_cpsat  # noqa: E402
