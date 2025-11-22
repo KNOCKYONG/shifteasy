@@ -55,6 +55,7 @@
   },
   "fileUpload": {
     "description": "최소 {{count}}개월 이상의 스케줄표를 첨부해주세요. (엑셀, PDF, 이미지 등)",
+    "descriptionOptional": "기존 스케줄표를 첨부하시면 더 정확한 컨설팅이 가능합니다. (엑셀, PDF, 이미지 등)",
     "dragDrop": "파일을 드래그하거나 클릭하여 업로드",
     "formats": "지원 형식: xlsx, xls, csv, pdf, jpg, png",
     "maxSize": "파일당 최대 10MB, 전체 최대 50MB",

@@ -26,11 +26,11 @@ export const consultingRouter = createTRPCRouter({
         type: z.string(),
         url: z.string(),
         uploadedAt: z.string(),
-      })).min(3, 'Minimum 3 files required'),
+      })).default([]),
 
       // Detailed Information
       painPoints: z.string().min(10),
-      specialRequirements: z.string().min(10),
+      specialRequirements: z.string().default(''),
       additionalNotes: z.string().optional(),
     }))
     .mutation(async ({ input }) => {

@@ -138,8 +138,9 @@ export default function HeroSection() {
 
           <button
             onClick={() => setIsConsultingModalOpen(true)}
-            className="group inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-slate-300 bg-white/5 border border-white/10 rounded-full transition-all duration-300 hover:bg-white/10 hover:text-white hover:border-white/20 backdrop-blur-sm"
+            className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-slate-300 bg-white/5 border border-white/10 rounded-full transition-all duration-300 hover:bg-white/10 hover:text-white hover:border-white/20 backdrop-blur-sm"
           >
+            <span className="absolute -top-2 -right-2 px-2.5 py-0.5 text-xs font-bold text-white bg-gradient-to-r from-green-500 to-emerald-500 rounded-full shadow-lg animate-pulse">무료</span>
             <Sparkles className="w-5 h-5 mr-2 text-blue-400 group-hover:text-blue-300 transition-colors" />
             {t('hero.ctaSecondary')}
           </button>

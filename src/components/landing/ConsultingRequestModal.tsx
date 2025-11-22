@@ -12,32 +12,23 @@ interface ConsultingRequestModalProps {
 }
 
 interface FormData {
-  // Step 1: Basic Information
   companyName: string;
   contactName: string;
   phone: string;
   email: string;
   industry: string;
   teamSize: string;
-
-  // Step 2: Schedule Information
   currentMethod: string;
   files: File[];
-
-  // Step 3: Detailed Information
   painPoints: string;
   specialRequirements: string;
   additionalNotes: string;
 }
 
 const ACCEPTED_FILE_TYPES = '.xlsx,.xls,.csv,.pdf,.jpg,.jpeg,.png';
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB per file
-const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50MB total
-const MIN_FILES = 3; // Minimum 3 months of schedules
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50MB
 
-/**
- * Convert File to base64 data URL
- */
 function fileToDataURL(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -47,9 +38,6 @@ function fileToDataURL(file: File): Promise<string> {
   });
 }
 
-/**
- * Upload file to Cloudflare R2 via API endpoint
- */
 async function uploadFileToR2(file: File): Promise<{
   name: string;
   size: number;
@@ -57,15 +45,10 @@ async function uploadFileToR2(file: File): Promise<{
   url: string;
   uploadedAt: string;
 }> {
-  // Convert file to base64 data URL
   const dataUrl = await fileToDataURL(file);
-
-  // Upload to R2 via API endpoint
   const response = await fetch('/api/upload-consulting-file', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       dataUrl,
       fileName: file.name,
@@ -82,18 +65,8 @@ async function uploadFileToR2(file: File): Promise<{
   return response.json();
 }
 
-/**
- * Upload multiple files to R2 in parallel
- */
-async function uploadMultipleFilesToR2(files: File[]): Promise<Array<{
-  name: string;
-  size: number;
-  type: string;
-  url: string;
-  uploadedAt: string;
-}>> {
-  const uploads = files.map(file => uploadFileToR2(file));
-  return Promise.all(uploads);
+async function uploadMultipleFilesToR2(files: File[]) {
+  return Promise.all(files.map(file => uploadFileToR2(file)));
 }
 
 export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRequestModalProps) {
@@ -104,7 +77,6 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isDragging, setIsDragging] = useState(false);
 
-  // tRPC mutation
   const submitRequest = api.consulting.submit.useMutation();
 
   const [formData, setFormData] = useState<FormData>({
@@ -126,7 +98,6 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
 
   const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
@@ -138,27 +109,20 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
     let error = '';
 
     for (const file of newFiles) {
-      // Check file size
       if (file.size > MAX_FILE_SIZE) {
         error = t('errors.fileTooLarge', { name: file.name });
         continue;
       }
-
-      // Check total size
       if (totalSize + file.size > MAX_TOTAL_SIZE) {
         error = t('errors.totalSizeTooLarge');
         break;
       }
-
       validFiles.push(file);
       totalSize += file.size;
     }
 
     if (validFiles.length > 0) {
-      setFormData(prev => ({
-        ...prev,
-        files: [...prev.files, ...validFiles]
-      }));
+      setFormData(prev => ({ ...prev, files: [...prev.files, ...validFiles] }));
       setErrors(prev => ({ ...prev, files: '' }));
     }
 
@@ -169,8 +133,7 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const newFiles = Array.from(e.target.files);
-      addFiles(newFiles);
+      addFiles(Array.from(e.target.files));
     }
   };
 
@@ -187,16 +150,11 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-
-    const droppedFiles = Array.from(e.dataTransfer.files);
-    addFiles(droppedFiles);
+    addFiles(Array.from(e.dataTransfer.files));
   }, [addFiles]);
 
   const removeFile = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      files: prev.files.filter((_, i) => i !== index)
-    }));
+    setFormData(prev => ({ ...prev, files: prev.files.filter((_, i) => i !== index) }));
   };
 
   const validateStep = (step: number): boolean => {
@@ -217,14 +175,10 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
 
     if (step === 2) {
       if (!formData.currentMethod) newErrors.currentMethod = t('errors.required');
-      if (formData.files.length < MIN_FILES) {
-        newErrors.files = t('errors.minFiles', { count: MIN_FILES });
-      }
     }
 
     if (step === 3) {
       if (!formData.painPoints.trim()) newErrors.painPoints = t('errors.required');
-      if (!formData.specialRequirements.trim()) newErrors.specialRequirements = t('errors.required');
     }
 
     setErrors(newErrors);
@@ -247,10 +201,18 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
     setIsSubmitting(true);
 
     try {
-      // Upload files to Cloudflare R2 and get public URLs
-      const uploadedFiles = await uploadMultipleFilesToR2(formData.files);
+      let uploadedFiles: Array<{
+        name: string;
+        size: number;
+        type: string;
+        url: string;
+        uploadedAt: string;
+      }> = [];
 
-      // Submit consulting request via tRPC
+      if (formData.files.length > 0) {
+        uploadedFiles = await uploadMultipleFilesToR2(formData.files);
+      }
+
       await submitRequest.mutateAsync({
         companyName: formData.companyName,
         contactName: formData.contactName,
@@ -261,13 +223,12 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
         currentMethod: formData.currentMethod as 'excel' | 'paper' | 'software' | 'other',
         files: uploadedFiles,
         painPoints: formData.painPoints,
-        specialRequirements: formData.specialRequirements,
+        specialRequirements: formData.specialRequirements || '',
         additionalNotes: formData.additionalNotes || undefined,
       });
 
       setIsSuccess(true);
 
-      // Reset form after 3 seconds
       setTimeout(() => {
         handleClose();
       }, 3000);
@@ -305,15 +266,19 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.9 }}
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
         className="relative w-full max-w-3xl max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden"
       >
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-2xl font-bold text-white">{t('title')}</h2>
+        <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-600 via-blue-700 to-purple-600 px-6 py-6 border-b border-blue-700/20">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-1">{t('title')}</h2>
+              <p className="text-sm text-blue-50">1-2 영업일 내 무료 컨설팅을 받으실 수 있습니다</p>
+            </div>
             <button
               onClick={handleClose}
               className="p-2 text-white hover:bg-white/20 rounded-lg transition-colors"
@@ -337,11 +302,8 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
             {[1, 2, 3].map(step => (
               <div key={step} className="flex items-center">
                 <div
-                  className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold transition-colors ${
-                    step <= currentStep
-                      ? 'bg-white text-blue-600'
-                      : 'bg-white/30 text-white'
-                  }`}
+                  className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold transition-colors ${step <= currentStep ? 'bg-white text-blue-600' : 'bg-white/30 text-white'
+                    }`}
                 >
                   {step}
                 </div>
@@ -354,7 +316,7 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto max-h-[calc(90vh-200px)] px-6 py-6">
+        <div className="overflow-y-auto max-h-[calc(90vh-220px)] px-6 py-6">
           <AnimatePresence mode="wait">
             {isSuccess ? (
               <motion.div
@@ -376,177 +338,113 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.3 }}
               >
-                {/* Step 1: Basic Information */}
+                {/* Step 1 */}
                 {currentStep === 1 && (
                   <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        {t('fields.companyName')} <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.companyName}
-                        onChange={(e) => handleInputChange('companyName', e.target.value)}
-                        className={`w-full px-4 py-3 rounded-lg border ${
-                          errors.companyName ? 'border-red-500' : 'border-gray-300'
-                        } focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all`}
-                        placeholder={t('placeholders.companyName')}
-                      />
-                      {errors.companyName && (
-                        <p className="mt-1 text-sm text-red-500">{errors.companyName}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        {t('fields.contactName')} <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.contactName}
-                        onChange={(e) => handleInputChange('contactName', e.target.value)}
-                        className={`w-full px-4 py-3 rounded-lg border ${
-                          errors.contactName ? 'border-red-500' : 'border-gray-300'
-                        } focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all`}
-                        placeholder={t('placeholders.contactName')}
-                      />
-                      {errors.contactName && (
-                        <p className="mt-1 text-sm text-red-500">{errors.contactName}</p>
-                      )}
-                    </div>
-
+                    <InputField
+                      label={t('fields.companyName')}
+                      required
+                      value={formData.companyName}
+                      onChange={(val) => handleInputChange('companyName', val)}
+                      error={errors.companyName}
+                      placeholder={t('placeholders.companyName')}
+                    />
+                    <InputField
+                      label={t('fields.contactName')}
+                      required
+                      value={formData.contactName}
+                      onChange={(val) => handleInputChange('contactName', val)}
+                      error={errors.contactName}
+                      placeholder={t('placeholders.contactName')}
+                    />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          {t('fields.phone')} <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="tel"
-                          value={formData.phone}
-                          onChange={(e) => handleInputChange('phone', e.target.value)}
-                          className={`w-full px-4 py-3 rounded-lg border ${
-                            errors.phone ? 'border-red-500' : 'border-gray-300'
-                          } focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all`}
-                          placeholder={t('placeholders.phone')}
-                        />
-                        {errors.phone && (
-                          <p className="mt-1 text-sm text-red-500">{errors.phone}</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          {t('fields.email')} <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="email"
-                          value={formData.email}
-                          onChange={(e) => handleInputChange('email', e.target.value)}
-                          className={`w-full px-4 py-3 rounded-lg border ${
-                            errors.email ? 'border-red-500' : 'border-gray-300'
-                          } focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all`}
-                          placeholder={t('placeholders.email')}
-                        />
-                        {errors.email && (
-                          <p className="mt-1 text-sm text-red-500">{errors.email}</p>
-                        )}
-                      </div>
+                      <InputField
+                        label={t('fields.phone')}
+                        required
+                        type="tel"
+                        value={formData.phone}
+                        onChange={(val) => handleInputChange('phone', val)}
+                        error={errors.phone}
+                        placeholder={t('placeholders.phone')}
+                      />
+                      <InputField
+                        label={t('fields.email')}
+                        required
+                        type="email"
+                        value={formData.email}
+                        onChange={(val) => handleInputChange('email', val)}
+                        error={errors.email}
+                        placeholder={t('placeholders.email')}
+                      />
                     </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          {t('fields.industry')} <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                          value={formData.industry}
-                          onChange={(e) => handleInputChange('industry', e.target.value)}
-                          className={`w-full px-4 py-3 rounded-lg border ${
-                            errors.industry ? 'border-red-500' : 'border-gray-300'
-                          } focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all`}
-                        >
-                          <option value="">{t('placeholders.industry')}</option>
-                          <option value="healthcare">{t('industries.healthcare')}</option>
-                          <option value="manufacturing">{t('industries.manufacturing')}</option>
-                          <option value="service">{t('industries.service')}</option>
-                          <option value="retail">{t('industries.retail')}</option>
-                          <option value="other">{t('industries.other')}</option>
-                        </select>
-                        {errors.industry && (
-                          <p className="mt-1 text-sm text-red-500">{errors.industry}</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          {t('fields.teamSize')} <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                          value={formData.teamSize}
-                          onChange={(e) => handleInputChange('teamSize', e.target.value)}
-                          className={`w-full px-4 py-3 rounded-lg border ${
-                            errors.teamSize ? 'border-red-500' : 'border-gray-300'
-                          } focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all`}
-                        >
-                          <option value="">{t('placeholders.teamSize')}</option>
-                          <option value="1-10">{t('teamSizes.small')}</option>
-                          <option value="11-30">{t('teamSizes.medium')}</option>
-                          <option value="31-50">{t('teamSizes.large')}</option>
-                          <option value="51+">{t('teamSizes.enterprise')}</option>
-                        </select>
-                        {errors.teamSize && (
-                          <p className="mt-1 text-sm text-red-500">{errors.teamSize}</p>
-                        )}
-                      </div>
+                      <SelectField
+                        label={t('fields.industry')}
+                        required
+                        value={formData.industry}
+                        onChange={(val) => handleInputChange('industry', val)}
+                        error={errors.industry}
+                        placeholder={t('placeholders.industry')}
+                        options={[
+                          { value: 'healthcare', label: t('industries.healthcare') },
+                          { value: 'manufacturing', label: t('industries.manufacturing') },
+                          { value: 'service', label: t('industries.service') },
+                          { value: 'retail', label: t('industries.retail') },
+                          { value: 'other', label: t('industries.other') },
+                        ]}
+                      />
+                      <SelectField
+                        label={t('fields.teamSize')}
+                        required
+                        value={formData.teamSize}
+                        onChange={(val) => handleInputChange('teamSize', val)}
+                        error={errors.teamSize}
+                        placeholder={t('placeholders.teamSize')}
+                        options={[
+                          { value: '1-10', label: t('teamSizes.small') },
+                          { value: '11-30', label: t('teamSizes.medium') },
+                          { value: '31-50', label: t('teamSizes.large') },
+                          { value: '51+', label: t('teamSizes.enterprise') },
+                        ]}
+                      />
                     </div>
                   </div>
                 )}
 
-                {/* Step 2: Schedule Information & File Upload */}
+                {/* Step 2 */}
                 {currentStep === 2 && (
                   <div className="space-y-6">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        {t('fields.currentMethod')} <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={formData.currentMethod}
-                        onChange={(e) => handleInputChange('currentMethod', e.target.value)}
-                        className={`w-full px-4 py-3 rounded-lg border ${
-                          errors.currentMethod ? 'border-red-500' : 'border-gray-300'
-                        } focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all`}
-                      >
-                        <option value="">{t('placeholders.currentMethod')}</option>
-                        <option value="excel">{t('methods.excel')}</option>
-                        <option value="paper">{t('methods.paper')}</option>
-                        <option value="software">{t('methods.software')}</option>
-                        <option value="other">{t('methods.other')}</option>
-                      </select>
-                      {errors.currentMethod && (
-                        <p className="mt-1 text-sm text-red-500">{errors.currentMethod}</p>
-                      )}
-                    </div>
+                    <SelectField
+                      label={t('fields.currentMethod')}
+                      required
+                      value={formData.currentMethod}
+                      onChange={(val) => handleInputChange('currentMethod', val)}
+                      error={errors.currentMethod}
+                      placeholder={t('placeholders.currentMethod')}
+                      options={[
+                        { value: 'excel', label: t('methods.excel') },
+                        { value: 'paper', label: t('methods.paper') },
+                        { value: 'software', label: t('methods.software') },
+                        { value: 'other', label: t('methods.other') },
+                      ]}
+                    />
 
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        {t('fields.files')} <span className="text-red-500">*</span>
+                        {t('fields.files')} <span className="text-gray-500 text-xs">(선택사항)</span>
                       </label>
-                      <p className="text-sm text-gray-600 mb-3">
-                        {t('fileUpload.description', { count: MIN_FILES })}
-                      </p>
+                      <p className="text-sm text-gray-600 mb-3">{t('fileUpload.descriptionOptional')}</p>
 
-                      {/* Drag & Drop Area */}
                       <div
                         onDragOver={handleDragOver}
                         onDragLeave={handleDragLeave}
                         onDrop={handleDrop}
-                        className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-all ${
-                          isDragging
+                        className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-all ${isDragging
                             ? 'border-blue-500 bg-blue-50'
                             : errors.files
-                            ? 'border-red-300 bg-red-50'
-                            : 'border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50'
-                        }`}
+                              ? 'border-red-300 bg-red-50'
+                              : 'border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50'
+                          }`}
                       >
                         <input
                           type="file"
@@ -556,15 +454,9 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         />
                         <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                        <p className="text-gray-700 font-medium mb-2">
-                          {t('fileUpload.dragDrop')}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          {t('fileUpload.formats')}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-2">
-                          {t('fileUpload.maxSize')}
-                        </p>
+                        <p className="text-gray-700 font-medium mb-2">{t('fileUpload.dragDrop')}</p>
+                        <p className="text-sm text-gray-500">{t('fileUpload.formats')}</p>
+                        <p className="text-xs text-gray-400 mt-2">{t('fileUpload.maxSize')}</p>
                       </div>
 
                       {errors.files && (
@@ -574,7 +466,6 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
                         </div>
                       )}
 
-                      {/* File List */}
                       {formData.files.length > 0 && (
                         <div className="mt-4 space-y-2">
                           <p className="text-sm font-semibold text-gray-700">
@@ -583,7 +474,7 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
                           {formData.files.map((file, index) => (
                             <div
                               key={index}
-                              className="flex items-center justify-between p-3 bg-gray-100 rounded-lg"
+                              className="flex items-center justify-between p-3 bg-gray-100 rounded-lg border border-gray-200"
                             >
                               <div className="flex items-center gap-3">
                                 <FileText className="w-5 h-5 text-blue-600" />
@@ -608,59 +499,35 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
                   </div>
                 )}
 
-                {/* Step 3: Detailed Information */}
+                {/* Step 3 */}
                 {currentStep === 3 && (
                   <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        {t('fields.painPoints')} <span className="text-red-500">*</span>
-                      </label>
-                      <p className="text-sm text-gray-600 mb-2">{t('hints.painPoints')}</p>
-                      <textarea
-                        value={formData.painPoints}
-                        onChange={(e) => handleInputChange('painPoints', e.target.value)}
-                        rows={4}
-                        className={`w-full px-4 py-3 rounded-lg border ${
-                          errors.painPoints ? 'border-red-500' : 'border-gray-300'
-                        } focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none`}
-                        placeholder={t('placeholders.painPoints')}
-                      />
-                      {errors.painPoints && (
-                        <p className="mt-1 text-sm text-red-500">{errors.painPoints}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        {t('fields.specialRequirements')} <span className="text-red-500">*</span>
-                      </label>
-                      <p className="text-sm text-gray-600 mb-2">{t('hints.specialRequirements')}</p>
-                      <textarea
-                        value={formData.specialRequirements}
-                        onChange={(e) => handleInputChange('specialRequirements', e.target.value)}
-                        rows={4}
-                        className={`w-full px-4 py-3 rounded-lg border ${
-                          errors.specialRequirements ? 'border-red-500' : 'border-gray-300'
-                        } focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none`}
-                        placeholder={t('placeholders.specialRequirements')}
-                      />
-                      {errors.specialRequirements && (
-                        <p className="mt-1 text-sm text-red-500">{errors.specialRequirements}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        {t('fields.additionalNotes')}
-                      </label>
-                      <textarea
-                        value={formData.additionalNotes}
-                        onChange={(e) => handleInputChange('additionalNotes', e.target.value)}
-                        rows={3}
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none"
-                        placeholder={t('placeholders.additionalNotes')}
-                      />
-                    </div>
+                    <TextAreaField
+                      label={t('fields.painPoints')}
+                      required
+                      value={formData.painPoints}
+                      onChange={(val) => handleInputChange('painPoints', val)}
+                      error={errors.painPoints}
+                      placeholder={t('placeholders.painPoints')}
+                      hint={t('hints.painPoints')}
+                      rows={4}
+                    />
+                    <TextAreaField
+                      label={t('fields.specialRequirements')}
+                      value={formData.specialRequirements}
+                      onChange={(val) => handleInputChange('specialRequirements', val)}
+                      error={errors.specialRequirements}
+                      placeholder={t('placeholders.specialRequirements')}
+                      hint={t('hints.specialRequirements')}
+                      rows={4}
+                    />
+                    <TextAreaField
+                      label={t('fields.additionalNotes')}
+                      value={formData.additionalNotes}
+                      onChange={(val) => handleInputChange('additionalNotes', val)}
+                      placeholder={t('placeholders.additionalNotes')}
+                      rows={3}
+                    />
                   </div>
                 )}
               </motion.div>
@@ -675,11 +542,10 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
               <button
                 onClick={handleBack}
                 disabled={currentStep === 1 || isSubmitting}
-                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all ${
-                  currentStep === 1
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all ${currentStep === 1
                     ? 'text-gray-400 cursor-not-allowed'
                     : 'text-gray-700 hover:bg-gray-200'
-                }`}
+                  }`}
               >
                 <ArrowLeft className="w-5 h-5" />
                 {t('buttons.back')}
@@ -719,6 +585,94 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
           </div>
         )}
       </motion.div>
+    </div>
+  );
+}
+
+// Helper Components
+function InputField({ label, required, type = 'text', value, onChange, error, placeholder }: {
+  label: string;
+  required?: boolean;
+  type?: string;
+  value: string;
+  onChange: (val: string) => void;
+  error?: string;
+  placeholder?: string;
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-semibold text-gray-700 mb-2">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`w-full px-4 py-3 rounded-lg border ${error ? 'border-red-500' : 'border-gray-300'
+          } focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all`}
+        placeholder={placeholder}
+      />
+      {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+    </div>
+  );
+}
+
+function SelectField({ label, required, value, onChange, error, placeholder, options }: {
+  label: string;
+  required?: boolean;
+  value: string;
+  onChange: (val: string) => void;
+  error?: string;
+  placeholder?: string;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-semibold text-gray-700 mb-2">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`w-full px-4 py-3 rounded-lg border ${error ? 'border-red-500' : 'border-gray-300'
+          } focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all`}
+      >
+        <option value="">{placeholder}</option>
+        {options.map(opt => (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
+      {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+    </div>
+  );
+}
+
+function TextAreaField({ label, required, value, onChange, error, placeholder, hint, rows = 3 }: {
+  label: string;
+  required?: boolean;
+  value: string;
+  onChange: (val: string) => void;
+  error?: string;
+  placeholder?: string;
+  hint?: string;
+  rows?: number;
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-semibold text-gray-700 mb-2">
+        {label} {required && <span className="text-red-500">*</span>}
+        {!required && <span className="text-gray-500 text-xs"> (선택사항)</span>}
+      </label>
+      {hint && <p className="text-sm text-gray-600 mb-2">{hint}</p>}
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={rows}
+        className={`w-full px-4 py-3 rounded-lg border ${error ? 'border-red-500' : 'border-gray-300'
+          } focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none`}
+        placeholder={placeholder}
+      />
+      {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
     </div>
   );
 }
