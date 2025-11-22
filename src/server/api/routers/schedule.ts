@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { scopedDb, createAuditLog } from '@/lib/db-helpers';
-import { schedules, users, departments, offBalanceLedger, holidays, specialRequests, teams, swapRequests } from '@/db/schema';
+import { schedules, users, departments, offBalanceLedger, holidays, specialRequests, teams, swapRequests, configs } from '@/db/schema';
 import { eq, and, gte, lte, desc, inArray, isNull, ne, or } from 'drizzle-orm';
 import { db } from '@/db';
 import { ScheduleImprover } from '@/lib/scheduler/schedule-improver';
@@ -320,6 +320,34 @@ const DEFAULT_MAX_CONSECUTIVE_DAYS_THREE_SHIFT =
 const DEFAULT_REMOTE_MILP_BACKEND_URL =
   process.env.MILP_SCHEDULER_DEFAULT_URL ??
   (process.env.NODE_ENV === 'production' ? 'https://shifteasy-milp-worker.fly.dev' : undefined);
+
+async function persistSchedulerPayload(tenantId: string, departmentId: string, payload: SchedulerBackendPayload) {
+  try {
+    await db
+      .insert(configs)
+      .values({
+        tenantId,
+        departmentId,
+        configKey: 'scheduler_payload',
+        configValue: {
+          updatedAt: new Date().toISOString(),
+          payload,
+        },
+      })
+      .onConflictDoUpdate({
+        target: [configs.tenantId, configs.departmentId, configs.configKey],
+        set: {
+          configValue: {
+            updatedAt: new Date().toISOString(),
+            payload,
+          },
+          updatedAt: new Date(),
+        },
+      });
+  } catch (error) {
+    console.warn('[Scheduler] Failed to persist scheduler payload', { departmentId, error });
+  }
+}
 
 async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -783,6 +811,8 @@ export const scheduleRouter = createTRPCRouter({
         };
       }
 
+      await persistSchedulerPayload(tenantId, input.departmentId, milpSchedulerPayload ?? defaultSchedulerPayload);
+
       const errors: { url: string; message: string }[] = [];
       if (milpSchedulerPayload) {
         const candidates = buildSchedulerBackendCandidates(true);
@@ -1080,6 +1110,8 @@ export const scheduleRouter = createTRPCRouter({
           solver: schedulerAdvanced?.solverPreference ?? 'ortools',
         };
       }
+
+      await persistSchedulerPayload(tenantId, input.departmentId, milpSchedulerPayload ?? defaultSchedulerPayload);
 
       const schedulerErrors: SchedulerJobError[] = [];
       const trySchedulerRequest = async (
