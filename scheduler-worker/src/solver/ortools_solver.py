@@ -80,6 +80,9 @@ class OrToolsMilpSolver:
     self.preflight_issues = self._run_preflight_checks()
     self._init_preference_penalties()
     self.total_staff_capacity = 0
+    self.off_like_codes = self._build_off_like_codes()
+    self.daily_balance_config = self._get_daily_balance_config()
+    self.daily_balance_entries: List[Dict[str, Any]] = []
 
   def _build_date_range(self) -> List[date]:
     current = self.schedule.startDate
@@ -204,6 +207,42 @@ class OrToolsMilpSolver:
       return max(1, min(parsed, 20))
     except (TypeError, ValueError):
       return 4
+
+  def _build_off_like_codes(self) -> Set[str]:
+    codes: Set[str] = {"O", "V"}
+    for shift in self.schedule.shifts:
+      code = (shift.code or shift.name or shift.id).upper()
+      if shift.type in {"off", "leave"}:
+        codes.add(code)
+    return codes
+
+  def _get_daily_balance_config(self) -> Dict[str, Any]:
+    options = getattr(self.schedule, "options", {}) or {}
+    cfg = options.get("dailyStaffingBalance", {}) or {}
+    return {
+      "enabled": bool(cfg.get("enabled", True)),
+      "targetMode": cfg.get("targetMode", "auto"),
+      "targetValue": cfg.get("targetValue"),
+      "tolerance": float(cfg.get("tolerance", 2)),
+      "weight": float(cfg.get("weight", self.constraint_weights.get("dailyBalance", 1.0) or 1.0)),
+      "weekendScale": float(cfg.get("weekendScale", 1)),
+    }
+
+  def _daily_target_for_day(self, day: date) -> float:
+    mode = self.daily_balance_config.get("targetMode", "auto")
+    manual = self.daily_balance_config.get("targetValue")
+    if mode == "manual" and isinstance(manual, (int, float)) and manual >= 0:
+      base_target = float(manual)
+    else:
+      total_days = max(1, len(self.date_range))
+      total_required_off = sum(self.required_off.values())
+      base_target = max(
+        0.0,
+        (len(self.schedule.employees) * total_days - total_required_off) / total_days,
+      )
+    if self._is_weekend_or_holiday(day):
+      return base_target * float(self.daily_balance_config.get("weekendScale", 1) or 1)
+    return base_target
 
   def _create_variables(self):
     for emp in self.schedule.employees:
@@ -566,6 +605,48 @@ class OrToolsMilpSolver:
           constraint_ba.SetCoefficient(slack_ba, -1)
           self.off_balance_slacks.append(slack_ba)
 
+  def _add_daily_headcount_balance_constraints(self):
+    if not self.daily_balance_config.get("enabled", True):
+      return
+    tolerance = max(0.0, float(self.daily_balance_config.get("tolerance", 0)))
+    for day in self.date_range:
+      day_key = day.isoformat()
+      work_vars = [
+        var
+        for (emp_id, key, code), var in self.variables.items()
+        if key == day_key and code.upper() not in self.off_like_codes
+      ]
+      if not work_vars:
+        continue
+      total_var = self.solver.IntVar(0, len(self.schedule.employees), f"daily_total_{day_key}")
+      total_constraint = self.solver.RowConstraint(0, 0, f"daily_total_eq_{day_key}")
+      total_constraint.SetCoefficient(total_var, 1)
+      for var in work_vars:
+        total_constraint.SetCoefficient(var, -1)
+
+      target = float(self._daily_target_for_day(day))
+      over_slack = self.solver.NumVar(0, self.solver.infinity(), f"daily_over_{day_key}")
+      under_slack = self.solver.NumVar(0, self.solver.infinity(), f"daily_under_{day_key}")
+
+      upper_constraint = self.solver.RowConstraint(-self.solver.infinity(), target + tolerance, f"daily_upper_{day_key}")
+      upper_constraint.SetCoefficient(total_var, 1)
+      upper_constraint.SetCoefficient(over_slack, -1)
+
+      lower_constraint = self.solver.RowConstraint(target - tolerance, self.solver.infinity(), f"daily_lower_{day_key}")
+      lower_constraint.SetCoefficient(total_var, 1)
+      lower_constraint.SetCoefficient(under_slack, 1)
+
+      self.daily_balance_entries.append(
+        {
+          "day": day_key,
+          "target": target,
+          "tolerance": tolerance,
+          "over_var": over_slack,
+          "under_var": under_slack,
+          "total_var": total_var,
+        }
+      )
+
   def _add_shift_repeat_constraints(self, max_same_shift: int = 2):
     window = max_same_shift + 1
     for emp in self.schedule.employees:
@@ -872,6 +953,7 @@ class OrToolsMilpSolver:
     self._add_consecutive_constraints()
     self._add_night_intensive_pattern_constraints()
     self._add_rest_after_night_constraints()
+    self._add_daily_headcount_balance_constraints()
     self._add_shift_balance_constraints()
 
   def _collect_staffing_shortages(self):
@@ -1042,6 +1124,30 @@ class OrToolsMilpSolver:
       )
     return gaps
 
+  def _collect_daily_headcount_gaps(self):
+    gaps = []
+    for entry in self.daily_balance_entries:
+      total = entry["total_var"].solution_value()
+      over = entry["over_var"].solution_value()
+      under = entry["under_var"].solution_value()
+      if total is None:
+        continue
+      over_val = over if over and over > 1e-6 else 0
+      under_val = under if under and under > 1e-6 else 0
+      if over_val <= 1e-6 and under_val <= 1e-6:
+        continue
+      gaps.append(
+        {
+          "date": entry["day"],
+          "target": entry["target"],
+          "tolerance": entry["tolerance"],
+          "actual": float(total),
+          "over": float(over_val) if over_val > 1e-6 else 0,
+          "under": float(under_val) if under_val > 1e-6 else 0,
+        }
+      )
+    return gaps
+
   def solve(self) -> Tuple[List[Assignment], Dict[str, Any]]:
     self.build_model()
     staffing_penalty = 1000 * self._weight_scalar("staffing", 1.0)
@@ -1053,6 +1159,9 @@ class OrToolsMilpSolver:
     shift_repeat_penalty = 350 * self._weight_scalar("shiftPattern", 1.0)
     rest_penalty = 500 * self._weight_scalar("shiftPattern", 1.0)
     shift_balance_penalty = 250 * self._weight_scalar("shiftPattern", 1.0)
+    daily_balance_penalty = 400 * self._weight_scalar(
+      "dailyBalance", self.daily_balance_config.get("weight", 1.0)
+    )
     objective = self.solver.Objective()
     for (employee_id, day_key, shift_code), var in self.variables.items():
       penalty = self.preference_penalty_map.get((employee_id, day_key, shift_code.upper()), 0.0)
@@ -1075,6 +1184,9 @@ class OrToolsMilpSolver:
       objective.SetCoefficient(entry["var"], rest_penalty)
     for entry in self.shift_balance_entries:
       objective.SetCoefficient(entry["var"], shift_balance_penalty)
+    for entry in self.daily_balance_entries:
+      objective.SetCoefficient(entry["over_var"], daily_balance_penalty)
+      objective.SetCoefficient(entry["under_var"], daily_balance_penalty)
     objective.SetMinimization()
     status = self.solver.Solve()
     if status not in (pywraplp.Solver.OPTIMAL, pywraplp.Solver.FEASIBLE):
@@ -1104,6 +1216,7 @@ class OrToolsMilpSolver:
       "shiftPatternBreaks": self._collect_shift_repeat_breaks(),
       "specialRequestMisses": self._collect_special_request_misses(),
       "shiftBalanceGaps": self._collect_shift_balance_gaps(),
+      "dailyHeadcountGaps": self._collect_daily_headcount_gaps(),
       "preflightIssues": self.preflight_issues,
     }
     return assignments, diagnostics

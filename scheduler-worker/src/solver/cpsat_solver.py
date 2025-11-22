@@ -78,6 +78,9 @@ class CpSatScheduler:
     self.preflight_issues = self._run_preflight_checks()
     self._init_preference_penalties()
     self.total_staff_capacity = 0
+    self.off_like_codes = self._build_off_like_codes()
+    self.daily_balance_config = self._get_daily_balance_config()
+    self.daily_balance_entries: List[Dict[str, Any]] = []
 
   def _build_date_range(self) -> List[date]:
     current = self.schedule.startDate
@@ -202,6 +205,42 @@ class CpSatScheduler:
       return max(1, min(parsed, 20))
     except (TypeError, ValueError):
       return 4
+
+  def _build_off_like_codes(self) -> Set[str]:
+    codes: Set[str] = {"O", "V"}
+    for shift in self.schedule.shifts:
+      code = (shift.code or shift.name or shift.id).upper()
+      if shift.type in {"off", "leave"}:
+        codes.add(code)
+    return codes
+
+  def _get_daily_balance_config(self) -> Dict[str, Any]:
+    options = getattr(self.schedule, "options", {}) or {}
+    cfg = options.get("dailyStaffingBalance", {}) or {}
+    return {
+      "enabled": bool(cfg.get("enabled", True)),
+      "targetMode": cfg.get("targetMode", "auto"),
+      "targetValue": cfg.get("targetValue"),
+      "tolerance": float(cfg.get("tolerance", 2)),
+      "weight": float(cfg.get("weight", self.constraint_weights.get("dailyBalance", 1.0) or 1.0)),
+      "weekendScale": float(cfg.get("weekendScale", 1)),
+    }
+
+  def _daily_target_for_day(self, day: date) -> float:
+    mode = self.daily_balance_config.get("targetMode", "auto")
+    manual = self.daily_balance_config.get("targetValue")
+    if mode == "manual" and isinstance(manual, (int, float)) and manual >= 0:
+      base_target = float(manual)
+    else:
+      total_days = max(1, len(self.date_range))
+      total_required_off = sum(self.required_off.values())
+      base_target = max(
+        0.0,
+        (len(self.schedule.employees) * total_days - total_required_off) / total_days,
+      )
+    if self._is_weekend_or_holiday(day):
+      return base_target * float(self.daily_balance_config.get("weekendScale", 1) or 1)
+    return base_target
 
   def _create_variables(self):
     for emp in self.schedule.employees:
@@ -510,6 +549,44 @@ class CpSatScheduler:
           self.model.Add(self.off_count_vars[emp_b.id] - self.off_count_vars[emp_a.id] - slack_ba <= tolerance)
           self.off_balance_slacks.append(slack_ba)
 
+  def _add_daily_headcount_balance_constraints(self):
+    if not self.daily_balance_config.get("enabled", True):
+      return
+    tolerance = max(0.0, float(self.daily_balance_config.get("tolerance", 0)))
+    for day in self.date_range:
+      day_key = day.isoformat()
+      work_vars = [
+        var
+        for (emp_id, key, code), var in self.variables.items()
+        if key == day_key and code.upper() not in self.off_like_codes
+      ]
+      if not work_vars:
+        continue
+      total_var = self.model.NewIntVar(0, len(self.schedule.employees), f"daily_total_{day_key}")
+      self.model.Add(total_var == sum(work_vars))
+
+      target = float(self._daily_target_for_day(day))
+      upper_bound = math.ceil(target + tolerance)
+      lower_bound = max(0, math.floor(target - tolerance))
+      over_slack = self.model.NewIntVar(0, len(self.schedule.employees), f"daily_over_{day_key}")
+      under_slack = self.model.NewIntVar(0, len(self.schedule.employees), f"daily_under_{day_key}")
+
+      self.model.Add(total_var - over_slack <= upper_bound)
+      self.model.Add(total_var + under_slack >= lower_bound)
+
+      self.daily_balance_entries.append(
+        {
+          "day": day_key,
+          "target": target,
+          "tolerance": tolerance,
+          "upper": upper_bound,
+          "lower": lower_bound,
+          "over_var": over_slack,
+          "under_var": under_slack,
+          "total_var": total_var,
+        }
+      )
+
   def _add_shift_repeat_constraints(self, max_same_shift: int = 2):
     window = max_same_shift + 1
     for emp in self.schedule.employees:
@@ -813,6 +890,7 @@ class CpSatScheduler:
     self._add_consecutive_constraints()
     self._add_night_intensive_pattern_constraints()
     self._add_rest_after_night_constraints()
+    self._add_daily_headcount_balance_constraints()
     self._add_shift_balance_constraints()
 
   def _collect_staffing_shortages(self, solver: cp_model.CpSolver):
@@ -961,6 +1039,28 @@ class CpSatScheduler:
       )
     return gaps
 
+  def _collect_daily_headcount_gaps(self, solver: cp_model.CpSolver):
+    gaps = []
+    for entry in self.daily_balance_entries:
+      total = solver.Value(entry["total_var"])
+      over = solver.Value(entry["over_var"])
+      under = solver.Value(entry["under_var"])
+      over_val = over if over and over > 0 else 0
+      under_val = under if under and under > 0 else 0
+      if over_val <= 0 and under_val <= 0:
+        continue
+      gaps.append(
+        {
+          "date": entry["day"],
+          "target": entry["target"],
+          "tolerance": entry["tolerance"],
+          "actual": float(total),
+          "over": float(over_val) if over_val > 0 else 0,
+          "under": float(under_val) if under_val > 0 else 0,
+        }
+      )
+    return gaps
+
   def solve(self) -> Tuple[List[Assignment], Dict[str, Any]]:
     self.build_model()
     staffing_penalty = 1000 * self._weight_scalar("staffing", 1.0)
@@ -972,6 +1072,9 @@ class CpSatScheduler:
     shift_repeat_penalty = 350 * self._weight_scalar("shiftPattern", 1.0)
     rest_penalty = 500 * self._weight_scalar("shiftPattern", 1.0)
     shift_balance_penalty = 250 * self._weight_scalar("shiftPattern", 1.0)
+    daily_balance_penalty = 400 * self._weight_scalar(
+      "dailyBalance", self.daily_balance_config.get("weight", 1.0)
+    )
 
     terms: List[cp_model.LinearExpr] = []
     for (employee_id, day_key, shift_code), var in self.variables.items():
@@ -996,6 +1099,9 @@ class CpSatScheduler:
       terms.append(rest_penalty * entry["var"])
     for entry in self.shift_balance_entries:
       terms.append(shift_balance_penalty * entry["var"])
+    for entry in self.daily_balance_entries:
+      terms.append(daily_balance_penalty * entry["over_var"])
+      terms.append(daily_balance_penalty * entry["under_var"])
     if terms:
       self.model.Minimize(sum(terms))
 
@@ -1031,6 +1137,7 @@ class CpSatScheduler:
       "shiftPatternBreaks": self._collect_shift_pattern_breaks(solver),
       "specialRequestMisses": self._collect_special_request_misses(solver),
       "shiftBalanceGaps": self._collect_shift_balance_gaps(solver),
+      "dailyHeadcountGaps": self._collect_daily_headcount_gaps(solver),
       "preflightIssues": self.preflight_issues,
     }
     return assignments, diagnostics

@@ -59,9 +59,12 @@
 8. **경력 그룹 균형**
    - 모든 날짜/시프트에서 가능한 한 모든 경력 그룹이 최소 1명씩 포함되도록 강제(그룹 인원이 부족하면 slack 허용).
    - 전체 기간 동안 그룹 간 근무일 편차 ±1일 이내.
-9. **출력 완전성**
+9. **날짜별 총 근무 인원 균형**
+   - 하루 전체 근무자 수(휴무/휴가 제외)가 기간 평균(`avgDailyStaff`)을 중심으로 일정하게 유지되도록 soft 제약을 둔다.
+   - 허용 편차(`dailyStaffTolerance`)와 페널티 가중치는 `/config → 고급 설정`에서 조정하며, 주말/공휴일 보정 계수를 별도로 둘 수 있다.
+10. **출력 완전성**
    - `|E| * D`개의 배정을 모두 채우고, 날짜/직원 조합 중복 X.
-10. **결과 검증/자체 점검**
+11. **결과 검증/자체 점검**
     - solver 결과를 반환하기 전에 모든 제약 조건을 다시 평가하고, 위반 시 재시도 또는 실패 처리.
 
 필수 하드 제약 – 시프트별 최소 인원, 하루 1근무, 휴무 계산 
@@ -81,11 +84,12 @@
 | `p[e,d,s]` | 개인/부서 패턴 요구 여부 | {0,1} (상수) |
 | `f[d,s,t]` | 날짜/시프트/팀 균형 slack | ≥0 (continuous) |
 | `cg[d,s,c]` | 날짜/시프트/경력그룹 slack | ≥0 |
+| `h[d]` | 날짜별 총 근무 인원 균형 slack | ≥0 |
 
 > 구현 현황  
 - `x[e,d,s]`는 OR-Tools BoolVar로 모델링되며, 특수 요청·패턴 제약은 slack(페널티)을 둬 infeasible 대신 “위반”으로 보고한다.  
 - `f[d,s,t]`, `cg[d,s,c]`는 각각 `teamCoverageGap`, `careerGroupCoverageGap` 진단으로 표면화된다.  
-- 추가 slack 변수: `staff_shortage`, `off_balance`, `repeat_slack`, `special_req_slack`. 모두 `generationResult.diagnostics`에 기록해 UI에서 바로 확인한다.
+- 추가 slack 변수: `staff_shortage`, `off_balance`, `repeat_slack`, `special_req_slack`, `dailyHeadcountGap(h)`. 모두 `generationResult.diagnostics`에 기록해 UI에서 바로 확인한다.
 - 휴무 카운트는 `o[e,d] = x[e,d,'O'] + x[e,d,'V']`로 연결해 휴가 배정을 휴무 목표 계산에 포함한다.
 
 필요에 따라 연속 근무나 패턴을 위한 보조 변수 (예: `y[e,d]` = 직전 근무 타입)도 추가한다.
@@ -104,7 +108,10 @@
 6. **휴무 배분**:  
    - Three-shift 직원에 대해 `∑_d o[e,d] ≈ targetOff = weekends+holidays + previousOffAccruals`. `|actual-target| ≤ 2` 제약이나 slack에 패널티 부여.
    - 하루에 한 명에게만 휴무 몰리지 않도록 `difference ≤ 2`.
-7. **날짜/직원 전 범위 배정**: MILP 자체에서 단일 근무 제약을 적용하면 자동 충족.
+7. **날짜별 총 근무 인원 균형**:  
+   - `totalWork[d] = ∑_{e,s≠'O'} x[e,d,s]`를 두고, `|totalWork[d] - avgDailyStaff| ≤ dailyStaffTolerance + h[d]` 제약을 soft로 적용한다.
+   - `avgDailyStaff`는 `(전체 근무 배정 가능 인원 - 목표 휴무일수 합) / D`로 기본 계산하되, `/config → 고급 설정`에서 직접 목표값/편차/가중치를 지정할 수 있다. 주말/공휴일은 scale factor(`weekendHeadcountScale`)를 곱해 별도 허용치 사용 가능.
+8. **날짜/직원 전 범위 배정**: MILP 자체에서 단일 근무 제약을 적용하면 자동 충족.
 
 ### 4.2 경력 그룹 균형 (새 규칙 8)
 - 매 날짜/시프트마다 `∑_e x[e,d,s] * g[e,c] ≥ groupPresenceThreshold[c]`. 기본값은 1명, 그룹에 직원이 없으면 자동 relax.
@@ -120,10 +127,11 @@
   - 야간 후 회복: `x[e,d,N] + x[e,d+1,D/E] ≤ 1 + slack`으로 회복일을 보장(위반 시 `shiftPatternBreaks`에 기록).
 
 ### 4.4 목적 함수
-`minimize( w_teamBalance * ∑ f + w_careerBalance * ∑ cg + w_offSlack * ∑ |off-target| + w_pref * ∑(penalties) )`
+`minimize( w_teamBalance * ∑ f + w_careerBalance * ∑ cg + w_dailyBalance * ∑ h + w_offSlack * ∑ |off-target| + w_pref * ∑(penalties) )`
 
 가중치:
 - 팀/경력/휴무 균형 가중치는 `/config` → 고급 설정에서 조정 가능하며, fallback 단계에서는 자동으로 0.7 → 0.5 → 0.3으로 감소한다.
+- 날짜별 총 근무 인원 균형은 `w_dailyBalance`로 제어하며, `dailyStaffTolerance`와 함께 고급 설정에서 편차 허용 폭을 조절한다.
 - 패턴/선호도는 중간 가중치.
 - 휴무 slack은 낮지만 0에 가깝게 유지.
 
@@ -135,14 +143,16 @@
 MILP 해가 존재하더라도 아래 조정이 필요할 수 있다:
 1. **팀/경력 라운딩**: 정수 제약이 지나치게 빡빡하면 slack이 남을 수 있으므로, 결과를 읽고 부족 그룹을 찾은 뒤 swap 후보를 탐색.
 2. **패턴 미세조정**: 팀 패턴, avoid pattern을 만족시키기 위해 Tabu Search나 Greedy swap 실시. 동일 일자 뿐 아니라 날짜 간 교차 스왑을 허용한다.
-3. **휴무/요청 검증**: MILP에서 lock을 강제했지만, 후처리 단계에서 다시 확인하여 잘못된 스왑이 일어나지 않도록 한다 (AI Polish 문서와 동일한 보호 규칙 적용). 특별 요청이나 staffing 부족이 발견되면 해당 날짜/직원에 맞춰 swap을 우선 수행한다.
+3. **날짜별 총 근무 인원 평탄화**: 하루 총 근무자 수가 `avgDailyStaff ± tolerance` 안으로 들어오도록 교차일 스왑을 우선 탐색한다. 고급 설정의 `dailyStaffingBalance.weight/tolerance`에 맞춰 목표를 재계산한다.
+4. **휴무/요청 검증**: MILP에서 lock을 강제했지만, 후처리 단계에서 다시 확인하여 잘못된 스왑이 일어나지 않도록 한다 (AI Polish 문서와 동일한 보호 규칙 적용). 특별 요청이나 staffing 부족이 발견되면 해당 날짜/직원에 맞춰 swap을 우선 수행한다.
 
-> 구현 메모: 현재 CSP 후처리는 Greedy swap 후보 평가 + Tabu queue + Simulated Annealing 수용 전략으로 반복 시프트/팀/경력·휴무 편차를 순차적으로 줄인다. 동일 일자 스왑뿐 아니라 교차일 스왑(move)도 지원해 인력 부족일을 다른 날과 교환할 수 있다. 스왑 탐색 파라미터는 `MILP_POSTPROCESS_*` 환경변수로 조절 가능하며, annealing 온도/냉각률도 외부에서 튜닝할 수 있다. 향후 추가 move evaluator(패턴 재배열 etc.)를 쉽게 붙일 수 있도록 구조화했다.
+> 구현 메모: 현재 CSP 후처리는 Greedy swap 후보 평가 + Tabu queue + Simulated Annealing 수용 전략으로 반복 시프트/팀/경력·휴무·총근무 인원 편차를 순차적으로 줄인다. 동일 일자 스왑뿐 아니라 교차일 스왑(move)도 지원해 인력 부족일을 다른 날과 교환할 수 있다. 스왑 탐색 파라미터는 `MILP_POSTPROCESS_*` 환경변수로 조절 가능하며, annealing 온도/냉각률도 외부에서 튜닝할 수 있다. 향후 추가 move evaluator(패턴 재배열 etc.)를 쉽게 붙일 수 있도록 구조화했다.
 
 ### CSP 구현 방식
 - 상태: `assignments[e,d]`.
 - 제약 검사 함수:
   - 팀별/경력별 카운트.
+  - 날짜별 총 근무 인원 편차(`totalWork[d]` vs `avgDailyStaff`).
   - 연속 근무/휴무.
   - avoid pattern.
 - 탐색:  
@@ -165,6 +175,7 @@ MILP 해가 존재하더라도 아래 조정이 필요할 수 있다:
 - `career_groups` config가 없을 경우, 기본적으로 연차 0-2/3-5/6+ 같은 가이드라인을 코드에 내장해도 된다(설정 가능하게 유지).
 - `specialRequests`, `nightIntensivePaidLeaveDays`, `previousOffAccruals` 등도 MILP 파라미터로 전달.
 - `schedulerAdvanced` config(`preferences.schedulerAdvanced`)를 통해 제약 가중치와 CSP 탐색 파라미터를 부서별로 저장/재사용 한다. (UI: `/config` → 고급 스케줄 제약)
+  - `dailyStaffingBalance` 블록을 추가해 `enabled`, `targetMode(auto/manual)`, `targetValue`, `tolerance`, `weight`, `weekendScale`를 저장한다. 기본값은 `auto` 평균값(target) + 편차 ±2이며, 입력값은 `MilpCspScheduleInput.dailyStaffTarget/tolerance/weight/weekendScale`로 전달된다.
 
 ### 결과 검증
 - `processAssignments` 함수 대체 로직:
@@ -187,13 +198,15 @@ MILP 해가 존재하더라도 아래 조정이 필요할 수 있다:
    - 특수 요청을 소프트 제약(slack)으로 처리, 위반 시 `specialRequestMisses`.
    - 팀/경력 그룹 커버리지 최소 1명 + 부족 slack (`teamCoverageGaps`, `careerGroupCoverageGaps`).
    - 필수 인원 부족 slack (`staffingShortages`), 휴무 편차 ±2 slack (`offBalanceGaps`).
+   - 날짜별 총 근무 인원 편차를 `dailyHeadcountGap(h)`로 측정하고, `avgDailyStaff` 대비 `±tolerance` 밖으로 나가면 페널티를 부과한다. `schedulerAdvanced.dailyStaffingBalance.{targetValue,tolerance,weight,weekendScale}`를 받아 목적함수에 반영한다.
    - 최대 연속 근무/야간, 동일 시프트 3일 연속 금지 slack (`shiftPatternBreaks`), 야간 이후 주간/저녁 배치 억제 slack 추가.
    - 개인 선호·부서 패턴을 목적함수에 가중치로 반영해 선호도 높은 배치를 우선.
    - 진단 정보(`generationResult.diagnostics`)를 TRPC/DB 저장 메타데이터에 포함해 UI에서 바로 노출.
-   - Solver preference에 `cpsat` 옵션을 추가해 패턴/시퀀스 제약이 많은 부서에서 CP-SAT을 직접 선택 가능.
+ - Solver preference에 `cpsat` 옵션을 추가해 패턴/시퀀스 제약이 많은 부서에서 CP-SAT을 직접 선택 가능.
 3. **CSP/휴리스틱 모듈**  
  - 스케줄 상태 구조체, swap 함수, 제약 평가기 작성. → `scheduler-worker/src/solver/postprocessor.py` 구현 완료 (Greedy swap + Tabu + Simulated Annealing, 반복 시프트·팀/경력·휴무 편차 재평가).  
  - 반복 횟수/시간 제한, Tabu 크기, 최대 연속 허용, 휴무 편차 허용, annealing 온도/냉각률 등을 환경 변수(`MILP_POSTPROCESS_MAX_ITERATIONS`, `MILP_POSTPROCESS_TIME_LIMIT_MS`, `MILP_POSTPROCESS_TABU_SIZE`, `MILP_POSTPROCESS_MAX_SAME_SHIFT`, `MILP_POSTPROCESS_OFF_TOLERANCE`, `MILP_POSTPROCESS_ANNEAL_TEMP`, `MILP_POSTPROCESS_ANNEAL_COOL`)로 조정 가능.  
+ - 날짜별 총 근무 인원 evaluator를 추가해 `avgDailyStaff ± tolerance` 밖으로 벗어난 날짜를 우선 스왑한다. tolerance/weight는 `schedulerAdvanced.dailyStaffingBalance`에서 가져온다.  
  - `/config` → 고급 설정에서 부서별 constraint weights와 CSP 파라미터를 저장/로드할 수 있으며, UI에서 너무 낮거나 높은 값을 입력하면 경고가 표시된다.  
 4. **검증/로깅**  
    - 기존 `processAssignments`에서 하던 검증 항목을 재구현하고, 추가로 경력 그룹 균형 검사 포함. → 통합 하네스(`tests/milp-csp/run-harness.ts`)가 시나리오별 검증을 자동 수행.  

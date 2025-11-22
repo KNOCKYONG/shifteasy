@@ -18,6 +18,8 @@ import {
   mergeSchedulerAdvancedSettings,
   MilpSolverType,
   MilpMultiRunConfig,
+  DailyStaffingBalanceConfig,
+  DailyStaffTargetMode,
 } from "@/lib/config/schedulerAdvanced";
 
 interface ConfigPreferences {
@@ -130,6 +132,7 @@ const CONSTRAINT_WEIGHT_FIELDS: Array<{ key: keyof ConstraintWeightsConfig; labe
   { key: 'careerBalance', label: '경력 그룹', accent: 'bg-indigo-500 dark:bg-indigo-400' },
   { key: 'offBalance', label: '휴무 편차', accent: 'bg-amber-500 dark:bg-amber-400' },
   { key: 'shiftPattern', label: '연속 근무', accent: 'bg-rose-500 dark:bg-rose-400' },
+  { key: 'dailyBalance', label: '일별 총 인원', accent: 'bg-cyan-500 dark:bg-cyan-400' },
 ];
 
 function ConfigPageContent() {
@@ -293,6 +296,13 @@ function ConfigPageContent() {
         ...current.constraintWeights,
         [key]: Number.isFinite(value) ? value : current.constraintWeights[key],
       },
+      dailyStaffingBalance:
+        key === 'dailyBalance'
+          ? {
+              ...current.dailyStaffingBalance,
+              weight: Number.isFinite(value) ? value : current.dailyStaffingBalance.weight,
+            }
+          : current.dailyStaffingBalance,
     }));
   };
 
@@ -340,6 +350,23 @@ function ConfigPageContent() {
         ...current.patternConstraints,
         maxConsecutiveDaysThreeShift: clamped,
       },
+    }));
+  };
+
+  const handleDailyBalanceChange = <K extends keyof DailyStaffingBalanceConfig>(
+    key: K,
+    value: DailyStaffingBalanceConfig[K],
+  ) => {
+    updateSchedulerAdvanced((current) => ({
+      ...current,
+      dailyStaffingBalance: {
+        ...current.dailyStaffingBalance,
+        [key]: value,
+      },
+      constraintWeights:
+        key === 'weight'
+          ? { ...current.constraintWeights, dailyBalance: typeof value === 'number' ? value : current.constraintWeights.dailyBalance }
+          : current.constraintWeights,
     }));
   };
 
@@ -738,6 +765,109 @@ function ConfigPageContent() {
                     </div>
                   );
                 })()}
+              </div>
+
+              <div className="bg-gray-50 dark:bg-gray-800 px-4 py-4 rounded-lg border border-gray-100 dark:border-gray-700">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="text-md font-semibold text-gray-900 dark:text-gray-100 mb-1">일별 총 근무 인원 균등화</h4>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      하루 전체 근무자 수가 일정하게 유지되도록 목표·편차를 설정합니다. 주말/공휴일은 스케일을 곱해 별도 허용치를 줄 수 있습니다.
+                    </p>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                      가중치는 위 “제약 가중치” 영역의 ‘일별 총 인원’ 슬라이더와 연동됩니다.
+                    </p>
+                  </div>
+                  <label className="inline-flex items-center cursor-pointer gap-2">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">OFF</span>
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={schedulerAdvanced.dailyStaffingBalance.enabled}
+                      onChange={(e) => handleDailyBalanceChange('enabled', e.target.checked)}
+                    />
+                    <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600" />
+                    <span className="text-sm text-gray-900 dark:text-gray-100">ON</span>
+                  </label>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-2">
+                    <span className="text-xs font-medium text-gray-700 dark:text-gray-200">목표 방식</span>
+                    <div className="flex gap-3 text-sm text-gray-700 dark:text-gray-300">
+                      {(['auto', 'manual'] as DailyStaffTargetMode[]).map((mode) => (
+                        <label key={mode} className="inline-flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="dailyTargetMode"
+                            value={mode}
+                            checked={schedulerAdvanced.dailyStaffingBalance.targetMode === mode}
+                            onChange={() => handleDailyBalanceChange('targetMode', mode)}
+                            className="text-blue-600 focus:ring-blue-500"
+                          />
+                          <span>{mode === 'auto' ? '자동(평균값 사용)' : '수동 지정'}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {schedulerAdvanced.dailyStaffingBalance.targetMode === 'manual' && (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={0}
+                          max={500}
+                          value={schedulerAdvanced.dailyStaffingBalance.targetValue ?? ''}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            if (raw === '') {
+                              handleDailyBalanceChange('targetValue', null);
+                              return;
+                            }
+                            const parsed = parseFloat(raw);
+                            if (Number.isFinite(parsed)) {
+                              handleDailyBalanceChange('targetValue', Math.max(0, Math.min(500, parsed)));
+                            }
+                          }}
+                          className="w-28 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="평균 인원"
+                        />
+                        <span className="text-xs text-gray-500 dark:text-gray-400">명/일</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <SliderField
+                    label="허용 편차"
+                    min={0}
+                    max={10}
+                    step={0.5}
+                    value={schedulerAdvanced.dailyStaffingBalance.tolerance}
+                    suffix="명"
+                    warning={
+                      schedulerAdvanced.dailyStaffingBalance.tolerance > 6
+                        ? '편차 허용치가 크면 균등화 효과가 줄어듭니다.'
+                        : undefined
+                    }
+                    onChange={(val) => handleDailyBalanceChange('tolerance', Math.round(val * 2) / 2)}
+                  />
+
+                  <SliderField
+                    label="주말/공휴일 스케일"
+                    min={0.5}
+                    max={1.5}
+                    step={0.05}
+                    value={schedulerAdvanced.dailyStaffingBalance.weekendScale}
+                    formatValue={(val) => val.toFixed(2)}
+                    helpText="주말·공휴일 목표 인원에 곱해 적용 (예: 0.9면 주말 목표를 10% 낮춤)"
+                    onChange={(val) => handleDailyBalanceChange('weekendScale', parseFloat(val.toFixed(2)))}
+                  />
+
+                  <div className="flex flex-col justify-center text-xs text-gray-600 dark:text-gray-400">
+                    <span className="font-medium text-gray-800 dark:text-gray-200">가중치</span>
+                    <span>
+                      제약 가중치의 ‘일별 총 인원’ 슬라이더 = {schedulerAdvanced.constraintWeights.dailyBalance.toFixed(1)} (적용 페널티)
+                    </span>
+                  </div>
+                </div>
               </div>
 
               <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 rounded-lg border border-gray-100 dark:border-gray-700">

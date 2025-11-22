@@ -501,6 +501,11 @@ function SchedulePageContent() {
       careerBalance: Math.max(0.3, merged.constraintWeights.careerBalance * 0.7),
       offBalance: Math.max(0.3, merged.constraintWeights.offBalance * 0.7),
       shiftPattern: Math.max(0.3, merged.constraintWeights.shiftPattern * 0.7),
+      dailyBalance: Math.max(0.3, merged.constraintWeights.dailyBalance * 0.7),
+    };
+    merged.dailyStaffingBalance = {
+      ...merged.dailyStaffingBalance,
+      weight: merged.constraintWeights.dailyBalance,
     };
     adjustments.push('constraintWeights: 30% 감소 적용');
     merged.cspSettings = {

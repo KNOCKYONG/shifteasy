@@ -30,6 +30,7 @@ const constraintWeightsSchema = z.object({
   careerBalance: z.number().min(0).max(10).default(1),
   offBalance: z.number().min(0).max(10).default(1),
   shiftPattern: z.number().min(0).max(10).default(1),
+  dailyBalance: z.number().min(0).max(10).default(1),
 });
 
 const cspSettingsSchema = z.object({
@@ -60,6 +61,15 @@ const patternConstraintsSchema = z.object({
     .default(DEFAULT_SCHEDULER_ADVANCED.patternConstraints.maxConsecutiveDaysThreeShift),
 });
 
+const dailyStaffingBalanceSchema = z.object({
+  enabled: z.boolean().optional(),
+  targetMode: z.enum(['auto', 'manual']).optional(),
+  targetValue: z.number().min(0).max(500).nullable().optional(),
+  tolerance: z.number().min(0).max(20).default(DEFAULT_SCHEDULER_ADVANCED.dailyStaffingBalance.tolerance),
+  weight: z.number().min(0).max(10).default(DEFAULT_SCHEDULER_ADVANCED.dailyStaffingBalance.weight),
+  weekendScale: z.number().min(0.1).max(3).default(DEFAULT_SCHEDULER_ADVANCED.dailyStaffingBalance.weekendScale),
+});
+
 const schedulerAdvancedSchema = z.object({
   useMilpEngine: z.boolean().optional(),
   solverPreference: z.enum(['ortools', 'cpsat', 'hybrid']).optional(),
@@ -67,6 +77,7 @@ const schedulerAdvancedSchema = z.object({
   cspSettings: cspSettingsSchema.partial().optional(),
   multiRun: multiRunSchema.partial().optional(),
   patternConstraints: patternConstraintsSchema.partial().optional(),
+  dailyStaffingBalance: dailyStaffingBalanceSchema.partial().optional(),
 });
 
 const mapAdvancedSettingsToSolverOptions = (
@@ -83,6 +94,7 @@ const mapAdvancedSettingsToSolverOptions = (
       careerBalance: advanced.constraintWeights.careerBalance,
       offBalance: advanced.constraintWeights.offBalance,
       shiftPattern: advanced.constraintWeights.shiftPattern,
+      dailyBalance: advanced.constraintWeights.dailyBalance,
     };
   }
   if (advanced.cspSettings) {
@@ -94,6 +106,16 @@ const mapAdvancedSettingsToSolverOptions = (
   if (advanced.patternConstraints) {
     options.patternConstraints = {
       maxConsecutiveDaysThreeShift: advanced.patternConstraints.maxConsecutiveDaysThreeShift,
+    };
+  }
+  if (advanced.dailyStaffingBalance) {
+    options.dailyStaffingBalance = {
+      enabled: advanced.dailyStaffingBalance.enabled,
+      targetMode: advanced.dailyStaffingBalance.targetMode,
+      targetValue: advanced.dailyStaffingBalance.targetValue,
+      tolerance: advanced.dailyStaffingBalance.tolerance,
+      weight: advanced.dailyStaffingBalance.weight,
+      weekendScale: advanced.dailyStaffingBalance.weekendScale,
     };
   }
   if (advanced.multiRun) {
@@ -234,6 +256,14 @@ interface SchedulerBackendResult {
         employeeId: string;
         date: string;
         shiftType: string;
+      }>;
+      dailyHeadcountGaps?: Array<{
+        date: string;
+        target: number;
+        tolerance: number;
+        actual: number;
+        over?: number;
+        under?: number;
       }>;
       avoidPatternViolations?: Array<{
         employeeId: string;

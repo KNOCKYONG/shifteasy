@@ -69,6 +69,7 @@ export interface MilpConstraintWeights {
   careerBalance?: number;
   offBalance?: number;
   shiftPattern?: number;
+  dailyBalance?: number;
 }
 
 export interface MilpMultiRunOptions {
@@ -79,6 +80,15 @@ export interface MilpMultiRunOptions {
 
 export interface MilpPatternConstraintOptions {
   maxConsecutiveDaysThreeShift?: number;
+}
+
+export interface MilpDailyStaffingBalanceOptions {
+  enabled?: boolean;
+  targetMode?: 'auto' | 'manual';
+  targetValue?: number | null;
+  tolerance?: number;
+  weight?: number;
+  weekendScale?: number;
 }
 
 export interface MilpCspSettingsOptions {
@@ -105,6 +115,7 @@ export interface MilpCspSolverOptions {
   cspSettings?: MilpCspSettingsOptions;
   multiRun?: MilpMultiRunOptions;
   patternConstraints?: MilpPatternConstraintOptions;
+  dailyStaffingBalance?: MilpDailyStaffingBalanceOptions;
 }
 
 export interface MilpCspScheduleInput {

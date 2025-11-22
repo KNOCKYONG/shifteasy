@@ -4,6 +4,7 @@ export interface ConstraintWeightsConfig {
   careerBalance: number;
   offBalance: number;
   shiftPattern: number;
+  dailyBalance: number;
 }
 
 export interface CspAnnealingConfig {
@@ -29,6 +30,17 @@ export interface MilpMultiRunConfig {
   seed: number | null;
 }
 
+export type DailyStaffTargetMode = 'auto' | 'manual';
+
+export interface DailyStaffingBalanceConfig {
+  enabled: boolean;
+  targetMode: DailyStaffTargetMode;
+  targetValue: number | null;
+  tolerance: number;
+  weight: number;
+  weekendScale: number;
+}
+
 export interface SchedulerAdvancedSettings {
   useMilpEngine: boolean;
   solverPreference: MilpSolverType;
@@ -36,6 +48,7 @@ export interface SchedulerAdvancedSettings {
   cspSettings: CspSettingsConfig;
   multiRun: MilpMultiRunConfig;
   patternConstraints: PatternConstraintsConfig;
+  dailyStaffingBalance: DailyStaffingBalanceConfig;
 }
 
 export interface PatternConstraintsConfig {
@@ -51,6 +64,7 @@ export const DEFAULT_SCHEDULER_ADVANCED: SchedulerAdvancedSettings = {
     careerBalance: 1,
     offBalance: 1,
     shiftPattern: 1,
+    dailyBalance: 1,
   },
   cspSettings: {
     maxIterations: 400,
@@ -72,6 +86,14 @@ export const DEFAULT_SCHEDULER_ADVANCED: SchedulerAdvancedSettings = {
   patternConstraints: {
     maxConsecutiveDaysThreeShift: 5,
   },
+  dailyStaffingBalance: {
+    enabled: true,
+    targetMode: 'auto',
+    targetValue: null,
+    tolerance: 2,
+    weight: 1,
+    weekendScale: 1,
+  },
 };
 
 export const mergeSchedulerAdvancedSettings = (
@@ -87,6 +109,10 @@ export const mergeSchedulerAdvancedSettings = (
       careerBalance: value?.constraintWeights?.careerBalance ?? base.constraintWeights.careerBalance,
       offBalance: value?.constraintWeights?.offBalance ?? base.constraintWeights.offBalance,
       shiftPattern: value?.constraintWeights?.shiftPattern ?? base.constraintWeights.shiftPattern,
+      dailyBalance:
+        value?.constraintWeights?.dailyBalance ??
+        value?.dailyStaffingBalance?.weight ??
+        base.constraintWeights.dailyBalance,
     },
     cspSettings: {
       maxIterations: value?.cspSettings?.maxIterations ?? base.cspSettings.maxIterations,
@@ -109,6 +135,20 @@ export const mergeSchedulerAdvancedSettings = (
       maxConsecutiveDaysThreeShift:
         value?.patternConstraints?.maxConsecutiveDaysThreeShift ??
         base.patternConstraints.maxConsecutiveDaysThreeShift,
+    },
+    dailyStaffingBalance: {
+      enabled: value?.dailyStaffingBalance?.enabled ?? base.dailyStaffingBalance.enabled,
+      targetMode: value?.dailyStaffingBalance?.targetMode ?? base.dailyStaffingBalance.targetMode,
+      targetValue:
+        typeof value?.dailyStaffingBalance?.targetValue === 'number'
+          ? value?.dailyStaffingBalance?.targetValue
+          : base.dailyStaffingBalance.targetValue,
+      tolerance: value?.dailyStaffingBalance?.tolerance ?? base.dailyStaffingBalance.tolerance,
+      weight:
+        value?.dailyStaffingBalance?.weight ??
+        value?.constraintWeights?.dailyBalance ??
+        base.dailyStaffingBalance.weight,
+      weekendScale: value?.dailyStaffingBalance?.weekendScale ?? base.dailyStaffingBalance.weekendScale,
     },
   };
 };

@@ -156,6 +156,8 @@ class SchedulePostProcessor:
     self.preflight_issues = base_diagnostics.get("preflightIssues", []) if base_diagnostics else []
     csp_options = self.options.get("cspSettings", {}) or {}
     self.constraint_weight_map = self.options.get("constraintWeights", {}) or {}
+    self.off_like_codes = {"O", "V"}
+    self.holiday_set = {holiday.date for holiday in (schedule.holidays or [])}
     self.max_iterations = int(csp_options.get("maxIterations", DEFAULT_MAX_ITERATIONS))
     self.time_limit_ms = int(csp_options.get("timeLimitMs", DEFAULT_TIME_LIMIT_MS))
     self.tabu_size = max(0, int(csp_options.get("tabuSize", DEFAULT_TABU_SIZE)))
@@ -174,6 +176,8 @@ class SchedulePostProcessor:
     self.temperature = float(annealing_options.get("temperature", DEFAULT_ANNEALING_TEMP))
     default_cool = DEFAULT_ANNEALING_COOL if 0 < DEFAULT_ANNEALING_COOL < 1 else 0.9
     self.cool_rate = float(annealing_options.get("coolingRate", default_cool))
+    self.daily_balance_config = self._get_daily_balance_config()
+    self.required_off = self._calculate_required_off_days()
 
   def run(self) -> Tuple[List[Assignment], Dict[str, List[Dict[str, str]]]]:
     start = time.perf_counter()
@@ -216,6 +220,7 @@ class SchedulePostProcessor:
       ("careerGroupCoverageGaps", "careerGroup"),
       ("teamWorkloadGaps", "teamWorkload"),
       ("offBalanceGaps", "offBalance"),
+      ("dailyHeadcountGaps", "dailyHeadcount"),
       ("avoidPatternViolations", "avoidPattern"),
       ("specialRequestMisses", "specialRequest"),
     ]
@@ -236,6 +241,8 @@ class SchedulePostProcessor:
       return self._resolve_team_workload_gap(data)
     if violation_type == "offBalance":
       return self._resolve_off_balance_gap(data)
+    if violation_type == "dailyHeadcount":
+      return self._resolve_daily_headcount_gap(data)
     if violation_type == "shiftPatternBreak":
       return self._resolve_shift_violation(data)
     if violation_type == "shiftBalance":
@@ -497,6 +504,46 @@ class SchedulePostProcessor:
       candidates.append((day_key, donor, day_key, receiver))
     return self._apply_best_swap(candidates)
 
+  def _resolve_daily_headcount_gap(self, violation: Dict[str, Any]) -> Optional[Tuple[float, Dict[str, List[Dict[str, str]]]]]:
+    day_key = violation.get("date")
+    if not day_key:
+      return None
+    is_over = (violation.get("over", 0) or 0) > 0
+    gaps = [gap for gap in self._detect_daily_headcount_gaps() if gap.get("date") != day_key]
+    partner = next(
+      (gap for gap in gaps if ((gap.get("over", 0) or 0) > 0) != is_over),
+      None,
+    )
+    if not partner:
+      return None
+    source_day = day_key if is_over else partner.get("date")
+    target_day = partner.get("date") if is_over else day_key
+    if not source_day or not target_day:
+      return None
+    source_assignments = self.state.assignments_by_day.get(source_day, {})
+    target_assignments = self.state.assignments_by_day.get(target_day, {})
+    source_workers = [
+      emp_id
+      for emp_id, assignment in source_assignments.items()
+      if _normalize_shift_code(assignment.shiftType) not in self.off_like_codes and not assignment.isLocked
+    ]
+    target_off = [
+      emp_id
+      for emp_id, assignment in target_assignments.items()
+      if _normalize_shift_code(assignment.shiftType) in self.off_like_codes and not assignment.isLocked
+    ]
+    candidates: List[Tuple[str, str, str, str]] = []
+    for emp_over in source_workers:
+      for emp_under in target_off:
+        candidates.append((source_day, emp_over, target_day, emp_under))
+        if len(candidates) >= 100:
+          break
+      if len(candidates) >= 100:
+        break
+    if not candidates:
+      return None
+    return self._apply_best_swap(candidates)
+
   def _collect_diagnostics(self) -> Dict[str, List[Dict[str, str]]]:
     diagnostics: Dict[str, List[Dict[str, str]]] = {
       "staffingShortages": [],
@@ -508,6 +555,7 @@ class SchedulePostProcessor:
       "teamWorkloadGaps": [],
       "avoidPatternViolations": [],
       "shiftBalanceGaps": [],
+      "dailyHeadcountGaps": [],
     }
     shift_lookup: Dict[Tuple[str, str], List[Assignment]] = defaultdict(list)
     for assignment in self.state.assignments:
@@ -559,6 +607,7 @@ class SchedulePostProcessor:
     diagnostics["shiftPatternBreaks"] = self._detect_shift_pattern_breaks()
     diagnostics["specialRequestMisses"] = self._detect_special_request_misses()
     diagnostics["offBalanceGaps"] = self._detect_off_balance_gaps()
+    diagnostics["dailyHeadcountGaps"] = self._detect_daily_headcount_gaps()
     diagnostics["teamWorkloadGaps"] = self._detect_team_workload_gaps()
     diagnostics["avoidPatternViolations"] = self._detect_avoid_pattern_violations()
     diagnostics["shiftBalanceGaps"] = self._detect_shift_balance_gaps()
@@ -724,6 +773,85 @@ class SchedulePostProcessor:
         counts[assignment.employeeId] += 1
     return counts
 
+  def _get_daily_balance_config(self) -> Dict[str, Any]:
+    cfg = (self.options.get("dailyStaffingBalance") or {}) if isinstance(self.options, dict) else {}
+    return {
+      "enabled": bool(cfg.get("enabled", True)),
+      "targetMode": cfg.get("targetMode", "auto"),
+      "targetValue": cfg.get("targetValue"),
+      "tolerance": float(cfg.get("tolerance", 2)),
+      "weight": float(cfg.get("weight", self.constraint_weight_map.get("dailyBalance", 1.0) or 1.0)),
+      "weekendScale": float(cfg.get("weekendScale", 1)),
+    }
+
+  def _calculate_required_off_days(self) -> Dict[str, int]:
+    required: Dict[str, int] = {}
+    weekend_holiday_count = sum(1 for day in self.state.date_range if self._is_weekend_or_holiday(day))
+    night_bonus = max(0, int(getattr(self.schedule, "nightIntensivePaidLeaveDays", 0) or 0))
+    for emp in self.schedule.employees:
+      base = max(0, self.schedule.previousOffAccruals.get(emp.id, 0))
+      if emp.workPatternType == "three-shift":
+        target = weekend_holiday_count + base
+        if target > 0:
+          required[emp.id] = target
+      elif emp.workPatternType == "night-intensive":
+        target = weekend_holiday_count + base + night_bonus
+        if target > 0:
+          required[emp.id] = target
+    return required
+
+  def _is_weekend_or_holiday(self, day: date) -> bool:
+    return day.weekday() >= 5 or day.isoformat() in self.holiday_set
+
+  def _daily_target_for_day(self, day: Optional[date]) -> float:
+    if day is None:
+      return 0.0
+    mode = self.daily_balance_config.get("targetMode", "auto")
+    manual = self.daily_balance_config.get("targetValue")
+    if mode == "manual" and isinstance(manual, (int, float)) and manual >= 0:
+      base_target = float(manual)
+    else:
+      total_days = max(1, len(self.state.date_range))
+      total_required_off = sum(self.required_off.values())
+      base_target = max(
+        0.0,
+        (len(self.schedule.employees) * total_days - total_required_off) / total_days,
+      )
+    if self._is_weekend_or_holiday(day):
+      return base_target * float(self.daily_balance_config.get("weekendScale", 1) or 1)
+    return base_target
+
+  def _detect_daily_headcount_gaps(self) -> List[Dict[str, Any]]:
+    if not self.daily_balance_config.get("enabled", True):
+      return []
+    tolerance = float(self.daily_balance_config.get("tolerance", 0))
+    gaps: List[Dict[str, Any]] = []
+    for day_key in self.state.day_keys:
+      day = self.state.day_lookup.get(day_key)
+      target = self._daily_target_for_day(day)
+      assignments = self.state.assignments_by_day.get(day_key, {})
+      actual = sum(
+        1
+        for assignment in assignments.values()
+        if _normalize_shift_code(assignment.shiftType) not in self.off_like_codes
+      )
+      diff = actual - target
+      over = max(0.0, diff - tolerance)
+      under = max(0.0, -diff - tolerance)
+      if over <= 1e-6 and under <= 1e-6:
+        continue
+      gaps.append(
+        {
+          "date": day_key,
+          "target": target,
+          "tolerance": tolerance,
+          "actual": float(actual),
+          "over": over,
+          "under": under,
+        }
+      )
+    return gaps
+
   def _detect_shift_pattern_breaks(self) -> List[Dict[str, str]]:
     violations: List[Dict[str, str]] = []
     for emp in self.schedule.employees:
@@ -757,6 +885,11 @@ class SchedulePostProcessor:
     return violations
 
   def _score_from_diagnostics(self, diagnostics: Dict[str, List[Dict[str, str]]]) -> float:
+    daily_gap_penalty = 0.0
+    for gap in diagnostics.get("dailyHeadcountGaps", []):
+      over = gap.get("over", 0) or 0
+      under = gap.get("under", 0) or 0
+      daily_gap_penalty += max(over, under, 1)
     return (
       100 * len(diagnostics["staffingShortages"]) * self._weight("staffing")
       + 50 * len(diagnostics["teamCoverageGaps"]) * self._weight("teamBalance")
@@ -767,6 +900,7 @@ class SchedulePostProcessor:
       + 10 * len(diagnostics["shiftPatternBreaks"]) * self._weight("shiftPattern")
       + 10 * len(diagnostics["avoidPatternViolations"])
       + 12 * len(diagnostics["shiftBalanceGaps"]) * self._weight("shiftPattern")
+      + 12 * daily_gap_penalty * self._weight("dailyBalance")
     )
 
   def _apply_best_swap(self, candidates: List[Tuple[str, str, str, str]]) -> Optional[Tuple[float, Dict[str, List[Dict[str, str]]]]]:

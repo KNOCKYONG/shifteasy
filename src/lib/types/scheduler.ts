@@ -195,6 +195,15 @@ export interface AvoidPatternViolationInfo {
   pattern: string[];
 }
 
+export interface DailyHeadcountGapInfo {
+  date: string;
+  target: number;
+  tolerance: number;
+  actual: number;
+  over?: number;
+  under?: number;
+}
+
 export interface PostprocessStats {
   initialPenalty?: number;
   finalPenalty?: number;
@@ -213,6 +222,7 @@ export interface GenerationDiagnostics {
   shiftPatternBreaks?: ShiftPatternBreakInfo[];
   teamWorkloadGaps?: TeamWorkloadGapInfo[];
   avoidPatternViolations?: AvoidPatternViolationInfo[];
+  dailyHeadcountGaps?: DailyHeadcountGapInfo[];
   preflightIssues?: Array<Record<string, unknown>>;
   guidance?: string[] | Record<string, string[]>;
   autoAdjustments?: string[];
