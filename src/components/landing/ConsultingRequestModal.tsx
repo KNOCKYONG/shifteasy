@@ -23,6 +23,9 @@ interface FormData {
   painPoints: string;
   specialRequirements: string;
   additionalNotes: string;
+  termsAgreed: boolean;
+  privacyAgreed: boolean;
+  marketingAgreed: boolean;
 }
 
 const ACCEPTED_FILE_TYPES = '.xlsx,.xls,.csv,.pdf,.jpg,.jpeg,.png';
@@ -91,6 +94,9 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
     painPoints: '',
     specialRequirements: '',
     additionalNotes: '',
+    termsAgreed: false,
+    privacyAgreed: false,
+    marketingAgreed: false,
   });
 
   const totalSteps = 3;
@@ -179,6 +185,8 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
 
     if (step === 3) {
       if (!formData.painPoints.trim()) newErrors.painPoints = t('errors.required');
+      if (!formData.termsAgreed) newErrors.termsAgreed = '이용약관에 동의해주세요.';
+      if (!formData.privacyAgreed) newErrors.privacyAgreed = '개인정보 수집 및 이용에 동의해주세요.';
     }
 
     setErrors(newErrors);
@@ -254,6 +262,9 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
       painPoints: '',
       specialRequirements: '',
       additionalNotes: '',
+      termsAgreed: false,
+      privacyAgreed: false,
+      marketingAgreed: false,
     });
     setErrors({});
     setIsSuccess(false);
@@ -441,10 +452,10 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
                         onDragLeave={handleDragLeave}
                         onDrop={handleDrop}
                         className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-all ${isDragging
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                            : errors.files
-                              ? 'border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-900/20'
-                              : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                          : errors.files
+                            ? 'border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-900/20'
+                            : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
                           }`}
                       >
                         <input
@@ -529,6 +540,58 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
                       placeholder={t('placeholders.additionalNotes')}
                       rows={3}
                     />
+
+                    {/* 약관 동의 */}
+                    <div className="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <div className="flex items-start gap-2">
+                        <input
+                          type="checkbox"
+                          id="terms"
+                          checked={formData.termsAgreed}
+                          onChange={(e) => setFormData(prev => ({ ...prev, termsAgreed: e.target.checked }))}
+                          className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
+                        />
+                        <label htmlFor="terms" className="text-sm text-gray-700 dark:text-gray-300">
+                          <span className="text-red-500">*</span>{' '}
+                          <a href="/terms" target="_blank" className="text-blue-600 hover:underline dark:text-blue-400">
+                            이용약관
+                          </a>
+                          에 동의합니다 (필수)
+                        </label>
+                      </div>
+                      {errors.termsAgreed && <p className="text-sm text-red-500 dark:text-red-400">{errors.termsAgreed}</p>}
+
+                      <div className="flex items-start gap-2">
+                        <input
+                          type="checkbox"
+                          id="privacy"
+                          checked={formData.privacyAgreed}
+                          onChange={(e) => setFormData(prev => ({ ...prev, privacyAgreed: e.target.checked }))}
+                          className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
+                        />
+                        <label htmlFor="privacy" className="text-sm text-gray-700 dark:text-gray-300">
+                          <span className="text-red-500">*</span>{' '}
+                          <a href="/privacy" target="_blank" className="text-blue-600 hover:underline dark:text-blue-400">
+                            개인정보 수집 및 이용
+                          </a>
+                          에 동의합니다 (필수)
+                        </label>
+                      </div>
+                      {errors.privacyAgreed && <p className="text-sm text-red-500 dark:text-red-400">{errors.privacyAgreed}</p>}
+
+                      <div className="flex items-start gap-2">
+                        <input
+                          type="checkbox"
+                          id="marketing"
+                          checked={formData.marketingAgreed}
+                          onChange={(e) => setFormData(prev => ({ ...prev, marketingAgreed: e.target.checked }))}
+                          className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
+                        />
+                        <label htmlFor="marketing" className="text-sm text-gray-700 dark:text-gray-300">
+                          마케팅 정보 수신 및 활용에 동의합니다 (선택)
+                        </label>
+                      </div>
+                    </div>
                   </div>
                 )}
               </motion.div>
@@ -544,8 +607,8 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
                 onClick={handleBack}
                 disabled={currentStep === 1 || isSubmitting}
                 className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all ${currentStep === 1
-                    ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                   }`}
               >
                 <ArrowLeft className="w-5 h-5" />
