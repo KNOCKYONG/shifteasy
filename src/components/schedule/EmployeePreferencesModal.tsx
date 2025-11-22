@@ -709,7 +709,7 @@ export function EmployeePreferencesModal({
     <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6">
+        <div className="bg-blue-600 text-white p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
@@ -1167,7 +1167,7 @@ export function EmployeePreferencesModal({
                   <Wallet className="w-5 h-5 text-purple-500" />
                   {format(selectedOffBalanceMonth, 'yyyy년 M월')} OFF 잔액
                 </h3>
-                <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-lg border border-purple-200 dark:border-purple-800 p-6">
+                <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800 p-6">
                   <div className="text-center">
                     <div className="text-4xl font-bold text-purple-600 dark:text-purple-400 mb-2">
                       {offBalanceData?.preferences.accumulatedOffDays || 0}<span className="text-2xl ml-1">일</span>

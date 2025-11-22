@@ -135,7 +135,7 @@ export function ScheduleSwapModal({
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] flex flex-col overflow-hidden">
         {/* Header with Step Indicator */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6">
+        <div className="bg-blue-600 text-white p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
@@ -292,12 +292,12 @@ export function ScheduleSwapModal({
             // Step 2: 교환 대상 선택 - 큰 카드 형식
             <div className="space-y-6">
               {/* 선택한 내 근무 표시 */}
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-xl p-6">
+              <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-xl p-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-6">
                     {/* Date Display */}
                     <div className="flex-shrink-0">
-                      <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex flex-col items-center justify-center text-white shadow-lg">
+                      <div className="w-20 h-20 bg-blue-600 rounded-2xl flex flex-col items-center justify-center text-white shadow-lg">
                         <div className="text-3xl font-bold leading-none">
                           {format(parseISO(selectedMyShift!.date), 'd')}
                         </div>
@@ -372,7 +372,7 @@ export function ScheduleSwapModal({
                         <div className="flex flex-col items-center text-center space-y-4">
                           {/* Employee Avatar */}
                           <div className="relative">
-                            <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
+                            <div className="w-20 h-20 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
                               <span className="text-3xl font-bold text-white">
                                 {shift.employeeName.charAt(0)}
                               </span>

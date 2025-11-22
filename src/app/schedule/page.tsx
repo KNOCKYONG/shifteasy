@@ -3425,7 +3425,7 @@ function SchedulePageContent() {
         )}
         {/* My Preferences Section - member 권한에서만 표시 */}
         {(isMember || isManager)  && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 border border-blue-200 dark:border-blue-800">
+        <div className="bg-blue-50 dark:bg-blue-950/20 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 border border-blue-200 dark:border-blue-800">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="p-2 sm:p-3 bg-white dark:bg-gray-800 rounded-xl shadow-sm">
@@ -3614,7 +3614,7 @@ function SchedulePageContent() {
                         {(isAiGenerated || autoAdjusted) && hasSchedule && (
                           <div className="flex items-center gap-2">
                             {isAiGenerated && (
-                              <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border border-purple-200 dark:border-purple-700 rounded-lg">
+                              <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg">
                                 <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                                 <span className="text-xs font-medium text-purple-700 dark:text-purple-300">AI 생성</span>
                               </div>
@@ -3644,7 +3644,7 @@ function SchedulePageContent() {
                           className={`inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all ${
                             !hasSchedule || isImproving
                               ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
-                              : "text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md hover:shadow-lg"
+                              : "text-white bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg"
                           }`}
                           title={hasSchedule ? "스케줄 최적화" : "개선할 스케줄이 없습니다"}
                         >

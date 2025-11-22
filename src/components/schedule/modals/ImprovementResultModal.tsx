@@ -135,7 +135,7 @@ export function ImprovementResultModal({
           {activeTab === 'summary' && (
             <div className="space-y-6">
               {/* 등급 변화 */}
-              <div className="flex items-center justify-center gap-4 p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl">
+              <div className="flex items-center justify-center gap-4 p-6 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
                 <div className="text-center">
                   <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
                     개선 전

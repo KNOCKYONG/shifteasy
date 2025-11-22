@@ -114,7 +114,7 @@ export function StaffCard({ staff, compact = false, onClick, workPatternType, pr
         onClick={onClick}
       >
         <div className="flex-shrink-0">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-slate-700 dark:to-slate-600 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center">
             <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
               {staff.name?.charAt(0) || "?"}
             </span>
@@ -153,7 +153,7 @@ export function StaffCard({ staff, compact = false, onClick, workPatternType, pr
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-slate-700 dark:to-slate-600 flex items-center justify-center">
+          <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center">
             <span className="text-lg font-medium text-gray-600 dark:text-gray-300">
               {staff.name?.charAt(0) || "?"}
             </span>

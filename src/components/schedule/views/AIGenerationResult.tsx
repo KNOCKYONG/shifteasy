@@ -103,7 +103,7 @@ export const AIGenerationResult = React.memo(function AIGenerationResult({ gener
     diagSummaries.some((summary) => summary.count > 0) || (diagnostics?.preflightIssues?.length ?? 0) > 0;
 
   return (
-    <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 rounded-xl border border-purple-100 dark:border-purple-800">
+    <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-xl border border-purple-100 dark:border-purple-800">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
