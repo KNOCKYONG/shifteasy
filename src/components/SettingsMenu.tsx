@@ -1,7 +1,7 @@
-'use client'
+"use client"
 
 import { useState, useEffect } from 'react'
-import { Settings, Globe, Moon, Sun } from 'lucide-react'
+import { Settings, Globe, Moon, Sun, Monitor } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useTranslation } from 'react-i18next'
 
@@ -14,7 +14,7 @@ const languages = [
 export function SettingsMenu() {
   const [isOpen, setIsOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
-  const { theme, setTheme } = useTheme()
+  const { theme, setTheme, resolvedTheme, systemTheme } = useTheme()
   const { i18n } = useTranslation()
   const [currentLang, setCurrentLang] = useState('ko')
 
@@ -35,13 +35,10 @@ export function SettingsMenu() {
     }
   }
 
-  const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark')
-  }
+  if (!mounted) return null
 
-  if (!mounted) {
-    return null
-  }
+  const isSystem = theme === 'system'
+  const effectiveTheme = (resolvedTheme || systemTheme || theme) as 'light' | 'dark'
 
   return (
     <div className="relative">
@@ -55,10 +52,7 @@ export function SettingsMenu() {
 
       {isOpen && (
         <>
-          <div
-            className="fixed inset-0 z-10"
-            onClick={() => setIsOpen(false)}
-          />
+          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
           <div className="absolute right-0 z-20 mt-2 w-64 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-gray-200 dark:border-slate-700 overflow-hidden">
             {/* 언어 선택 섹션 */}
             <div className="p-3 border-b border-gray-200 dark:border-slate-700">
@@ -66,7 +60,6 @@ export function SettingsMenu() {
                 <Globe className="w-4 h-4" />
                 <span>언어 / Language</span>
               </div>
-              {/* 드롭다운 선택 */}
               <select
                 value={currentLang}
                 onChange={(e) => handleLanguageChange(e.target.value)}
@@ -80,30 +73,46 @@ export function SettingsMenu() {
               </select>
             </div>
 
-            {/* 다크모드 토글 섹션 */}
+            {/* 테마 모드 선택 (System / Light / Dark) */}
             <div className="p-3">
-              <button
-                onClick={toggleTheme}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  {theme === 'dark' ? (
-                    <Moon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                  ) : (
-                    <Sun className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                  )}
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    다크모드
-                  </span>
-                </div>
-                <div className={`relative w-12 h-6 rounded-full transition-colors ${
-                  theme === 'dark' ? 'bg-blue-600' : 'bg-gray-300'
-                }`}>
-                  <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-                    theme === 'dark' ? 'translate-x-6' : 'translate-x-0'
-                  }`} />
-                </div>
-              </button>
+              <div className="flex items-center gap-2 mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                <span>테마</span>
+                <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">(
+                  {isSystem ? '시스템 따름' : effectiveTheme === 'dark' ? '다크' : '라이트'}
+                )</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => setTheme('system')}
+                  className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${
+                    theme === 'system'
+                      ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                      : 'border-gray-200 dark:border-slate-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <Monitor className="w-4 h-4" /> 시스템
+                </button>
+                <button
+                  onClick={() => setTheme('light')}
+                  className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${
+                    theme === 'light'
+                      ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                      : 'border-gray-200 dark:border-slate-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <Sun className="w-4 h-4" /> 라이트
+                </button>
+                <button
+                  onClick={() => setTheme('dark')}
+                  className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${
+                    theme === 'dark'
+                      ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                      : 'border-gray-200 dark:border-slate-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <Moon className="w-4 h-4" /> 다크
+                </button>
+              </div>
             </div>
           </div>
         </>
