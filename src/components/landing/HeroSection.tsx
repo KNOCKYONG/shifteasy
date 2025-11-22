@@ -51,7 +51,7 @@ export default function HeroSection() {
               <img
                 src="/logo.png"
                 alt="ShiftEasy Logo"
-                className="h-22 w-auto object-contain"
+                className="h-16 md:h-20 lg:h-24 w-auto object-contain"
               />
             </Link>
 
