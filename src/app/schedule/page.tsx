@@ -3390,8 +3390,8 @@ function SchedulePageContent() {
                           ) : (
                             <>
                               <Wand2 className="w-4 h-4" />
-                              <span className="hidden sm:inline">MILP/CSP 스케줄 생성</span>
-                              <span className="sm:hidden">MILP/CSP</span>
+                              <span className="hidden sm:inline">스케줄 생성</span>
+                              <span className="sm:hidden">생성</span>
                             </>
                           )}
                         </button>
