@@ -3,11 +3,11 @@
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useInView } from 'react-intersection-observer';
-import { Brain, Users, ShieldCheck, Globe } from 'lucide-react';
+import { Users, ShieldCheck, Globe, Clock } from 'lucide-react';
 
 const features = [
   {
-    icon: Brain,
+    icon: Clock,
     key: 'feature1',
     gradient: 'from-[#2563EB] to-[#1D4ED8]',
   },
