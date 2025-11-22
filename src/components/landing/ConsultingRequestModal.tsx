@@ -270,30 +270,30 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-        className="relative w-full max-w-3xl max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden"
+        className="relative w-full max-w-3xl max-h-[90vh] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden"
       >
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-600 via-blue-700 to-purple-600 px-6 py-6 border-b border-blue-700/20">
+        <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 px-6 py-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-2xl font-bold text-white mb-1">{t('title')}</h2>
-              <p className="text-sm text-blue-50">1-2 영업일 내 무료 컨설팅을 받으실 수 있습니다</p>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">{t('title')}</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400">1-2 영업일 내 무료 컨설팅을 받으실 수 있습니다</p>
             </div>
             <button
               onClick={handleClose}
-              className="p-2 text-white hover:bg-white/20 rounded-lg transition-colors"
+              className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
             >
               <X className="w-6 h-6" />
             </button>
           </div>
 
           {/* Progress Bar */}
-          <div className="relative h-2 bg-white/30 rounded-full overflow-hidden">
+          <div className="relative h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.3 }}
-              className="absolute inset-y-0 left-0 bg-white rounded-full"
+              className="absolute inset-y-0 left-0 bg-blue-600 rounded-full"
             />
           </div>
 
@@ -302,12 +302,13 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
             {[1, 2, 3].map(step => (
               <div key={step} className="flex items-center">
                 <div
-                  className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold transition-colors ${step <= currentStep ? 'bg-white text-blue-600' : 'bg-white/30 text-white'
+                  className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold transition-colors ${step <= currentStep ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500'
                     }`}
                 >
                   {step}
                 </div>
-                <span className="ml-2 text-sm text-white font-medium">
+                <span className={`ml-2 text-sm font-medium ${step <= currentStep ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500'
+                  }`}>
                   {t(`steps.step${step}`)}
                 </span>
               </div>
@@ -327,8 +328,8 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
                 className="flex flex-col items-center justify-center py-12"
               >
                 <CheckCircle className="w-20 h-20 text-green-500 mb-4" />
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">{t('success.title')}</h3>
-                <p className="text-gray-600 text-center">{t('success.message')}</p>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">{t('success.title')}</h3>
+                <p className="text-gray-600 dark:text-gray-400 text-center">{t('success.message')}</p>
               </motion.div>
             ) : (
               <motion.div
@@ -430,20 +431,20 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
                     />
 
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                         {t('fields.files')} <span className="text-gray-500 text-xs">(선택사항)</span>
                       </label>
-                      <p className="text-sm text-gray-600 mb-3">{t('fileUpload.descriptionOptional')}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{t('fileUpload.descriptionOptional')}</p>
 
                       <div
                         onDragOver={handleDragOver}
                         onDragLeave={handleDragLeave}
                         onDrop={handleDrop}
                         className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-all ${isDragging
-                            ? 'border-blue-500 bg-blue-50'
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                             : errors.files
-                              ? 'border-red-300 bg-red-50'
-                              : 'border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50'
+                              ? 'border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-900/20'
+                              : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
                           }`}
                       >
                         <input
@@ -453,14 +454,14 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
                           onChange={handleFileChange}
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         />
-                        <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                        <p className="text-gray-700 font-medium mb-2">{t('fileUpload.dragDrop')}</p>
-                        <p className="text-sm text-gray-500">{t('fileUpload.formats')}</p>
-                        <p className="text-xs text-gray-400 mt-2">{t('fileUpload.maxSize')}</p>
+                        <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400 dark:text-gray-500" />
+                        <p className="text-gray-700 dark:text-gray-300 font-medium mb-2">{t('fileUpload.dragDrop')}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{t('fileUpload.formats')}</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">{t('fileUpload.maxSize')}</p>
                       </div>
 
                       {errors.files && (
-                        <div className="flex items-center gap-2 mt-2 text-sm text-red-500">
+                        <div className="flex items-center gap-2 mt-2 text-sm text-red-500 dark:text-red-400">
                           <AlertCircle className="w-4 h-4" />
                           {errors.files}
                         </div>
@@ -468,26 +469,26 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
 
                       {formData.files.length > 0 && (
                         <div className="mt-4 space-y-2">
-                          <p className="text-sm font-semibold text-gray-700">
+                          <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                             {t('fileUpload.uploaded', { count: formData.files.length })}
                           </p>
                           {formData.files.map((file, index) => (
                             <div
                               key={index}
-                              className="flex items-center justify-between p-3 bg-gray-100 rounded-lg border border-gray-200"
+                              className="flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
                             >
                               <div className="flex items-center gap-3">
-                                <FileText className="w-5 h-5 text-blue-600" />
+                                <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                                 <div>
-                                  <p className="text-sm font-medium text-gray-900">{file.name}</p>
-                                  <p className="text-xs text-gray-500">
+                                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{file.name}</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">
                                     {(file.size / 1024 / 1024).toFixed(2)} MB
                                   </p>
                                 </div>
                               </div>
                               <button
                                 onClick={() => removeFile(index)}
-                                className="p-1 text-red-500 hover:bg-red-100 rounded transition-colors"
+                                className="p-1 text-red-500 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
                               >
                                 <X className="w-4 h-4" />
                               </button>
@@ -537,14 +538,14 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
 
         {/* Footer */}
         {!isSuccess && (
-          <div className="sticky bottom-0 bg-gray-50 px-6 py-4 border-t border-gray-200">
+          <div className="sticky bottom-0 bg-gray-50 dark:bg-gray-800 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <button
                 onClick={handleBack}
                 disabled={currentStep === 1 || isSubmitting}
                 className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all ${currentStep === 1
-                    ? 'text-gray-400 cursor-not-allowed'
-                    : 'text-gray-700 hover:bg-gray-200'
+                    ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                   }`}
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -565,7 +566,7 @@ export default function ConsultingRequestModal({ isOpen, onClose }: ConsultingRe
                   <button
                     onClick={handleSubmit}
                     disabled={isSubmitting}
-                    className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 px-8 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSubmitting ? (
                       <>
@@ -601,18 +602,18 @@ function InputField({ label, required, type = 'text', value, onChange, error, pl
 }) {
   return (
     <div>
-      <label className="block text-sm font-semibold text-gray-700 mb-2">
+      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
       <input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`w-full px-4 py-3 rounded-lg border ${error ? 'border-red-500' : 'border-gray-300'
-          } focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all`}
+        className={`w-full px-4 py-3 rounded-lg border ${error ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+          } focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100`}
         placeholder={placeholder}
       />
-      {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+      {error && <p className="mt-1 text-sm text-red-500 dark:text-red-400">{error}</p>}
     </div>
   );
 }
@@ -628,21 +629,21 @@ function SelectField({ label, required, value, onChange, error, placeholder, opt
 }) {
   return (
     <div>
-      <label className="block text-sm font-semibold text-gray-700 mb-2">
+      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`w-full px-4 py-3 rounded-lg border ${error ? 'border-red-500' : 'border-gray-300'
-          } focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all`}
+        className={`w-full px-4 py-3 rounded-lg border ${error ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+          } focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100`}
       >
         <option value="">{placeholder}</option>
         {options.map(opt => (
           <option key={opt.value} value={opt.value}>{opt.label}</option>
         ))}
       </select>
-      {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+      {error && <p className="mt-1 text-sm text-red-500 dark:text-red-400">{error}</p>}
     </div>
   );
 }
@@ -659,20 +660,20 @@ function TextAreaField({ label, required, value, onChange, error, placeholder, h
 }) {
   return (
     <div>
-      <label className="block text-sm font-semibold text-gray-700 mb-2">
+      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
         {label} {required && <span className="text-red-500">*</span>}
         {!required && <span className="text-gray-500 text-xs"> (선택사항)</span>}
       </label>
-      {hint && <p className="text-sm text-gray-600 mb-2">{hint}</p>}
+      {hint && <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{hint}</p>}
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={rows}
-        className={`w-full px-4 py-3 rounded-lg border ${error ? 'border-red-500' : 'border-gray-300'
-          } focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none`}
+        className={`w-full px-4 py-3 rounded-lg border ${error ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+          } focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100`}
         placeholder={placeholder}
       />
-      {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+      {error && <p className="mt-1 text-sm text-red-500 dark:text-red-400">{error}</p>}
     </div>
   );
 }
