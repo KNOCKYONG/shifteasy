@@ -26,6 +26,7 @@ from solver.ortools_solver import solve_with_ortools  # noqa: E402
 from solver.cpsat_solver import solve_with_cpsat  # noqa: E402
 from solver.postprocessor import SchedulePostProcessor  # noqa: E402
 from solver.exceptions import SolverFailure  # noqa: E402
+from solver.types import SolveResult  # noqa: E402
 
 LOG_DIR = Path(os.environ.get("MILP_LOG_DIR", CURRENT_DIR / "logs"))
 
@@ -39,8 +40,9 @@ class SchedulerJobRequest(BaseModel):
 
 class SchedulerJobStatus(BaseModel):
   id: str
-  status: Literal['queued', 'processing', 'completed', 'failed']
+  status: Literal['queued', 'processing', 'completed', 'failed', 'timedout', 'cancelled']
   result: Optional[Dict[str, Any]] = None
+  bestResult: Optional[Dict[str, Any]] = None
   error: Optional[str] = None
   errorDiagnostics: Optional[Dict[str, Any]] = None
   createdAt: str
@@ -51,22 +53,33 @@ class SchedulerJobResponse(BaseModel):
   jobId: str = Field(..., alias='jobId')
 
 
+class CancellationToken:
+  def __init__(self):
+    self.cancelled = False
+
+  def cancel(self):
+    self.cancelled = True
+
+
 class InternalJobState:
   def __init__(self, job_id: str):
     now = datetime.utcnow().isoformat()
     self.id = job_id
-    self.status: Literal['queued', 'processing', 'completed', 'failed'] = 'queued'
+    self.status: Literal['queued', 'processing', 'completed', 'failed', 'timedout', 'cancelled'] = 'queued'
     self.result: Optional[Dict[str, Any]] = None
+    self.best_result: Optional[Dict[str, Any]] = None
     self.error: Optional[str] = None
     self.error_diagnostics: Optional[Dict[str, Any]] = None
     self.created_at = now
     self.updated_at = now
+    self.cancel_token = CancellationToken()
 
   def to_response(self) -> SchedulerJobStatus:
     return SchedulerJobStatus(
       id=self.id,
       status=self.status,
       result=self.result,
+      bestResult=self.best_result,
       error=self.error,
       errorDiagnostics=self.error_diagnostics,
       createdAt=self.created_at,
@@ -80,6 +93,7 @@ class InternalJobState:
   def mark_completed(self, result: Dict[str, Any]):
     self.status = 'completed'
     self.result = result
+    self.best_result = result
     self.updated_at = datetime.utcnow().isoformat()
 
   def mark_failed(self, error: str, diagnostics: Optional[Dict[str, Any]] = None):
@@ -88,6 +102,27 @@ class InternalJobState:
     if diagnostics:
       self.error_diagnostics = diagnostics
     self.updated_at = datetime.utcnow().isoformat()
+
+  def mark_timed_out(self, result: Optional[Dict[str, Any]], diagnostics: Optional[Dict[str, Any]] = None):
+    self.status = 'timedout'
+    self.result = result
+    if result:
+      self.best_result = result
+    self.error = "Solver timed out"
+    if diagnostics:
+      self.error_diagnostics = diagnostics
+    self.updated_at = datetime.utcnow().isoformat()
+
+  def mark_cancelled(self, result: Optional[Dict[str, Any]] = None):
+    self.status = 'cancelled'
+    if result:
+      self.result = result
+      self.best_result = result
+    self.error = "Cancelled"
+    self.updated_at = datetime.utcnow().isoformat()
+
+  def request_cancel(self):
+    self.cancel_token.cancel()
 
 
 app = FastAPI(title="MILP-CSP Scheduler Worker", version="0.1.0")
@@ -104,6 +139,7 @@ async def _cleanup_job_later(job_id: str):
   job_state = jobs.pop(job_id, None)
   if job_state:
     job_state.result = None
+    job_state.best_result = None
     job_state.error_diagnostics = None
   gc.collect()
 
@@ -223,8 +259,11 @@ def build_solver_result(
   assignments: list[Assignment],
   computation_time: float,
   diagnostics: Optional[Dict[str, Any]] = None,
+  solve_status: Optional[str] = None,
 ) -> Dict[str, Any]:
   diagnostics = diagnostics or {}
+  effective_status = solve_status or diagnostics.get("solverStatus")
+  timed_out = diagnostics.get("solverTimedOut")
   staffing_shortages = diagnostics.get("staffingShortages", [])
   team_gaps = diagnostics.get("teamCoverageGaps", [])
   career_group_gaps = diagnostics.get("careerGroupCoverageGaps", [])
@@ -324,6 +363,8 @@ def build_solver_result(
     "generationResult": {
       "iterations": 1,
       "computationTime": int(computation_time * 1000),
+      "solveStatus": effective_status,
+      "solverTimedOut": timed_out,
       "violations": violations,
       "score": {
         "total": 100,
@@ -412,13 +453,16 @@ def serialize_schedule(schedule: ScheduleInput) -> Dict[str, Any]:
   return asdict(schedule)
 
 
-def attempt_schedule_run(schedule: ScheduleInput, label: str) -> tuple[list[Assignment], Dict[str, Any]]:
+def attempt_schedule_run(
+  schedule: ScheduleInput, label: str, cancel_token: Optional[CancellationToken] = None
+) -> SolveResult:
+  start = time.perf_counter()
   log_json(f"{label}-milp-input", serialize_schedule(schedule))
-  assignments, diagnostics = solve_with_ortools(schedule)
+  solver_result = solve_with_ortools(schedule, cancel_token)
   postprocessor = SchedulePostProcessor(
     schedule,
-    assignments,
-    diagnostics,
+    solver_result.assignments,
+    solver_result.diagnostics,
     getattr(schedule, "options", None),
   )
   assignments, diagnostics = postprocessor.run()
@@ -430,16 +474,36 @@ def attempt_schedule_run(schedule: ScheduleInput, label: str) -> tuple[list[Assi
     },
   )
   postprocessor = None
-  return assignments, diagnostics
+  solver_meta = {
+    "solverStatus": solver_result.diagnostics.get("solverStatus", solver_result.status),
+    "solverTimedOut": solver_result.diagnostics.get("solverTimedOut", solver_result.timed_out),
+    "solverWallTimeMs": solver_result.diagnostics.get("solverWallTimeMs"),
+    "solverRawStatus": solver_result.diagnostics.get("solverRawStatus"),
+  }
+  for key, value in solver_meta.items():
+    if value is not None:
+      diagnostics.setdefault(key, value)
+  elapsed_ms = int((time.perf_counter() - start) * 1000)
+  return SolveResult(
+    assignments=assignments,
+    diagnostics=diagnostics,
+    status=solver_result.status,
+    solve_time_ms=elapsed_ms,
+    best_objective=solver_result.best_objective,
+    timed_out=solver_result.timed_out,
+  )
 
 
-def attempt_cpsat_schedule_run(schedule: ScheduleInput, label: str) -> tuple[list[Assignment], Dict[str, Any]]:
+def attempt_cpsat_schedule_run(
+  schedule: ScheduleInput, label: str, cancel_token: Optional[CancellationToken] = None
+) -> SolveResult:
+  start = time.perf_counter()
   log_json(f"{label}-milp-input", serialize_schedule(schedule))
-  assignments, diagnostics = solve_with_cpsat(schedule)
+  solver_result = solve_with_cpsat(schedule, cancel_token)
   postprocessor = SchedulePostProcessor(
     schedule,
-    assignments,
-    diagnostics,
+    solver_result.assignments,
+    solver_result.diagnostics,
     getattr(schedule, "options", None),
   )
   assignments, diagnostics = postprocessor.run()
@@ -451,12 +515,32 @@ def attempt_cpsat_schedule_run(schedule: ScheduleInput, label: str) -> tuple[lis
     },
   )
   postprocessor = None
-  return assignments, diagnostics
+  solver_meta = {
+    "solverStatus": solver_result.diagnostics.get("solverStatus", solver_result.status),
+    "solverTimedOut": solver_result.diagnostics.get("solverTimedOut", solver_result.timed_out),
+    "solverWallTimeMs": solver_result.diagnostics.get("solverWallTimeMs"),
+    "solverRawStatus": solver_result.diagnostics.get("solverRawStatus"),
+  }
+  for key, value in solver_meta.items():
+    if value is not None:
+      diagnostics.setdefault(key, value)
+  elapsed_ms = int((time.perf_counter() - start) * 1000)
+  return SolveResult(
+    assignments=assignments,
+    diagnostics=diagnostics,
+    status=solver_result.status,
+    solve_time_ms=elapsed_ms,
+    best_objective=solver_result.best_objective,
+    timed_out=solver_result.timed_out,
+  )
 
 
-def attempt_hybrid_schedule_run(schedule: ScheduleInput, label: str) -> tuple[list[Assignment], Dict[str, Any]]:
-  cpsat_assignments, cpsat_diagnostics = attempt_cpsat_schedule_run(schedule, f"{label}-cpsat")
-  assignments, diagnostics = attempt_schedule_run(schedule, f"{label}-ortools")
+def attempt_hybrid_schedule_run(
+  schedule: ScheduleInput, label: str, cancel_token: Optional[CancellationToken] = None
+) -> SolveResult:
+  cpsat_result = attempt_cpsat_schedule_run(schedule, f"{label}-cpsat", cancel_token)
+  ortools_result = attempt_schedule_run(schedule, f"{label}-ortools", cancel_token)
+  diagnostics = ortools_result.diagnostics
   diagnostics.setdefault("preflightIssues", []).append(
     {
       "type": "solverInfo",
@@ -464,8 +548,15 @@ def attempt_hybrid_schedule_run(schedule: ScheduleInput, label: str) -> tuple[li
       "solver": "hybrid",
     }
   )
-  diagnostics["hybrid"] = {"cpsatDiagnostics": cpsat_diagnostics}
-  return assignments, diagnostics
+  diagnostics["hybrid"] = {"cpsatDiagnostics": cpsat_result.diagnostics}
+  return SolveResult(
+    assignments=ortools_result.assignments,
+    diagnostics=diagnostics,
+    status=ortools_result.status,
+    solve_time_ms=max(ortools_result.solve_time_ms, cpsat_result.solve_time_ms),
+    best_objective=ortools_result.best_objective or cpsat_result.best_objective,
+    timed_out=ortools_result.timed_out or cpsat_result.timed_out,
+  )
 
 
 def build_relaxed_schedule(schedule: ScheduleInput, relax_level: int, diagnostics: Optional[Dict[str, Any]]) -> ScheduleInput:
@@ -501,26 +592,28 @@ def build_relaxed_schedule(schedule: ScheduleInput, relax_level: int, diagnostic
   return relaxed
 
 
-def _solve_single_attempt(schedule: ScheduleInput, preferred_solver: Optional[str] = None) -> tuple[list[Assignment], Dict[str, Any]]:
+def _solve_single_attempt(
+  schedule: ScheduleInput, preferred_solver: Optional[str] = None, cancel_token: Optional[CancellationToken] = None
+) -> SolveResult:
   env_solver = os.environ.get("MILP_DEFAULT_SOLVER", "ortools").lower()
   solver_choice = (preferred_solver or env_solver or "ortools").lower()
   if solver_choice not in {"ortools", "cpsat", "hybrid"}:
     solver_choice = "ortools"
 
   def run_cpsat(phase: str):
-    assignments, diagnostics = attempt_cpsat_schedule_run(schedule, phase)
-    diagnostics.setdefault("preflightIssues", []).append(
+    result = attempt_cpsat_schedule_run(schedule, phase, cancel_token)
+    result.diagnostics.setdefault("preflightIssues", []).append(
       {
         "type": "solverInfo",
         "message": f"Schedule generated via CP-SAT ({phase}).",
         "solver": "cpsat",
       }
     )
-    return assignments, diagnostics
+    return result
 
   def run_hybrid():
-    assignments, diagnostics = attempt_hybrid_schedule_run(schedule, "hybrid")
-    return assignments, diagnostics
+    result = attempt_hybrid_schedule_run(schedule, "hybrid", cancel_token)
+    return result
 
   if solver_choice == "cpsat":
     try:
@@ -541,15 +634,15 @@ def _solve_single_attempt(schedule: ScheduleInput, preferred_solver: Optional[st
       solver_choice = "ortools"
 
   try:
-    return attempt_schedule_run(schedule, "primary")
+    return attempt_schedule_run(schedule, "primary", cancel_token)
   except Exception as primary_error:
     log_json("milp-error", {"phase": "primary", "error": str(primary_error)})
     diagnostics_snapshot = getattr(primary_error, "diagnostics", None)
     for level in range(3):
       relaxed_schedule = build_relaxed_schedule(schedule, level, diagnostics_snapshot)
       try:
-        assignments, diagnostics = attempt_schedule_run(relaxed_schedule, f"relaxed-{level+1}")
-        diagnostics.setdefault("preflightIssues", []).append(
+        result = attempt_schedule_run(relaxed_schedule, f"relaxed-{level+1}", cancel_token)
+        result.diagnostics.setdefault("preflightIssues", []).append(
           {
             "type": "fallbackRelaxation",
             "message": f"Primary MILP run failed; applied relaxation level {level+1}.",
@@ -557,7 +650,7 @@ def _solve_single_attempt(schedule: ScheduleInput, preferred_solver: Optional[st
           }
         )
         relaxed_schedule = None
-        return assignments, diagnostics
+        return result
       except Exception as relaxed_error:
         log_json("milp-error", {"phase": f"relaxed-{level+1}", "error": str(relaxed_error)})
         diagnostics_snapshot = getattr(relaxed_error, "diagnostics", diagnostics_snapshot)
@@ -623,7 +716,9 @@ def _compute_solution_penalty(diagnostics: Optional[Dict[str, Any]]) -> float:
   return penalty
 
 
-def solve_job(schedule: ScheduleInput, preferred_solver: Optional[str] = None) -> tuple[list[Assignment], Dict[str, Any]]:
+def solve_job(
+  schedule: ScheduleInput, preferred_solver: Optional[str] = None, cancel_token: Optional[CancellationToken] = None
+) -> SolveResult:
   options = getattr(schedule, "options", {}) or {}
   pattern_constraints = options.get("patternConstraints") or {}
   try:
@@ -658,34 +753,34 @@ def solve_job(schedule: ScheduleInput, preferred_solver: Optional[str] = None) -
   last_error: Optional[Exception] = None
 
   for attempt_index in range(attempts):
+    if cancel_token and getattr(cancel_token, "cancelled", False):
+      break
     candidate = copy.deepcopy(schedule)
     should_jitter = jitter_fraction > 0 and (attempts == 1 or attempt_index > 0)
     if should_jitter:
       _apply_weight_jitter(candidate, jitter_fraction, rng)
     try:
-      assignments, diagnostics = _solve_single_attempt(candidate, preferred_solver)
+      result = _solve_single_attempt(candidate, preferred_solver, cancel_token)
     except Exception as exc:
       last_error = exc
       candidate = None
       continue
-    penalty = _compute_solution_penalty(diagnostics)
+    penalty = _compute_solution_penalty(result.diagnostics)
     if best_result is None or penalty < best_result["penalty"]:
       best_result = {
-        "assignments": assignments,
-        "diagnostics": diagnostics,
+        "result": result,
         "penalty": penalty,
         "attempt": attempt_index + 1,
       }
-    else:
-      assignments = None
-      diagnostics = None
     candidate = None
-    if penalty <= 0:
+    if penalty <= 0 and result.status in {"optimal", "feasible"}:
+      break
+    if cancel_token and getattr(cancel_token, "cancelled", False):
       break
 
   if best_result:
-    assignments = best_result["assignments"]
-    diagnostics = best_result["diagnostics"]
+    result = best_result["result"]
+    diagnostics = result.diagnostics
     if attempts > 1 or jitter_fraction > 0:
       diagnostics.setdefault("preflightIssues", []).append(
         {
@@ -700,9 +795,14 @@ def solve_job(schedule: ScheduleInput, preferred_solver: Optional[str] = None) -
       )
     best_result = None
     gc.collect()
-    return assignments, diagnostics
+    return result
 
   gc.collect()
+  if cancel_token and getattr(cancel_token, "cancelled", False):
+    raise SolverFailure(
+      "Solver cancelled",
+      diagnostics={"solverStatus": "cancelled"},
+    )
   if last_error:
     raise last_error
   raise RuntimeError("MILP solver failed for all attempts")
@@ -711,15 +811,31 @@ def solve_job(schedule: ScheduleInput, preferred_solver: Optional[str] = None) -
 async def process_job(job: InternalJobState, payload: SchedulerJobRequest):
   job.mark_processing()
   schedule: Optional[ScheduleInput] = None
-  assignments: Optional[list[Assignment]] = None
-  diagnostics: Optional[Dict[str, Any]] = None
+  solve_result: Optional[SolveResult] = None
   try:
     schedule = parse_schedule_input(payload.milpInput)
     loop = asyncio.get_running_loop()
     start_time = time.perf_counter()
-    assignments, diagnostics = await loop.run_in_executor(None, solve_job, schedule, payload.solver)
+    solve_result = await loop.run_in_executor(None, solve_job, schedule, payload.solver, job.cancel_token)
     elapsed = time.perf_counter() - start_time
-    job.mark_completed(build_solver_result(schedule, assignments, elapsed, diagnostics))
+    result_payload = build_solver_result(
+      schedule,
+      solve_result.assignments,
+      elapsed,
+      solve_result.diagnostics,
+      solve_result.status,
+    )
+    if solve_result.status in {"optimal", "feasible"}:
+      job.mark_completed(result_payload)
+    elif solve_result.status == "timeout":
+      job.mark_timed_out(result_payload, solve_result.diagnostics)
+    elif solve_result.status == "cancelled":
+      job.mark_cancelled(result_payload if solve_result.assignments else None)
+    else:
+      if solve_result.assignments:
+        job.best_result = result_payload
+        job.result = result_payload
+      job.mark_failed(f"Solver returned status {solve_result.status}", solve_result.diagnostics)
     post_stats = job.result.get("generationResult", {}).get("postprocess") if job.result else None
     if post_stats:
       print(
@@ -731,13 +847,17 @@ async def process_job(job: InternalJobState, payload: SchedulerJobRequest):
     diag_obj = copy.deepcopy(getattr(exc, "diagnostics", None)) or {}
     guidance = _build_failure_guidance(diag_obj)
     diag_obj["guidance"] = guidance
+    partial_result = None
+    if solve_result and schedule:
+      partial_result = build_solver_result(schedule, solve_result.assignments, 0, solve_result.diagnostics, solve_result.status)
+      job.best_result = partial_result
+      job.result = partial_result
     job.mark_failed(str(exc), diag_obj)
     diag_obj = None
   except Exception as exc:
     job.mark_failed(str(exc))
   finally:
-    assignments = None
-    diagnostics = None
+    solve_result = None
     schedule = None
     asyncio.create_task(_cleanup_job_later(job.id))
     gc.collect()
@@ -760,4 +880,15 @@ async def get_job_status(job_id: str):
   job = jobs.get(job_id)
   if not job:
     raise HTTPException(status_code=404, detail="Job not found")
+  return job.to_response()
+
+
+@app.post("/scheduler/jobs/{job_id}/cancel", response_model=SchedulerJobStatus)
+async def cancel_job(job_id: str):
+  job = jobs.get(job_id)
+  if not job:
+    raise HTTPException(status_code=404, detail="Job not found")
+  job.request_cancel()
+  if job.status == 'queued':
+    job.mark_cancelled(job.result)
   return job.to_response()

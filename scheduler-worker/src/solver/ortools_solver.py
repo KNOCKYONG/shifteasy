@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import math
+import time
+import threading
 from datetime import date, timedelta
 from typing import Any, Dict, List, Tuple, Set, Optional
 
@@ -8,6 +10,7 @@ from ortools.linear_solver import pywraplp
 
 from models import Assignment, ScheduleInput
 from solver.exceptions import SolverFailure
+from solver.types import SolveResult, SolveStatus, CancellationToken
 
 DEFAULT_REQUIRED_STAFF = {"D": 5, "E": 4, "N": 3}
 
@@ -18,6 +21,11 @@ class OrToolsMilpSolver:
     self.options = getattr(schedule, "options", {}) or {}
     self.constraint_weights = self.options.get("constraintWeights", {}) or {}
     self.csp_options = self.options.get("cspSettings", {}) or {}
+    raw_max_time = self.options.get("maxSolveTimeMs") if isinstance(self.options, dict) else None
+    try:
+      self.max_solve_time_ms = int(raw_max_time) if raw_max_time is not None else 0
+    except (TypeError, ValueError):
+      self.max_solve_time_ms = 0
     self.date_range = self._build_date_range()
     self.special_request_targets = self._build_special_request_targets()
     self.special_request_codes = {code for (_, _, code) in self.special_request_targets}
@@ -1148,7 +1156,7 @@ class OrToolsMilpSolver:
       )
     return gaps
 
-  def solve(self) -> Tuple[List[Assignment], Dict[str, Any]]:
+  def solve(self, cancel_token: Optional[CancellationToken] = None) -> SolveResult:
     self.build_model()
     staffing_penalty = 1000 * self._weight_scalar("staffing", 1.0)
     team_penalty = 500 * self._weight_scalar("teamBalance", 1.0)
@@ -1188,12 +1196,61 @@ class OrToolsMilpSolver:
       objective.SetCoefficient(entry["over_var"], daily_balance_penalty)
       objective.SetCoefficient(entry["under_var"], daily_balance_penalty)
     objective.SetMinimization()
-    status = self.solver.Solve()
-    if status not in (pywraplp.Solver.OPTIMAL, pywraplp.Solver.FEASIBLE):
+
+    if self.max_solve_time_ms > 0:
+      self.solver.SetTimeLimit(self.max_solve_time_ms)
+
+    cancel_event = threading.Event()
+
+    def _monitor_cancel():
+      while not cancel_event.is_set():
+        if cancel_token and getattr(cancel_token, "cancelled", False):
+          try:
+            self.solver.InterruptSolve()
+          finally:
+            cancel_event.set()
+            break
+        time.sleep(0.05)
+
+    monitor_thread: Optional[threading.Thread] = None
+    if cancel_token:
+      monitor_thread = threading.Thread(target=_monitor_cancel, daemon=True)
+      monitor_thread.start()
+
+    start = time.perf_counter()
+    solver_status = self.solver.Solve()
+    elapsed_ms = int((time.perf_counter() - start) * 1000)
+    cancel_event.set()
+    if monitor_thread:
+      monitor_thread.join(timeout=0.2)
+
+    wall_time_ms = int(self.solver.wall_time())
+    has_solution = any(var.solution_value() >= 0.5 for var in self.variables.values())
+    timed_out = bool(self.max_solve_time_ms and wall_time_ms >= max(0, self.max_solve_time_ms - 1))
+    if getattr(cancel_token, "cancelled", False):
+      status_label: SolveStatus = "cancelled"
+    elif timed_out and solver_status != pywraplp.Solver.OPTIMAL:
+      status_label = "timeout"
+    elif solver_status == pywraplp.Solver.OPTIMAL:
+      status_label = "optimal"
+    elif solver_status == pywraplp.Solver.FEASIBLE:
+      status_label = "feasible"
+    elif solver_status == pywraplp.Solver.INFEASIBLE:
+      status_label = "infeasible"
+    else:
+      status_label = "error"
+
+    if not has_solution and status_label in {"timeout", "cancelled", "error", "infeasible"}:
       raise SolverFailure(
         "Solver failed to find feasible schedule",
-        diagnostics={"preflightIssues": self.preflight_issues},
+        diagnostics={
+          "preflightIssues": self.preflight_issues,
+          "solverStatus": status_label,
+          "solverWallTimeMs": wall_time_ms,
+          "solverRawStatus": solver_status,
+        },
       )
+
     assignments: List[Assignment] = []
     for (employee_id, day_key, shift_code), var in self.variables.items():
       if var.solution_value() >= 0.9:
@@ -1218,8 +1275,19 @@ class OrToolsMilpSolver:
       "shiftBalanceGaps": self._collect_shift_balance_gaps(),
       "dailyHeadcountGaps": self._collect_daily_headcount_gaps(),
       "preflightIssues": self.preflight_issues,
+      "solverStatus": status_label,
+      "solverWallTimeMs": wall_time_ms,
+      "solverRawStatus": solver_status,
+      "solverTimedOut": timed_out,
     }
-    return assignments, diagnostics
+    return SolveResult(
+      assignments=assignments,
+      diagnostics=diagnostics,
+      status=status_label,
+      solve_time_ms=max(elapsed_ms, wall_time_ms),
+      best_objective=None,
+      timed_out=timed_out,
+    )
 
   def build_assignments_from_names(self, active_names: Set[str]) -> List[Assignment]:
     assignments: List[Assignment] = []
@@ -1251,6 +1319,8 @@ class OrToolsMilpSolver:
       return default
 
 
-def solve_with_ortools(schedule: ScheduleInput) -> Tuple[List[Assignment], Dict[str, Any]]:
+def solve_with_ortools(
+  schedule: ScheduleInput, cancel_token: Optional[CancellationToken] = None
+) -> SolveResult:
   solver = OrToolsMilpSolver(schedule)
-  return solver.solve()
+  return solver.solve(cancel_token)
