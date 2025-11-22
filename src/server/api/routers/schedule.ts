@@ -900,6 +900,7 @@ export const scheduleRouter = createTRPCRouter({
           tenantDb,
           solverOptions,
           basePayload,
+          milpInput,
         };
       };
 
@@ -1051,7 +1052,6 @@ export const scheduleRouter = createTRPCRouter({
           ...basePayload,
           enableAI: false,
           useMilpEngine: true,
-          milpInput,
           schedulerAdvanced,
           solver: schedulerAdvanced?.solverPreference ?? 'ortools',
         };
@@ -2511,15 +2511,16 @@ export const scheduleRouter = createTRPCRouter({
         });
       }
 
-      const generationDiagnostics = status.result.generationResult.diagnostics ?? {};
-      const generationPostprocess = status.result.generationResult.postprocess ?? generationDiagnostics.postprocess;
+      const resultPayload = status.result;
+      const generationDiagnostics = resultPayload.generationResult.diagnostics ?? {};
+      const generationPostprocess = resultPayload.generationResult.postprocess ?? generationDiagnostics.postprocess;
 
       const result = await (async () => {
-        const finalAssignments = status.result.assignments.map((assignment) => ({
+        const finalAssignments = resultPayload.assignments.map((assignment) => ({
           ...assignment,
           date: new Date(assignment.date),
         }));
-        const finalScore = status.result.generationResult.score;
+        const finalScore = resultPayload.generationResult.score;
         const serializedAssignments = finalAssignments.map((assignment) => ({
           ...assignment,
           date: assignment.date instanceof Date ? assignment.date.toISOString() : assignment.date,
@@ -2530,7 +2531,7 @@ export const scheduleRouter = createTRPCRouter({
             workPatternMap.set(emp.id, emp.workPatternType ?? 'three-shift');
           }
         });
-        const normalizedOffAccruals = (status.result.generationResult.offAccruals ?? []).map((entry) => {
+        const normalizedOffAccruals = (resultPayload.generationResult.offAccruals ?? []).map((entry) => {
           const pattern = workPatternMap.get(entry.employeeId);
           if (pattern === 'weekday-only') {
             return {
@@ -2553,14 +2554,14 @@ export const scheduleRouter = createTRPCRouter({
             generationMethod: payload.useMilpEngine ? 'milp-engine' : 'ai-engine',
             constraints: payload.constraints,
             assignments: serializedAssignments,
-            stats: status.result.generationResult.stats,
+            stats: resultPayload.generationResult.stats,
             score: finalScore,
-            violations: status.result.generationResult.violations,
+            violations: resultPayload.generationResult.violations,
             offAccruals: normalizedOffAccruals,
             diagnostics: generationDiagnostics,
             schedulerAdvanced,
             aiEnabled: payload.enableAI,
-            aiPolishResult: status.result.aiPolishResult,
+            aiPolishResult: resultPayload.aiPolishResult,
           },
         });
 
@@ -2572,8 +2573,8 @@ export const scheduleRouter = createTRPCRouter({
           entityId: schedule.id,
           after: schedule,
           metadata: {
-            computationTime: status.result.generationResult.computationTime,
-            iterations: status.result.generationResult.iterations,
+            computationTime: resultPayload.generationResult.computationTime,
+            iterations: resultPayload.generationResult.iterations,
           },
         });
 
@@ -2587,16 +2588,16 @@ export const scheduleRouter = createTRPCRouter({
           scheduleId: schedule.id,
           assignments: serializedAssignments,
           generationResult: {
-            iterations: status.result.generationResult.iterations,
-            computationTime: status.result.generationResult.computationTime,
+            iterations: resultPayload.generationResult.iterations,
+            computationTime: resultPayload.generationResult.computationTime,
             score: finalScore,
-            violations: status.result.generationResult.violations,
+            violations: resultPayload.generationResult.violations,
             offAccruals: normalizedOffAccruals,
-            stats: status.result.generationResult.stats,
+            stats: resultPayload.generationResult.stats,
             diagnostics: generationDiagnostics,
             postprocess: generationPostprocess,
           },
-          aiPolishResult: status.result.aiPolishResult,
+          aiPolishResult: resultPayload.aiPolishResult,
         };
       })();
 
