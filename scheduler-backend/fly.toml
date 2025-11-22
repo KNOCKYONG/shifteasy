@@ -20,7 +20,7 @@ primary_region = "nrt"
   processes = ["app"]
   auto_start_machines = true
   auto_stop_machines = "off"
-  min_machines_running = 1
+  min_machines_running = 0
 
   [services.concurrency]
     hard_limit = 25
