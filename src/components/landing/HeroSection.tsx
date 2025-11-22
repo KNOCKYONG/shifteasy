@@ -51,7 +51,7 @@ export default function HeroSection() {
               <img
                 src="/logo.png"
                 alt="ShiftEasy Logo"
-                className="h-16 w-auto object-contain"
+                className="h-20 w-auto object-contain"
               />
             </Link>
 
@@ -125,16 +125,12 @@ export default function HeroSection() {
 
           <button
             onClick={() => setIsConsultingModalOpen(true)}
-            className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-full transition-all duration-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-lg overflow-hidden"
+            className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-full transition-all duration-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-lg"
           >
-            <div className="absolute -top-3 -right-3 flex flex-col items-center">
-              <span className="px-3 py-1 text-xs font-bold text-white bg-gradient-to-r from-green-500 to-emerald-500 rounded-full shadow-lg animate-pulse">
-                무료
-              </span>
-              <span className="mt-1 px-2 py-0.5 text-[10px] font-semibold text-white bg-red-500 rounded-full shadow-md animate-pulse">
-                마감 {formatTime(timeLeft)}
-              </span>
-            </div>
+            {/* Single Countdown Badge */}
+            <span className="absolute -top-3 -right-3 px-3 py-1 text-xs font-bold text-white bg-gradient-to-r from-red-500 to-orange-500 rounded-full shadow-lg animate-pulse whitespace-nowrap">
+              무료 마감 {formatTime(timeLeft)}
+            </span>
             <Sparkles className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400 group-hover:text-blue-700 dark:group-hover:text-blue-300 transition-colors" />
             {t('hero.ctaSecondary')}
           </button>
