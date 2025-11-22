@@ -35,11 +35,10 @@ export default function HeroSection() {
 
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-white">
-      {/* Subtle Background Gradients */}
+      {/* Subtle Background (no gradients) */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[1000px] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-50 via-white to-transparent opacity-60" />
-        <div className="absolute -top-[40%] -right-[10%] w-[800px] h-[800px] bg-gradient-to-br from-blue-100/40 to-purple-100/30 rounded-full blur-3xl opacity-50" />
-        <div className="absolute top-[20%] -left-[10%] w-[600px] h-[600px] bg-gradient-to-tr from-blue-50/40 to-emerald-50/30 rounded-full blur-3xl opacity-40" />
+        <div className="absolute -top-[40%] -right-[10%] w-[800px] h-[800px] bg-blue-100/30 rounded-full blur-3xl opacity-50" />
+        <div className="absolute top-[20%] -left-[10%] w-[600px] h-[600px] bg-purple-100/30 rounded-full blur-3xl opacity-40" />
       </div>
 
       {/* Top Navigation removed: global NavigationHeader now displays logo & actions */}
@@ -93,7 +92,7 @@ export default function HeroSection() {
             href="/billing?plan=professional"
             className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-blue-600 rounded-full overflow-hidden transition-all duration-300 hover:bg-blue-700 hover:scale-105 hover:shadow-xl hover:shadow-blue-600/25"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000" />
+            {/* Shimmer removed (no gradients) */}
             <span className="relative flex items-center gap-2">
               {t('hero.ctaPrimary')}
               <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
@@ -105,7 +104,7 @@ export default function HeroSection() {
             className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-full transition-all duration-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-lg"
           >
             {/* Single Countdown Badge */}
-            <span className="absolute -top-3 -right-3 px-3 py-1 text-xs font-bold text-white bg-gradient-to-r from-red-500 to-orange-500 rounded-full shadow-lg animate-pulse whitespace-nowrap">
+            <span className="absolute -top-3 -right-3 px-3 py-1 text-xs font-bold text-white bg-red-600 rounded-full shadow-lg animate-pulse whitespace-nowrap">
               무료 마감 {formatTime(timeLeft)}
             </span>
             <Sparkles className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400 group-hover:text-blue-700 dark:group-hover:text-blue-300 transition-colors" />
@@ -122,7 +121,7 @@ export default function HeroSection() {
           className="mt-12 w-full max-w-6xl mx-auto"
         >
           <div className="relative rounded-2xl border border-gray-200 bg-white/80 backdrop-blur-sm p-2 sm:p-4 shadow-2xl shadow-gray-200/50">
-            <div className="absolute -inset-1 bg-gradient-to-r from-blue-100/50 to-purple-100/50 rounded-3xl blur-xl -z-10 opacity-60" />
+            {/* Highlight removed (no gradient) */}
 
             {/* Mock UI Header */}
             <div className="flex items-center gap-2 mb-4 px-2">
@@ -136,7 +135,7 @@ export default function HeroSection() {
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-6 rounded-xl bg-gradient-to-br from-white to-blue-50/50 border border-gray-200 hover:border-blue-300 transition-all group hover:shadow-lg">
+              <div className="p-6 rounded-xl bg-white border border-gray-200 hover:border-blue-300 transition-all group hover:shadow-lg">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="p-2 bg-blue-100 rounded-lg text-blue-600 group-hover:scale-110 transition-transform">
                     <Clock className="w-5 h-5" />
@@ -146,7 +145,7 @@ export default function HeroSection() {
                 <p className="text-3xl font-bold text-gray-900 tracking-tight">{t('hero.stat1Value')}</p>
               </div>
 
-              <div className="p-6 rounded-xl bg-gradient-to-br from-white to-orange-50/50 border border-gray-200 hover:border-orange-300 transition-all group hover:shadow-lg">
+              <div className="p-6 rounded-xl bg-white border border-gray-200 hover:border-orange-300 transition-all group hover:shadow-lg">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="p-2 bg-orange-100 rounded-lg text-orange-600 group-hover:scale-110 transition-transform">
                     <Zap className="w-5 h-5" />
@@ -156,7 +155,7 @@ export default function HeroSection() {
                 <p className="text-3xl font-bold text-gray-900 tracking-tight">{t('hero.stat2Value')}</p>
               </div>
 
-              <div className="p-6 rounded-xl bg-gradient-to-br from-white to-emerald-50/50 border border-gray-200 hover:border-emerald-300 transition-all group hover:shadow-lg">
+              <div className="p-6 rounded-xl bg-white border border-gray-200 hover:border-emerald-300 transition-all group hover:shadow-lg">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600 group-hover:scale-110 transition-transform">
                     <Users className="w-5 h-5" />

@@ -104,7 +104,7 @@ export default function DemoPreviewSection() {
   });
 
   return (
-    <section className="py-20 bg-gradient-to-b from-white to-[#F8FAFC]">
+    <section className="py-20 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <motion.div
@@ -178,7 +178,7 @@ export default function DemoPreviewSection() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.1 }}
-                  className="flex items-start gap-4 p-6 bg-gradient-to-r from-[#DBEAFE] to-white rounded-2xl border-2 border-[#2563EB]"
+                  className="flex items-start gap-4 p-6 bg-[#EFF6FF] rounded-2xl border-2 border-[#2563EB]"
                 >
                   <div className="flex-shrink-0 w-12 h-12 bg-[#2563EB] rounded-full flex items-center justify-center">
                     <FileText className="w-6 h-6 text-white" />
@@ -198,7 +198,7 @@ export default function DemoPreviewSection() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.2 }}
-                  className="flex items-start gap-4 p-6 bg-gradient-to-r from-[#DBEAFE] to-white rounded-2xl border-2 border-[#2563EB]"
+                  className="flex items-start gap-4 p-6 bg-[#EFF6FF] rounded-2xl border-2 border-[#2563EB]"
                 >
                   <div className="flex-shrink-0 w-12 h-12 bg-[#2563EB] rounded-full flex items-center justify-center">
                     <Settings className="w-6 h-6 text-white" />
@@ -218,7 +218,7 @@ export default function DemoPreviewSection() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.3 }}
-                  className="flex items-start gap-4 p-6 bg-gradient-to-r from-[#DBEAFE] to-white rounded-2xl border-2 border-[#2563EB]"
+                  className="flex items-start gap-4 p-6 bg-[#EFF6FF] rounded-2xl border-2 border-[#2563EB]"
                 >
                   <div className="flex-shrink-0 w-12 h-12 bg-[#2563EB] rounded-full flex items-center justify-center">
                     <Sparkles className="w-6 h-6 text-white" />
@@ -238,7 +238,7 @@ export default function DemoPreviewSection() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.4 }}
-                  className="flex items-start gap-4 p-6 bg-gradient-to-r from-[#DBEAFE] to-white rounded-2xl border-2 border-[#2563EB]"
+                  className="flex items-start gap-4 p-6 bg-[#EFF6FF] rounded-2xl border-2 border-[#2563EB]"
                 >
                   <div className="flex-shrink-0 w-12 h-12 bg-[#2563EB] rounded-full flex items-center justify-center">
                     <Zap className="w-6 h-6 text-white" />
@@ -258,7 +258,7 @@ export default function DemoPreviewSection() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.5 }}
-                  className="flex items-start gap-4 p-6 bg-gradient-to-r from-[#DBEAFE] to-white rounded-2xl border-2 border-[#2563EB]"
+                  className="flex items-start gap-4 p-6 bg-[#EFF6FF] rounded-2xl border-2 border-[#2563EB]"
                 >
                   <div className="flex-shrink-0 w-12 h-12 bg-[#2563EB] rounded-full flex items-center justify-center">
                     <CheckCircle className="w-6 h-6 text-white" />
@@ -562,7 +562,7 @@ export default function DemoPreviewSection() {
               <div className="p-6 text-center border-t border-gray-100">
                 <Link
                   href="/billing?plan=professional"
-                  className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white rounded-lg font-semibold hover:shadow-lg transition-all"
+                  className="inline-flex items-center justify-center px-8 py-4 bg-[#1D4ED8] text-white rounded-lg font-semibold hover:shadow-lg transition-all"
                 >
                   {t('demoPreview.tryNow')}
                 </Link>

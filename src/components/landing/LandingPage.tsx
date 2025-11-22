@@ -16,7 +16,7 @@ const HowItWorksSection = dynamic(() => import('./HowItWorksSection'), {
 });
 
 const DemoPreviewSection = dynamic(() => import('./DemoPreviewSection'), {
-  loading: () => <div className="py-20 bg-gradient-to-b from-white to-blue-50" />,
+  loading: () => <div className="py-20 bg-white" />,
 });
 
 const TestimonialsSection = dynamic(() => import('./TestimonialsSection'), {

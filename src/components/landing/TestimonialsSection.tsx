@@ -57,7 +57,7 @@ export default function TestimonialsSection() {
   }, [currentIndex]);
 
   return (
-    <section ref={ref} className="py-20 lg:py-32 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+    <section ref={ref} className="py-20 lg:py-32 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <motion.div
@@ -116,7 +116,7 @@ export default function TestimonialsSection() {
 
                   {/* Author info */}
                   <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-2xl font-bold">
+                    <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center text-white text-2xl font-bold">
                       {t(`testimonials.${testimonials[currentIndex]}.author`).charAt(0)}
                     </div>
                     <div>
@@ -130,7 +130,7 @@ export default function TestimonialsSection() {
                   </div>
 
                   {/* Stat badge */}
-                  <div className="mt-6 inline-block px-4 py-2 bg-gradient-to-r from-blue-100 to-purple-100 rounded-lg">
+                  <div className="mt-6 inline-block px-4 py-2 bg-blue-100 rounded-lg">
                     <p className="text-sm font-semibold text-blue-900">
                       📈 {t(`testimonials.${testimonials[currentIndex]}.stat`)}
                     </p>

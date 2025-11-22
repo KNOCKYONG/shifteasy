@@ -26,9 +26,7 @@ export default function CTASection() {
   const [isConsultingModalOpen, setIsConsultingModalOpen] = useState(false);
 
   return (
-    <section ref={ref} className="relative py-20 lg:py-32 overflow-hidden">
-      {/* Gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#2563EB] to-[#1D4ED8]" />
+    <section ref={ref} className="relative py-20 lg:py-32 overflow-hidden bg-[#1D4ED8]">
 
       {/* Animated background pattern */}
       <div className="absolute inset-0 opacity-10">
@@ -47,7 +45,7 @@ export default function CTASection() {
             className="mb-6"
           >
             {/* Opening Special Badge */}
-            <div className="inline-flex items-center gap-3 mb-3 px-5 py-2.5 bg-gradient-to-r from-[#F97316] to-[#FB923C] text-white rounded-full shadow-xl">
+            <div className="inline-flex items-center gap-3 mb-3 px-5 py-2.5 bg-[#F97316] text-white rounded-full shadow-xl">
               <span className="relative flex h-2.5 w-2.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
@@ -56,7 +54,7 @@ export default function CTASection() {
             </div>
 
             {/* Urgency Badge */}
-            <div className="inline-flex items-center gap-3 mb-6 px-6 py-3 bg-gradient-to-r from-[#F97316] to-[#FB923C] rounded-full shadow-xl">
+            <div className="inline-flex items-center gap-3 mb-6 px-6 py-3 bg-[#F97316] rounded-full shadow-xl">
               <span className="relative flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
@@ -109,7 +107,8 @@ export default function CTASection() {
                 {t('cta.ctaPrimary')}
                 <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
               </span>
-              <div className="absolute inset-0 bg-gradient-to-r from-[#DBEAFE] to-[#DBEAFE] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              {/* Hover overlay without gradient */}
+              <div className="absolute inset-0 bg-[#DBEAFE] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </Link>
 
             <button

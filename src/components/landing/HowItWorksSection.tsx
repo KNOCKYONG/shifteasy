@@ -31,23 +31,23 @@ export default function HowItWorksSection() {
     threshold: 0.2,
   });
 
-  const colorMap: Record<string, { bg: string; text: string; gradient: string; ring: string }> = {
+  const colorMap: Record<string, { bg: string; text: string; solid: string; ring: string }> = {
     blue: {
       bg: 'bg-blue-100',
       text: 'text-blue-600',
-      gradient: 'from-blue-500 to-cyan-500',
+      solid: 'bg-blue-600',
       ring: 'ring-blue-500',
     },
     purple: {
       bg: 'bg-purple-100',
       text: 'text-purple-600',
-      gradient: 'from-purple-500 to-pink-500',
+      solid: 'bg-purple-600',
       ring: 'ring-purple-500',
     },
     green: {
       bg: 'bg-green-100',
       text: 'text-green-600',
-      gradient: 'from-green-500 to-emerald-500',
+      solid: 'bg-green-600',
       ring: 'ring-green-500',
     },
   };
@@ -73,7 +73,7 @@ export default function HowItWorksSection() {
         {/* Steps */}
         <div className="relative">
           {/* Connection lines */}
-          <div className="hidden lg:block absolute top-1/2 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-green-500 transform -translate-y-1/2 -z-10" />
+          <div className="hidden lg:block absolute top-1/2 left-0 right-0 h-1 bg-blue-500/40 transform -translate-y-1/2 -z-10" />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-8">
             {steps.map((step, index) => {
@@ -92,7 +92,7 @@ export default function HowItWorksSection() {
                   <div className="relative bg-white rounded-2xl p-8 shadow-xl hover:shadow-2xl transition-shadow duration-300">
                     {/* Step number badge */}
                     <div className="absolute -top-6 left-1/2 transform -translate-x-1/2">
-                      <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${colors.gradient} flex items-center justify-center text-white font-bold text-xl shadow-lg ring-4 ring-white`}>
+                      <div className={`w-12 h-12 rounded-full ${colors.solid} flex items-center justify-center text-white font-bold text-xl shadow-lg ring-4 ring-white`}>
                         {index + 1}
                       </div>
                     </div>
@@ -113,7 +113,7 @@ export default function HowItWorksSection() {
                     </p>
 
                     {/* Decorative corner */}
-                    <div className={`absolute top-0 right-0 w-16 h-16 bg-gradient-to-br ${colors.gradient} opacity-10 rounded-bl-full`} />
+                    <div className={`absolute top-0 right-0 w-16 h-16 ${colors.solid} opacity-10 rounded-bl-full`} />
                   </div>
 
                   {/* Arrow indicator (desktop only) */}
@@ -155,7 +155,7 @@ export default function HowItWorksSection() {
         >
           <Link
             href="/billing?plan=professional"
-            className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-blue-600 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-300 hover:scale-105 hover:shadow-xl"
+            className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all duration-300 hover:scale-105 hover:shadow-xl"
           >
             {t('hero.ctaPrimary')}
             <svg

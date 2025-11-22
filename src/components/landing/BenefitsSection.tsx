@@ -32,23 +32,23 @@ export default function BenefitsSection() {
   });
   const [activeIndustry, setActiveIndustry] = useState(0);
 
-  const colorMap: Record<string, { bg: string; text: string; gradient: string; border: string }> = {
+  const colorMap: Record<string, { bg: string; text: string; solid: string; border: string }> = {
     blue: {
       bg: 'bg-[#DBEAFE]',
       text: 'text-[#2563EB]',
-      gradient: 'from-[#2563EB] to-[#1D4ED8]',
+      solid: 'bg-[#2563EB]',
       border: 'border-[#2563EB]',
     },
     orange: {
       bg: 'bg-[#FED7AA]',
       text: 'text-[#F97316]',
-      gradient: 'from-[#F97316] to-[#FB923C]',
+      solid: 'bg-[#F97316]',
       border: 'border-[#F97316]',
     },
     blueAlt: {
       bg: 'bg-[#DBEAFE]',
       text: 'text-[#1D4ED8]',
-      gradient: 'from-[#1D4ED8] to-[#2563EB]',
+      solid: 'bg-[#1D4ED8]',
       border: 'border-[#1D4ED8]',
     },
   };
@@ -115,7 +115,7 @@ export default function BenefitsSection() {
                 <h3 className="text-2xl font-bold text-gray-900 mb-4">
                   {t(`benefits.${industries[activeIndustry].key}.pain`)}
                 </h3>
-                <div className={`h-1 w-20 bg-gradient-to-r ${colorMap[industries[activeIndustry].color].gradient} rounded-full mb-6`} />
+                <div className={`h-1 w-20 ${colorMap[industries[activeIndustry].color].solid} rounded-full mb-6`} />
                 <p className="text-lg text-gray-600 leading-relaxed">
                   {t(`benefits.${industries[activeIndustry].key}.solution`)}
                 </p>
@@ -131,7 +131,7 @@ export default function BenefitsSection() {
                     transition={{ duration: 0.5, delay: idx * 0.1 }}
                     className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl"
                   >
-                    <div className={`flex-shrink-0 w-12 h-12 rounded-lg bg-gradient-to-br ${colorMap[industries[activeIndustry].color].gradient} flex items-center justify-center text-white font-bold text-lg`}>
+                    <div className={`flex-shrink-0 w-12 h-12 rounded-lg ${colorMap[industries[activeIndustry].color].solid} flex items-center justify-center text-white font-bold text-lg`}>
                       {idx + 1}
                     </div>
                     <div>
@@ -148,7 +148,7 @@ export default function BenefitsSection() {
             </div>
 
             {/* Right: Visual */}
-            <div className={`relative bg-gradient-to-br ${colorMap[industries[activeIndustry].color].gradient} p-8 lg:p-12 flex items-center justify-center`}>
+            <div className={`relative ${colorMap[industries[activeIndustry].color].solid} p-8 lg:p-12 flex items-center justify-center`}>
               <div className="relative">
                 {/* Decorative circles */}
                 <div className="absolute inset-0 flex items-center justify-center">
