@@ -5,9 +5,9 @@
     "description": "매달 반복되는 엑셀 작업과 직원들의 불만 접수... 이제 그만하실 때가 되었습니다.\nShiftEasy는 복잡한 제약조건을 5분 만에 해결하여, 관리자에게는 여유를, 직원에게는 공정한 근무표를 선물합니다.",
     "ctaPrimary": "무료로 비효율 개선하기",
     "ctaSecondary": "전문가 컨설팅 신청",
-    "trustBadge": "이미 1,000개 이상의 선도 기업이 도입했습니다",
-    "openingSpecial": "🎉 오픈 기념 • 선착순 10팀 한정 무료 컨설팅 및 세팅 지원",
-    "urgencyBadge": "🔥 선착순 100팀 한정 • 3개월 무료 프로 구독",
+    "trustBadge": "병원·제조·서비스 분야 최적화 솔루션",
+    "openingSpecial": "오픈 기념 • 선착순 10팀 한정 무료 컨설팅 및 세팅 지원",
+    "urgencyBadge": "선착순 100팀 한정 • 3개월 무료 프로 구독",
     "highlight1": "관리 비용 95% 절감",
     "highlight2": "퇴사율 감소",
     "highlight3": "규정 준수 100%",
@@ -15,8 +15,8 @@
     "stat1Value": "연 240시간+",
     "stat2Label": "근무표 생성",
     "stat2Value": "단 5분",
-    "stat3Label": "도입 기업",
-    "stat3Value": "1,000+"
+    "stat3Label": "고객 지원",
+    "stat3Value": "24/7 케어"
   },
   "features": {
     "title": "ShiftEasy를 도입하지 않은 조직이\n겪고 있는 3가지 비효율",
@@ -92,27 +92,27 @@
     }
   },
   "testimonials": {
-    "title": "먼저 도입한 리더들의 증언",
-    "subtitle": "ShiftEasy 도입 후 조직이 어떻게 변화했는지 확인하세요",
+    "title": "도입 시 기대 효과",
+    "subtitle": "ShiftEasy 도입 후 달라질 조직의 모습을 미리 확인하세요",
     "testimonial1": {
-      "quote": "매달 근무표 때문에 스트레스받던 시간이 사라졌습니다. 그 시간에 환자 케어와 팀원 면담에 집중하니 병동 분위기가 완전히 달라졌습니다.",
-      "author": "김 O O",
+      "quote": "매달 근무표 때문에 스트레스받던 시간이 사라집니다. 그 시간에 환자 케어와 팀원 면담에 집중하여 병동 분위기가 획기적으로 개선됩니다.",
+      "author": "예상 효과",
       "role": "간호팀장",
-      "company": "서울 S병원",
+      "company": "종합병원",
       "stat": "월 200시간 절약"
     },
     "testimonial2": {
-      "quote": "숙련도에 따른 배치가 자동화되니 생산성이 눈에 띄게 올랐습니다. 주먹구구식 배치가 얼마나 큰 손해였는지 깨달았습니다.",
-      "author": "박 O O",
+      "quote": "숙련도에 따른 배치가 자동화되어 생산성이 향상됩니다. 주먹구구식 배치로 인한 손실을 막고 최적의 효율을 달성할 수 있습니다.",
+      "author": "예상 효과",
       "role": "생산관리팀장",
-      "company": "H 자동차",
+      "company": "제조 기업",
       "stat": "생산성 18% 향상"
     },
     "testimonial3": {
-      "quote": "알바생들의 스케줄 변경 요청을 일일이 조율하던 지옥에서 해방되었습니다. 갑작스런 결근에도 1분 만에 대안을 찾을 수 있어 든든합니다.",
-      "author": "이 O O",
+      "quote": "알바생들의 스케줄 변경 요청을 일일이 조율하던 지옥에서 해방됩니다. 갑작스런 결근에도 1분 만에 대안을 찾을 수 있습니다.",
+      "author": "예상 효과",
       "role": "매장운영팀장",
-      "company": "S 커피전문점",
+      "company": "프랜차이즈",
       "stat": "대기시간 30% 감소"
     }
   },
@@ -224,13 +224,13 @@
     "description": "프로페셔널 플랜의 모든 기능을 3개월간 무료로 체험하세요. 언제든 취소할 수 있습니다.",
     "ctaPrimary": "3개월 무료 혜택 받기",
     "ctaSecondary": "무료 컨설팅 신청",
-    "openingSpecial": "🎉 오픈 기념 • 선착순 10팀 한정 무료 컨설팅 및 세팅 지원",
-    "urgencyBadge": "⚡ 선착순 100팀 한정",
+    "openingSpecial": "오픈 기념 • 선착순 10팀 한정 무료 컨설팅 및 세팅 지원",
+    "urgencyBadge": "선착순 100팀 한정",
     "limitedTime": "3개월 무료 프로 구독 • 이번 달 한정",
-    "trustBadge1": "1,000+ 팀",
-    "trustBadge2": "ISO 27001 인증",
+    "trustBadge1": "AI 자동화",
+    "trustBadge2": "강력한 보안",
     "trustBadge3": "99.9% 가동률",
-    "trustBadge4": "GDPR 준수"
+    "trustBadge4": "개인정보 보호"
   },
   "footer": {
     "brand": {
