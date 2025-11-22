@@ -18,3 +18,7 @@ export async function GET() {
     return new NextResponse('Logo not found', { status: 404 });
   }
 }
+
+// Ensure this API route is always treated as dynamic and runs on the Node.js runtime
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
