@@ -42,30 +42,7 @@ export default function HeroSection() {
         <div className="absolute top-[20%] -left-[10%] w-[600px] h-[600px] bg-gradient-to-tr from-blue-50/40 to-emerald-50/30 rounded-full blur-3xl opacity-40" />
       </div>
 
-      {/* Top Navigation Bar */}
-      <nav className="absolute top-0 left-0 right-0 z-50 border-b border-gray-100 bg-white/80 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
-            {/* Logo */}
-            <Link href="/" className="flex items-center">
-              <img
-                src="/logo.png"
-                alt="ShiftEasy Logo"
-                className="h-16 md:h-20 lg:h-24 w-auto object-contain"
-              />
-            </Link>
-
-            {/* Login Button */}
-            <Link
-              href="/sign-in"
-              className="group inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-gray-700 hover:text-gray-900 bg-white border border-gray-200 hover:border-gray-300 rounded-full transition-all duration-300 shadow-sm hover:shadow"
-            >
-              <LogIn className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-              로그인
-            </Link>
-          </div>
-        </div>
-      </nav>
+      {/* Top Navigation removed: global NavigationHeader now displays logo & actions */}
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-20 lg:pt-48 lg:pb-32 flex flex-col items-center text-center">
 

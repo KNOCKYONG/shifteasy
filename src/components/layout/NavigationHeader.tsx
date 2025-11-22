@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ProfileDropdown } from '@/components/ProfileDropdown';
 import { SettingsMenu } from '@/components/SettingsMenu';
+import { BrandLogo } from '@/components/BrandLogo';
 import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
 import { Menu, X, Bell, ChevronDown, LogOut } from 'lucide-react';
@@ -250,6 +251,24 @@ export function NavigationHeader() {
   }
 
   if (isPublicPage) {
+    return (
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between">
+            <BrandLogo href="/" size="md" />
+            <div className="flex items-center gap-1 sm:gap-2">
+              <SettingsMenu />
+              <Link
+                href="/sign-in"
+                className="hidden sm:inline-flex items-center px-3 py-1.5 text-sm rounded-md border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                로그인
+              </Link>
+            </div>
+          </div>
+        </div>
+      </header>
+    );
     return null; // 인증 페이지에서는 네비게이션 헤더를 표시하지 않음
   }
 
@@ -260,12 +279,7 @@ export function NavigationHeader() {
           <div className="flex h-16 items-center justify-between">
             {/* Left side: Logo and Desktop Navigation */}
           <div className="flex items-center gap-3 sm:gap-8">
-            <Link
-              href="/dashboard"
-              className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-            >
-              ShiftEasy
-            </Link>
+            <BrandLogo href="/dashboard" size="md" />
 
             {/* Desktop Navigation Items */}
             <nav className="hidden md:flex items-center gap-6">
