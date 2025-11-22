@@ -15,7 +15,9 @@ from dataclasses import asdict
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
-import copy
+
+from upstash_client import get_upstash_client
+from loguru import logger
 
 CURRENT_DIR = Path(__file__).resolve().parent
 if str(CURRENT_DIR) not in sys.path:
@@ -128,6 +130,72 @@ class InternalJobState:
 app = FastAPI(title="MILP-CSP Scheduler Worker", version="0.1.0")
 jobs: Dict[str, InternalJobState] = {}
 JOB_RETENTION_SECONDS = int(os.environ.get("SCHEDULER_JOB_TTL_SECONDS", 300))
+UPSTASH_CLIENT = get_upstash_client()
+UPSTASH_QUEUE_KEY = os.environ.get("UPSTASH_QUEUE_KEY", "scheduler:queue")
+UPSTASH_JOB_KEY_PREFIX = os.environ.get("UPSTASH_JOB_KEY_PREFIX", "scheduler:job:")
+UPSTASH_POLL_INTERVAL_MS = int(os.environ.get("UPSTASH_POLL_INTERVAL_MS", "1000"))
+UPSTASH_POLL_TASK: Optional[asyncio.Task] = None
+
+
+def _job_record_key(job_id: str) -> str:
+  return f"{UPSTASH_JOB_KEY_PREFIX}{job_id}"
+
+
+def job_to_record(job: InternalJobState, request_payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+  return {
+    "id": job.id,
+    "status": job.status,
+    "result": job.result,
+    "bestResult": job.best_result,
+    "error": job.error,
+    "errorDiagnostics": job.error_diagnostics,
+    "createdAt": job.created_at,
+    "updatedAt": job.updated_at,
+    "requestPayload": request_payload,
+  }
+
+
+def record_to_job(record: Dict[str, Any]) -> InternalJobState:
+  job = InternalJobState(record["id"])
+  job.status = record.get("status", "queued")
+  job.result = record.get("result")
+  job.best_result = record.get("bestResult")
+  job.error = record.get("error")
+  job.error_diagnostics = record.get("errorDiagnostics")
+  job.created_at = record.get("createdAt", job.created_at)
+  job.updated_at = record.get("updatedAt", job.updated_at)
+  return job
+
+
+async def persist_job_state(job: InternalJobState, request_payload: Optional[Dict[str, Any]] = None):
+  if not UPSTASH_CLIENT:
+    return
+  try:
+    record = job_to_record(job, request_payload)
+    await asyncio.to_thread(UPSTASH_CLIENT.set, _job_record_key(job.id), record)
+  except Exception as exc:  # pragma: no cover
+    logger.warning(f"[Upstash] failed to persist job {job.id}: {exc}")
+
+
+async def enqueue_upstash_job(job: InternalJobState, request_payload: Dict[str, Any]):
+  if not UPSTASH_CLIENT:
+    return False
+  try:
+    await persist_job_state(job, request_payload)
+    await asyncio.to_thread(UPSTASH_CLIENT.rpush, UPSTASH_QUEUE_KEY, job.id)
+    return True
+  except Exception as exc:  # pragma: no cover
+    logger.warning(f"[Upstash] enqueue failed for job {job.id}: {exc}")
+    return False
+
+
+async def fetch_job_record(job_id: str) -> Optional[Dict[str, Any]]:
+  if not UPSTASH_CLIENT:
+    return None
+  try:
+    return await asyncio.to_thread(UPSTASH_CLIENT.get, _job_record_key(job_id))
+  except Exception:
+    return None
 
 
 async def _cleanup_job_later(job_id: str):
@@ -137,6 +205,11 @@ async def _cleanup_job_later(job_id: str):
     return
   await asyncio.sleep(JOB_RETENTION_SECONDS)
   job_state = jobs.pop(job_id, None)
+  if UPSTASH_CLIENT:
+    try:
+      await asyncio.to_thread(UPSTASH_CLIENT.expire, _job_record_key(job_id), 60)
+    except Exception:
+      pass
   if job_state:
     job_state.result = None
     job_state.best_result = None
@@ -809,10 +882,11 @@ def solve_job(
 
 
 async def process_job(job: InternalJobState, payload: SchedulerJobRequest):
-  job.mark_processing()
   schedule: Optional[ScheduleInput] = None
   solve_result: Optional[SolveResult] = None
   try:
+    job.mark_processing()
+    await persist_job_state(job, payload.model_dump())
     schedule = parse_schedule_input(payload.milpInput)
     loop = asyncio.get_running_loop()
     start_time = time.perf_counter()
@@ -857,6 +931,7 @@ async def process_job(job: InternalJobState, payload: SchedulerJobRequest):
   except Exception as exc:
     job.mark_failed(str(exc))
   finally:
+    await persist_job_state(job)
     solve_result = None
     schedule = None
     asyncio.create_task(_cleanup_job_later(job.id))
@@ -870,7 +945,15 @@ async def enqueue_job(request: SchedulerJobRequest):
 
   job_id = str(uuid4())
   job = InternalJobState(job_id)
+  job.request_payload = request.model_dump()
   jobs[job_id] = job
+
+  if UPSTASH_CLIENT:
+    enqueued = await enqueue_upstash_job(job, job.request_payload)
+    if enqueued:
+      return SchedulerJobResponse(jobId=job_id)
+    # fall back to local processing if enqueue fails
+
   asyncio.create_task(process_job(job, request))
   return SchedulerJobResponse(jobId=job_id)
 
@@ -878,17 +961,69 @@ async def enqueue_job(request: SchedulerJobRequest):
 @app.get("/scheduler/jobs/{job_id}", response_model=SchedulerJobStatus)
 async def get_job_status(job_id: str):
   job = jobs.get(job_id)
-  if not job:
-    raise HTTPException(status_code=404, detail="Job not found")
-  return job.to_response()
+  if job:
+    return job.to_response()
+  record = await fetch_job_record(job_id)
+  if record:
+    job = record_to_job(record)
+    return job.to_response()
+  raise HTTPException(status_code=404, detail="Job not found")
 
 
 @app.post("/scheduler/jobs/{job_id}/cancel", response_model=SchedulerJobStatus)
 async def cancel_job(job_id: str):
   job = jobs.get(job_id)
   if not job:
-    raise HTTPException(status_code=404, detail="Job not found")
+    record = await fetch_job_record(job_id)
+    if not record:
+      raise HTTPException(status_code=404, detail="Job not found")
+    job = record_to_job(record)
+
   job.request_cancel()
   if job.status == 'queued':
     job.mark_cancelled(job.result)
+  await persist_job_state(job)
   return job.to_response()
+
+
+async def poll_upstash_queue():
+  if not UPSTASH_CLIENT:
+    return
+  logger.info("Starting Upstash queue poller")
+  while True:
+    try:
+      job_id = await asyncio.to_thread(UPSTASH_CLIENT.lpop, UPSTASH_QUEUE_KEY)
+      if not job_id:
+        await asyncio.sleep(UPSTASH_POLL_INTERVAL_MS / 1000)
+        continue
+      record = await fetch_job_record(job_id)
+      if not record:
+        logger.warning(f"[Upstash] job record missing for {job_id}")
+        continue
+      request_payload = record.get("requestPayload")
+      if not request_payload:
+        logger.warning(f"[Upstash] request payload missing for {job_id}")
+        continue
+      job = record_to_job(record)
+      job.request_payload = request_payload
+      jobs[job.id] = job
+      request = SchedulerJobRequest(**request_payload)
+      asyncio.create_task(process_job(job, request))
+    except Exception as exc:  # pragma: no cover
+      logger.warning(f"[Upstash] poll loop error: {exc}")
+      await asyncio.sleep(UPSTASH_POLL_INTERVAL_MS / 1000)
+
+
+@app.on_event("startup")
+async def on_startup():
+  global UPSTASH_POLL_TASK
+  if UPSTASH_CLIENT and not UPSTASH_POLL_TASK:
+    UPSTASH_POLL_TASK = asyncio.create_task(poll_upstash_queue())
+
+
+@app.on_event("shutdown")
+async def on_shutdown():
+  global UPSTASH_POLL_TASK
+  if UPSTASH_POLL_TASK:
+    UPSTASH_POLL_TASK.cancel()
+    UPSTASH_POLL_TASK = None
