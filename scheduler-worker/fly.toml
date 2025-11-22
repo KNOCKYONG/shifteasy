@@ -23,6 +23,6 @@ primary_region = "nrt"
   queue = 20
 
 [[vm]]
-  memory = "4096mb"
+  memory = "2048mb"
   cpu_kind = "shared"
-  cpus = 8
+  cpus = 4

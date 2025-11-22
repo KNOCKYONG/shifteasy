@@ -27,10 +27,10 @@ class CpSatScheduler:
       self.max_solve_time_ms = 0
     if self.max_solve_time_ms <= 0:
       try:
-        env_limit = int(os.environ.get("MILP_SOLVE_TIMEOUT_MS", "180000"))
+        env_limit = int(os.environ.get("MILP_SOLVE_TIMEOUT_MS", "300000"))
         self.max_solve_time_ms = max(0, env_limit)
       except (TypeError, ValueError):
-        self.max_solve_time_ms = 180000
+        self.max_solve_time_ms = 300000
     self.date_range = self._build_date_range()
     self.special_request_targets = self._build_special_request_targets()
     self.special_request_codes = {code for (_, _, code) in self.special_request_targets}
