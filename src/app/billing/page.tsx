@@ -273,6 +273,9 @@ function BillingPageContent() {
             {selectedPlan === 'professional' && selectedPlanHasTrial && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-blue-800 text-sm">
+                  {`${selectedPlanConfig.trialDays}일 무료 체험 종료 후 자동으로 무료 모드로 전환됩니다. 체험 기간 중 언제든 취소 가능합니다.`}
+                </p>
+                <p className="hidden">
                   ✨ {selectedPlanConfig.trialDays}일 무료 체험 후 자동으로 유료 플랜으로 전환됩니다.
                   체험 기간 중 언제든 취소 가능합니다.
                 </p>
