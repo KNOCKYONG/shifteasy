@@ -18,6 +18,7 @@ import { CreateHandoffDialog } from "@/components/handoff/CreateHandoffDialog";
 import { LottieLoadingOverlay } from "@/components/common/LottieLoadingOverlay";
 import { toUTCDateOnly } from "@/lib/utils/date-utils";
 import { HandoffTemplatesTab } from "@/components/handoff/HandoffTemplatesTab";
+import { getRoleLevel, type Role } from "@/lib/permissions";
 
 const PRIORITY_ICONS = {
   critical: "🔴",
@@ -51,6 +52,15 @@ export default function HandoffPage() {
   const [showNewHandoffDialog, setShowNewHandoffDialog] = useState(false);
   const [selectedDepartment] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  // Fetch current user for permission check
+  const { data: currentUser } = api.auth.me.useQuery();
+
+  // Check if user is manager or above (level >= 2)
+  const canAccessTemplates = useMemo(() => {
+    if (!currentUser?.role) return false;
+    return getRoleLevel(currentUser.role as Role) >= 2; // Manager level or above
+  }, [currentUser]);
 
   // Fetch handoffs I need to give (as handover user)
   const { data: handoffsToGive, isLoading: loadingToGive } = api.handoff.list.useQuery({
@@ -199,19 +209,21 @@ export default function HandoffPage() {
                 )}
               </div>
             </button>
-            <button
-              onClick={() => setActiveTab("templates")}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === "templates"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4" />
-                템플릿 관리
-              </div>
-            </button>
+            {canAccessTemplates && (
+              <button
+                onClick={() => setActiveTab("templates")}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === "templates"
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4" />
+                  템플릿 관리
+                </div>
+              </button>
+            )}
           </nav>
         </div>
 
@@ -236,7 +248,7 @@ export default function HandoffPage() {
         )}
 
         {/* Templates Tab */}
-        {activeTab === "templates" && <HandoffTemplatesTab />}
+        {activeTab === "templates" && canAccessTemplates && <HandoffTemplatesTab />}
 
         {/* Handoff List */}
         {activeTab !== "templates" && <div className="space-y-4">
