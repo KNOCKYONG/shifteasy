@@ -195,6 +195,12 @@ MILP 해가 존재하더라도 아래 조정이 필요할 수 있다:
   ```
   - `DATABASE_URL`(.env.local) 필요.
   - 저장된 payload에 `milpInput`가 포함되어 있어야 하며, solver 출력은 임시 디렉터리에 assignments.json으로 남는다.
+- Supabase TLS 끊김을 피하고 싶다면 psycopg2 기반 파이썬 헬퍼를 사용할 수 있다:
+  ```
+  python tests/milp-csp/run-config-payload.py <departmentId> [--solver cpsat|ortools] [--timeout-ms 180000]
+  ```
+  - `DIRECT_URL` 또는 `DATABASE_URL`, `DEV_TENANT_ID`(.env.local) 필요.
+  - 내부에서 `scheduler-worker/src/run_solver.py`를 호출하며 stdout/stderr로 진단을 출력한다.
 
 ## 8. 구현 단계 로드맵
 1. **데이터 계층**  
