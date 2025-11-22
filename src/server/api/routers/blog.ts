@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
-import { staffWallPosts, users } from '@/db/schema';
+import { departments, staffWallPosts, tenants, users } from '@/db/schema';
 import { and, desc, eq, isNull } from 'drizzle-orm';
 
 export const blogRouter = createTRPCRouter({
@@ -34,12 +34,36 @@ export const blogRouter = createTRPCRouter({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found' });
       }
 
+      const [tenant] = await ctx.db
+        .select({ name: tenants.name })
+        .from(tenants)
+        .where(eq(tenants.id, tenantId))
+        .limit(1);
+
+      let departmentName: string | null = null;
+      if (user.departmentId) {
+        const [department] = await ctx.db
+          .select({ name: departments.name })
+          .from(departments)
+          .where(
+            and(
+              eq(departments.id, user.departmentId),
+              eq(departments.tenantId, tenantId)
+            )
+          )
+          .limit(1);
+
+        departmentName = department?.name ?? null;
+      }
+
       return {
         id: user.id,
         name: user.name,
         email: user.email,
         position: user.position,
         departmentId: user.departmentId,
+        departmentName,
+        tenantName: tenant?.name ?? null,
         role: user.role,
         profile: user.profile,
       };
