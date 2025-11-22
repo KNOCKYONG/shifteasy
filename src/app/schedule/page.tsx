@@ -2478,7 +2478,7 @@ function SchedulePageContent() {
       lastDiagnosticsRef.current = null;
 
       const asyncJob = await generateScheduleAsyncMutation.mutateAsync(payload as GenerateScheduleAsyncInput);
-      const pollDeadline = Date.now() + 1000 * 300; // 5 minutes
+      const pollDeadline = Date.now() + 1000 * 600; // 10 minutes
       let lastStatus:
         | Awaited<ReturnType<typeof pollScheduleJobMutation.mutateAsync>>
         | null = null;
@@ -2549,7 +2549,7 @@ function SchedulePageContent() {
     setGenerationError(null);
     try {
       const asyncJob = await generateScheduleAsyncMutation.mutateAsync(adjustedPayload as GenerateScheduleAsyncInput);
-      const pollDeadline = Date.now() + 1000 * 300;
+      const pollDeadline = Date.now() + 1000 * 600;
       let lastStatus:
         | Awaited<ReturnType<typeof pollScheduleJobMutation.mutateAsync>>
         | null = null;
