@@ -19,7 +19,7 @@ primary_region = "nrt"
   internal_port = 4000
   processes = ["app"]
   auto_start_machines = true
-  auto_stop_machines = "off"
+  auto_stop_machines = "stop"
   min_machines_running = 0
 
   [services.concurrency]
@@ -37,3 +37,8 @@ primary_region = "nrt"
   [[services.tcp_checks]]
     interval = "15s"
     timeout = "2s"
+
+  [[vm]]
+  memory = "2048mb"
+  cpu_kind = "shared"
+  cpus = 4
