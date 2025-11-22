@@ -2,108 +2,86 @@
 
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { useInView } from 'react-intersection-observer';
 import { Brain, Users, ShieldCheck, Globe } from 'lucide-react';
+import ScrollReveal from './ScrollReveal';
 
 const features = [
   {
     icon: Brain,
     key: 'feature1',
-    gradient: 'from-[#2563EB] to-[#1D4ED8]',
+    color: 'text-blue-400',
+    bg: 'bg-blue-500/10',
+    border: 'border-blue-500/20',
   },
   {
     icon: Users,
     key: 'feature2',
-    gradient: 'from-[#F97316] to-[#FB923C]',
+    color: 'text-purple-400',
+    bg: 'bg-purple-500/10',
+    border: 'border-purple-500/20',
   },
   {
     icon: ShieldCheck,
     key: 'feature3',
-    gradient: 'from-[#1D4ED8] to-[#2563EB]',
+    color: 'text-emerald-400',
+    bg: 'bg-emerald-500/10',
+    border: 'border-emerald-500/20',
   },
   {
     icon: Globe,
     key: 'feature4',
-    gradient: 'from-[#FB923C] to-[#F97316]',
+    color: 'text-orange-400',
+    bg: 'bg-orange-500/10',
+    border: 'border-orange-500/20',
   },
 ];
 
 export default function FeaturesSection() {
   const { t } = useTranslation('landing');
-  const [ref, inView] = useInView({
-    triggerOnce: true,
-    threshold: 0.2,
-  });
-
 
   return (
-    <section ref={ref} className="py-20 lg:py-32 bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section className="py-24 lg:py-32 bg-[#0F172A] relative overflow-hidden">
+      {/* Background Glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-blue-900/20 rounded-full blur-[120px] pointer-events-none" />
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Section Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={inView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.8 }}
-          className="text-center mb-16"
-        >
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
+        <ScrollReveal width="100%" className="text-center mb-20">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6 tracking-tight">
             {t('features.title')}
           </h2>
-          <p className="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto">
+          <p className="text-lg sm:text-xl text-gray-400 max-w-3xl mx-auto leading-relaxed">
             {t('features.subtitle')}
           </p>
-        </motion.div>
+        </ScrollReveal>
 
         {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {features.map((feature, index) => {
             const Icon = feature.icon;
             return (
-              <motion.div
-                key={feature.key}
-                initial={{ opacity: 0, y: 50 }}
-                animate={inView ? { opacity: 1, y: 0 } : {}}
-                transition={{ duration: 0.6, delay: index * 0.2 }}
-                className="group relative"
-              >
-                <div className="relative h-full bg-white rounded-2xl p-8 border border-gray-200 transition-all duration-300 hover:shadow-2xl hover:border-transparent hover:-translate-y-2">
-                  {/* Gradient border on hover */}
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10 blur-xl"
-                    style={{
-                      background: `linear-gradient(to bottom right, var(--tw-gradient-stops))`,
-                    }}
-                  />
+              <ScrollReveal key={feature.key} delay={index * 0.1} width="100%">
+                <div className="group relative h-full p-8 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-sm hover:bg-white/10 transition-all duration-500 hover:-translate-y-2">
+                  {/* Hover Glow */}
+                  <div className={`absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-b ${feature.bg} to-transparent pointer-events-none`} />
 
                   {/* Icon */}
-                  <div className="mb-6">
-                    <div className={`inline-flex p-4 rounded-xl bg-gradient-to-br ${feature.gradient} shadow-lg`}>
-                      <Icon className="w-8 h-8 text-white" />
-                    </div>
+                  <div className={`relative w-14 h-14 rounded-2xl ${feature.bg} ${feature.border} border flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500`}>
+                    <Icon className={`w-7 h-7 ${feature.color}`} />
                   </div>
 
                   {/* Content */}
-                  <h3 className="text-xl font-bold text-gray-900 mb-3">
+                  <h3 className="relative text-xl font-bold text-white mb-3 group-hover:text-blue-200 transition-colors">
                     {t(`features.${feature.key}.title`)}
                   </h3>
-                  <p className="text-gray-600 leading-relaxed">
+                  <p className="relative text-gray-400 leading-relaxed group-hover:text-gray-300 transition-colors">
                     {t(`features.${feature.key}.description`)}
                   </p>
-
-                  {/* Decorative element */}
-                  <div className={`absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r ${feature.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-b-2xl`} />
                 </div>
-              </motion.div>
+              </ScrollReveal>
             );
           })}
         </div>
-
-        {/* Bottom decoration */}
-        <motion.div
-          initial={{ opacity: 0, scaleX: 0 }}
-          animate={inView ? { opacity: 1, scaleX: 1 } : {}}
-          transition={{ duration: 1, delay: 0.8 }}
-          className="mt-20 h-1 bg-gradient-to-r from-[#2563EB] via-[#1D4ED8] to-[#F97316] rounded-full max-w-md mx-auto"
-        />
       </div>
     </section>
   );

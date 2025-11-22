@@ -4,40 +4,40 @@ import dynamic from 'next/dynamic';
 import HeroSection from './HeroSection';
 
 const FeaturesSection = dynamic(() => import('./FeaturesSection'), {
-  loading: () => <div className="py-20 bg-white" />,
+  loading: () => <div className="py-20 bg-[#0F172A]" />,
 });
 
 const BenefitsSection = dynamic(() => import('./BenefitsSection'), {
-  loading: () => <div className="py-20 bg-gray-50" />,
+  loading: () => <div className="py-20 bg-[#0F172A]" />,
 });
 
 const HowItWorksSection = dynamic(() => import('./HowItWorksSection'), {
-  loading: () => <div className="py-20 bg-white" />,
+  loading: () => <div className="py-20 bg-[#0F172A]" />,
 });
 
 const DemoPreviewSection = dynamic(() => import('./DemoPreviewSection'), {
-  loading: () => <div className="py-20 bg-gradient-to-b from-white to-blue-50" />,
+  loading: () => <div className="py-20 bg-[#0F172A]" />,
 });
 
 const TestimonialsSection = dynamic(() => import('./TestimonialsSection'), {
-  loading: () => <div className="py-20 bg-blue-50" />,
+  loading: () => <div className="py-20 bg-[#0F172A]" />,
 });
 
 const PricingSection = dynamic(() => import('./PricingSection'), {
-  loading: () => <div className="py-20 bg-white" />,
+  loading: () => <div className="py-20 bg-[#0F172A]" />,
 });
 
 const CTASection = dynamic(() => import('./CTASection'), {
-  loading: () => <div className="py-20 bg-blue-600" />,
+  loading: () => <div className="py-20 bg-blue-900" />,
 });
 
 const Footer = dynamic(() => import('./Footer'), {
-  loading: () => <div className="py-16 bg-gray-900" />,
+  loading: () => <div className="py-16 bg-[#020617]" />,
 });
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#0F172A]">
       {/* Hero Section - Always visible immediately */}
       <HeroSection />
 

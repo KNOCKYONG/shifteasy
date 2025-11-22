@@ -11,11 +11,12 @@ const nextConfig = {
     ignoreBuildErrors: false,
   },
   // Ensure path alias `@/*` resolves to `src/*` during webpack build (Vercel included)
+  // NOTE: Avoid aliasing bare '@' because it collides with scoped packages like '@supabase/*'.
   webpack: (config, { isServer }) => {
     config.resolve = config.resolve || {};
     config.resolve.alias = {
       ...(config.resolve.alias || {}),
-      '@': path.resolve(__dirname, 'src'),
+      '@/': path.resolve(__dirname, 'src/')
     };
 
     // Optimize bundle splitting for better caching and smaller initial loads
