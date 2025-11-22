@@ -651,26 +651,6 @@ function ConfigPageContent() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 px-4 py-3 rounded-lg border border-gray-100 dark:border-gray-700">
-                <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">기본 MILP/CSP 스케줄 엔진 사용</p>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
-                  ON으로 두면 스케줄 생성 버튼을 눌렀을 때 언제나 MILP/CSP 엔진이 먼저 실행됩니다. OFF면 기존 AI 방식이 기본이지만, 생성 시에는 여전히 직접 선택할 수 있습니다.
-                </p>
-                </div>
-                <label className="inline-flex items-center cursor-pointer gap-2">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">OFF</span>
-                  <input
-                    type="checkbox"
-                    className="sr-only peer"
-                    checked={schedulerAdvanced.useMilpEngine}
-                    onChange={(e) => updateSchedulerAdvanced((current) => ({ ...current, useMilpEngine: e.target.checked }))}
-                  />
-                  <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600" />
-                  <span className="text-sm text-gray-900 dark:text-gray-100">ON</span>
-                </label>
-              </div>
-
               <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 rounded-lg border border-gray-100 dark:border-gray-700">
                 <p className="text-sm font-medium text-gray-900 dark:text-gray-100">선호 Solver</p>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">

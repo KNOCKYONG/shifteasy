@@ -4,12 +4,19 @@ import type {
   ScheduleScore,
   Shift,
 } from '@web/lib/types/scheduler';
-import type {
-  AiScheduleRequest,
-  AiScheduleGenerationResult,
-} from '@web/lib/scheduler/greedy-scheduler';
-
-export interface ScheduleGenerationPayload extends AiScheduleRequest {
+export interface ScheduleGenerationPayload {
+  departmentId: string;
+  startDate: Date;
+  endDate: Date;
+  employees: unknown[];
+  shifts: unknown[];
+  constraints: unknown[];
+  specialRequests: unknown[];
+  holidays: unknown[];
+  teamPattern?: unknown;
+  requiredStaffPerShift?: Record<string, number>;
+  nightIntensivePaidLeaveDays?: number;
+  previousOffAccruals?: Record<string, number>;
   name: string;
   enableAI?: boolean;
   optimizationGoal?: 'fairness' | 'preference' | 'coverage' | 'cost' | 'balanced';
@@ -26,10 +33,18 @@ export interface SerializedScheduleAssignment extends Omit<ScheduleAssignment, '
 
 export interface SchedulerJobResult {
   assignments: SerializedScheduleAssignment[];
-  generationResult: Pick<
-    AiScheduleGenerationResult,
-    'iterations' | 'computationTime' | 'violations' | 'score' | 'offAccruals' | 'stats'
-  >;
+  generationResult: {
+    iterations: number;
+    computationTime: number;
+    violations: ConstraintViolation[];
+    score: ScheduleScore;
+    offAccruals: unknown[];
+    stats: {
+      fairnessIndex: number;
+      coverageRate: number;
+      preferenceScore: number;
+    };
+  };
   aiPolishResult: {
     improved: boolean;
     beforeScore: number;

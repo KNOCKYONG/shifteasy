@@ -38,7 +38,7 @@ primary_region = "nrt"
     interval = "15s"
     timeout = "2s"
 
-  [[vm]]
+[[vm]]
   memory = "2048mb"
   cpu_kind = "shared"
   cpus = 4

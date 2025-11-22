@@ -7,7 +7,7 @@ import dynamicImport from "next/dynamic";
 import equal from "fast-deep-equal";
 import { useSearchParams } from "next/navigation";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isWeekend, differenceInCalendarYears } from "date-fns";
-import { Download, Upload, Lock, Wand2, RefreshCcw, FileText, Heart, MoreVertical, Settings, FolderOpen, Save, Loader2, Sparkles, TrendingUp, Pencil, Check, X } from "lucide-react";
+import { Download, Upload, Lock, Wand2, RefreshCcw, FileText, Heart, MoreVertical, Settings, FolderOpen, Save, Loader2, Pencil, Check, X } from "lucide-react";
 import { MainLayout } from "../../components/layout/MainLayout";
 import { api } from "../../lib/trpc/client";
 import {
@@ -25,7 +25,6 @@ import { type ExtendedEmployeePreferences } from "@/components/schedule/Employee
 import { type SimplifiedPreferences } from "@/components/department/MyPreferencesPanel";
 import { toEmployee } from "@/lib/utils/employee-converter";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import type { ImprovementReport } from "@/lib/scheduler/types";
 
 // Dynamic imports for heavy modal components to reduce initial bundle size
 const EmployeePreferencesModal = dynamicImport(() => import("@/components/schedule/EmployeePreferencesModal").then(mod => ({ default: mod.EmployeePreferencesModal })), { ssr: false });
@@ -35,7 +34,6 @@ const ConfirmationDialog = dynamicImport(() => import("@/components/schedule/mod
 const ManageSchedulesModal = dynamicImport(() => import("@/components/schedule/modals/ManageSchedulesModal").then(mod => ({ default: mod.ManageSchedulesModal })), { ssr: false });
 const SwapRequestModal = dynamicImport(() => import("@/components/schedule/modals/SwapRequestModal").then(mod => ({ default: mod.SwapRequestModal })), { ssr: false });
 const ScheduleSwapModal = dynamicImport(() => import("@/components/schedule/modals/ScheduleSwapModal").then(mod => ({ default: mod.ScheduleSwapModal })), { ssr: false });
-const ImprovementResultModal = dynamicImport(() => import("@/components/schedule/modals/ImprovementResultModal").then(mod => ({ default: mod.ImprovementResultModal })), { ssr: false });
 import {
   ViewTabs,
   ShiftTypeFilters,
@@ -248,8 +246,6 @@ function SchedulePageContent() {
   const effectiveTenantId = currentUser.dbUser?.tenantId ?? currentUser.orgId ?? '';
   const effectiveUserRole = currentUser.dbUser?.role ?? currentUser.role ?? 'admin';
   const tenantPlan = currentUser.tenantPlan ?? currentUser.dbUser?.tenantPlan ?? null;
-  const isProfessionalPlan = (tenantPlan ?? '').toLowerCase() === 'professional';
-  const aiFeatureLockedMessage = '프로페셔널 플랜에서만 사용 가능한 기능입니다.';
   const headerDepartmentId = memberDepartmentId ?? undefined;
   const isAuthReady = Boolean(currentUserId && effectiveTenantId);
 
@@ -328,19 +324,6 @@ function SchedulePageContent() {
   const JOB_POLL_TIMEOUT_MS = 1000 * 60 * 10; // 10 minutes
   const deleteMutation = api.schedule.delete.useMutation();
 
-  // 🆕 스케줄 개선 mutation
-  const improveMutation = api.schedule.improveSchedule.useMutation({
-    onSuccess: (data) => {
-      setImprovementReport(data.report);
-      setShowImprovementModal(true);
-      setIsImproving(false);
-    },
-    onError: (error) => {
-      alert(`스케줄 개선 실패: ${error.message}`);
-      setIsImproving(false);
-    },
-  });
-
   useEffect(() => {
     if (typeof window === 'undefined' || typeof performance === 'undefined' || typeof performance.getEntriesByType !== 'function') {
       return;
@@ -403,17 +386,11 @@ function SchedulePageContent() {
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isPreparingConfirmation, setIsPreparingConfirmation] = useState(false);
   const [toolbarAnimatedIn, setToolbarAnimatedIn] = useState(false);
-  const [isAiGenerated, setIsAiGenerated] = useState(false); // Track if current schedule was AI-generated
   const showPartialResult = (
     resultPayload: {
       assignments?: DbAssignment[];
       generationResult?: Partial<SchedulingResult>;
-    },
-    departmentId: string,
-    startDate: Date,
-    endDate: Date,
-    useMilpEngine: boolean,
-    aiEnabled: boolean
+    }
   ) => {
     if (!resultPayload?.assignments) {
       return false;
@@ -459,7 +436,6 @@ function SchedulePageContent() {
       message: '스케줄 생성이 실패했지만 부분 결과를 불러왔습니다.',
       diagnostics,
     });
-    setIsAiGenerated(!useMilpEngine && aiEnabled && isProfessionalPlan);
     return true;
   };
   const [selectedDepartmentState, setSelectedDepartmentState] = useState<string>('all');
@@ -498,12 +474,6 @@ function SchedulePageContent() {
   const pendingGeneratedScheduleRef = useRef<{ id: string; monthKey: string; departmentId?: string } | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(getInitialDate()); // 오늘의 근무 날짜 선택
   const [careerOverrides, setCareerOverrides] = useState<Record<string, { yearsOfService?: number; hireYear?: number }>>({});
-  const [aiEnabled, setAiEnabled] = useState(false); // AI 스케줄 검토 기능 토글
-
-  // 🆕 스케줄 개선 관련 상태
-  const [isImproving, setIsImproving] = useState(false);
-  const [improvementReport, setImprovementReport] = useState<ImprovementReport | null>(null);
-  const [showImprovementModal, setShowImprovementModal] = useState(false);
   const extractErrorInfo = (error: unknown) => {
     const asObj = error as { cause?: unknown; data?: { cause?: unknown }; diagnostics?: unknown };
     const diagFromCause = (asObj.cause as { diagnostics?: FailureDiagnostics })?.diagnostics as FailureDiagnostics | undefined;
@@ -1055,14 +1025,13 @@ function SchedulePageContent() {
         setOffAccrualSummaries((metadata?.offAccruals as OffAccrualSummary[] | undefined) ?? []);
         setIsConfirmed(currentMonthSchedule.status === 'published'); // Only confirmed if published
         setLoadedScheduleId(currentMonthSchedule.id);
-        setIsAiGenerated(Boolean(metadata?.aiEnabled)); // Track if this schedule was AI-generated
         lastLoadedRef.current = { id: currentMonthSchedule.id, updatedAt: currentUpdatedAt };
         if (currentMonthSchedule.departmentId && !isMember) {
           setSelectedDepartment(prev => (
             prev === currentMonthSchedule.departmentId ? prev : currentMonthSchedule.departmentId!
           ));
         }
-        console.log(`✅ Loaded ${convertedAssignments.length} assignments from ${currentMonthSchedule.status} schedule ${currentMonthSchedule.id} (updated: ${currentMonthSchedule.updatedAt})${metadata?.aiEnabled ? ' [AI Generated]' : ''}`);
+        console.log(`✅ Loaded ${convertedAssignments.length} assignments from ${currentMonthSchedule.status} schedule ${currentMonthSchedule.id} (updated: ${currentMonthSchedule.updatedAt})`);
       });
     } else {
       setOffAccrualSummaries([]);
@@ -1398,7 +1367,6 @@ function SchedulePageContent() {
     setGenerationResult(null);
     setOffAccrualSummaries([]);
     setLoadedScheduleId(null); // ✅ Reset to allow loading new month's schedule
-    setIsAiGenerated(false);
     pendingGeneratedScheduleRef.current = null;
   }, []);
 
@@ -1408,7 +1376,6 @@ function SchedulePageContent() {
     setGenerationResult(null);
     setOffAccrualSummaries([]);
     setLoadedScheduleId(null); // ✅ Reset to allow loading new month's schedule
-    setIsAiGenerated(false);
     pendingGeneratedScheduleRef.current = null;
   }, []);
 
@@ -1418,7 +1385,6 @@ function SchedulePageContent() {
     setGenerationResult(null);
     setOffAccrualSummaries([]);
     setLoadedScheduleId(null); // ✅ Reset to allow loading current month's schedule
-    setIsAiGenerated(false);
     pendingGeneratedScheduleRef.current = null;
   }, []);
 
@@ -2167,7 +2133,7 @@ function SchedulePageContent() {
   };
 
   // 스케줄 생성 시작 핸들러
-  const handleInitiateScheduleGeneration = async (useMilpScheduler = schedulerAdvancedSettings.useMilpEngine) => {
+  const handleInitiateScheduleGeneration = async () => {
     if (!canManageSchedules) {
       alert('스케줄 생성 권한이 없습니다.');
       return;
@@ -2178,11 +2144,7 @@ function SchedulePageContent() {
       return;
     }
 
-    if (useMilpScheduler) {
-      await handleGenerateMilpSchedule();
-    } else {
-      await handleGenerateSchedule();
-    }
+    await handleGenerateMilpSchedule();
   };
 
   useEffect(() => {
@@ -2470,7 +2432,7 @@ function SchedulePageContent() {
       }
 
       const payload = {
-        name: `AI 스케줄 - ${format(monthStart, 'yyyy-MM')}`,
+        name: `MILP/CSP 스케줄 - ${format(monthStart, 'yyyy-MM')}`,
         departmentId: inferredDepartmentId,
         startDate: toUTCDateOnly(monthStart),
         endDate: toUTCDateOnly(monthEnd),
@@ -2483,7 +2445,7 @@ function SchedulePageContent() {
         requiredStaffPerShift,
         optimizationGoal: 'balanced' as const,
         nightIntensivePaidLeaveDays: nightLeaveSetting,
-        enableAI: !useMilpEngine && aiEnabled && isProfessionalPlan, // AI Polish 활성화 (MILP에서는 비활성)
+        enableAI: false,
         useMilpEngine,
         schedulerAdvanced: schedulerAdvancedSettings,
       };
@@ -2580,14 +2542,7 @@ function SchedulePageContent() {
         ['failed', 'timedout', 'cancelled'].includes(lastStatus.status) &&
         normalizedPartialResult
       ) {
-        const shown = showPartialResult(
-          normalizedPartialResult,
-          inferredDepartmentId,
-          monthStart,
-          monthEnd,
-          useMilpEngine,
-          aiEnabled
-        );
+        const shown = showPartialResult(normalizedPartialResult);
         if (shown) {
           return;
         }
@@ -2614,13 +2569,12 @@ function SchedulePageContent() {
       await handleGenerationSuccess(
         normalizedResult,
         useMilpEngine,
-        aiEnabled,
         inferredDepartmentId,
         monthStart,
         monthEnd
       );
     } catch (error) {
-      console.error('AI schedule generation failed:', error);
+      console.error('스케줄 생성 실패:', error);
       const info = extractErrorInfo(error);
       setGenerationError(info);
       setGenerationResult(null);
@@ -2630,10 +2584,6 @@ function SchedulePageContent() {
     } finally {
       setIsGenerating(false);
     }
-  };
-
-  const handleGenerateSchedule = async (shiftRequirements?: Record<string, number>) => {
-    await generateScheduleInternal(shiftRequirements, false);
   };
 
   const handleGenerateMilpSchedule = async (shiftRequirements?: Record<string, number>) => {
@@ -2691,14 +2641,7 @@ function SchedulePageContent() {
         ['failed', 'timedout', 'cancelled'].includes(lastStatus.status) &&
         normalizedPartialResult
       ) {
-        const shown = showPartialResult(
-          normalizedPartialResult,
-          adjustedPayload.departmentId,
-          adjustedPayload.startDate,
-          adjustedPayload.endDate,
-          adjustedPayload.useMilpEngine ?? false,
-          adjustedPayload.enableAI ?? false
-        );
+        const shown = showPartialResult(normalizedPartialResult);
         if (shown) {
           return;
         }
@@ -2727,7 +2670,6 @@ function SchedulePageContent() {
       await handleGenerationSuccess(
         normalizedResult,
         adjustedPayload.useMilpEngine ?? false,
-        adjustedPayload.enableAI ?? false,
         adjustedPayload.departmentId,
         adjustedPayload.startDate,
         adjustedPayload.endDate,
@@ -2747,7 +2689,6 @@ function SchedulePageContent() {
   const handleGenerationSuccess = async (
     result: { scheduleId: string; assignments: DbAssignment[]; generationResult: SchedulingResult; aiPolishResult: unknown },
     useMilpEngine: boolean,
-    aiEnabledFlag: boolean,
     inferredDepartmentId: string,
     monthStartDate: Date,
     monthEndDate: Date,
@@ -2772,7 +2713,6 @@ function SchedulePageContent() {
     const effectiveAutoAdjustments =
       autoAdjustments.length > 0 ? autoAdjustments : result.generationResult.diagnostics?.autoAdjustments || [];
 
-    setIsAiGenerated(!useMilpEngine && aiEnabledFlag && isProfessionalPlan);
     setAutoAdjusted(effectiveAutoAdjustments.length > 0);
     setAutoAdjustmentDetails(effectiveAutoAdjustments);
     const isSuccess = result.generationResult?.success ?? true;
@@ -2800,156 +2740,6 @@ function SchedulePageContent() {
 
     void utils.schedule.list.invalidate();
 
-    if (isSuccess && aiEnabledFlag && isProfessionalPlan) {
-      try {
-        const saveDraftResponse = await fetchWithAuth('/api/schedule/save-draft', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            schedule: {
-              departmentId: inferredDepartmentId,
-              startDate: format(monthStartDate, 'yyyy-MM-dd'),
-              endDate: format(monthEndDate, 'yyyy-MM-dd'),
-              assignments: normalizedAssignments.map(a => ({
-                employeeId: a.employeeId,
-                shiftId: a.shiftId,
-                date: format(a.date, 'yyyy-MM-dd'),
-                isLocked: a.isLocked,
-                shiftType: a.shiftType,
-              })),
-            },
-            name: `AI 생성 - ${format(monthStartDate, 'yyyy년 MM월')}`,
-            metadata: {
-              aiGenerated: true,
-              generatedAt: new Date().toISOString(),
-            },
-          }),
-        });
-
-        if (saveDraftResponse.ok) {
-          const saveData = await saveDraftResponse.json();
-          console.log('AI 생성 스케줄 자동 저장 완료:', saveData);
-          await utils.schedule.invalidate();
-        }
-      } catch (saveError) {
-        console.error('자동 저장 실패:', saveError);
-      }
-    }
-  };
-
-  const handleImproveSchedule = async () => {
-    if (!canManageSchedules) {
-      alert('스케줄 개선 권한이 없습니다.');
-      return;
-    }
-
-    if (schedule.length === 0) {
-      alert('개선할 스케줄이 없습니다. 먼저 스케줄을 생성해주세요.');
-      return;
-    }
-
-    setIsImproving(true);
-
-    try {
-      // 기존 스케줄을 API에 전달할 형식으로 변환
-      const assignments = schedule.map((a) => ({
-        date: format(a.date, 'yyyy-MM-dd'),
-        employeeId: a.employeeId,
-        shiftId: a.shiftId,
-        shiftType: a.shiftType,
-      }));
-
-      // 직원 정보 준비
-      const employees = filteredMembers.map((member) => {
-        const memberWithPrefs = member as UnifiedEmployee & {
-          preferences?: {
-            workPatternType?: string;
-            avoidPatterns?: string[][];
-          };
-        };
-
-        return {
-          id: member.id,
-          name: member.name,
-          role: member.role || '일반',
-          workPatternType: member.workPatternType,
-          preferences: memberWithPrefs.preferences
-            ? {
-                workPatternType: memberWithPrefs.preferences.workPatternType,
-                avoidPatterns: memberWithPrefs.preferences.avoidPatterns,
-              }
-            : undefined,
-        };
-      });
-
-      // 제약 조건 준비
-      const constraints = {
-        minStaff: 5, // 기본값, 필요시 teamPattern에서 가져오기
-        maxConsecutiveDays: 6,
-        minRestDays: 1,
-      };
-
-      // 개선 실행
-      await improveMutation.mutateAsync({
-        assignments,
-        employees,
-        constraints,
-        period: {
-          startDate: format(monthStart, 'yyyy-MM-dd'),
-          endDate: format(monthEnd, 'yyyy-MM-dd'),
-        },
-      });
-    } catch (error) {
-      console.error('Schedule improvement error:', error);
-      // mutation onError에서 이미 처리됨
-    }
-  };
-
-  // 개선 적용 핸들러
-  const handleApplyImprovement = () => {
-    if (!improvementReport) return;
-
-    // API 응답에서 improved 배정을 가져옴
-    const improved = (improveMutation.data as { improved?: unknown })?.improved as Array<{
-      date: string;
-      employeeId: string;
-      shiftId?: string;
-      shiftType?: string;
-    }> | undefined;
-
-    if (!improved) {
-      alert('개선된 스케줄 데이터를 찾을 수 없습니다.');
-      return;
-    }
-
-    // 개선된 스케줄 적용
-    const improvedAssignments: ScheduleAssignment[] = improved.map((a) => ({
-      employeeId: a.employeeId,
-      date: new Date(a.date),
-      shiftId: a.shiftId || '',
-      shiftType: a.shiftType,
-      id: `${a.employeeId}-${a.date}`,
-      isLocked: false,
-    }));
-
-    setSchedule(improvedAssignments);
-    setShowImprovementModal(false);
-
-    // 성공 메시지
-    const gradeChange = `${improvementReport.summary.gradeChange.from} → ${improvementReport.summary.gradeChange.to}`;
-    alert(
-      `✨ 스케줄이 개선되었습니다!\n\n` +
-        `등급: ${gradeChange}\n` +
-        `개선 점수: +${improvementReport.summary.totalImprovement.toFixed(1)}점`
-    );
-  };
-
-  // 개선 취소 핸들러
-  const handleRejectImprovement = () => {
-    setShowImprovementModal(false);
-    setImprovementReport(null);
   };
 
   const handleImport = async () => {
@@ -3582,7 +3372,7 @@ function SchedulePageContent() {
                             if (isGenerating) {
                               return;
                             }
-                            handleInitiateScheduleGeneration(true);
+                            handleInitiateScheduleGeneration();
                           }}
                           disabled={isGenerating}
                           className={`inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg ${
@@ -3606,118 +3396,24 @@ function SchedulePageContent() {
                           )}
                         </button>
 
-                        {/* 기존 AI 스케줄 생성 버튼 */}
-                        <button
-                          onClick={() => {
-                            handleInitiateScheduleGeneration();
-                          }}
-                          disabled={isGenerating}
-                          className={`inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg ${
-                            isGenerating
-                              ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
-                              : "text-white bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
-                          }`}
-                        >
-                          {isGenerating ? (
-                            <>
-                              <RefreshCcw className="w-4 h-4 animate-spin" />
-                              <span className="hidden sm:inline">생성 중...</span>
-                              <span className="sm:hidden">생성중</span>
-                            </>
-                          ) : (
-                            <>
-                              <Wand2 className="w-4 h-4" />
-                              <span className="hidden sm:inline">스케줄 생성</span>
-                              <span className="sm:hidden">생성</span>
-                            </>
-                          )}
-                        </button>
-
-                        <div className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg">
-                          <Sparkles className={`w-4 h-4 ${aiEnabled && isProfessionalPlan ? "text-purple-600 dark:text-purple-400" : "text-gray-400"}`} />
-                          <span className="text-xs font-medium text-gray-700 dark:text-gray-300">AI</span>
-                          <button
-                            onClick={() => {
-                              if (!isProfessionalPlan) {
-                                alert(aiFeatureLockedMessage);
-                                return;
-                              }
-                              setAiEnabled(!aiEnabled);
-                            }}
-                            disabled={isGenerating}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
-                              aiEnabled && isProfessionalPlan
-                                ? 'bg-purple-600 dark:bg-purple-500'
-                                : 'bg-gray-300 dark:bg-gray-600'
-                            }`}
-                            title={isProfessionalPlan ? (aiEnabled ? "AI 모드 ON - 스케줄 생성 시 AI가 최적화합니다" : "AI 모드 OFF") : aiFeatureLockedMessage}
-                            role="switch"
-                            aria-checked={aiEnabled}
-                          >
-                            <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform ${
-                                aiEnabled && isProfessionalPlan ? 'translate-x-6' : 'translate-x-1'
-                              }`}
-                            />
-                          </button>
-                          {!isProfessionalPlan && (
-                            <span className="text-xs">🔒</span>
-                          )}
-                          <span className={`text-xs font-medium ${aiEnabled && isProfessionalPlan ? 'text-purple-600 dark:text-purple-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                            {aiEnabled && isProfessionalPlan ? 'ON' : 'OFF'}
-                          </span>
-                        </div>
-
-                        {(isAiGenerated || autoAdjusted) && hasSchedule && (
+                        {autoAdjusted && hasSchedule && (
                           <div className="flex items-center gap-2">
-                            {isAiGenerated && (
-                              <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg">
-                                <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                                <span className="text-xs font-medium text-purple-700 dark:text-purple-300">AI 생성</span>
-                              </div>
-                            )}
-              {autoAdjusted && (
-                              <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg" title="자동 완화 설정으로 생성되었습니다.">
-                                <RefreshCcw className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                                <span className="text-xs font-medium text-amber-700 dark:text-amber-200">자동 완화 적용</span>
-                                {autoAdjustmentDetails.length > 0 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setShowAutoAdjustModal(true)}
-                                    className="text-[10px] underline text-amber-700 dark:text-amber-200"
-                                    title="자동 완화 내역 보기"
-                                  >
-                                    상세
-                                  </button>
-                                )}
-                              </div>
-                            )}
+                            <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg" title="자동 완화 설정으로 생성되었습니다.">
+                              <RefreshCcw className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                              <span className="text-xs font-medium text-amber-700 dark:text-amber-200">자동 완화 적용</span>
+                              {autoAdjustmentDetails.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setShowAutoAdjustModal(true)}
+                                  className="text-[10px] underline text-amber-700 dark:text-amber-200"
+                                  title="자동 완화 내역 보기"
+                                >
+                                  상세
+                                </button>
+                              )}
+                            </div>
                           </div>
                         )}
-
-                        <button
-                          onClick={handleImproveSchedule}
-                          disabled={!hasSchedule || isImproving}
-                          className={`inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all ${
-                            !hasSchedule || isImproving
-                              ? "text-gray-400 bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
-                              : "text-white bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg"
-                          }`}
-                          title={hasSchedule ? "스케줄 최적화" : "개선할 스케줄이 없습니다"}
-                        >
-                          {isImproving ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              <span className="hidden sm:inline">개선 중...</span>
-                              <span className="sm:hidden">개선중</span>
-                            </>
-                          ) : (
-                            <>
-                              <TrendingUp className="w-4 h-4" />
-                              <span>개선</span>
-                            </>
-                          )}
-                        </button>
                       </div>
                     )}
                   </div>
@@ -3946,7 +3642,7 @@ function SchedulePageContent() {
                   <div className="mb-4 rounded-lg border border-purple-100 bg-purple-50 px-4 py-3 text-sm text-purple-800 shadow-sm dark:border-purple-900/40 dark:bg-purple-950/40 dark:text-purple-100">
                     <div className="flex items-center gap-2">
                       <RefreshCcw className="h-4 w-4 animate-spin" />
-                      <span className="font-semibold">AI 스케줄을 생성하는 중입니다</span>
+                      <span className="font-semibold">스케줄을 생성하는 중입니다</span>
                     </div>
                     <p className="mt-1 text-xs text-purple-900/80 dark:text-purple-100/80">
                       {generationSteps[generationStepIndex]}
@@ -4041,19 +3737,9 @@ function SchedulePageContent() {
           setGenerationResult(null);
           setOffAccrualSummaries([]);
           setIsConfirmed(false); // Reset confirmed state
-          setIsAiGenerated(false);
           pendingGeneratedScheduleRef.current = null;
         }}
         onScheduleLoad={handleLoadSchedule}
-      />
-
-      {/* 🆕 Improvement Result Modal */}
-      <ImprovementResultModal
-        isOpen={showImprovementModal}
-        onClose={handleRejectImprovement}
-        report={improvementReport}
-        onApply={handleApplyImprovement}
-        onReject={handleRejectImprovement}
       />
 
       {/* Schedule Confirmation Dialog */}
