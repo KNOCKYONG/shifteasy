@@ -257,17 +257,17 @@ function BillingPageContent() {
         </div>
 
         {/* Payment section */}
-        <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+        <div className="max-w-2xl mx-auto bg-white dark:bg-gray-900 rounded-2xl shadow-xl p-8">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 flex items-center gap-3">
             <CreditCard className="w-6 h-6 text-blue-600" />
             {selectedPlanHasTrial ? '무료 체험 시작' : '결제 정보'}
           </h2>
 
           {/* Selected plan summary */}
-          <div className="bg-gray-50 rounded-lg p-6 mb-6">
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-gray-700 font-semibold">선택한 플랜:</span>
-              <span className="text-xl font-bold text-gray-900">
+              <span className="text-gray-700 dark:text-gray-300 font-semibold">선택한 플랜:</span>
+              <span className="text-xl font-bold text-gray-900 dark:text-gray-100">
                 {selectedPlanName}
               </span>
             </div>
@@ -285,7 +285,7 @@ function BillingPageContent() {
           </div>
 
           {/* Security badge */}
-          <div className="flex items-center gap-2 text-sm text-gray-600 mb-6">
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-6">
             <Shield className="w-5 h-5 text-green-500" />
             <span>토스페이먼츠 안전 결제 (SSL 암호화)</span>
           </div>

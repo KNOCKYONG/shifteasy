@@ -116,7 +116,7 @@ const SliderField = ({
       />
       <div className="mt-2 h-1 rounded-full bg-gray-200 dark:bg-gray-700">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-400 dark:to-blue-300"
+          className="h-full rounded-full bg-blue-500 dark:bg-blue-400"
           style={{ width: `${ratio * 100}%` }}
         />
       </div>
