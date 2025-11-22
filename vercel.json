@@ -3,10 +3,5 @@
   "outputDirectory": ".next",
   "framework": "nextjs",
   "installCommand": "npm install --legacy-peer-deps --include=dev",
-  "regions": ["icn1"],
-  "functions": {
-    "api/**": {
-      "maxDuration": 300
-    }
-  }
+  "regions": ["icn1"]
 }
