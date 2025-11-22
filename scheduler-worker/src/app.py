@@ -132,8 +132,6 @@ JOB_RETENTION_SECONDS = int(os.environ.get("SCHEDULER_JOB_TTL_SECONDS", 300))
 UPSTASH_CLIENT = get_upstash_client()
 UPSTASH_QUEUE_KEY = os.environ.get("UPSTASH_QUEUE_KEY", "scheduler:queue")
 UPSTASH_JOB_KEY_PREFIX = os.environ.get("UPSTASH_JOB_KEY_PREFIX", "scheduler:job:")
-UPSTASH_POLL_INTERVAL_MS = int(os.environ.get("UPSTASH_POLL_INTERVAL_MS", "1000"))
-UPSTASH_POLL_TASK: Optional[asyncio.Task] = None
 
 
 def _job_record_key(job_id: str) -> str:
@@ -983,46 +981,3 @@ async def cancel_job(job_id: str):
     job.mark_cancelled(job.result)
   await persist_job_state(job)
   return job.to_response()
-
-
-async def poll_upstash_queue():
-  if not UPSTASH_CLIENT:
-    return
-  logger.info("Starting Upstash queue poller")
-  while True:
-    try:
-      job_id = await asyncio.to_thread(UPSTASH_CLIENT.lpop, UPSTASH_QUEUE_KEY)
-      if not job_id:
-        await asyncio.sleep(UPSTASH_POLL_INTERVAL_MS / 1000)
-        continue
-      record = await fetch_job_record(job_id)
-      if not record:
-        logger.warning(f"[Upstash] job record missing for {job_id}")
-        continue
-      request_payload = record.get("requestPayload")
-      if not request_payload:
-        logger.warning(f"[Upstash] request payload missing for {job_id}")
-        continue
-      job = record_to_job(record)
-      job.request_payload = request_payload
-      jobs[job.id] = job
-      request = SchedulerJobRequest(**request_payload)
-      asyncio.create_task(process_job(job, request))
-    except Exception as exc:  # pragma: no cover
-      logger.warning(f"[Upstash] poll loop error: {exc}")
-      await asyncio.sleep(UPSTASH_POLL_INTERVAL_MS / 1000)
-
-
-@app.on_event("startup")
-async def on_startup():
-  global UPSTASH_POLL_TASK
-  if UPSTASH_CLIENT and not UPSTASH_POLL_TASK:
-    UPSTASH_POLL_TASK = asyncio.create_task(poll_upstash_queue())
-
-
-@app.on_event("shutdown")
-async def on_shutdown():
-  global UPSTASH_POLL_TASK
-  if UPSTASH_POLL_TASK:
-    UPSTASH_POLL_TASK.cancel()
-    UPSTASH_POLL_TASK = None

@@ -8,19 +8,18 @@ primary_region = "nrt"
 [env]
   PORT = "4000"
 
-[http_service]
+[[services]]
   internal_port = 4000
-  force_https = true
+  protocol = "tcp"
   auto_stop_machines = "stop"
   auto_start_machines = true
   min_machines_running = 0
-  processes = ["app"]
 
-[services.concurrency]
-  type = "connections"
-  soft_limit = 1
-  hard_limit = 1
-  queue = 2
+  [services.concurrency]
+    type = "connections"
+    soft_limit = 1
+    hard_limit = 1
+    queue = 2
 
 [[vm]]
   memory = "2048mb"
