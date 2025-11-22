@@ -12,7 +12,7 @@ export default function JoinPage() {
   }, [router]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
       <div className="text-center">
         <h1 className="text-2xl font-bold text-gray-900 mb-4">ShiftEasy</h1>
         <p className="text-gray-600">대시보드로 이동 중...</p>

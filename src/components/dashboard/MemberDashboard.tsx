@@ -16,7 +16,7 @@ export function MemberDashboard() {
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg p-6 text-center sm:text-left">
+      <div className="bg-blue-600 text-white rounded-lg p-6 text-center sm:text-left">
         <h1 className="text-2xl font-bold mb-2">
           안녕하세요, {name}님! 👋
         </h1>

@@ -357,7 +357,7 @@ export default function MigrationProgressModal({
               <div className="flex justify-end">
                 <button
                   onClick={onClose}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all"
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 hover:shadow-lg transition-all"
                 >
                   {progress.success ? '대시보드로 이동' : '닫기'}
                 </button>

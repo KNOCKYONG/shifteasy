@@ -170,7 +170,7 @@ export function AdminDashboard() {
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 text-white rounded-lg p-6 text-center sm:text-left">
+      <div className="bg-blue-600 text-white rounded-lg p-6 text-center sm:text-left">
         <h1 className="text-2xl font-bold mb-2">
           관리자 대시보드 📊
         </h1>
@@ -529,7 +529,7 @@ export function AdminDashboard() {
                     className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
                   >
                     <div className="flex items-center gap-3 flex-1 w-full">
-                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center text-white text-sm font-semibold">
+                  <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-semibold">
                         {workmate.name?.charAt(0) || '?'}
                       </div>
                       <div className="flex-1 min-w-0">

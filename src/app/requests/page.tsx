@@ -254,7 +254,7 @@ function RequestsPageContent() {
             filteredRequests.map((request) => (
               <div key={request.id} className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
                 {/* Header with Date */}
-                <div className="bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 px-6 py-4">
+                <div className="bg-blue-600 px-6 py-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <Calendar className="w-5 h-5 text-white" />
