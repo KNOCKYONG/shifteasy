@@ -17,6 +17,7 @@ import { api } from "@/lib/trpc/client";
 import { CreateHandoffDialog } from "@/components/handoff/CreateHandoffDialog";
 import { LottieLoadingOverlay } from "@/components/common/LottieLoadingOverlay";
 import { toUTCDateOnly } from "@/lib/utils/date-utils";
+import { HandoffTemplatesTab } from "@/components/handoff/HandoffTemplatesTab";
 
 const PRIORITY_ICONS = {
   critical: "🔴",
@@ -46,7 +47,7 @@ const SHIFT_TYPE_LABELS = {
 };
 
 export default function HandoffPage() {
-  const [activeTab, setActiveTab] = useState<"to-give" | "to-receive">("to-give");
+  const [activeTab, setActiveTab] = useState<"to-give" | "to-receive" | "templates">("to-give");
   const [showNewHandoffDialog, setShowNewHandoffDialog] = useState(false);
   const [selectedDepartment] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -198,29 +199,47 @@ export default function HandoffPage() {
                 )}
               </div>
             </button>
+            <button
+              onClick={() => setActiveTab("templates")}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === "templates"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4" />
+                템플릿 관리
+              </div>
+            </button>
           </nav>
         </div>
 
-        {/* Filters */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">모든 상태</option>
-              <option value="draft">작성중</option>
-              <option value="submitted">제출됨</option>
-              <option value="in_review">검토중</option>
-              <option value="completed">완료</option>
-            </select>
+        {/* Filters - only show for handoff lists, not templates */}
+        {activeTab !== "templates" && (
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">모든 상태</option>
+                <option value="draft">작성중</option>
+                <option value="submitted">제출됨</option>
+                <option value="in_review">검토중</option>
+                <option value="completed">완료</option>
+              </select>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Templates Tab */}
+        {activeTab === "templates" && <HandoffTemplatesTab />}
 
         {/* Handoff List */}
-        <div className="space-y-4">
+        {activeTab !== "templates" && <div className="space-y-4">
           {isLoading ? (
             <LottieLoadingOverlay
               message="인수인계 목록을 불러오는 중입니다..."
@@ -316,7 +335,7 @@ export default function HandoffPage() {
               </p>
             </div>
           )}
-        </div>
+        </div>}
       </div>
 
       {/* Create Handoff Dialog */}
