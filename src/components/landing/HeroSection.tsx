@@ -90,7 +90,7 @@ export default function HeroSection() {
         >
           <Link
             href="/billing?plan=professional"
-            className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-blue-600 rounded-full overflow-hidden transition-all duration-300 hover:bg-blue-700 hover:scale-105 hover:shadow-xl hover:shadow-blue-600/25"
+            className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-blue-600 rounded-full overflow-hidden transition-all duration-300 hover:bg-blue-700 hover:scale-105 hover:shadow-xl hover:shadow-blue-600/25 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {/* Shimmer removed (no gradients) */}
             <span className="relative flex items-center gap-2">
@@ -101,7 +101,7 @@ export default function HeroSection() {
 
           <button
             onClick={() => setIsConsultingModalOpen(true)}
-            className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-full transition-all duration-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-lg"
+            className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-full transition-all duration-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {/* Single Countdown Badge */}
             <span className="absolute -top-3 -right-3 px-3 py-1 text-xs font-bold text-white bg-red-600 rounded-full shadow-lg animate-pulse whitespace-nowrap">

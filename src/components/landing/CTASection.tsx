@@ -101,7 +101,7 @@ export default function CTASection() {
           >
             <Link
               href="/billing?plan=professional"
-              className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-[#2563EB] bg-white rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-2xl w-full sm:w-auto"
+              className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-[#2563EB] bg-white rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-2xl w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-blue-200"
             >
               <span className="relative z-10 flex items-center gap-2">
                 {t('cta.ctaPrimary')}
@@ -113,7 +113,7 @@ export default function CTASection() {
 
             <button
               onClick={() => setIsConsultingModalOpen(true)}
-              className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white border-2 border-white/50 rounded-lg backdrop-blur-sm transition-all duration-300 hover:border-white hover:bg-white/10 hover:shadow-lg w-full sm:w-auto"
+              className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white border-2 border-white/50 rounded-lg backdrop-blur-sm transition-all duration-300 hover:border-white hover:bg-white/10 hover:shadow-lg w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-white/70"
             >
               <Sparkles className="w-5 h-5 mr-2" />
               {t('cta.ctaSecondary')}

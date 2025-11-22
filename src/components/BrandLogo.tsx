@@ -25,7 +25,7 @@ export function BrandLogo({ href = "/", size = "md", className = "", variant = "
   const useText = variant === "text" || (variant === "auto" && resolvedTheme === "dark");
 
   return (
-    <Link href={href} aria-label="ShiftEasy Home" className={`inline-flex items-center ${className}`}>
+    <Link href={href} aria-label="ShiftEasy Home" className={`inline-flex items-center focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 rounded-md ${className}`}>
       {useText ? (
         <span className={`font-extrabold tracking-tight text-gray-900 dark:text-white ${s.class} flex items-center`} style={{ lineHeight: 1 }}>
           ShiftEasy

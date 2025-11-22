@@ -11,7 +11,7 @@ function PaymentFailContent() {
   const message = searchParams.get('message');
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900 px-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
         <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <XCircle className="w-10 h-10 text-red-600" />
@@ -63,7 +63,7 @@ function PaymentFailContent() {
 export default function PaymentFailPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
         <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
       </div>
     }>
