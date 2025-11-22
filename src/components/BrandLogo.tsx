@@ -14,7 +14,7 @@ type BrandLogoProps = {
 export function BrandLogo({ href = "/", size = "md", className = "", variant = "image", ...imgProps }: BrandLogoProps) {
   const sizes = {
     sm: { w: 96, h: 24, class: "h-6 md:h-8" },
-    md: { w: 144, h: 36, class: "h-8 md:h-10" },
+    md: { w: 216, h: 54, class: "h-12 md:h-[3.75rem]" },
     lg: { w: 192, h: 48, class: "h-10 md:h-12" },
   } as const;
   const s = sizes[size] ?? sizes.md;
