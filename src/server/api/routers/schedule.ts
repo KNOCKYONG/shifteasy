@@ -388,6 +388,36 @@ async function runSchedulerJob(baseUrl: string, payload: SchedulerBackendPayload
   throw new Error('Scheduler backend timeout');
 }
 
+async function enqueueSchedulerJob(baseUrl: string, payload: SchedulerBackendPayload): Promise<{ jobId: string }> {
+  const enqueueResponse = await fetch(`${baseUrl}/scheduler/jobs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!enqueueResponse.ok) {
+    const message = await enqueueResponse.text();
+    throw new Error(`Failed to enqueue schedule job: ${enqueueResponse.status} ${message}`);
+  }
+
+  const enqueueBody = await parseJsonSafe(enqueueResponse);
+  const jobId = enqueueBody?.jobId;
+  if (!jobId || typeof jobId !== 'string') {
+    throw new Error(`Failed to enqueue schedule job: invalid response body (${JSON.stringify(enqueueBody)})`);
+  }
+  return { jobId };
+}
+
+async function fetchSchedulerJobStatus(baseUrl: string, jobId: string): Promise<SchedulerBackendJobStatusResponse> {
+  const statusResponse = await fetch(`${baseUrl}/scheduler/jobs/${jobId}`);
+  if (!statusResponse.ok) {
+    const message = await statusResponse.text();
+    throw new Error(`Failed to fetch job status (${statusResponse.status} ${message})`);
+  }
+  const jobStatus = (await parseJsonSafe(statusResponse)) as SchedulerBackendJobStatusResponse;
+  return jobStatus;
+}
+
 async function parseJsonSafe(response: Response) {
   const contentType = response.headers.get('content-type') || '';
   const text = await response.text();
@@ -582,11 +612,10 @@ export const scheduleRouter = createTRPCRouter({
       return schedule;
     }),
 
-  generate: protectedProcedure
+  generateAsync: protectedProcedure
     .input(scheduleGenerationInputSchema)
     .mutation(async ({ ctx, input }) => {
       const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
-      const tenantDb = scopedDb(tenantId);
 
       if (!input.employees.length) {
         throw new TRPCError({
@@ -595,7 +624,6 @@ export const scheduleRouter = createTRPCRouter({
         });
       }
 
-      // Permission checks
       if (ctx.user?.role === 'manager') {
         if (!ctx.user.departmentId) {
           throw new TRPCError({
@@ -620,31 +648,30 @@ export const scheduleRouter = createTRPCRouter({
       const previousYear = previousMonthDate.getFullYear();
       const previousMonth = previousMonthDate.getMonth() + 1;
 
-        const previousLedgerRows = await db
-          .select({
-            nurseId: offBalanceLedger.nurseId,
-            accumulatedOffDays: offBalanceLedger.accumulatedOffDays,
-            guaranteedOffDays: offBalanceLedger.guaranteedOffDays,
-          })
-          .from(offBalanceLedger)
-          .where(and(
-            eq(offBalanceLedger.tenantId, tenantId),
-            eq(offBalanceLedger.departmentId, input.departmentId),
-            eq(offBalanceLedger.year, previousYear),
-            eq(offBalanceLedger.month, previousMonth),
-          ));
+      const previousLedgerRows = await db
+        .select({
+          nurseId: offBalanceLedger.nurseId,
+          accumulatedOffDays: offBalanceLedger.accumulatedOffDays,
+          guaranteedOffDays: offBalanceLedger.guaranteedOffDays,
+        })
+        .from(offBalanceLedger)
+        .where(and(
+          eq(offBalanceLedger.tenantId, tenantId),
+          eq(offBalanceLedger.departmentId, input.departmentId),
+          eq(offBalanceLedger.year, previousYear),
+          eq(offBalanceLedger.month, previousMonth),
+        ));
 
       const previousOffAccruals: Record<string, number> = {};
       const previousGuaranteedOffDays: Record<string, number> = {};
-        previousLedgerRows.forEach((row) => {
-          if (row.nurseId) {
-            // Carry-over OFF days come from the accumulated_off_days of the previous month
-            previousOffAccruals[row.nurseId] = Math.max(0, row.accumulatedOffDays || 0);
-            if (typeof row.guaranteedOffDays === 'number') {
-              previousGuaranteedOffDays[row.nurseId] = row.guaranteedOffDays;
-            }
+      previousLedgerRows.forEach((row) => {
+        if (row.nurseId) {
+          previousOffAccruals[row.nurseId] = Math.max(0, row.accumulatedOffDays || 0);
+          if (typeof row.guaranteedOffDays === 'number') {
+            previousGuaranteedOffDays[row.nurseId] = row.guaranteedOffDays;
           }
-        });
+        }
+      });
 
       const employeesWithGuarantees = input.employees.map((emp) => ({
         ...emp,
@@ -652,7 +679,6 @@ export const scheduleRouter = createTRPCRouter({
       }));
 
       const schedulerAdvanced = input.schedulerAdvanced;
-
       const patternConstraints = schedulerAdvanced?.patternConstraints;
       const maxConsecutiveThreeShift =
         patternConstraints?.maxConsecutiveDaysThreeShift ?? DEFAULT_MAX_CONSECUTIVE_DAYS_THREE_SHIFT;
@@ -733,6 +759,304 @@ export const scheduleRouter = createTRPCRouter({
         };
       }
 
+      const errors: { url: string; message: string }[] = [];
+      if (milpSchedulerPayload) {
+        const candidates = buildSchedulerBackendCandidates(true);
+        for (const url of candidates) {
+          try {
+            const { jobId } = await enqueueSchedulerJob(url, milpSchedulerPayload);
+            return { jobId, backendUrl: url, useMilpEngine: true };
+          } catch (error) {
+            errors.push({ url, message: error instanceof Error ? error.message : String(error) });
+          }
+        }
+      }
+
+      const defaultCandidates = buildSchedulerBackendCandidates(false);
+      for (const url of defaultCandidates) {
+        try {
+          const { jobId } = await enqueueSchedulerJob(url, defaultSchedulerPayload);
+          return { jobId, backendUrl: url, useMilpEngine: false };
+        } catch (error) {
+          errors.push({ url, message: error instanceof Error ? error.message : String(error) });
+        }
+      }
+
+      const aggregated = errors.map(({ url, message }) => `${url}: ${message}`).join(' | ');
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: `스케줄 작업 등록에 실패했습니다. ${aggregated}`,
+      });
+    }),
+
+
+  generate: protectedProcedure
+    .input(scheduleGenerationInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const tenantDb = scopedDb(tenantId);
+      const prepareContext = async () => {
+        const previousMonthDate = subMonths(input.startDate, 1);
+        const previousYear = previousMonthDate.getFullYear();
+        const previousMonth = previousMonthDate.getMonth() + 1;
+
+        const previousLedgerRows = await db
+          .select({
+            nurseId: offBalanceLedger.nurseId,
+            accumulatedOffDays: offBalanceLedger.accumulatedOffDays,
+            guaranteedOffDays: offBalanceLedger.guaranteedOffDays,
+          })
+          .from(offBalanceLedger)
+          .where(and(
+            eq(offBalanceLedger.tenantId, tenantId),
+            eq(offBalanceLedger.departmentId, input.departmentId),
+            eq(offBalanceLedger.year, previousYear),
+            eq(offBalanceLedger.month, previousMonth),
+          ));
+
+        const previousOffAccruals: Record<string, number> = {};
+        const previousGuaranteedOffDays: Record<string, number> = {};
+        previousLedgerRows.forEach((row) => {
+          if (row.nurseId) {
+            previousOffAccruals[row.nurseId] = Math.max(0, row.accumulatedOffDays || 0);
+            if (typeof row.guaranteedOffDays === 'number') {
+              previousGuaranteedOffDays[row.nurseId] = row.guaranteedOffDays;
+            }
+          }
+        });
+
+        const employeesWithGuarantees = input.employees.map((emp) => ({
+          ...emp,
+          guaranteedOffDays: emp.guaranteedOffDays ?? previousGuaranteedOffDays[emp.id],
+        }));
+
+        const schedulerAdvanced = input.schedulerAdvanced;
+        const patternConstraints = schedulerAdvanced?.patternConstraints;
+        const maxConsecutiveThreeShift =
+          patternConstraints?.maxConsecutiveDaysThreeShift ?? DEFAULT_MAX_CONSECUTIVE_DAYS_THREE_SHIFT;
+
+        const schedulerEmployees = employeesWithGuarantees.map((emp) => {
+          const workPattern = emp.workPatternType ?? 'three-shift';
+          if (workPattern === 'three-shift') {
+            return {
+              ...emp,
+              maxConsecutiveDaysPreferred: maxConsecutiveThreeShift,
+            };
+          }
+          return emp;
+        });
+
+        const employeeIds = schedulerEmployees.map((emp) => emp.id);
+        const [careerGroups, yearsOfServiceMap] = await Promise.all([
+          loadCareerGroups(tenantId, input.departmentId),
+          loadYearsOfServiceMap(tenantId, employeeIds),
+        ]);
+        const solverOptions = mapAdvancedSettingsToSolverOptions(schedulerAdvanced);
+
+        const milpInput: MilpCspScheduleInput | undefined = serializeMilpCspInput(
+          {
+            departmentId: input.departmentId,
+            startDate: input.startDate,
+            endDate: input.endDate,
+            employees: schedulerEmployees,
+            shifts: input.shifts,
+            constraints: input.constraints,
+            specialRequests: input.specialRequests,
+            holidays: input.holidays,
+            teamPattern: input.teamPattern ?? null,
+            requiredStaffPerShift: input.requiredStaffPerShift,
+            nightIntensivePaidLeaveDays: input.nightIntensivePaidLeaveDays,
+          },
+          {
+            previousOffAccruals,
+            careerGroups,
+            yearsOfServiceMap,
+            solverOptions,
+          }
+        );
+
+        const basePayload = {
+          name: input.name,
+          departmentId: input.departmentId,
+          startDate: input.startDate.toISOString(),
+          endDate: input.endDate.toISOString(),
+          employees: schedulerEmployees,
+          shifts: input.shifts,
+          constraints: input.constraints,
+          specialRequests: input.specialRequests,
+          holidays: input.holidays,
+          teamPattern: input.teamPattern ?? null,
+          requiredStaffPerShift: input.requiredStaffPerShift,
+          optimizationGoal: input.optimizationGoal,
+          nightIntensivePaidLeaveDays: input.nightIntensivePaidLeaveDays,
+          previousOffAccruals,
+          milpInput,
+        };
+
+        return {
+          previousOffAccruals,
+          schedulerAdvanced,
+          schedulerEmployees,
+          tenantDb,
+          solverOptions,
+          basePayload,
+        };
+      };
+
+      const persistSchedule = async ({
+        assignments,
+        generationResult,
+        aiPolishResult,
+        generationDiagnostics,
+        generationPostprocess,
+        generationMethod,
+        aiEnabled,
+        schedulerAdvanced,
+        schedulerEmployees,
+      }: {
+        assignments: SchedulerBackendResult['assignments'];
+        generationResult: SchedulerBackendResult['generationResult'];
+        aiPolishResult: SchedulerBackendResult['aiPolishResult'];
+        generationDiagnostics: GenerationDiagnostics;
+        generationPostprocess: PostprocessStats | undefined;
+        generationMethod: 'milp-engine' | 'ai-engine';
+        aiEnabled: boolean;
+        schedulerAdvanced?: z.infer<typeof schedulerAdvancedSchema>;
+        schedulerEmployees: typeof input.employees;
+      }) => {
+        const finalAssignments = (assignments ?? []).map((assignment) => ({
+          ...assignment,
+          date: new Date(assignment.date),
+        })) ?? [];
+        const finalScore = generationResult.score;
+        const serializedAssignments = finalAssignments.map((assignment) => ({
+          ...assignment,
+          date: assignment.date instanceof Date ? assignment.date.toISOString() : assignment.date,
+        }));
+        const workPatternMap = new Map<string, string>();
+        schedulerEmployees.forEach((emp) => {
+          if (emp.id) {
+            workPatternMap.set(emp.id, emp.workPatternType ?? 'three-shift');
+          }
+        });
+        const normalizedOffAccruals = (generationResult.offAccruals ?? []).map((entry) => {
+          const pattern = workPatternMap.get(entry.employeeId);
+          if (pattern === 'weekday-only') {
+            return {
+              ...entry,
+              actualOffDays: 0,
+              extraOffDays: 0,
+            };
+          }
+          return entry;
+        });
+
+        const [schedule] = await tenantDb.insert(schedules, {
+          name: input.name,
+          departmentId: input.departmentId,
+          startDate: input.startDate,
+          endDate: input.endDate,
+          status: 'draft',
+          metadata: {
+            generatedBy: ctx.user?.id || 'system',
+            generationMethod,
+            constraints: input.constraints,
+            assignments: serializedAssignments,
+            stats: generationResult.stats,
+            score: finalScore,
+            violations: generationResult.violations,
+            offAccruals: normalizedOffAccruals,
+            diagnostics: generationDiagnostics,
+            schedulerAdvanced,
+            aiEnabled,
+            aiPolishResult,
+          },
+        });
+
+        await createAuditLog({
+          tenantId,
+          actorId: ctx.user?.id || 'system',
+          action: 'schedule.generated',
+          entityType: 'schedule',
+          entityId: schedule.id,
+          after: schedule,
+          metadata: {
+            computationTime: generationResult.computationTime,
+            iterations: generationResult.iterations,
+          },
+        });
+
+        sse.schedule.generated(schedule.id, {
+          departmentId: input.departmentId,
+          generatedBy: ctx.user?.id || 'system',
+          tenantId,
+        });
+
+        return {
+          scheduleId: schedule.id,
+          assignments: serializedAssignments,
+          generationResult: {
+            iterations: generationResult.iterations,
+            computationTime: generationResult.computationTime,
+            score: finalScore,
+            violations: generationResult.violations,
+            offAccruals: normalizedOffAccruals,
+            stats: generationResult.stats,
+            diagnostics: generationDiagnostics,
+            postprocess: generationPostprocess,
+          },
+          aiPolishResult,
+        };
+      };
+
+      if (!input.employees.length) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: '스케줄을 생성할 직원이 없습니다.',
+        });
+      }
+
+      // Permission checks
+      if (ctx.user?.role === 'manager') {
+        if (!ctx.user.departmentId) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: '부서 정보가 없습니다.',
+          });
+        }
+        if (input.departmentId !== ctx.user.departmentId) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: '담당 부서의 스케줄만 생성할 수 있습니다.',
+          });
+        }
+      } else if (ctx.user?.role === 'member') {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: '스케줄을 생성할 권한이 없습니다. 관리자 또는 매니저에게 문의하세요.',
+        });
+      }
+
+      const { schedulerAdvanced, schedulerEmployees, basePayload } = await prepareContext();
+
+      const defaultSchedulerPayload: SchedulerBackendPayload = {
+        ...basePayload,
+        enableAI: input.enableAI,
+        useMilpEngine: false,
+      };
+
+      let milpSchedulerPayload: SchedulerBackendPayload | undefined;
+      if (input.useMilpEngine) {
+        milpSchedulerPayload = {
+          ...basePayload,
+          enableAI: false,
+          useMilpEngine: true,
+          milpInput,
+          schedulerAdvanced,
+          solver: schedulerAdvanced?.solverPreference ?? 'ortools',
+        };
+      }
+
       const schedulerErrors: SchedulerJobError[] = [];
       const trySchedulerRequest = async (
         payload: SchedulerBackendPayload,
@@ -788,94 +1112,19 @@ export const scheduleRouter = createTRPCRouter({
         });
       }
 
-      const finalAssignments = backendResult.assignments.map((assignment) => ({
-        ...assignment,
-        date: new Date(assignment.date),
-      }));
-      const generationResult = backendResult.generationResult;
-      const generationDiagnostics = generationResult.diagnostics ?? {};
-      const generationPostprocess = generationResult.postprocess ?? generationDiagnostics.postprocess;
-      const finalScore = generationResult.score;
-      const aiPolishResult = backendResult.aiPolishResult;
-      const serializedAssignments = finalAssignments.map((assignment) => ({
-        ...assignment,
-        date: assignment.date instanceof Date ? assignment.date.toISOString() : assignment.date,
-      }));
-      const workPatternMap = new Map<string, string>();
-      schedulerEmployees.forEach((emp) => {
-        if (emp.id) {
-          workPatternMap.set(emp.id, emp.workPatternType ?? 'three-shift');
-        }
+      const generationDiagnostics = backendResult.generationResult.diagnostics ?? {};
+      const generationPostprocess = backendResult.generationResult.postprocess ?? generationDiagnostics.postprocess;
+      return await persistSchedule({
+        assignments: backendResult.assignments,
+        generationResult: backendResult.generationResult,
+        aiPolishResult: backendResult.aiPolishResult,
+        generationDiagnostics,
+        generationPostprocess,
+        generationMethod: resolvedGenerationMethod,
+        aiEnabled: resolvedAiFlag,
+        schedulerAdvanced,
+        schedulerEmployees,
       });
-      const normalizedOffAccruals = (generationResult.offAccruals ?? []).map((entry) => {
-        const pattern = workPatternMap.get(entry.employeeId);
-        if (pattern === 'weekday-only') {
-          return {
-            ...entry,
-            actualOffDays: 0,
-            extraOffDays: 0,
-          };
-        }
-        return entry;
-      });
-
-      const [schedule] = await tenantDb.insert(schedules, {
-        name: input.name,
-        departmentId: input.departmentId,
-        startDate: input.startDate,
-        endDate: input.endDate,
-        status: 'draft',
-          metadata: {
-            generatedBy: ctx.user?.id || 'system',
-          generationMethod: resolvedGenerationMethod,
-            constraints: input.constraints,
-            assignments: serializedAssignments,
-            stats: generationResult.stats,
-            score: finalScore,
-            violations: generationResult.violations,
-            offAccruals: normalizedOffAccruals,
-            diagnostics: generationDiagnostics,
-            schedulerAdvanced,
-            aiEnabled: resolvedAiFlag,
-            aiPolishResult,
-          },
-      });
-
-      await createAuditLog({
-        tenantId,
-        actorId: ctx.user?.id || 'system',
-        action: 'schedule.generated',
-        entityType: 'schedule',
-        entityId: schedule.id,
-        after: schedule,
-        metadata: {
-          computationTime: generationResult.computationTime,
-          iterations: generationResult.iterations,
-        },
-      });
-
-      // ✅ SSE: 스케줄 생성 이벤트 브로드캐스트
-      sse.schedule.generated(schedule.id, {
-        departmentId: input.departmentId,
-        generatedBy: ctx.user?.id || 'system',
-        tenantId,
-      });
-
-      return {
-        scheduleId: schedule.id,
-        assignments: serializedAssignments,
-        generationResult: {
-          iterations: generationResult.iterations,
-          computationTime: generationResult.computationTime,
-          score: finalScore,
-          violations: generationResult.violations,
-          offAccruals: normalizedOffAccruals,
-          stats: generationResult.stats,
-          diagnostics: generationDiagnostics,
-          postprocess: generationPostprocess,
-        },
-        aiPolishResult,
-      };
     }),
 
   publish: protectedProcedure
@@ -2140,6 +2389,220 @@ export const scheduleRouter = createTRPCRouter({
    * 🆕 스케줄 개선 엔드포인트
    * 기존 생성 로직(generate)과 완전히 분리된 최적화 전용 엔드포인트
    */
+  pollJob: protectedProcedure
+    .input(z.object({
+      jobId: z.string().min(1),
+      backendUrl: z.string().url(),
+    }))
+    .mutation(async ({ input }) => {
+      const status = await fetchSchedulerJobStatus(input.backendUrl, input.jobId);
+      return {
+        jobId: input.jobId,
+        backendUrl: input.backendUrl,
+        status: status.status,
+        result: status.result ?? null,
+        error: status.error ?? null,
+        errorDiagnostics: status.errorDiagnostics ?? null,
+      };
+    }),
+
+  finalizeJob: protectedProcedure
+    .input(z.object({
+      jobId: z.string().min(1),
+      backendUrl: z.string().url(),
+      payload: scheduleGenerationInputSchema,
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+      const tenantDb = scopedDb(tenantId);
+      const payload = input.payload;
+
+      if (!payload.employees.length) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: '스케줄을 생성할 직원이 없습니다.',
+        });
+      }
+
+      if (ctx.user?.role === 'manager') {
+        if (!ctx.user.departmentId) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: '부서 정보가 없습니다.',
+          });
+        }
+        if (payload.departmentId !== ctx.user.departmentId) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: '담당 부서의 스케줄만 생성할 수 있습니다.',
+          });
+        }
+      } else if (ctx.user?.role === 'member') {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: '스케줄을 생성할 권한이 없습니다. 관리자 또는 매니저에게 문의하세요.',
+        });
+      }
+
+      const prepareContext = async () => {
+        const previousMonthDate = subMonths(payload.startDate, 1);
+        const previousYear = previousMonthDate.getFullYear();
+        const previousMonth = previousMonthDate.getMonth() + 1;
+
+        const previousLedgerRows = await db
+          .select({
+            nurseId: offBalanceLedger.nurseId,
+            accumulatedOffDays: offBalanceLedger.accumulatedOffDays,
+            guaranteedOffDays: offBalanceLedger.guaranteedOffDays,
+          })
+          .from(offBalanceLedger)
+          .where(and(
+            eq(offBalanceLedger.tenantId, tenantId),
+            eq(offBalanceLedger.departmentId, payload.departmentId),
+            eq(offBalanceLedger.year, previousYear),
+            eq(offBalanceLedger.month, previousMonth),
+          ));
+
+        const previousOffAccruals: Record<string, number> = {};
+        const previousGuaranteedOffDays: Record<string, number> = {};
+        previousLedgerRows.forEach((row) => {
+          if (row.nurseId) {
+            previousOffAccruals[row.nurseId] = Math.max(0, row.accumulatedOffDays || 0);
+            if (typeof row.guaranteedOffDays === 'number') {
+              previousGuaranteedOffDays[row.nurseId] = row.guaranteedOffDays;
+            }
+          }
+        });
+
+        const employeesWithGuarantees = payload.employees.map((emp) => ({
+          ...emp,
+          guaranteedOffDays: emp.guaranteedOffDays ?? previousGuaranteedOffDays[emp.id],
+        }));
+
+        const schedulerAdvanced = payload.schedulerAdvanced;
+        const patternConstraints = schedulerAdvanced?.patternConstraints;
+        const maxConsecutiveThreeShift =
+          patternConstraints?.maxConsecutiveDaysThreeShift ?? DEFAULT_MAX_CONSECUTIVE_DAYS_THREE_SHIFT;
+
+        const schedulerEmployees = employeesWithGuarantees.map((emp) => {
+          const workPattern = emp.workPatternType ?? 'three-shift';
+          if (workPattern === 'three-shift') {
+            return {
+              ...emp,
+              maxConsecutiveDaysPreferred: maxConsecutiveThreeShift,
+            };
+          }
+          return emp;
+        });
+
+        return {
+          schedulerEmployees,
+          schedulerAdvanced,
+        };
+      };
+
+      const { schedulerEmployees, schedulerAdvanced } = await prepareContext();
+
+      const status = await fetchSchedulerJobStatus(input.backendUrl, input.jobId);
+      if (status.status !== 'completed' || !status.result) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Job is not completed yet.',
+        });
+      }
+
+      const generationDiagnostics = status.result.generationResult.diagnostics ?? {};
+      const generationPostprocess = status.result.generationResult.postprocess ?? generationDiagnostics.postprocess;
+
+      const result = await (async () => {
+        const finalAssignments = status.result.assignments.map((assignment) => ({
+          ...assignment,
+          date: new Date(assignment.date),
+        }));
+        const finalScore = status.result.generationResult.score;
+        const serializedAssignments = finalAssignments.map((assignment) => ({
+          ...assignment,
+          date: assignment.date instanceof Date ? assignment.date.toISOString() : assignment.date,
+        }));
+        const workPatternMap = new Map<string, string>();
+        schedulerEmployees.forEach((emp) => {
+          if (emp.id) {
+            workPatternMap.set(emp.id, emp.workPatternType ?? 'three-shift');
+          }
+        });
+        const normalizedOffAccruals = (status.result.generationResult.offAccruals ?? []).map((entry) => {
+          const pattern = workPatternMap.get(entry.employeeId);
+          if (pattern === 'weekday-only') {
+            return {
+              ...entry,
+              actualOffDays: 0,
+              extraOffDays: 0,
+            };
+          }
+          return entry;
+        });
+
+        const [schedule] = await tenantDb.insert(schedules, {
+          name: payload.name,
+          departmentId: payload.departmentId,
+          startDate: payload.startDate,
+          endDate: payload.endDate,
+          status: 'draft',
+          metadata: {
+            generatedBy: ctx.user?.id || 'system',
+            generationMethod: payload.useMilpEngine ? 'milp-engine' : 'ai-engine',
+            constraints: payload.constraints,
+            assignments: serializedAssignments,
+            stats: status.result.generationResult.stats,
+            score: finalScore,
+            violations: status.result.generationResult.violations,
+            offAccruals: normalizedOffAccruals,
+            diagnostics: generationDiagnostics,
+            schedulerAdvanced,
+            aiEnabled: payload.enableAI,
+            aiPolishResult: status.result.aiPolishResult,
+          },
+        });
+
+        await createAuditLog({
+          tenantId,
+          actorId: ctx.user?.id || 'system',
+          action: 'schedule.generated',
+          entityType: 'schedule',
+          entityId: schedule.id,
+          after: schedule,
+          metadata: {
+            computationTime: status.result.generationResult.computationTime,
+            iterations: status.result.generationResult.iterations,
+          },
+        });
+
+        sse.schedule.generated(schedule.id, {
+          departmentId: payload.departmentId,
+          generatedBy: ctx.user?.id || 'system',
+          tenantId,
+        });
+
+        return {
+          scheduleId: schedule.id,
+          assignments: serializedAssignments,
+          generationResult: {
+            iterations: status.result.generationResult.iterations,
+            computationTime: status.result.generationResult.computationTime,
+            score: finalScore,
+            violations: status.result.generationResult.violations,
+            offAccruals: normalizedOffAccruals,
+            stats: status.result.generationResult.stats,
+            diagnostics: generationDiagnostics,
+            postprocess: generationPostprocess,
+          },
+          aiPolishResult: status.result.aiPolishResult,
+        };
+      })();
+
+      return result;
+    }),
+
   improveSchedule: protectedProcedure
     .input(z.object({
       // 현재 스케줄

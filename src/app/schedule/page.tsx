@@ -316,10 +316,14 @@ function SchedulePageContent() {
   const setActiveView = filters.setActiveView;
   const deferredActiveView = useDeferredValue(filters.activeView);
   const modals = useScheduleModals();
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
   // SSE context available but not currently used in this component
   // const { isConnected: isSSEConnected, reconnectAttempt } = useSSEContext();
-  const generateScheduleMutation = api.schedule.generate.useMutation();
-  type GenerateScheduleInput = Parameters<typeof generateScheduleMutation.mutateAsync>[0];
+  const generateScheduleAsyncMutation = api.schedule.generateAsync.useMutation();
+  const pollScheduleJobMutation = api.schedule.pollJob.useMutation();
+  const finalizeScheduleJobMutation = api.schedule.finalizeJob.useMutation();
+  type GenerateScheduleAsyncInput = Parameters<typeof generateScheduleAsyncMutation.mutateAsync>[0];
+  type GenerateScheduleInput = GenerateScheduleAsyncInput;
   const deleteMutation = api.schedule.delete.useMutation();
 
   // 🆕 스케줄 개선 mutation
@@ -2470,14 +2474,50 @@ function SchedulePageContent() {
       }
 
       lastPayloadRef.current = payload;
-      const result = await generateScheduleMutation.mutateAsync(payload);
-      lastDiagnosticsRef.current = null;
       setGenerationError(null);
+      lastDiagnosticsRef.current = null;
+
+      const asyncJob = await generateScheduleAsyncMutation.mutateAsync(payload as GenerateScheduleAsyncInput);
+      const pollDeadline = Date.now() + 1000 * 300; // 5 minutes
+      let lastStatus:
+        | Awaited<ReturnType<typeof pollScheduleJobMutation.mutateAsync>>
+        | null = null;
+      while (Date.now() < pollDeadline) {
+        lastStatus = await pollScheduleJobMutation.mutateAsync({
+          jobId: asyncJob.jobId,
+          backendUrl: asyncJob.backendUrl,
+        });
+        if (lastStatus.status === 'completed') {
+          break;
+        }
+        if (lastStatus.status === 'failed') {
+          throw new Error(lastStatus.error || '스케줄 생성 작업이 실패했습니다.');
+        }
+        await sleep(2000);
+      }
+
+      if (!lastStatus || lastStatus.status !== 'completed') {
+        throw new Error('스케줄 생성 작업이 시간 내에 완료되지 않았습니다.');
+      }
+
+      const finalized = await finalizeScheduleJobMutation.mutateAsync({
+        jobId: asyncJob.jobId,
+        backendUrl: asyncJob.backendUrl,
+        payload,
+      });
+
       const normalizedResult = {
-        ...result,
-        generationResult: { success: true, ...result.generationResult },
+        ...finalized,
+        generationResult: { success: true, ...finalized.generationResult },
       };
-      await handleGenerationSuccess(normalizedResult, useMilpEngine, aiEnabled, inferredDepartmentId, monthStart, monthEnd);
+      await handleGenerationSuccess(
+        normalizedResult,
+        useMilpEngine,
+        aiEnabled,
+        inferredDepartmentId,
+        monthStart,
+        monthEnd
+      );
     } catch (error) {
       console.error('AI schedule generation failed:', error);
       const info = extractErrorInfo(error);
@@ -2508,12 +2548,39 @@ function SchedulePageContent() {
     setIsGenerating(true);
     setGenerationError(null);
     try {
-      const result = await generateScheduleMutation.mutateAsync(adjustedPayload);
+      const asyncJob = await generateScheduleAsyncMutation.mutateAsync(adjustedPayload as GenerateScheduleAsyncInput);
+      const pollDeadline = Date.now() + 1000 * 300;
+      let lastStatus:
+        | Awaited<ReturnType<typeof pollScheduleJobMutation.mutateAsync>>
+        | null = null;
+      while (Date.now() < pollDeadline) {
+        lastStatus = await pollScheduleJobMutation.mutateAsync({
+          jobId: asyncJob.jobId,
+          backendUrl: asyncJob.backendUrl,
+        });
+        if (lastStatus.status === 'completed') {
+          break;
+        }
+        if (lastStatus.status === 'failed') {
+          throw new Error(lastStatus.error || '스케줄 생성 작업이 실패했습니다.');
+        }
+        await sleep(2000);
+      }
+      if (!lastStatus || lastStatus.status !== 'completed') {
+        throw new Error('스케줄 생성 작업이 시간 내에 완료되지 않았습니다.');
+      }
+
+      const finalized = await finalizeScheduleJobMutation.mutateAsync({
+        jobId: asyncJob.jobId,
+        backendUrl: asyncJob.backendUrl,
+        payload: adjustedPayload as GenerateScheduleAsyncInput,
+      });
+
       lastPayloadRef.current = adjustedPayload;
       lastDiagnosticsRef.current = null;
       const normalizedResult = {
-        ...result,
-        generationResult: { success: true, ...result.generationResult },
+        ...finalized,
+        generationResult: { success: true, ...finalized.generationResult },
       };
       await handleGenerationSuccess(
         normalizedResult,
