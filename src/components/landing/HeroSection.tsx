@@ -12,20 +12,23 @@ export default function HeroSection() {
   const [isConsultingModalOpen, setIsConsultingModalOpen] = useState(false);
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-sky-50 via-white to-blue-50">
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-white">
       {/* Top Navigation Bar */}
       <nav className="absolute top-0 left-0 right-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 sm:h-20">
             {/* Logo */}
-            <div className="flex items-center">
-              <span className="text-xl sm:text-2xl font-bold text-blue-600">ShiftEasy</span>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-xl">S</span>
+              </div>
+              <span className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">ShiftEasy</span>
             </div>
 
             {/* Login Button */}
             <Link
               href="/sign-in"
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-full hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
             >
               <LogIn className="w-4 h-4" />
               로그인
@@ -34,66 +37,41 @@ export default function HeroSection() {
         </div>
       </nav>
 
-      {/* Enhanced background decoration */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top_right,_#E6F2FF_0%,_transparent_50%)]" />
-        <div className="absolute bottom-0 right-0 w-full h-full bg-[radial-gradient(circle_at_bottom_left,_#E6F2FF_0%,_transparent_50%)]" />
-
-        {/* Floating gradient orbs */}
-        <motion.div
-          animate={{
-            scale: [1, 1.2, 1],
-            opacity: [0.3, 0.5, 0.3],
-          }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-20 right-20 w-96 h-96 bg-gradient-to-br from-[#2563EB]/20 to-[#F97316]/20 rounded-full blur-3xl"
-        />
-        <motion.div
-          animate={{
-            scale: [1.2, 1, 1.2],
-            opacity: [0.2, 0.4, 0.2],
-          }}
-          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-          className="absolute bottom-20 left-20 w-80 h-80 bg-gradient-to-tr from-[#F97316]/20 to-[#2563EB]/20 rounded-full blur-3xl"
-        />
+      {/* Sophisticated Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[1000px] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-50/50 via-white to-transparent opacity-70" />
+        <div className="absolute -top-[40%] -right-[10%] w-[800px] h-[800px] bg-gradient-to-br from-blue-100/40 to-purple-100/40 rounded-full blur-3xl opacity-60" />
+        <div className="absolute top-[20%] -left-[10%] w-[600px] h-[600px] bg-gradient-to-tr from-blue-50/40 to-emerald-50/40 rounded-full blur-3xl opacity-50" />
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-32">
-        <div className="text-center">
-          {/* Opening Special Badge */}
+        <div className="text-center max-w-5xl mx-auto">
+          {/* Unified Premium Badge */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: 'easeOut' }}
-            className="inline-flex items-center gap-2 px-4 py-2 mb-3 bg-gradient-to-r from-[#F97316] to-[#FB923C] text-white rounded-full text-sm font-bold shadow-md"
+            className="inline-flex items-center gap-2 px-4 py-1.5 mb-8 bg-slate-900/5 border border-slate-200/50 rounded-full backdrop-blur-sm"
           >
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+            <span className="flex h-2 w-2 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
             </span>
-            {t('hero.openingSpecial')}
-          </motion.div>
-
-          {/* Urgency Badge */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: 'easeOut', delay: 0.1 }}
-            className="inline-flex items-center gap-2 px-4 py-2 mb-6 bg-orange-500 text-white rounded-full text-sm font-semibold shadow-md"
-          >
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+            <span className="text-sm font-medium text-slate-600">
+              {t('hero.openingSpecial')}
             </span>
-            {t('hero.urgencyBadge')}
+            <span className="w-px h-3 bg-slate-300 mx-1" />
+            <span className="text-sm font-semibold text-blue-600">
+              {t('hero.urgencyBadge')}
+            </span>
           </motion.div>
 
           {/* Headline */}
           <motion.h1
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: 'easeOut' }}
-            className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold text-[#0F172A] mb-6 leading-tight"
+            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            className="text-5xl sm:text-6xl lg:text-7xl font-bold text-slate-900 mb-8 leading-[1.1] tracking-tight"
           >
             {t('hero.headline')}
           </motion.h1>
@@ -102,8 +80,8 @@ export default function HeroSection() {
           <motion.p
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2, ease: 'easeOut' }}
-            className="text-xl sm:text-2xl lg:text-3xl text-[#64748B] mb-4"
+            transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+            className="text-xl sm:text-2xl text-slate-600 mb-6 max-w-3xl mx-auto leading-relaxed font-medium"
           >
             {t('hero.subheadline')}
           </motion.p>
@@ -112,43 +90,22 @@ export default function HeroSection() {
           <motion.p
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.3, ease: 'easeOut' }}
-            className="text-base sm:text-lg lg:text-xl text-[#64748B] mb-8 max-w-3xl mx-auto whitespace-pre-line"
+            transition={{ duration: 0.8, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="text-lg text-slate-500 mb-10 max-w-2xl mx-auto whitespace-pre-line leading-relaxed"
           >
             {t('hero.description')}
           </motion.p>
-
-          {/* Feature Highlights */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.4, ease: 'easeOut' }}
-            className="flex flex-wrap justify-center gap-3 mb-12"
-          >
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full border border-[#2563EB]/20 shadow-sm">
-              <CheckCircle className="w-4 h-4 text-[#2563EB]" />
-              <span className="text-sm font-medium text-[#0F172A]">{t('hero.highlight1')}</span>
-            </div>
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full border border-[#2563EB]/20 shadow-sm">
-              <Zap className="w-4 h-4 text-[#F97316]" />
-              <span className="text-sm font-medium text-[#0F172A]">{t('hero.highlight2')}</span>
-            </div>
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full border border-[#2563EB]/20 shadow-sm">
-              <CheckCircle className="w-4 h-4 text-[#2563EB]" />
-              <span className="text-sm font-medium text-[#0F172A]">{t('hero.highlight3')}</span>
-            </div>
-          </motion.div>
 
           {/* CTA Buttons */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.4, ease: 'easeOut' }}
-            className="flex flex-col sm:flex-row gap-4 justify-center items-center"
+            transition={{ duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-20"
           >
             <Link
               href="/billing?plan=professional"
-              className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-blue-600 rounded-lg transition-all duration-300 hover:bg-blue-700 hover:scale-105 hover:shadow-xl w-full sm:w-auto"
+              className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-blue-600 rounded-full transition-all duration-300 hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/25 w-full sm:w-auto min-w-[200px]"
             >
               <span className="relative z-10 flex items-center gap-2">
                 {t('hero.ctaPrimary')}
@@ -158,94 +115,63 @@ export default function HeroSection() {
 
             <button
               onClick={() => setIsConsultingModalOpen(true)}
-              className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-[#2563EB] bg-white border-2 border-[#2563EB] rounded-lg transition-all duration-300 hover:bg-[#DBEAFE] hover:shadow-lg w-full sm:w-auto"
+              className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-slate-700 bg-white border border-slate-200 rounded-full transition-all duration-300 hover:bg-slate-50 hover:border-slate-300 hover:shadow-md w-full sm:w-auto min-w-[200px]"
             >
-              <Sparkles className="w-5 h-5 mr-2" />
+              <Sparkles className="w-5 h-5 mr-2 text-blue-500" />
               {t('hero.ctaSecondary')}
             </button>
           </motion.div>
 
-          {/* Consulting Modal */}
-          <ConsultingRequestModal
-            isOpen={isConsultingModalOpen}
-            onClose={() => setIsConsultingModalOpen(false)}
-          />
-
-          {/* Statistics Cards - Floating Animation */}
+          {/* Premium Stats Strip */}
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1, delay: 0.6 }}
-            className="relative mt-16 max-w-4xl mx-auto"
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            className="relative max-w-4xl mx-auto"
           >
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-200 bg-white/60 backdrop-blur-xl border border-slate-200/60 rounded-2xl shadow-2xl shadow-slate-200/50 overflow-hidden">
               {/* Stat 1 */}
-              <motion.div
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                className="group relative bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-[#2563EB]/10 shadow-lg hover:shadow-xl transition-all duration-300"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-[#2563EB]/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="relative">
-                  <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-[#2563EB] to-[#1D4ED8] rounded-xl mb-3 mx-auto">
-                    <Clock className="w-6 h-6 text-white" />
+              <div className="p-6 group hover:bg-white/50 transition-colors">
+                <div className="flex items-center justify-center gap-3 mb-2">
+                  <div className="p-2 bg-blue-50 rounded-lg text-blue-600 group-hover:scale-110 transition-transform duration-300">
+                    <Clock className="w-5 h-5" />
                   </div>
-                  <p className="text-sm text-[#64748B] mb-1 text-center">{t('hero.stat1Label')}</p>
-                  <p className="text-2xl font-bold text-[#2563EB] text-center">{t('hero.stat1Value')}</p>
+                  <span className="text-sm font-medium text-slate-500">{t('hero.stat1Label')}</span>
                 </div>
-              </motion.div>
+                <p className="text-3xl font-bold text-slate-900 tracking-tight">{t('hero.stat1Value')}</p>
+              </div>
 
               {/* Stat 2 */}
-              <motion.div
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-                className="group relative bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-[#F97316]/10 shadow-lg hover:shadow-xl transition-all duration-300"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-[#F97316]/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="relative">
-                  <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-[#F97316] to-[#FB923C] rounded-xl mb-3 mx-auto">
-                    <Zap className="w-6 h-6 text-white" />
+              <div className="p-6 group hover:bg-white/50 transition-colors">
+                <div className="flex items-center justify-center gap-3 mb-2">
+                  <div className="p-2 bg-orange-50 rounded-lg text-orange-600 group-hover:scale-110 transition-transform duration-300">
+                    <Zap className="w-5 h-5" />
                   </div>
-                  <p className="text-sm text-[#64748B] mb-1 text-center">{t('hero.stat2Label')}</p>
-                  <p className="text-2xl font-bold text-[#F97316] text-center">{t('hero.stat2Value')}</p>
+                  <span className="text-sm font-medium text-slate-500">{t('hero.stat2Label')}</span>
                 </div>
-              </motion.div>
+                <p className="text-3xl font-bold text-slate-900 tracking-tight">{t('hero.stat2Value')}</p>
+              </div>
 
               {/* Stat 3 */}
-              <motion.div
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-                className="group relative bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-[#2563EB]/10 shadow-lg hover:shadow-xl transition-all duration-300"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-[#2563EB]/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="relative">
-                  <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-[#2563EB] to-[#1D4ED8] rounded-xl mb-3 mx-auto">
-                    <Users className="w-6 h-6 text-white" />
+              <div className="p-6 group hover:bg-white/50 transition-colors">
+                <div className="flex items-center justify-center gap-3 mb-2">
+                  <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600 group-hover:scale-110 transition-transform duration-300">
+                    <Users className="w-5 h-5" />
                   </div>
-                  <p className="text-sm text-[#64748B] mb-1 text-center">{t('hero.stat3Label')}</p>
-                  <p className="text-2xl font-bold text-[#2563EB] text-center">{t('hero.stat3Value')}</p>
+                  <span className="text-sm font-medium text-slate-500">{t('hero.stat3Label')}</span>
                 </div>
-              </motion.div>
+                <p className="text-3xl font-bold text-slate-900 tracking-tight">{t('hero.stat3Value')}</p>
+              </div>
             </div>
           </motion.div>
         </div>
       </div>
 
-      {/* Scroll indicator */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 1, delay: 1.5 }}
-        className="absolute bottom-8 left-1/2 transform -translate-x-1/2"
-      >
-        <motion.div
-          animate={{ y: [0, 10, 0] }}
-          transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
-          className="w-6 h-10 border-2 border-gray-400 rounded-full flex justify-center pt-2"
-        >
-          <div className="w-1 h-3 bg-gray-400 rounded-full" />
-        </motion.div>
-      </motion.div>
+      {/* Consulting Modal */}
+      <ConsultingRequestModal
+        isOpen={isConsultingModalOpen}
+        onClose={() => setIsConsultingModalOpen(false)}
+      />
     </section>
   );
 }
