@@ -324,6 +324,7 @@ function SchedulePageContent() {
   const finalizeScheduleJobMutation = api.schedule.finalizeJob.useMutation();
   type GenerateScheduleAsyncInput = Parameters<typeof generateScheduleAsyncMutation.mutateAsync>[0];
   type GenerateScheduleInput = GenerateScheduleAsyncInput;
+  const JOB_POLL_TIMEOUT_MS = 1000 * 60 * 20; // 20 minutes
   const deleteMutation = api.schedule.delete.useMutation();
 
   // 🆕 스케줄 개선 mutation
@@ -2478,7 +2479,7 @@ function SchedulePageContent() {
       lastDiagnosticsRef.current = null;
 
       const asyncJob = await generateScheduleAsyncMutation.mutateAsync(payload as GenerateScheduleAsyncInput);
-      const pollDeadline = Date.now() + 1000 * 600; // 10 minutes
+      const pollDeadline = Date.now() + JOB_POLL_TIMEOUT_MS;
       let lastStatus:
         | Awaited<ReturnType<typeof pollScheduleJobMutation.mutateAsync>>
         | null = null;
@@ -2549,7 +2550,7 @@ function SchedulePageContent() {
     setGenerationError(null);
     try {
       const asyncJob = await generateScheduleAsyncMutation.mutateAsync(adjustedPayload as GenerateScheduleAsyncInput);
-      const pollDeadline = Date.now() + 1000 * 600;
+      const pollDeadline = Date.now() + JOB_POLL_TIMEOUT_MS;
       let lastStatus:
         | Awaited<ReturnType<typeof pollScheduleJobMutation.mutateAsync>>
         | null = null;
