@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import os
 from datetime import date, timedelta
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -19,6 +20,17 @@ class CpSatScheduler:
     self.options = getattr(schedule, "options", {}) or {}
     self.constraint_weights = self.options.get("constraintWeights", {}) or {}
     self.csp_options = self.options.get("cspSettings", {}) or {}
+    raw_max_time = self.options.get("maxSolveTimeMs") if isinstance(self.options, dict) else None
+    try:
+      self.max_solve_time_ms = int(raw_max_time) if raw_max_time is not None else 0
+    except (TypeError, ValueError):
+      self.max_solve_time_ms = 0
+    if self.max_solve_time_ms <= 0:
+      try:
+        env_limit = int(os.environ.get("MILP_SOLVE_TIMEOUT_MS", "180000"))
+        self.max_solve_time_ms = max(0, env_limit)
+      except (TypeError, ValueError):
+        self.max_solve_time_ms = 180000
     self.date_range = self._build_date_range()
     self.special_request_targets = self._build_special_request_targets()
     self.special_request_codes = {code for (_, _, code) in self.special_request_targets}
@@ -1107,7 +1119,7 @@ class CpSatScheduler:
       self.model.Minimize(sum(terms))
 
     solver = cp_model.CpSolver()
-    max_time_ms = self.options.get("maxSolveTimeMs") if isinstance(self.options, dict) else None
+    max_time_ms = self.max_solve_time_ms
     if isinstance(max_time_ms, (int, float)) and max_time_ms > 0:
       solver.parameters.max_time_in_seconds = max_time_ms / 1000.0
 
