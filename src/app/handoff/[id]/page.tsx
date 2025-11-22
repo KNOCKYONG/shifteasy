@@ -217,13 +217,13 @@ export default function HandoffDetailPage() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => router.push("/handoff")}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">인수인계 상세</h1>
-              <p className="text-sm text-gray-500">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">인수인계 상세</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 {format(new Date(handoff.shiftDate), "yyyy년 M월 d일 (E)", { locale: ko })} •{" "}
                 {SHIFT_TYPE_LABELS[handoff.shiftType as keyof typeof SHIFT_TYPE_LABELS]} 근무
               </p>
@@ -255,28 +255,28 @@ export default function HandoffDetailPage() {
         </div>
 
         {/* Status Card */}
-        <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-6">
           <div className="grid grid-cols-4 gap-6">
             <div>
-              <p className="text-sm text-gray-500 mb-1">상태</p>
-              <p className="text-lg font-semibold">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">상태</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 {STATUS_LABELS[handoff.status as keyof typeof STATUS_LABELS]}
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-500 mb-1">총 환자 수</p>
-              <p className="text-lg font-semibold">{items.length}명</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">총 환자 수</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{items.length}명</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500 mb-1">시작 시간</p>
-              <p className="text-lg font-semibold">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">시작 시간</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 {format(new Date(handoff.startedAt), "HH:mm")}
               </p>
             </div>
             {handoff.completedAt && (
               <div>
-                <p className="text-sm text-gray-500 mb-1">소요 시간</p>
-                <p className="text-lg font-semibold">{handoff.duration}분</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">소요 시간</p>
+                <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{handoff.duration}분</p>
               </div>
             )}
           </div>
@@ -292,12 +292,12 @@ export default function HandoffDetailPage() {
 
         {/* Patient List */}
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">환자 목록</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">환자 목록</h2>
 
           {sortedItems.length === 0 ? (
-            <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
+            <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
               <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">등록된 환자가 없습니다</p>
+              <p className="text-gray-500 dark:text-gray-400">등록된 환자가 없습니다</p>
             </div>
           ) : (
             sortedItems.map((item) => {
@@ -313,7 +313,7 @@ export default function HandoffDetailPage() {
               return (
                 <div
                   key={item.id}
-                  className={`bg-white rounded-lg shadow border border-gray-200 overflow-hidden ${styles.bg}`}
+                  className={`bg-white dark:bg-gray-900 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden ${styles.bg}`}
                 >
                   {/* Patient Header */}
                   <div
@@ -326,14 +326,14 @@ export default function HandoffDetailPage() {
                           {styles.icon} {styles.label}
                         </span>
                         <div>
-                          <p className="font-semibold text-gray-900">
+                          <p className="font-semibold text-gray-900 dark:text-gray-100">
                             {item.roomNumber}호 {item.bedNumber && `- ${item.bedNumber}번 침대`}
                           </p>
-                          <p className="text-sm text-gray-600">환자: {item.patientIdentifier}</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">환자: {item.patientIdentifier}</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
                           {isExpanded ? "접기" : "자세히 보기"}
                         </p>
                       </div>
@@ -341,7 +341,7 @@ export default function HandoffDetailPage() {
 
                     {/* SBAR Preview */}
                     {!isExpanded && (
-                      <div className="mt-3 text-sm text-gray-700">
+                      <div className="mt-3 text-sm text-gray-700 dark:text-gray-300">
                         <p className="line-clamp-2">
                           <span className="font-medium">상황:</span> {item.situation}
                         </p>
@@ -351,35 +351,35 @@ export default function HandoffDetailPage() {
 
                   {/* Expanded Content */}
                   {isExpanded && (
-                    <div className="p-6 bg-white space-y-6">
+                    <div className="p-6 bg-white dark:bg-gray-900 space-y-6">
                       {/* SBAR Details */}
                       <div className="space-y-4">
                         <div>
-                          <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
                             📋 S (Situation) - 상황
                           </h4>
-                          <p className="text-sm text-gray-800 bg-gray-50 p-3 rounded">{item.situation}</p>
+                          <p className="text-sm text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-800/50 p-3 rounded">{item.situation}</p>
                         </div>
 
                         <div>
-                          <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
                             📝 B (Background) - 배경
                           </h4>
-                          <p className="text-sm text-gray-800 bg-gray-50 p-3 rounded">{item.background}</p>
+                          <p className="text-sm text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-800/50 p-3 rounded">{item.background}</p>
                         </div>
 
                         <div>
-                          <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
                             🔍 A (Assessment) - 평가
                           </h4>
-                          <p className="text-sm text-gray-800 bg-gray-50 p-3 rounded">{item.assessment}</p>
+                          <p className="text-sm text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-800/50 p-3 rounded">{item.assessment}</p>
                         </div>
 
                         <div>
-                          <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
                             💡 R (Recommendation) - 권고사항
                           </h4>
-                          <p className="text-sm text-gray-800 bg-gray-50 p-3 rounded">
+                          <p className="text-sm text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-800/50 p-3 rounded">
                             {item.recommendation}
                           </p>
                         </div>
@@ -388,39 +388,39 @@ export default function HandoffDetailPage() {
                       {/* Vital Signs */}
                       {vitalSigns && (
                         <div>
-                          <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
                             <Activity className="w-4 h-4" />
                             활력징후
                           </h4>
                           <div className="grid grid-cols-3 gap-3">
                             {vitalSigns.bloodPressure && (
-                              <div className="bg-gray-50 p-3 rounded">
-                                <p className="text-xs text-gray-500">혈압</p>
-                                <p className="text-sm font-medium">{vitalSigns.bloodPressure}</p>
+                              <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded">
+                                <p className="text-xs text-gray-500 dark:text-gray-400">혈압</p>
+                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{vitalSigns.bloodPressure}</p>
                               </div>
                             )}
                             {vitalSigns.heartRate && (
-                              <div className="bg-gray-50 p-3 rounded">
-                                <p className="text-xs text-gray-500">맥박</p>
-                                <p className="text-sm font-medium">{vitalSigns.heartRate} bpm</p>
+                              <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded">
+                                <p className="text-xs text-gray-500 dark:text-gray-400">맥박</p>
+                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{vitalSigns.heartRate} bpm</p>
                               </div>
                             )}
                             {vitalSigns.temperature && (
-                              <div className="bg-gray-50 p-3 rounded">
-                                <p className="text-xs text-gray-500">체온</p>
-                                <p className="text-sm font-medium">{vitalSigns.temperature}°C</p>
+                              <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded">
+                                <p className="text-xs text-gray-500 dark:text-gray-400">체온</p>
+                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{vitalSigns.temperature}°C</p>
                               </div>
                             )}
                             {vitalSigns.oxygenSaturation && (
-                              <div className="bg-gray-50 p-3 rounded">
-                                <p className="text-xs text-gray-500">산소포화도</p>
-                                <p className="text-sm font-medium">{vitalSigns.oxygenSaturation}%</p>
+                              <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded">
+                                <p className="text-xs text-gray-500 dark:text-gray-400">산소포화도</p>
+                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{vitalSigns.oxygenSaturation}%</p>
                               </div>
                             )}
                             {vitalSigns.painScore !== undefined && (
-                              <div className="bg-gray-50 p-3 rounded">
-                                <p className="text-xs text-gray-500">통증점수</p>
-                                <p className="text-sm font-medium">{vitalSigns.painScore}/10</p>
+                              <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded">
+                                <p className="text-xs text-gray-500 dark:text-gray-400">통증점수</p>
+                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{vitalSigns.painScore}/10</p>
                               </div>
                             )}
                           </div>
@@ -430,19 +430,19 @@ export default function HandoffDetailPage() {
                       {/* Medications */}
                       {medications.length > 0 && (
                         <div>
-                          <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
                             <Pill className="w-4 h-4" />
                             투약 일정
                           </h4>
                           <div className="space-y-2">
                             {medications.map((med, idx) => (
-                              <div key={idx} className="bg-gray-50 p-3 rounded flex justify-between">
+                              <div key={idx} className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded flex justify-between">
                                 <div>
-                                  <p className="text-sm font-medium">{med.name}</p>
-                                  {med.dose && <p className="text-xs text-gray-600">용량: {med.dose}</p>}
-                                  <p className="text-xs text-gray-600">경로: {med.route}</p>
+                                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{med.name}</p>
+                                  {med.dose && <p className="text-xs text-gray-600 dark:text-gray-400">용량: {med.dose}</p>}
+                                  <p className="text-xs text-gray-600 dark:text-gray-400">경로: {med.route}</p>
                                 </div>
-                                <p className="text-sm text-gray-600">{med.time}</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">{med.time}</p>
                               </div>
                             ))}
                           </div>
@@ -452,19 +452,19 @@ export default function HandoffDetailPage() {
                       {/* Scheduled Procedures */}
                       {scheduledProcedures.length > 0 && (
                         <div>
-                          <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
                             <CalendarIcon className="w-4 h-4" />
                             예정 처치
                           </h4>
                           <div className="space-y-2">
                             {scheduledProcedures.map((proc, idx) => (
-                              <div key={idx} className="bg-gray-50 p-3 rounded">
+                              <div key={idx} className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded">
                                 <div className="flex justify-between items-start">
-                                  <p className="text-sm font-medium">{proc.procedure}</p>
-                                  <p className="text-xs text-gray-600">{proc.scheduledTime}</p>
+                                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{proc.procedure}</p>
+                                  <p className="text-xs text-gray-600 dark:text-gray-400">{proc.scheduledTime}</p>
                                 </div>
                                 {proc.preparation && (
-                                  <p className="text-xs text-gray-600 mt-1">준비: {proc.preparation}</p>
+                                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">준비: {proc.preparation}</p>
                                 )}
                               </div>
                             ))}
@@ -475,15 +475,15 @@ export default function HandoffDetailPage() {
                       {/* Alerts */}
                       {alerts.length > 0 && (
                         <div>
-                          <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                            <AlertCircle className="w-4 h-4 text-red-500" />
+                          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4 text-red-500 dark:text-red-400" />
                             주의사항
                           </h4>
                           <div className="space-y-2">
                             {alerts.map((alert, idx) => (
-                              <div key={idx} className="bg-red-50 border border-red-200 p-3 rounded">
-                                <p className="text-sm font-medium text-red-900">{alert.type}</p>
-                                <p className="text-sm text-red-800">{alert.description}</p>
+                              <div key={idx} className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 p-3 rounded">
+                                <p className="text-sm font-medium text-red-900 dark:text-red-300">{alert.type}</p>
+                                <p className="text-sm text-red-800 dark:text-red-400">{alert.description}</p>
                               </div>
                             ))}
                           </div>
@@ -493,23 +493,23 @@ export default function HandoffDetailPage() {
                       {/* Questions */}
                       {questions.length > 0 && (
                         <div>
-                          <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
                             <MessageCircle className="w-4 h-4" />
                             질문 및 답변
                           </h4>
                           <div className="space-y-3">
                             {questions.map((q, idx) => (
-                              <div key={idx} className="bg-gray-50 p-3 rounded space-y-2">
+                              <div key={idx} className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded space-y-2">
                                 <div>
-                                  <p className="text-sm font-medium text-gray-900">Q: {q.question}</p>
-                                  <p className="text-xs text-gray-500">
+                                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Q: {q.question}</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">
                                     {format(new Date(q.askedAt), "yyyy-MM-dd HH:mm")}
                                   </p>
                                 </div>
                                 {q.answer && q.answeredAt && (
-                                  <div className="pl-4 border-l-2 border-blue-300">
-                                    <p className="text-sm text-gray-800">A: {q.answer}</p>
-                                    <p className="text-xs text-gray-500">
+                                  <div className="pl-4 border-l-2 border-blue-300 dark:border-blue-600">
+                                    <p className="text-sm text-gray-800 dark:text-gray-200">A: {q.answer}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
                                       {format(new Date(q.answeredAt), "yyyy-MM-dd HH:mm")}
                                     </p>
                                   </div>
@@ -523,7 +523,7 @@ export default function HandoffDetailPage() {
                       {/* Add Question */}
                       {isReceiver && handoff.status !== "completed" && (
                         <div>
-                          <h4 className="text-sm font-semibold text-gray-700 mb-2">질문하기</h4>
+                          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">질문하기</h4>
                           <div className="flex gap-2">
                             <input
                               type="text"
@@ -533,7 +533,7 @@ export default function HandoffDetailPage() {
                                 setQuestionText(e.target.value);
                               }}
                               placeholder="궁금한 사항을 입력하세요..."
-                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
                             />
                             <button
                               onClick={() => handleAskQuestion(item.id)}

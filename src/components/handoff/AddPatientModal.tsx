@@ -123,13 +123,13 @@ export function AddPatientModal({ handoffId, onClose, onSuccess }: AddPatientMod
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">환자 추가</h2>
+        <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">환자 추가</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -146,40 +146,40 @@ export function AddPatientModal({ handoffId, onClose, onSuccess }: AddPatientMod
 
           {/* Basic Information */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900">기본 정보</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">기본 정보</h3>
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   병실 번호 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={roomNumber}
                   onChange={(e) => setRoomNumber(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="예: 301"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">침상 번호</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">침상 번호</label>
                 <input
                   type="text"
                   value={bedNumber}
                   onChange={(e) => setBedNumber(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="예: A"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   환자 식별자 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={patientIdentifier}
                   onChange={(e) => setPatientIdentifier(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="예: 김**"
                   required
                 />
@@ -187,7 +187,7 @@ export function AddPatientModal({ handoffId, onClose, onSuccess }: AddPatientMod
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 우선순위 <span className="text-red-500">*</span>
               </label>
               <div className="grid grid-cols-4 gap-3">
@@ -199,11 +199,11 @@ export function AddPatientModal({ handoffId, onClose, onSuccess }: AddPatientMod
                     className={`p-3 border-2 rounded-lg transition-all ${
                       priority === option.value
                         ? `border-${option.color}-500 bg-${option.color}-50`
-                        : "border-gray-200 hover:border-gray-300"
+                        : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
                     }`}
                   >
                     <span className="text-2xl mb-1 block">{option.icon}</span>
-                    <span className="text-sm font-medium">{option.label}</span>
+                    <span className="text-sm font-medium dark:text-gray-100">{option.label}</span>
                   </button>
                 ))}
               </div>
@@ -212,16 +212,16 @@ export function AddPatientModal({ handoffId, onClose, onSuccess }: AddPatientMod
 
           {/* SBAR */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900">SBAR 인수인계</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">SBAR 인수인계</h3>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 📋 S (Situation) - 현재 상황 <span className="text-red-500">*</span>
               </label>
               <textarea
                 value={situation}
                 onChange={(e) => setSituation(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 rows={3}
                 placeholder="환자의 현재 상황을 간략히 설명하세요"
                 required
@@ -229,13 +229,13 @@ export function AddPatientModal({ handoffId, onClose, onSuccess }: AddPatientMod
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 📝 B (Background) - 배경 정보 <span className="text-red-500">*</span>
               </label>
               <textarea
                 value={background}
                 onChange={(e) => setBackground(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 rows={3}
                 placeholder="진단명, 입원일, 수술/시술 이력 등"
                 required
@@ -243,13 +243,13 @@ export function AddPatientModal({ handoffId, onClose, onSuccess }: AddPatientMod
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 🔍 A (Assessment) - 평가 <span className="text-red-500">*</span>
               </label>
               <textarea
                 value={assessment}
                 onChange={(e) => setAssessment(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 rows={3}
                 placeholder="활력징후, 의식수준, 통증 등 현재 평가"
                 required
@@ -257,13 +257,13 @@ export function AddPatientModal({ handoffId, onClose, onSuccess }: AddPatientMod
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 💡 R (Recommendation) - 권고사항 <span className="text-red-500">*</span>
               </label>
               <textarea
                 value={recommendation}
                 onChange={(e) => setRecommendation(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 rows={3}
                 placeholder="인수자가 해야 할 일, 주의사항 등"
                 required
@@ -274,7 +274,7 @@ export function AddPatientModal({ handoffId, onClose, onSuccess }: AddPatientMod
           {/* Optional: Vital Signs */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">활력징후 (선택)</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">활력징후 (선택)</h3>
               <button
                 type="button"
                 onClick={() => setShowVitalSigns(!showVitalSigns)}
@@ -285,33 +285,33 @@ export function AddPatientModal({ handoffId, onClose, onSuccess }: AddPatientMod
             </div>
 
             {showVitalSigns && (
-              <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+              <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">혈압</label>
+                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">혈압</label>
                   <input
                     type="text"
                     value={vitalSigns.bloodPressure || ""}
                     onChange={(e) =>
                       setVitalSigns({ ...vitalSigns, bloodPressure: e.target.value })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500 rounded-lg text-sm"
                     placeholder="120/80"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">맥박 (bpm)</label>
+                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">맥박 (bpm)</label>
                   <input
                     type="number"
                     value={vitalSigns.heartRate || ""}
                     onChange={(e) =>
                       setVitalSigns({ ...vitalSigns, heartRate: Number(e.target.value) })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500 rounded-lg text-sm"
                     placeholder="72"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">체온 (°C)</label>
+                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">체온 (°C)</label>
                   <input
                     type="number"
                     step="0.1"
@@ -319,36 +319,36 @@ export function AddPatientModal({ handoffId, onClose, onSuccess }: AddPatientMod
                     onChange={(e) =>
                       setVitalSigns({ ...vitalSigns, temperature: Number(e.target.value) })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500 rounded-lg text-sm"
                     placeholder="36.5"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">호흡수 (회/분)</label>
+                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">호흡수 (회/분)</label>
                   <input
                     type="number"
                     value={vitalSigns.respiratoryRate || ""}
                     onChange={(e) =>
                       setVitalSigns({ ...vitalSigns, respiratoryRate: Number(e.target.value) })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500 rounded-lg text-sm"
                     placeholder="16"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">산소포화도 (%)</label>
+                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">산소포화도 (%)</label>
                   <input
                     type="number"
                     value={vitalSigns.oxygenSaturation || ""}
                     onChange={(e) =>
                       setVitalSigns({ ...vitalSigns, oxygenSaturation: Number(e.target.value) })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500 rounded-lg text-sm"
                     placeholder="98"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">통증점수 (0-10)</label>
+                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">통증점수 (0-10)</label>
                   <input
                     type="number"
                     min="0"
@@ -357,7 +357,7 @@ export function AddPatientModal({ handoffId, onClose, onSuccess }: AddPatientMod
                     onChange={(e) =>
                       setVitalSigns({ ...vitalSigns, painScore: Number(e.target.value) })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500 rounded-lg text-sm"
                     placeholder="0"
                   />
                 </div>
@@ -368,7 +368,7 @@ export function AddPatientModal({ handoffId, onClose, onSuccess }: AddPatientMod
           {/* Medications */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 투약 일정 ({medications.length})
               </h3>
               <button
@@ -382,19 +382,19 @@ export function AddPatientModal({ handoffId, onClose, onSuccess }: AddPatientMod
             </div>
 
             {medications.map((med, idx) => (
-              <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                 <div className="flex-1">
-                  <p className="text-sm font-medium">{med.name}</p>
-                  <p className="text-xs text-gray-600">
+                  <p className="text-sm font-medium dark:text-gray-100">{med.name}</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
                     {med.dose} • {med.route} • {med.time}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setMedications(medications.filter((_, i) => i !== idx))}
-                  className="p-1 hover:bg-gray-200 rounded"
+                  className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
                 >
-                  <Trash2 className="w-4 h-4 text-gray-500" />
+                  <Trash2 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                 </button>
               </div>
             ))}
@@ -403,7 +403,7 @@ export function AddPatientModal({ handoffId, onClose, onSuccess }: AddPatientMod
           {/* Alerts */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">주의사항 ({alerts.length})</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">주의사항 ({alerts.length})</h3>
               <button
                 type="button"
                 onClick={() => setShowAlertForm(true)}
@@ -417,29 +417,29 @@ export function AddPatientModal({ handoffId, onClose, onSuccess }: AddPatientMod
             {alerts.map((alert, idx) => (
               <div
                 key={idx}
-                className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg"
+                className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"
               >
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-red-900">{alert.type}</p>
-                  <p className="text-xs text-red-800">{alert.description}</p>
+                  <p className="text-sm font-medium text-red-900 dark:text-red-200">{alert.type}</p>
+                  <p className="text-xs text-red-800 dark:text-red-300">{alert.description}</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setAlerts(alerts.filter((_, i) => i !== idx))}
-                  className="p-1 hover:bg-red-100 rounded"
+                  className="p-1 hover:bg-red-100 dark:hover:bg-red-900/40 rounded"
                 >
-                  <Trash2 className="w-4 h-4 text-red-600" />
+                  <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
                 </button>
               </div>
             ))}
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
             >
               취소
             </button>

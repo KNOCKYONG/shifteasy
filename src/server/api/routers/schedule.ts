@@ -2365,6 +2365,7 @@ export const scheduleRouter = createTRPCRouter({
               name: users.name,
               email: users.email,
               role: users.role,
+              position: users.position,
             })
             .from(users)
             .where(and(

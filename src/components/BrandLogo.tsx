@@ -2,19 +2,16 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useTheme } from "next-themes";
 import type { ComponentProps } from "react";
 
 type BrandLogoProps = {
   href?: string;
   size?: "sm" | "md" | "lg";
   className?: string;
-  variant?: "auto" | "image" | "text";
+  variant?: "image" | "text"; // default image; text available if explicitly requested
 } & Partial<Omit<ComponentProps<typeof Image>, "src" | "alt" | "width" | "height">>;
 
-export function BrandLogo({ href = "/", size = "md", className = "", variant = "auto", ...imgProps }: BrandLogoProps) {
-  const { resolvedTheme } = useTheme();
-
+export function BrandLogo({ href = "/", size = "md", className = "", variant = "image", ...imgProps }: BrandLogoProps) {
   const sizes = {
     sm: { w: 96, h: 24, class: "h-6 md:h-8" },
     md: { w: 144, h: 36, class: "h-8 md:h-10" },
@@ -22,11 +19,9 @@ export function BrandLogo({ href = "/", size = "md", className = "", variant = "
   } as const;
   const s = sizes[size] ?? sizes.md;
 
-  const useText = variant === "text" || (variant === "auto" && resolvedTheme === "dark");
-
   return (
     <Link href={href} aria-label="ShiftEasy Home" className={`inline-flex items-center focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 rounded-md ${className}`}>
-      {useText ? (
+      {variant === "text" ? (
         <span className={`font-extrabold tracking-tight text-gray-900 dark:text-white ${s.class} flex items-center`} style={{ lineHeight: 1 }}>
           ShiftEasy
         </span>

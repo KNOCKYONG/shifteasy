@@ -100,11 +100,11 @@ export default function HandoffPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
               <ClipboardList className="w-8 h-8" />
               간호 인수인계
             </h1>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               환자 정보를 빠르고 정확하게 인수인계하세요
             </p>
           </div>
@@ -120,37 +120,37 @@ export default function HandoffPage() {
         {/* Statistics Cards */}
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
+            <div className="bg-white dark:bg-gray-900 p-4 rounded-lg shadow border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">총 인수인계</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.totalHandoffs}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">총 인수인계</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.totalHandoffs}</p>
                 </div>
                 <ClipboardList className="w-8 h-8 text-blue-500" />
               </div>
             </div>
-            <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
+            <div className="bg-white dark:bg-gray-900 p-4 rounded-lg shadow border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">평균 소요시간</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.avgDuration}분</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">평균 소요시간</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.avgDuration}분</p>
                 </div>
                 <Clock className="w-8 h-8 text-green-500" />
               </div>
             </div>
-            <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
+            <div className="bg-white dark:bg-gray-900 p-4 rounded-lg shadow border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">총 환자 수</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.totalPatients}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">총 환자 수</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.totalPatients}</p>
                 </div>
                 <Users className="w-8 h-8 text-purple-500" />
               </div>
             </div>
-            <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
+            <div className="bg-white dark:bg-gray-900 p-4 rounded-lg shadow border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">긴급 환자</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">긴급 환자</p>
                   <p className="text-2xl font-bold text-red-600">{stats.criticalPatients}</p>
                 </div>
                 <AlertCircle className="w-8 h-8 text-red-500" />
@@ -160,14 +160,14 @@ export default function HandoffPage() {
         )}
 
         {/* Tabs */}
-        <div className="border-b border-gray-200">
+        <div className="border-b border-gray-200 dark:border-gray-700">
           <nav className="flex space-x-8">
             <button
               onClick={() => setActiveTab("to-give")}
               className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === "to-give"
                   ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
               }`}
             >
               <div className="flex items-center gap-2">
@@ -185,7 +185,7 @@ export default function HandoffPage() {
               className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === "to-receive"
                   ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
               }`}
             >
               <div className="flex items-center gap-2">
@@ -204,11 +204,11 @@ export default function HandoffPage() {
         {/* Filters */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-500" />
+            <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">모든 상태</option>
               <option value="draft">작성중</option>
@@ -236,7 +236,7 @@ export default function HandoffPage() {
               return (
                 <div
                   key={handoff.id}
-                  className="bg-white rounded-lg shadow border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer"
+                  className="bg-white dark:bg-gray-900 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition-shadow cursor-pointer"
                   onClick={() => {
                     window.location.href = `/handoff/${handoff.id}`;
                   }}
@@ -251,10 +251,10 @@ export default function HandoffPage() {
                         >
                           {STATUS_LABELS[handoff.status as keyof typeof STATUS_LABELS]}
                         </span>
-                        <span className="text-sm text-gray-500">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
                           {SHIFT_TYPE_LABELS[handoff.shiftType as keyof typeof SHIFT_TYPE_LABELS]} 근무
                         </span>
-                        <span className="text-sm text-gray-500">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
                           {format(new Date(handoff.shiftDate), "yyyy년 M월 d일 (E)", {
                             locale: ko,
                           })}
@@ -264,14 +264,14 @@ export default function HandoffPage() {
                       <div className="grid grid-cols-3 gap-4 mt-4">
                         <div className="flex items-center gap-2">
                           <Users className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm text-gray-600">
-                            총 <span className="font-semibold text-gray-900">{totalPatients}</span>명
+                          <span className="text-sm text-gray-600 dark:text-gray-400">
+                            총 <span className="font-semibold text-gray-900 dark:text-gray-100">{totalPatients}</span>명
                           </span>
                         </div>
                         {criticalCount > 0 && (
                           <div className="flex items-center gap-2">
                             <span className="text-lg">{PRIORITY_ICONS.critical}</span>
-                            <span className="text-sm text-gray-600">
+                            <span className="text-sm text-gray-600 dark:text-gray-400">
                               긴급 <span className="font-semibold text-red-600">{criticalCount}</span>명
                             </span>
                           </div>
@@ -279,7 +279,7 @@ export default function HandoffPage() {
                         {highCount > 0 && (
                           <div className="flex items-center gap-2">
                             <span className="text-lg">{PRIORITY_ICONS.high}</span>
-                            <span className="text-sm text-gray-600">
+                            <span className="text-sm text-gray-600 dark:text-gray-400">
                               높음 <span className="font-semibold text-orange-600">{highCount}</span>명
                             </span>
                           </div>
@@ -287,7 +287,7 @@ export default function HandoffPage() {
                       </div>
 
                       {handoff.overallNotes && (
-                        <p className="mt-3 text-sm text-gray-600 line-clamp-2">
+                        <p className="mt-3 text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
                           {handoff.overallNotes}
                         </p>
                       )}
@@ -295,7 +295,7 @@ export default function HandoffPage() {
 
                     <div className="flex flex-col items-end gap-2">
                       {handoff.status === "completed" && handoff.duration && (
-                        <div className="flex items-center gap-1 text-sm text-gray-500">
+                        <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
                           <Clock className="w-4 h-4" />
                           {handoff.duration}분
                         </div>
@@ -307,9 +307,9 @@ export default function HandoffPage() {
               );
             })
           ) : (
-            <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+            <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
               <ClipboardList className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">
+              <p className="text-gray-500 dark:text-gray-400">
                 {statusFilter === "all"
                   ? "아직 인수인계가 없습니다"
                   : `${STATUS_LABELS[statusFilter as keyof typeof STATUS_LABELS]} 상태의 인수인계가 없습니다`}

@@ -537,13 +537,15 @@ export function AdminDashboard() {
                           {workmate.name}
                         </p>
                         <p className="text-xs text-gray-600 dark:text-gray-400">
-                          {workmatesGroupBy === 'team'
-                            ? '동일 팀 일정'
-                            : workmate.role === 'member'
-                              ? '일반 직원'
-                              : workmate.role === 'manager'
-                                ? '매니저'
-                                : '관리자'}
+                          {workmate.position || (
+                            workmatesGroupBy === 'team'
+                              ? '동일 팀 일정'
+                              : workmate.role === 'member'
+                                ? '일반 직원'
+                                : workmate.role === 'manager'
+                                  ? '매니저'
+                                  : '관리자'
+                          )}
                         </p>
                       </div>
                     </div>

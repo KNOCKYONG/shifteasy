@@ -649,34 +649,34 @@ export function TeamPatternPanel({
 
   if (loading) {
     return (
-      <div className="p-6 bg-white rounded-lg shadow-sm border border-gray-200">
+      <div className="p-6 bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
         <LottieLoadingOverlay message="부서 패턴을 불러오는 중입니다..." />
       </div>
     );
   }
 
   return (
-    <div className="p-6 bg-white rounded-lg shadow-sm border border-gray-200">
+    <div className="p-6 bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
-          <Users className="w-5 h-5 text-blue-600" />
-          <h2 className="text-lg font-semibold text-gray-900">부서 패턴 설정</h2>
+          <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">부서 패턴 설정</h2>
         </div>
-        <div className="text-sm text-gray-500">
-          전체 인원: <span className="font-semibold">{totalMembers}명</span>
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          전체 인원: <span className="font-semibold text-gray-900 dark:text-gray-100">{totalMembers}명</span>
         </div>
       </div>
 
       {/* 시프트별 필요 인원 */}
       <div className="mb-6">
-        <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
           <Calendar className="w-4 h-4" />
           시프트별 필요 인원
         </h3>
         <div className="space-y-3">
           {visibleShiftTypes.length === 0 && (
-            <div className="p-4 text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-md">
+            <div className="p-4 text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-md">
               필요 인원 설정 대상 근무 타입이 없습니다. 근무 타입 목록에서 근무 코드를 추가해주세요.
             </div>
           )}
@@ -688,7 +688,7 @@ export function TeamPatternPanel({
             return (
               <div
                 key={shift.code}
-                className="border border-gray-200 rounded-lg p-3 sm:p-4 bg-white shadow-sm"
+                className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 sm:p-4 bg-white dark:bg-gray-900 shadow-sm"
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-3">
@@ -697,10 +697,10 @@ export function TeamPatternPanel({
                       style={{ backgroundColor: resolveShiftColor(shift.color) }}
                     />
                     <div>
-                      <p className="text-sm font-semibold text-gray-900">
-                        {shift.name} <span className="text-xs text-gray-500">({code})</span>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                        {shift.name} <span className="text-xs text-gray-500 dark:text-gray-400">({code})</span>
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
                         {shift.startTime} - {shift.endTime}
                       </p>
                     </div>
@@ -710,7 +710,7 @@ export function TeamPatternPanel({
                       type="button"
                       onClick={() => adjustRequiredStaff(code, -1)}
                       disabled={!canEdit || value <= 0}
-                      className="w-8 h-8 rounded-md border border-gray-200 text-gray-600 disabled:text-gray-400 disabled:border-gray-100"
+                      className="w-8 h-8 rounded-md border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 disabled:text-gray-400 dark:disabled:text-gray-600 disabled:border-gray-100 dark:disabled:border-gray-800"
                     >
                       -
                     </button>
@@ -728,21 +728,21 @@ export function TeamPatternPanel({
                         }
                       }}
                       disabled={!canEdit}
-                      className="w-20 px-3 py-2 border border-gray-300 rounded-md text-center focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+                      className="w-20 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-center bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 disabled:bg-gray-50 dark:disabled:bg-gray-900"
                     />
                     <button
                       type="button"
                       onClick={() => adjustRequiredStaff(code, 1)}
                       disabled={!canEdit}
-                      className="w-8 h-8 rounded-md border border-gray-200 text-gray-600 disabled:text-gray-400 disabled:border-gray-100"
+                      className="w-8 h-8 rounded-md border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 disabled:text-gray-400 dark:disabled:text-gray-600 disabled:border-gray-100 dark:disabled:border-gray-800"
                     >
                       +
                     </button>
                   </div>
                 </div>
-                <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                <div className="mt-2 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                   <span>전체 대비 {percentage}%</span>
-                  <span className="font-medium text-gray-700">{value}명</span>
+                  <span className="font-medium text-gray-700 dark:text-gray-300">{value}명</span>
                 </div>
               </div>
             );
@@ -750,15 +750,15 @@ export function TeamPatternPanel({
         </div>
 
         {/* 인원 배정 상태 */}
-        <div className="mt-3 p-3 bg-gray-50 rounded-md">
-          <div className="text-sm text-gray-600">
-            배정된 인원: <span className="font-medium">{totalRequired}명</span> /
-            남은 인원: <span className={`font-medium ${remainingStaff < 0 ? 'text-red-600' : 'text-green-600'}`}>
+        <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-md">
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            배정된 인원: <span className="font-medium text-gray-900 dark:text-gray-100">{totalRequired}명</span> /
+            남은 인원: <span className={`font-medium ${remainingStaff < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
               {remainingStaff}명
             </span>
           </div>
           {remainingStaff < 0 && (
-            <div className="mt-1 text-xs text-red-600 flex items-center gap-1">
+            <div className="mt-1 text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
               <AlertCircle className="w-3 h-3" />
               전체 인원을 초과했습니다
             </div>
@@ -769,14 +769,14 @@ export function TeamPatternPanel({
       {/* 기본 근무 패턴 */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-medium text-gray-700 flex items-center gap-2">
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
             <Calendar className="w-4 h-4" />
             기본 근무 패턴
           </h3>
           {canEdit && (
             <button
               onClick={addPattern}
-              className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+              className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1"
             >
               <Plus className="w-4 h-4" />
               패턴 추가
@@ -786,20 +786,20 @@ export function TeamPatternPanel({
 
         {/* 텍스트 입력으로 패턴 추가 */}
         {canEdit && (
-          <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
             <div className="flex items-start gap-2 mb-2">
-              <Keyboard className="w-5 h-5 text-blue-600 mt-0.5" />
+              <Keyboard className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
               <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   패턴 직접 입력
                 </label>
-                <p className="text-xs text-gray-500 mb-2">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                   하이픈(-), 쉼표(,), 공백으로 구분하여 입력하세요. 예: N-N-N-O-O
                 </p>
               </div>
               <button
                 onClick={() => setShowPatternHelp(!showPatternHelp)}
-                className="p-1 text-gray-400 hover:text-gray-600"
+                className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                 title="도움말"
               >
                 <Info className="w-4 h-4" />
@@ -808,15 +808,15 @@ export function TeamPatternPanel({
 
             {/* 도움말 */}
             {showPatternHelp && (
-              <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                <div className="text-xs text-blue-900 space-y-2">
+              <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 rounded-md">
+                <div className="text-xs text-blue-900 dark:text-blue-200 space-y-2">
                   <div>
                     <p className="font-medium mb-1">✅ 유효한 키워드:</p>
                     <div className="grid grid-cols-2 gap-1 ml-2">
                       {Object.entries(KEYWORD_DESCRIPTIONS).map(([token, desc]) => (
                         <div key={token} className="flex items-center gap-1">
                           <span className="font-mono font-bold">{token}:</span>
-                          <span className="text-gray-600">{desc}</span>
+                          <span className="text-gray-600 dark:text-gray-400">{desc}</span>
                         </div>
                       ))}
                     </div>
@@ -828,10 +828,10 @@ export function TeamPatternPanel({
                         <button
                           key={idx}
                           onClick={() => applyExamplePattern(ex.pattern)}
-                          className="block w-full text-left hover:bg-blue-100 px-2 py-1 rounded transition-colors"
+                          className="block w-full text-left hover:bg-blue-100 dark:hover:bg-blue-900/30 px-2 py-1 rounded transition-colors"
                         >
                           <span className="font-mono">{ex.pattern}</span>
-                          <span className="text-gray-500 ml-2">→ {ex.description}</span>
+                          <span className="text-gray-500 dark:text-gray-400 ml-2">→ {ex.description}</span>
                         </button>
                       ))}
                     </div>
@@ -853,12 +853,12 @@ export function TeamPatternPanel({
                     }
                   }}
                   placeholder="예: N-N-N-O-O 또는 D,D,D,O,O (Enter로 추가)"
-                  className={`w-full px-3 py-2 border rounded-md font-mono text-sm ${
+                  className={`w-full px-3 py-2 border rounded-md font-mono text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 ${
                     patternValidation?.isValid
-                      ? 'border-green-300 bg-green-50 focus:ring-green-500'
+                      ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-950/20 focus:ring-green-500 dark:focus:ring-green-400'
                       : patternValidation?.errors.length
-                      ? 'border-red-300 bg-red-50 focus:ring-red-500'
-                      : 'border-gray-300 focus:ring-blue-500'
+                      ? 'border-red-300 dark:border-red-600 bg-red-50 dark:bg-red-950/20 focus:ring-red-500 dark:focus:ring-red-400'
+                      : 'border-gray-300 dark:border-gray-600 focus:ring-blue-500 dark:focus:ring-blue-400'
                   } focus:outline-none focus:ring-2`}
                 />
 
@@ -867,7 +867,7 @@ export function TeamPatternPanel({
                   <div className="mt-2 space-y-1">
                     {/* 에러 메시지 */}
                     {patternValidation.errors.length > 0 && (
-                      <div className="flex items-start gap-1 text-xs text-red-600">
+                      <div className="flex items-start gap-1 text-xs text-red-600 dark:text-red-400">
                         <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
                         <div>
                           {patternValidation.errors.map((err, idx) => (
@@ -879,7 +879,7 @@ export function TeamPatternPanel({
 
                     {/* 경고 메시지 */}
                     {patternValidation.warnings.length > 0 && (
-                      <div className="flex items-start gap-1 text-xs text-amber-600">
+                      <div className="flex items-start gap-1 text-xs text-amber-600 dark:text-amber-400">
                         <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
                         <div>
                           {patternValidation.warnings.map((warn, idx) => (
@@ -891,7 +891,7 @@ export function TeamPatternPanel({
 
                     {/* 성공 메시지 */}
                     {patternValidation.isValid && (
-                      <div className="flex items-center gap-1 text-xs text-green-600">
+                      <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
                         <CheckCircle className="w-3 h-3" />
                         <span>
                           유효한 패턴: {describePattern(patternValidation.tokens)}
@@ -905,7 +905,7 @@ export function TeamPatternPanel({
               <button
                 onClick={applyPatternInput}
                 disabled={!patternValidation?.isValid}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+                className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
               >
                 <Plus className="w-4 h-4" />
                 추가
@@ -972,8 +972,8 @@ export function TeamPatternPanel({
           ))}
         </div>
 
-        <div className="mt-3 p-3 bg-blue-50 rounded-md">
-          <p className="text-xs text-blue-700">
+        <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-md">
+          <p className="text-xs text-blue-700 dark:text-blue-300">
             * 개인 선호도가 입력되지 않은 직원은 위 기본 패턴이 자동으로 적용됩니다.
           </p>
         </div>
@@ -983,11 +983,11 @@ export function TeamPatternPanel({
       <div className="mb-6">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h3 className="text-sm font-medium text-gray-700 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-red-500" />
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-500 dark:text-red-400" />
               기피 근무 패턴 (선택사항)
             </h3>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               피해야 할 연속 시프트 조합을 설정하세요. 예: 야간 2일 후 주간 근무
             </p>
           </div>
@@ -1000,7 +1000,7 @@ export function TeamPatternPanel({
                   ['N', 'D']
                 ],
               }))}
-              className="text-sm text-red-600 hover:text-red-700 flex items-center gap-1"
+              className="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 flex items-center gap-1"
             >
               <Plus className="w-4 h-4" />
               기피 패턴 추가
@@ -1010,20 +1010,20 @@ export function TeamPatternPanel({
 
         {/* 텍스트 입력으로 기피 패턴 추가 */}
         {canEdit && (
-          <div className="mb-4 p-4 bg-red-50 rounded-lg border border-red-200">
+          <div className="mb-4 p-4 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-900/50">
             <div className="flex items-start gap-2 mb-2">
-              <Keyboard className="w-5 h-5 text-red-600 mt-0.5" />
+              <Keyboard className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />
               <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   기피 패턴 직접 입력
                 </label>
-                <p className="text-xs text-gray-500 mb-2">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                   하이픈(-), 쉼표(,), 공백으로 구분하여 입력하세요. 예: N-N-D (야간 2일 후 주간 금지)
                 </p>
               </div>
               <button
                 onClick={() => setShowAvoidPatternHelp(!showAvoidPatternHelp)}
-                className="p-1 text-gray-400 hover:text-gray-600"
+                className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                 title="도움말"
               >
                 <Info className="w-4 h-4" />
@@ -1032,22 +1032,22 @@ export function TeamPatternPanel({
 
             {/* 도움말 */}
             {showAvoidPatternHelp && (
-              <div className="mb-3 p-3 bg-red-100 border border-red-300 rounded-md">
-                <div className="text-xs text-red-900 space-y-2">
+              <div className="mb-3 p-3 bg-red-100 dark:bg-red-950/30 border border-red-300 dark:border-red-900/50 rounded-md">
+                <div className="text-xs text-red-900 dark:text-red-200 space-y-2">
                   <div>
                     <p className="font-medium mb-1">✅ 유효한 키워드 (OFF 제외):</p>
                     <div className="grid grid-cols-2 gap-1 ml-2">
                       <div key="D" className="flex items-center gap-1">
                         <span className="font-mono font-bold">D:</span>
-                        <span className="text-gray-700">주간 근무</span>
+                        <span className="text-gray-700 dark:text-gray-400">주간 근무</span>
                       </div>
                       <div key="E" className="flex items-center gap-1">
                         <span className="font-mono font-bold">E:</span>
-                        <span className="text-gray-700">저녁 근무</span>
+                        <span className="text-gray-700 dark:text-gray-400">저녁 근무</span>
                       </div>
                       <div key="N" className="flex items-center gap-1">
                         <span className="font-mono font-bold">N:</span>
-                        <span className="text-gray-700">야간 근무</span>
+                        <span className="text-gray-700 dark:text-gray-400">야간 근무</span>
                       </div>
                     </div>
                   </div>
@@ -1056,31 +1056,31 @@ export function TeamPatternPanel({
                     <div className="ml-2 space-y-1">
                       <button
                         onClick={() => applyAvoidExamplePattern('N-D')}
-                        className="block w-full text-left hover:bg-red-200 px-2 py-1 rounded transition-colors"
+                        className="block w-full text-left hover:bg-red-200 dark:hover:bg-red-900/30 px-2 py-1 rounded transition-colors"
                       >
                         <span className="font-mono">N-D</span>
-                        <span className="text-gray-700 ml-2">→ 야간 직후 주간 금지</span>
+                        <span className="text-gray-700 dark:text-gray-400 ml-2">→ 야간 직후 주간 금지</span>
                       </button>
                       <button
                         onClick={() => applyAvoidExamplePattern('N-N-D')}
-                        className="block w-full text-left hover:bg-red-200 px-2 py-1 rounded transition-colors"
+                        className="block w-full text-left hover:bg-red-200 dark:hover:bg-red-900/30 px-2 py-1 rounded transition-colors"
                       >
                         <span className="font-mono">N-N-D</span>
-                        <span className="text-gray-700 ml-2">→ 야간 2일 후 주간 금지</span>
+                        <span className="text-gray-700 dark:text-gray-400 ml-2">→ 야간 2일 후 주간 금지</span>
                       </button>
                       <button
                         onClick={() => applyAvoidExamplePattern('E-E-N')}
-                        className="block w-full text-left hover:bg-red-200 px-2 py-1 rounded transition-colors"
+                        className="block w-full text-left hover:bg-red-200 dark:hover:bg-red-900/30 px-2 py-1 rounded transition-colors"
                       >
                         <span className="font-mono">E-E-N</span>
-                        <span className="text-gray-700 ml-2">→ 저녁 2일 후 야간 금지</span>
+                        <span className="text-gray-700 dark:text-gray-400 ml-2">→ 저녁 2일 후 야간 금지</span>
                       </button>
                       <button
                         onClick={() => applyAvoidExamplePattern('D-D-D-D-D-D')}
-                        className="block w-full text-left hover:bg-red-200 px-2 py-1 rounded transition-colors"
+                        className="block w-full text-left hover:bg-red-200 dark:hover:bg-red-900/30 px-2 py-1 rounded transition-colors"
                       >
                         <span className="font-mono">D-D-D-D-D-D</span>
-                        <span className="text-gray-700 ml-2">→ 주간 6일 연속 금지</span>
+                        <span className="text-gray-700 dark:text-gray-400 ml-2">→ 주간 6일 연속 금지</span>
                       </button>
                     </div>
                   </div>
@@ -1101,12 +1101,12 @@ export function TeamPatternPanel({
                     }
                   }}
                   placeholder="예: N-N-D 또는 E,E,N (Enter로 추가)"
-                  className={`w-full px-3 py-2 border rounded-md font-mono text-sm ${
+                  className={`w-full px-3 py-2 border rounded-md font-mono text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 ${
                     avoidPatternValidation?.isValid
-                      ? 'border-green-300 bg-green-50 focus:ring-green-500'
+                      ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-950/20 focus:ring-green-500 dark:focus:ring-green-400'
                       : avoidPatternValidation?.errors.length
-                      ? 'border-red-300 bg-red-50 focus:ring-red-500'
-                      : 'border-gray-300 focus:ring-red-500'
+                      ? 'border-red-300 dark:border-red-600 bg-red-50 dark:bg-red-950/20 focus:ring-red-500 dark:focus:ring-red-400'
+                      : 'border-gray-300 dark:border-gray-600 focus:ring-red-500 dark:focus:ring-red-400'
                   } focus:outline-none focus:ring-2`}
                 />
 
@@ -1115,7 +1115,7 @@ export function TeamPatternPanel({
                   <div className="mt-2 space-y-1">
                     {/* 에러 메시지 */}
                     {avoidPatternValidation.errors.length > 0 && (
-                      <div className="flex items-start gap-1 text-xs text-red-600">
+                      <div className="flex items-start gap-1 text-xs text-red-600 dark:text-red-400">
                         <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
                         <div>
                           {avoidPatternValidation.errors.map((err, idx) => (
@@ -1127,7 +1127,7 @@ export function TeamPatternPanel({
 
                     {/* 경고 메시지 */}
                     {avoidPatternValidation.warnings.length > 0 && (
-                      <div className="flex items-start gap-1 text-xs text-amber-600">
+                      <div className="flex items-start gap-1 text-xs text-amber-600 dark:text-amber-400">
                         <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
                         <div>
                           {avoidPatternValidation.warnings.map((warn, idx) => (
@@ -1139,7 +1139,7 @@ export function TeamPatternPanel({
 
                     {/* 성공 메시지 */}
                     {avoidPatternValidation.isValid && (
-                      <div className="flex items-center gap-1 text-xs text-green-600">
+                      <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
                         <CheckCircle className="w-3 h-3" />
                         <span>
                           유효한 기피 패턴: {describePattern(avoidPatternValidation.tokens)}
@@ -1153,7 +1153,7 @@ export function TeamPatternPanel({
               <button
                 onClick={applyAvoidPatternInput}
                 disabled={!avoidPatternValidation?.isValid}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+                className="px-4 py-2 bg-red-600 dark:bg-red-500 text-white rounded-md hover:bg-red-700 dark:hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
               >
                 <Plus className="w-4 h-4" />
                 추가
@@ -1165,7 +1165,7 @@ export function TeamPatternPanel({
         <div className="space-y-3">
           {pattern.avoidPatterns && pattern.avoidPatterns.length > 0 ? (
             pattern.avoidPatterns.map((avoidArray, patternIndex) => (
-              <div key={patternIndex} className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-md">
+              <div key={patternIndex} className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-md">
                 <div className="flex-1 flex items-center gap-1 flex-wrap">
                   {avoidArray.map((shift, dayIndex) => {
                     const colorStyle = getShiftColorStyle(shift);
@@ -1252,25 +1252,25 @@ export function TeamPatternPanel({
               </div>
             ))
           ) : (
-            <div className="p-4 bg-gray-50 border border-gray-200 rounded-md text-center">
-              <p className="text-sm text-gray-500">
+            <div className="p-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-md text-center">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 설정된 기피 패턴이 없습니다. 필요한 경우 위 버튼으로 추가하세요.
               </p>
             </div>
           )}
         </div>
 
-        <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-md">
+        <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-md">
           <div className="flex items-start gap-2">
-            <Info className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-            <div className="text-xs text-amber-800">
+            <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+            <div className="text-xs text-amber-800 dark:text-amber-200">
               <p className="font-medium mb-1">기피 패턴 사용 예시:</p>
               <ul className="list-disc list-inside space-y-1 ml-2">
                 <li><span className="font-mono">N-D</span>: 야간 근무 직후 주간 근무는 피함</li>
                 <li><span className="font-mono">N-N-D</span>: 야간 2일 후 주간 근무는 피함</li>
                 <li><span className="font-mono">D-D-D-D-D-D</span>: 주간 6일 연속 근무는 피함</li>
               </ul>
-              <p className="mt-2 text-amber-700">
+              <p className="mt-2 text-amber-700 dark:text-amber-300">
                 * 스케줄 생성 시 이 패턴들이 발생하지 않도록 조정됩니다.
               </p>
             </div>
@@ -1280,10 +1280,10 @@ export function TeamPatternPanel({
 
       {/* 에러 메시지 */}
       {errors.length > 0 && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+        <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-md">
           <div className="flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-red-600 mt-0.5" />
-            <div className="text-sm text-red-600">
+            <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5" />
+            <div className="text-sm text-red-600 dark:text-red-400">
               {errors.map((error, index) => (
                 <div key={index}>{error}</div>
               ))}
@@ -1294,10 +1294,10 @@ export function TeamPatternPanel({
 
       {/* 성공 메시지 */}
       {successMessage && (
-        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+        <div className="mb-4 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900/50 rounded-md">
           <div className="flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-green-600" />
-            <div className="text-sm text-green-600">{successMessage}</div>
+            <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+            <div className="text-sm text-green-600 dark:text-green-400">{successMessage}</div>
           </div>
         </div>
       )}
@@ -1308,7 +1308,7 @@ export function TeamPatternPanel({
           <button
             onClick={handleReset}
             disabled={saving}
-            className="px-4 py-2 text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2"
+            className="px-4 py-2 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 flex items-center gap-2"
           >
             <RefreshCw className="w-4 h-4" />
             초기화
@@ -1316,7 +1316,7 @@ export function TeamPatternPanel({
           <button
             onClick={handleSave}
             disabled={saving || errors.length > 0}
-            className="px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-4 py-2 text-white bg-blue-600 dark:bg-blue-500 rounded-md hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {saving ? '저장 중...' : '저장'}
