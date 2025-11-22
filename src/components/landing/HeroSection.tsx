@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, Sparkles, LogIn, Zap, Clock, Users } from 'lucide-react';
+import { ArrowRight, Sparkles, Zap, Clock, Users } from 'lucide-react';
 import Link from 'next/link';
 import ConsultingRequestModal from './ConsultingRequestModal';
 

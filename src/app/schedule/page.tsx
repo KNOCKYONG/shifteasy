@@ -324,7 +324,7 @@ function SchedulePageContent() {
   const finalizeScheduleJobMutation = api.schedule.finalizeJob.useMutation();
   type GenerateScheduleAsyncInput = Parameters<typeof generateScheduleAsyncMutation.mutateAsync>[0];
   type GenerateScheduleInput = GenerateScheduleAsyncInput;
-  const JOB_POLL_TIMEOUT_MS = 1000 * 60 * 60; // 60 minutes
+  const JOB_POLL_TIMEOUT_MS = 1000 * 60 * 2; // 2 minutes
   const deleteMutation = api.schedule.delete.useMutation();
 
   // 🆕 스케줄 개선 mutation
@@ -403,6 +403,64 @@ function SchedulePageContent() {
   const [isPreparingConfirmation, setIsPreparingConfirmation] = useState(false);
   const [toolbarAnimatedIn, setToolbarAnimatedIn] = useState(false);
   const [isAiGenerated, setIsAiGenerated] = useState(false); // Track if current schedule was AI-generated
+  const showPartialResult = (
+    resultPayload: {
+      assignments?: DbAssignment[];
+      generationResult?: Partial<SchedulingResult>;
+    },
+    departmentId: string,
+    startDate: Date,
+    endDate: Date,
+    useMilpEngine: boolean,
+    aiEnabled: boolean
+  ) => {
+    if (!resultPayload?.assignments) {
+      return false;
+    }
+    const normalizedAssignments: ScheduleAssignment[] = resultPayload.assignments.map((assignment: DbAssignment) => ({
+      ...assignment,
+      date: new Date(assignment.date),
+      id: assignment.id || `${assignment.employeeId}-${assignment.date}`,
+      isLocked: assignment.isLocked || false,
+    }));
+    setSchedule(normalizedAssignments);
+    setOriginalSchedule(normalizedAssignments);
+    setIsConfirmed(false);
+    pendingGeneratedScheduleRef.current = null;
+    setLoadedScheduleId(null);
+    const genResult = resultPayload.generationResult;
+    const diagnostics = genResult?.diagnostics as FailureDiagnostics | undefined;
+    if (genResult) {
+      setGenerationResult({
+        success: genResult.success ?? false,
+        violations: genResult.violations ?? [],
+        score: genResult.score ?? {
+          total: 0,
+          fairness: 0,
+          preference: 0,
+          coverage: 0,
+          constraintSatisfaction: 0,
+          breakdown: [],
+        },
+        iterations: genResult.iterations ?? 0,
+        computationTime: genResult.computationTime ?? 0,
+        offAccruals: genResult.offAccruals ?? [],
+        diagnostics,
+        stats: genResult.stats ?? { fairnessIndex: 0, coverageRate: 0, preferenceScore: 0 },
+        postprocess: genResult.postprocess,
+      });
+      setOffAccrualSummaries(genResult.offAccruals ?? []);
+    } else {
+      setGenerationResult(null);
+      setOffAccrualSummaries([]);
+    }
+    setGenerationError({
+      message: '스케줄 생성이 실패했지만 부분 결과를 불러왔습니다.',
+      diagnostics,
+    });
+    setIsAiGenerated(!useMilpEngine && aiEnabled && isProfessionalPlan);
+    return true;
+  };
   const [selectedDepartmentState, setSelectedDepartmentState] = useState<string>('all');
   const setSelectedDepartment = useCallback((value: string | ((prev: string) => string)) => {
     setSelectedDepartmentState((prev) => {
@@ -2497,6 +2555,19 @@ function SchedulePageContent() {
         await sleep(2000);
       }
 
+      if (lastStatus?.status === 'failed' && lastStatus.result) {
+        const shown = showPartialResult(
+          lastStatus.result,
+          inferredDepartmentId,
+          monthStart,
+          monthEnd,
+          useMilpEngine,
+          aiEnabled
+        );
+        if (shown) {
+          return;
+        }
+      }
       if (!lastStatus || lastStatus.status !== 'completed') {
         throw new Error('스케줄 생성 작업이 시간 내에 완료되지 않았습니다.');
       }
@@ -2567,6 +2638,19 @@ function SchedulePageContent() {
         }
         await sleep(2000);
       }
+      if (lastStatus?.status === 'failed' && lastStatus.result) {
+        const shown = showPartialResult(
+          lastStatus.result,
+          adjustedPayload.departmentId,
+          adjustedPayload.startDate,
+          adjustedPayload.endDate,
+          adjustedPayload.useMilpEngine ?? false,
+          adjustedPayload.enableAI ?? false
+        );
+        if (shown) {
+          return;
+        }
+      }
       if (!lastStatus || lastStatus.status !== 'completed') {
         throw new Error('스케줄 생성 작업이 시간 내에 완료되지 않았습니다.');
       }
@@ -2634,9 +2718,10 @@ function SchedulePageContent() {
     setIsAiGenerated(!useMilpEngine && aiEnabledFlag && isProfessionalPlan);
     setAutoAdjusted(effectiveAutoAdjustments.length > 0);
     setAutoAdjustmentDetails(effectiveAutoAdjustments);
+    const isSuccess = result.generationResult?.success ?? true;
     if (result.generationResult) {
       setGenerationResult({
-        success: true,
+        success: isSuccess,
         schedule: undefined,
         violations: result.generationResult.violations,
         score: result.generationResult.score,
@@ -2658,7 +2743,7 @@ function SchedulePageContent() {
 
     void utils.schedule.list.invalidate();
 
-    if (aiEnabledFlag && isProfessionalPlan) {
+    if (isSuccess && aiEnabledFlag && isProfessionalPlan) {
       try {
         const saveDraftResponse = await fetchWithAuth('/api/schedule/save-draft', {
           method: 'POST',

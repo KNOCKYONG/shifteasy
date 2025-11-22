@@ -1,4 +1,5 @@
-'use client';
+"use client";
+/* eslint-disable @next/next/no-img-element */
 
 import { useTranslation } from 'react-i18next';
 import Link from 'next/link';
