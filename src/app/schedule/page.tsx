@@ -325,7 +325,7 @@ function SchedulePageContent() {
   const cancelScheduleJobMutation = api.schedule.cancelJob.useMutation();
   type GenerateScheduleAsyncInput = Parameters<typeof generateScheduleAsyncMutation.mutateAsync>[0];
   type GenerateScheduleInput = GenerateScheduleAsyncInput;
-  const JOB_POLL_TIMEOUT_MS = 1000 * 60 * 2; // 2 minutes
+  const JOB_POLL_TIMEOUT_MS = 1000 * 60 * 10; // 10 minutes
   const deleteMutation = api.schedule.delete.useMutation();
 
   // 🆕 스케줄 개선 mutation
