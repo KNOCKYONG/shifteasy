@@ -128,7 +128,10 @@ const mapAdvancedSettingsToSolverOptions = (
   return options;
 };
 
-type SchedulerJobError = Error & { diagnostics?: GenerationDiagnostics | Record<string, unknown> };
+type SchedulerJobError = Error & {
+  diagnostics?: GenerationDiagnostics | Record<string, unknown>;
+  partialResult?: SchedulerBackendResult;
+};
 
 export const scheduleGenerationInputSchema = z.object({
   name: z.string().default('AI Generated Schedule'),
@@ -203,6 +206,8 @@ interface SchedulerBackendResult {
   generationResult: {
     iterations: number;
     computationTime: number;
+    solveStatus?: string | null;
+    solverTimedOut?: boolean;
     violations: ConstraintViolation[];
     score: ScheduleScore;
     offAccruals: OffAccrualSummary[];
@@ -290,8 +295,9 @@ interface SchedulerBackendResult {
 
 interface SchedulerBackendJobStatusResponse {
   id: string;
-  status: 'queued' | 'processing' | 'completed' | 'failed';
+  status: 'queued' | 'processing' | 'completed' | 'failed' | 'timedout' | 'cancelled';
   result?: SchedulerBackendResult | null;
+  bestResult?: SchedulerBackendResult | null;
   error?: string | null;
   errorDiagnostics?: Record<string, unknown> | null;
   createdAt: string;
@@ -307,7 +313,7 @@ type SchedulerBackendPayload = Omit<ScheduleGenerationInput, 'startDate' | 'endD
   solver?: 'ortools' | 'cpsat' | 'hybrid';
 };
 
-const DEFAULT_JOB_TIMEOUT_MS = Number(process.env.SCHEDULER_JOB_TIMEOUT_MS ?? 300000);
+const DEFAULT_JOB_TIMEOUT_MS = Number(process.env.SCHEDULER_JOB_TIMEOUT_MS ?? 600000);
 const DEFAULT_JOB_POLL_INTERVAL_MS = Number(process.env.SCHEDULER_JOB_POLL_INTERVAL_MS ?? 2000);
 const DEFAULT_MAX_CONSECUTIVE_DAYS_THREE_SHIFT =
   DEFAULT_SCHEDULER_ADVANCED.patternConstraints.maxConsecutiveDaysThreeShift;
@@ -374,10 +380,16 @@ async function runSchedulerJob(baseUrl: string, payload: SchedulerBackendPayload
     if (jobStatus.status === 'completed' && jobStatus.result) {
       return jobStatus.result;
     }
-    if (jobStatus.status === 'failed') {
-      const err: SchedulerJobError = new Error(jobStatus.error ?? 'Scheduler job failed');
+    if (['failed', 'timedout', 'cancelled'].includes(jobStatus.status)) {
+      const err: SchedulerJobError = new Error(
+        jobStatus.error ?? `Scheduler job ${jobStatus.status}`
+      );
       if (jobStatus.errorDiagnostics) {
         err.diagnostics = jobStatus.errorDiagnostics as GenerationDiagnostics;
+      }
+      const partialResult = jobStatus.result ?? jobStatus.bestResult;
+      if (partialResult) {
+        (err as SchedulerJobError & { partialResult?: SchedulerBackendResult }).partialResult = partialResult;
       }
       throw err;
     }
@@ -415,6 +427,18 @@ async function fetchSchedulerJobStatus(baseUrl: string, jobId: string): Promise<
     throw new Error(`Failed to fetch job status (${statusResponse.status} ${message})`);
   }
   const jobStatus = (await parseJsonSafe(statusResponse)) as SchedulerBackendJobStatusResponse;
+  return jobStatus;
+}
+
+async function cancelSchedulerJob(baseUrl: string, jobId: string): Promise<SchedulerBackendJobStatusResponse> {
+  const cancelResponse = await fetch(`${baseUrl}/scheduler/jobs/${jobId}/cancel`, {
+    method: 'POST',
+  });
+  if (!cancelResponse.ok) {
+    const message = await cancelResponse.text();
+    throw new Error(`Failed to cancel job (${cancelResponse.status} ${message})`);
+  }
+  const jobStatus = (await parseJsonSafe(cancelResponse)) as SchedulerBackendJobStatusResponse;
   return jobStatus;
 }
 
@@ -2402,6 +2426,25 @@ export const scheduleRouter = createTRPCRouter({
         backendUrl: input.backendUrl,
         status: status.status,
         result: status.result ?? null,
+        bestResult: status.bestResult ?? null,
+        error: status.error ?? null,
+        errorDiagnostics: status.errorDiagnostics ?? null,
+      };
+    }),
+
+  cancelJob: protectedProcedure
+    .input(z.object({
+      jobId: z.string().min(1),
+      backendUrl: z.string().url(),
+    }))
+    .mutation(async ({ input }) => {
+      const status = await cancelSchedulerJob(input.backendUrl, input.jobId);
+      return {
+        jobId: input.jobId,
+        backendUrl: input.backendUrl,
+        status: status.status,
+        result: status.result ?? null,
+        bestResult: status.bestResult ?? null,
         error: status.error ?? null,
         errorDiagnostics: status.errorDiagnostics ?? null,
       };

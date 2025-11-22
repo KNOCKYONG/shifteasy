@@ -8,6 +8,7 @@ from ortools.sat.python import cp_model
 
 from models import Assignment, ScheduleInput
 from solver.exceptions import SolverFailure
+from solver.types import SolveResult, SolveStatus, CancellationToken
 
 DEFAULT_REQUIRED_STAFF = {"D": 5, "E": 4, "N": 3}
 
@@ -1061,7 +1062,7 @@ class CpSatScheduler:
       )
     return gaps
 
-  def solve(self) -> Tuple[List[Assignment], Dict[str, Any]]:
+  def solve(self, cancel_token: Optional[CancellationToken] = None) -> SolveResult:
     self.build_model()
     staffing_penalty = 1000 * self._weight_scalar("staffing", 1.0)
     team_penalty = 500 * self._weight_scalar("teamBalance", 1.0)
@@ -1109,25 +1110,60 @@ class CpSatScheduler:
     max_time_ms = self.options.get("maxSolveTimeMs") if isinstance(self.options, dict) else None
     if isinstance(max_time_ms, (int, float)) and max_time_ms > 0:
       solver.parameters.max_time_in_seconds = max_time_ms / 1000.0
-    status = solver.Solve(self.model)
-    if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+
+    class _SolutionRecorder(cp_model.CpSolverSolutionCallback):
+      def __init__(self, token: Optional[CancellationToken], variables: Dict[Tuple[str, str, str], cp_model.IntVar]):
+        super().__init__()
+        self.token = token
+        self._variables = variables
+        self.best_names: Set[str] = set()
+        self.best_objective: Optional[float] = None
+
+      def on_solution_callback(self):
+        if self.token and getattr(self.token, "cancelled", False):
+          self.StopSearch()
+          return
+        objective = self.ObjectiveValue()
+        if self.best_objective is None or objective < self.best_objective - 1e-6:
+          self.best_objective = objective
+          self.best_names = {
+            var.Name() for var in self._variables.values() if self.Value(var) >= 1
+          }
+
+    recorder = _SolutionRecorder(cancel_token, self.variables)
+    status = solver.SolveWithSolutionCallback(self.model, recorder)
+    wall_time_ms = int(solver.WallTime() * 1000)
+    timed_out = bool(isinstance(max_time_ms, (int, float)) and max_time_ms > 0 and wall_time_ms >= max(0, int(max_time_ms) - 1))
+    if getattr(cancel_token, "cancelled", False):
+      status_label: SolveStatus = "cancelled"
+    elif timed_out and status != cp_model.OPTIMAL:
+      status_label = "timeout"
+    elif status == cp_model.OPTIMAL:
+      status_label = "optimal"
+    elif status == cp_model.FEASIBLE:
+      status_label = "feasible"
+    elif status == cp_model.INFEASIBLE:
+      status_label = "infeasible"
+    elif status == cp_model.MODEL_INVALID:
+      status_label = "error"
+    else:
+      status_label = "timeout" if not getattr(cancel_token, "cancelled", False) else "cancelled"
+    active_names = recorder.best_names or {
+      var.Name() for var in self.variables.values() if solver.Value(var) >= 1
+    }
+    has_solution = bool(active_names)
+    if not has_solution:
       raise SolverFailure(
         "CP-SAT solver failed to find feasible schedule",
-        diagnostics={"preflightIssues": self.preflight_issues},
+        diagnostics={
+          "preflightIssues": self.preflight_issues,
+          "solverStatus": status_label,
+          "solverWallTimeMs": wall_time_ms,
+          "solverRawStatus": status,
+        },
       )
-    assignments: List[Assignment] = []
-    for (employee_id, day_key, shift_code), var in self.variables.items():
-      if solver.Value(var) >= 1:
-        is_locked = (employee_id, day_key, shift_code.upper()) in self.special_request_targets
-        assignments.append(
-          Assignment(
-            employeeId=employee_id,
-            date=day_key,
-            shiftId=self._get_shift_id(shift_code),
-            shiftType=shift_code.upper(),
-            isLocked=is_locked,
-          )
-        )
+
+    assignments = self.build_assignments_from_names(active_names)
     diagnostics: Dict[str, Any] = {
       "staffingShortages": self._collect_staffing_shortages(solver),
       "teamCoverageGaps": self._collect_team_shortages(solver),
@@ -1139,8 +1175,19 @@ class CpSatScheduler:
       "shiftBalanceGaps": self._collect_shift_balance_gaps(solver),
       "dailyHeadcountGaps": self._collect_daily_headcount_gaps(solver),
       "preflightIssues": self.preflight_issues,
+      "solverStatus": status_label,
+      "solverWallTimeMs": wall_time_ms,
+      "solverRawStatus": status,
+      "solverTimedOut": timed_out,
     }
-    return assignments, diagnostics
+    return SolveResult(
+      assignments=assignments,
+      diagnostics=diagnostics,
+      status=status_label,
+      solve_time_ms=wall_time_ms,
+      best_objective=recorder.best_objective,
+      timed_out=timed_out,
+    )
 
   def build_assignments_from_names(self, active_names: Set[str]) -> List[Assignment]:
     assignments: List[Assignment] = []
@@ -1172,6 +1219,8 @@ class CpSatScheduler:
       return default
 
 
-def solve_with_cpsat(schedule: ScheduleInput) -> Tuple[List[Assignment], Dict[str, Any]]:
+def solve_with_cpsat(
+  schedule: ScheduleInput, cancel_token: Optional[CancellationToken] = None
+) -> SolveResult:
   solver = CpSatScheduler(schedule)
-  return solver.solve()
+  return solver.solve(cancel_token)

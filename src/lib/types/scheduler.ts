@@ -227,6 +227,10 @@ export interface GenerationDiagnostics {
   guidance?: string[] | Record<string, string[]>;
   autoAdjustments?: string[];
   postprocess?: PostprocessStats;
+  solverStatus?: string;
+  solverTimedOut?: boolean;
+  solverWallTimeMs?: number;
+  solverRawStatus?: number;
 }
 
 // 패턴 정의
@@ -271,6 +275,8 @@ export interface SchedulingResult {
   score: ScheduleScore;
   iterations: number;
   computationTime: number;  // ms
+  solveStatus?: string;
+  solverTimedOut?: boolean;
   suggestions?: ScheduleSuggestion[];
   offAccruals?: OffAccrualSummary[];
   diagnostics?: GenerationDiagnostics;

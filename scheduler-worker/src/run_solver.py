@@ -11,6 +11,7 @@ from models import Assignment, parse_schedule_input
 from solver.ortools_solver import solve_with_ortools
 from solver.cpsat_solver import solve_with_cpsat
 from solver.exceptions import SolverFailure
+from solver.types import SolveResult
 
 
 def load_input(path: Path):
@@ -43,18 +44,19 @@ def main():
   schedule = parse_schedule_input(payload)
 
   solver_choice = os.environ.get("MILP_SOLVER", "ortools").lower()
-  assignments: list[Assignment]
-  diagnostics: dict
+  result: SolveResult
   try:
     if solver_choice == "cpsat":
-      assignments, diagnostics = solve_with_cpsat(schedule)
+      result = solve_with_cpsat(schedule)
     else:
-      assignments, diagnostics = solve_with_ortools(schedule)
+      result = solve_with_ortools(schedule)
   except SolverFailure as exc:
     print(f"[MILP] Solver failed: {exc}")
     if getattr(exc, "diagnostics", None):
       print(json.dumps({"diagnostics": exc.diagnostics}, ensure_ascii=False, indent=2))
     raise
+  assignments = result.assignments
+  diagnostics = result.diagnostics
   output = assignments_to_json(assignments)
 
   with output_path.open("w", encoding="utf-8") as f:

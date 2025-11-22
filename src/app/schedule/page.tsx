@@ -322,9 +322,10 @@ function SchedulePageContent() {
   const generateScheduleAsyncMutation = api.schedule.generateAsync.useMutation();
   const pollScheduleJobMutation = api.schedule.pollJob.useMutation();
   const finalizeScheduleJobMutation = api.schedule.finalizeJob.useMutation();
+  const cancelScheduleJobMutation = api.schedule.cancelJob.useMutation();
   type GenerateScheduleAsyncInput = Parameters<typeof generateScheduleAsyncMutation.mutateAsync>[0];
   type GenerateScheduleInput = GenerateScheduleAsyncInput;
-  const JOB_POLL_TIMEOUT_MS = 1000 * 60 * 2; // 2 minutes
+  const JOB_POLL_TIMEOUT_MS = 1000 * 60 * 10; // 10 minutes
   const deleteMutation = api.schedule.delete.useMutation();
 
   // 🆕 스케줄 개선 mutation
@@ -2541,23 +2542,46 @@ function SchedulePageContent() {
       let lastStatus:
         | Awaited<ReturnType<typeof pollScheduleJobMutation.mutateAsync>>
         | null = null;
+      const cancelJobSafely = async () => {
+        try {
+          await cancelScheduleJobMutation.mutateAsync({
+            jobId: asyncJob.jobId,
+            backendUrl: asyncJob.backendUrl,
+          });
+        } catch (error) {
+          console.warn('Failed to cancel schedule job', error);
+        }
+      };
       while (Date.now() < pollDeadline) {
         lastStatus = await pollScheduleJobMutation.mutateAsync({
           jobId: asyncJob.jobId,
           backendUrl: asyncJob.backendUrl,
         });
-        if (lastStatus.status === 'completed') {
+        if (['completed', 'failed', 'timedout', 'cancelled'].includes(lastStatus.status)) {
           break;
-        }
-        if (lastStatus.status === 'failed') {
-          throw new Error(lastStatus.error || '스케줄 생성 작업이 실패했습니다.');
         }
         await sleep(2000);
       }
 
-      if (lastStatus?.status === 'failed' && lastStatus.result) {
+      const partialResult = lastStatus?.result ?? lastStatus?.bestResult;
+      const normalizedPartialResult = partialResult
+        ? {
+            ...partialResult,
+            generationResult: partialResult.generationResult
+              ? {
+                  ...partialResult.generationResult,
+                  solveStatus: partialResult.generationResult.solveStatus ?? undefined,
+                }
+              : partialResult.generationResult,
+          }
+        : partialResult;
+      if (
+        lastStatus &&
+        ['failed', 'timedout', 'cancelled'].includes(lastStatus.status) &&
+        normalizedPartialResult
+      ) {
         const shown = showPartialResult(
-          lastStatus.result,
+          normalizedPartialResult,
           inferredDepartmentId,
           monthStart,
           monthEnd,
@@ -2569,7 +2593,12 @@ function SchedulePageContent() {
         }
       }
       if (!lastStatus || lastStatus.status !== 'completed') {
-        throw new Error('스케줄 생성 작업이 시간 내에 완료되지 않았습니다.');
+        if (lastStatus?.status !== 'failed' && lastStatus?.status !== 'cancelled') {
+          await cancelJobSafely();
+        }
+        const failureMessage =
+          lastStatus?.error || '스케줄 생성 작업이 시간 내에 완료되지 않았습니다.';
+        throw new Error(failureMessage);
       }
 
       const finalized = await finalizeScheduleJobMutation.mutateAsync({
@@ -2625,22 +2654,45 @@ function SchedulePageContent() {
       let lastStatus:
         | Awaited<ReturnType<typeof pollScheduleJobMutation.mutateAsync>>
         | null = null;
+      const cancelJobSafely = async () => {
+        try {
+          await cancelScheduleJobMutation.mutateAsync({
+            jobId: asyncJob.jobId,
+            backendUrl: asyncJob.backendUrl,
+          });
+        } catch (error) {
+          console.warn('Failed to cancel schedule job', error);
+        }
+      };
       while (Date.now() < pollDeadline) {
         lastStatus = await pollScheduleJobMutation.mutateAsync({
           jobId: asyncJob.jobId,
           backendUrl: asyncJob.backendUrl,
         });
-        if (lastStatus.status === 'completed') {
+        if (['completed', 'failed', 'timedout', 'cancelled'].includes(lastStatus.status)) {
           break;
-        }
-        if (lastStatus.status === 'failed') {
-          throw new Error(lastStatus.error || '스케줄 생성 작업이 실패했습니다.');
         }
         await sleep(2000);
       }
-      if (lastStatus?.status === 'failed' && lastStatus.result) {
+      const partialResult = lastStatus?.result ?? lastStatus?.bestResult;
+      const normalizedPartialResult = partialResult
+        ? {
+            ...partialResult,
+            generationResult: partialResult.generationResult
+              ? {
+                  ...partialResult.generationResult,
+                  solveStatus: partialResult.generationResult.solveStatus ?? undefined,
+                }
+              : partialResult.generationResult,
+          }
+        : partialResult;
+      if (
+        lastStatus &&
+        ['failed', 'timedout', 'cancelled'].includes(lastStatus.status) &&
+        normalizedPartialResult
+      ) {
         const shown = showPartialResult(
-          lastStatus.result,
+          normalizedPartialResult,
           adjustedPayload.departmentId,
           adjustedPayload.startDate,
           adjustedPayload.endDate,
@@ -2652,7 +2704,12 @@ function SchedulePageContent() {
         }
       }
       if (!lastStatus || lastStatus.status !== 'completed') {
-        throw new Error('스케줄 생성 작업이 시간 내에 완료되지 않았습니다.');
+        if (lastStatus?.status !== 'failed' && lastStatus?.status !== 'cancelled') {
+          await cancelJobSafely();
+        }
+        const failureMessage =
+          lastStatus?.error || '스케줄 생성 작업이 시간 내에 완료되지 않았습니다.';
+        throw new Error(failureMessage);
       }
 
       const finalized = await finalizeScheduleJobMutation.mutateAsync({
