@@ -37,10 +37,14 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 mb-12">
           {/* Brand */}
           <div className="lg:col-span-1">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500" />
+            <Link href="/" className="flex items-center gap-2 mb-4">
+              <img
+                src="/logo.png"
+                alt="ShiftEasy Logo"
+                className="w-8 h-8 object-contain"
+              />
               <span className="text-xl font-bold text-white">ShiftEasy</span>
-            </div>
+            </Link>
             <p className="text-sm text-gray-400 mb-4">
               {t('footer.brand.description')}
             </p>

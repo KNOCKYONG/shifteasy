@@ -28,14 +28,16 @@ export default function HeroSection() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             {/* Logo */}
-            <div className="flex items-center gap-3">
-              <div className="relative w-10 h-10 flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl shadow-md">
-                <span className="text-white font-bold text-xl">S</span>
-              </div>
+            <Link href="/" className="flex items-center gap-3">
+              <img
+                src="/logo.png"
+                alt="ShiftEasy Logo"
+                className="w-10 h-10 object-contain"
+              />
               <span className="text-2xl font-bold text-gray-900 tracking-tight">
                 ShiftEasy
               </span>
-            </div>
+            </Link>
 
             {/* Login Button */}
             <Link
