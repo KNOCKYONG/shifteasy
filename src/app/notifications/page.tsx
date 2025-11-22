@@ -1,7 +1,7 @@
 'use client';
 
 import { MainLayout } from '@/components/layout/MainLayout';
-import { Bell, Info, AlertTriangle, Clock, Calendar, UserCheck, AlertCircle } from 'lucide-react';
+import { Bell, Info, AlertTriangle, Clock, Calendar, UserCheck, AlertCircle, Star } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 
@@ -30,6 +30,8 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userInfo, setUserInfo] = useState<{ id: string; tenantId: string } | null>(null);
+  const [ratingSubmitting, setRatingSubmitting] = useState<Record<string, boolean>>({});
+  const [userRatings, setUserRatings] = useState<Record<string, number | null>>({});
 
   useEffect(() => {
     const fetchUserInfo = async () => {
@@ -75,6 +77,14 @@ export default function NotificationsPage() {
 
       const data = await response.json();
       setInbox(data.inbox);
+      // Initialize local rating state from notification data if present
+      const initialRatings: Record<string, number | null> = {};
+      data.inbox.notifications.forEach((n: Notification) => {
+        if (n.type === 'schedule_published' && n.data && typeof n.data['myRating'] === 'number') {
+          initialRatings[n.id] = n.data['myRating'] as number;
+        }
+      });
+      setUserRatings(initialRatings);
     } catch (err) {
       console.error('Failed to load notifications:', err);
       setError(err instanceof Error ? err.message : '알림을 불러오는데 실패했습니다.');
@@ -188,6 +198,34 @@ export default function NotificationsPage() {
     n.priority === 'high' || n.priority === 'urgent'
   ).length || 0;
 
+  const handleRateSchedule = async (notification: Notification, rating: number) => {
+    if (!notification.data || typeof notification.data['scheduleId'] !== 'string') {
+      return;
+    }
+    const scheduleId = notification.data['scheduleId'] as string;
+
+    setRatingSubmitting(prev => ({ ...prev, [notification.id]: true }));
+    setUserRatings(prev => ({ ...prev, [notification.id]: rating }));
+
+    try {
+      const response = await fetch('/api/schedule/rate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ scheduleId, rating }),
+      });
+
+      if (!response.ok) {
+        console.error('Failed to rate schedule', await response.text());
+      }
+    } catch (err) {
+      console.error('Failed to rate schedule:', err);
+    } finally {
+      setRatingSubmitting(prev => ({ ...prev, [notification.id]: false }));
+    }
+  };
+
   if (loading) {
     return (
       <MainLayout>
@@ -295,6 +333,40 @@ export default function NotificationsPage() {
                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                       {notification.message}
                     </p>
+                    {notification.type === 'schedule_published' && notification.data && (notification.data as any)['scheduleId'] && (
+                      <div
+                        className="mt-2 flex items-center gap-1"
+                        onClick={(e) => {
+                          // Prevent parent notification click (navigation) when rating
+                          e.stopPropagation();
+                        }}
+                      >
+                        <span className="text-xs text-gray-500 dark:text-gray-400 mr-2">
+                          이 스케줄에 만족도 별점을 남겨주세요
+                        </span>
+                        {[1, 2, 3, 4, 5].map((star) => {
+                          const current = userRatings[notification.id] ?? 0;
+                          const isActive = star <= current;
+                          return (
+                            <button
+                              key={star}
+                              type="button"
+                              disabled={ratingSubmitting[notification.id]}
+                              onClick={() => handleRateSchedule(notification, star)}
+                              className="p-0.5"
+                            >
+                              <Star
+                                className={`w-4 h-4 ${
+                                  isActive
+                                    ? 'text-yellow-400 fill-yellow-400'
+                                    : 'text-gray-400'
+                                }`}
+                              />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                     <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
                       {formatTimeAgo(notification.createdAt)}
                     </p>

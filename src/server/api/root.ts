@@ -15,6 +15,9 @@ import { offBalanceRouter } from './routers/off-balance';
 import { paymentsRouter } from './routers/payments';
 import { consultingRouter } from './routers/consulting';
 import { departmentPatternsRouter } from './routers/department-patterns';
+import { onboardingRouter } from './routers/onboarding';
+import { communityRouter } from './routers/community';
+import { blogRouter } from './routers/blog';
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -33,6 +36,9 @@ export const appRouter = createTRPCRouter({
   payments: paymentsRouter,
   consulting: consultingRouter,
   departmentPatterns: departmentPatternsRouter,
+  onboarding: onboardingRouter,
+  community: communityRouter,
+  blog: blogRouter,
 });
 
 export type AppRouter = typeof appRouter;

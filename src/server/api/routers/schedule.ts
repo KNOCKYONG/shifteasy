@@ -2082,19 +2082,34 @@ export const scheduleRouter = createTRPCRouter({
       return todayAssignments;
     }),
 
-  // Get my upcoming shifts (next 7 days)
+  // Get upcoming shifts for me or a specific staff
   getMyUpcomingShifts: protectedProcedure
-    .query(async ({ ctx }) => {
-      const tenantId = ctx.tenantId || '3760b5ec-462f-443c-9a90-4a2b2e295e9d';
+    .input(
+      z
+        .object({
+          userId: z.string().optional(),
+          startDate: z.string().optional(),
+          endDate: z.string().optional(),
+        })
+        .optional()
+    )
+    .query(async ({ ctx, input }) => {
+      const tenantId = ctx.tenantId;
+      if (!tenantId) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Tenant not found' });
+      }
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const sevenDaysLater = new Date(today);
-      sevenDaysLater.setDate(today.getDate() + 7);
+      const defaultEnd = new Date(today);
+      defaultEnd.setDate(today.getDate() + 7);
 
-      // Get current user's database ID
-      const currentUserId = ctx.user?.id;
-      if (!currentUserId) return [];
+      const rangeStart = input?.startDate ? new Date(input.startDate) : today;
+      const rangeEnd = input?.endDate ? new Date(input.endDate) : defaultEnd;
+
+      // Get target user's database ID (explicit userId or current user)
+      const targetUserId = input?.userId ?? ctx.user?.id;
+      if (!targetUserId) return [];
 
       // Get from schedule table for all users (including administrative staff)
       const scheduleList = await db
@@ -2112,8 +2127,8 @@ export const scheduleRouter = createTRPCRouter({
             isNull(schedules.deletedFlag),
             ne(schedules.deletedFlag, 'X')
           ),
-          lte(schedules.startDate, sevenDaysLater),
-          gte(schedules.endDate, today)
+          lte(schedules.startDate, rangeEnd),
+          gte(schedules.endDate, rangeStart)
         ))
         .orderBy(desc(schedules.publishedAt));
 
@@ -2181,12 +2196,12 @@ export const scheduleRouter = createTRPCRouter({
             ? metadataShiftTypes
             : (fallbackShiftTypes as ShiftType[]);
 
-        // Filter assignments for current user within the date range
+        // Filter assignments for target user within the date range
         const userAssignments = assignments.filter((a) => {
-          if (a.employeeId !== currentUserId) return false;
+          if (a.employeeId !== targetUserId) return false;
 
           const assignmentDate = new Date(a.date);
-          return assignmentDate >= today && assignmentDate <= sevenDaysLater;
+          return assignmentDate >= rangeStart && assignmentDate <= rangeEnd;
         });
 
         const enrichedAssignments = userAssignments.map((assignment) => {

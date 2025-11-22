@@ -12,6 +12,7 @@ export * from './teams';
 export * from './handoffs';
 export * from './payments';
 export * from './consulting-requests';
+export * from './community';
 
 // Alias for backward compatibility
 export { auditLog as auditLogs } from './system';

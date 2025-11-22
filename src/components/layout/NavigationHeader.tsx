@@ -7,11 +7,12 @@ import { SettingsMenu } from '@/components/SettingsMenu';
 import { BrandLogo } from '@/components/BrandLogo';
 import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
-import { Menu, X, Bell, ChevronDown, LogOut } from 'lucide-react';
+import { Menu, X, Bell, ChevronDown, LogOut, Search } from 'lucide-react';
 import { getNavigationForRole, type Role } from '@/lib/permissions';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useTheme } from 'next-themes';
 import { useFullSignOut } from '@/hooks/useFullSignOut';
+import { api } from '@/lib/trpc/client';
 
 interface NavItem {
   href: string;
@@ -51,6 +52,7 @@ export function NavigationHeader() {
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
   const [showTeamDropdown, setShowTeamDropdown] = useState(false);
   const [showScheduleDropdown, setShowScheduleDropdown] = useState(false);
+  const [showCommunityModal, setShowCommunityModal] = useState(false);
   const currentUser = useCurrentUser();
   const [userInfo, setUserInfo] = useState<{ id: string; tenantId: string } | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -58,6 +60,8 @@ export function NavigationHeader() {
   const { theme, setTheme } = useTheme();
   const [currentLang, setCurrentLang] = useState('ko');
   const handleSignOut = useFullSignOut();
+  const [staffSearch, setStaffSearch] = useState('');
+  const [isStaffSearchFocused, setIsStaffSearchFocused] = useState(false);
 
   const teamSubMenuItems: SubMenuItem[] = [
     { label: t('teamMenu.pattern', { defaultValue: '부서 패턴 설정' }), value: 'pattern' },
@@ -218,6 +222,9 @@ export function NavigationHeader() {
       if (!target.closest('.schedule-dropdown')) {
         setShowScheduleDropdown(false);
       }
+      if (!target.closest('.staff-search')) {
+        setIsStaffSearchFocused(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -238,6 +245,28 @@ export function NavigationHeader() {
   // 인증이 필요없는 페이지들 (네비게이션 헤더를 숨김)
   const publicPages = ['/sign-in', '/sign-up', '/join', '/billing', '/'];
   const isPublicPage = publicPages.some(page => pathname === page || (page !== '/' && pathname?.startsWith(page)));
+
+  // Staff search (blog target search)
+  const staffSearchEnabled =
+    !isPublicPage && staffSearch.trim().length > 0 && !!currentUser.userId;
+
+  const { data: staffSearchResult, isLoading: isStaffSearchLoading } =
+    api.staff.list.useQuery(
+      {
+        departmentId: undefined,
+        role: undefined,
+        status: undefined,
+        search: staffSearch.trim() || undefined,
+        limit: 8,
+        offset: 0,
+      },
+      {
+        enabled: staffSearchEnabled,
+        staleTime: 60_000,
+      }
+    );
+
+  const staffSearchItems = staffSearchResult?.items ?? [];
 
   // i18n이 준비되지 않았거나 마운트되지 않았으면 로딩 상태 표시
   if (!mounted || !ready) {
@@ -406,12 +435,74 @@ export function NavigationHeader() {
                     </Link>
                   );
                 })}
+
+                {/* Community Menu - Always shown to all users */}
+                <Link
+                  href="/community"
+                  className={`text-sm font-medium transition-colors ${
+                    pathname === '/community' || pathname?.startsWith('/community')
+                      ? 'text-blue-600 dark:text-blue-400'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+                  }`}
+                >
+                  {t('nav.community', { defaultValue: '커뮤니티' })}
+                </Link>
               </nav>
             </div>
 
-            {/* Right side: Profile, Notification Bell, and Mobile Menu Button */}
+            {/* Right side: Staff search, Profile, Notification Bell, and Mobile Menu Button */}
             <div className="flex items-center gap-2 sm:gap-4">
               <div className="hidden md:flex items-center gap-2 sm:gap-4">
+                {/* Staff search input - opens staff blog */}
+                <div className="relative staff-search">
+                  <div className="flex items-center gap-2 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5 w-52 lg:w-64 shadow-sm focus-within:ring-2 focus-within:ring-blue-500">
+                    <Search className="w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={staffSearch}
+                      onChange={(e) => setStaffSearch(e.target.value)}
+                      onFocus={() => setIsStaffSearchFocused(true)}
+                      placeholder="직원 이름으로 검색"
+                      className="w-full bg-transparent text-sm text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none"
+                    />
+                  </div>
+
+                  {staffSearchEnabled && (isStaffSearchFocused || staffSearchItems.length > 0) && (
+                    <div className="absolute mt-1 w-full rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg z-50 max-h-64 overflow-y-auto">
+                      {isStaffSearchLoading ? (
+                        <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+                          검색 중...
+                        </div>
+                      ) : staffSearchItems.length > 0 ? (
+                        staffSearchItems.map((staff) => (
+                          <button
+                            key={staff.id}
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setStaffSearch('');
+                              setIsStaffSearchFocused(false);
+                              router.push(`/blog/${staff.id}`);
+                            }}
+                            className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-800 flex flex-col"
+                          >
+                            <span className="font-medium text-gray-900 dark:text-gray-100">
+                              {staff.name}
+                            </span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              {staff.position || ''}
+                            </span>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+                          검색 결과가 없습니다.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <ProfileDropdown />
 
                 {/* Notification Dropdown */}
@@ -661,6 +752,19 @@ export function NavigationHeader() {
               </Link>
             );
           })}
+
+          {/* Community Menu for Mobile - Always shown to all users */}
+          <Link
+            href="/community"
+            onClick={() => setMobileMenuOpen(false)}
+            className={`px-4 py-3 rounded-md text-sm font-medium transition-colors ${
+              pathname === '/community' || pathname?.startsWith('/community')
+                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+            }`}
+          >
+            {t('nav.community', { defaultValue: '커뮤니티' })}
+          </Link>
 
           <div className="mt-auto space-y-3 border-t border-gray-200 dark:border-gray-700 pt-4">
             <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">

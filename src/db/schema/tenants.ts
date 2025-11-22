@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
-import { pgTable, uuid, text, timestamp, jsonb, integer, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, jsonb, integer, index, uniqueIndex } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 import { teams } from './teams';
 
@@ -117,6 +117,22 @@ export const users = pgTable('users', {
   // Career/Experience fields
   hireDate: timestamp('hire_date', { withTimezone: true }), // 입사일 (근속 년수 계산용)
   yearsOfService: integer('years_of_service').default(0), // 근속 년수 (경력)
+  // Onboarding fields
+  onboardingCompleted: integer('onboarding_completed').default(0).notNull(), // 0 = not started, 1 = in progress, 2 = completed
+  onboardingStep: jsonb('onboarding_step').$type<{
+    welcome?: boolean;
+    profile?: boolean;
+    config?: boolean;
+    team?: boolean;
+  }>().default({
+    welcome: false,
+    profile: false,
+    config: false,
+    team: false,
+  }),
+  onboardingStartedAt: timestamp('onboarding_started_at', { withTimezone: true }),
+  onboardingCompletedAt: timestamp('onboarding_completed_at', { withTimezone: true }),
+  onboardingSkipped: integer('onboarding_skipped').default(0).notNull(), // 0 = false, 1 = true (SQLite 호환)
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
@@ -140,6 +156,10 @@ export const schedules = pgTable('schedules', {
   publishedAt: timestamp('published_at', { withTimezone: true }),
   publishedBy: uuid('published_by').references(() => users.id),
   deletedFlag: text('deleted_flag'), // 'X' for soft deleted schedules
+  // Schedule satisfaction metrics
+  // averageRating is stored as rating*10 (e.g., 45 = 4.5)
+  averageRating: integer('average_rating'),
+  ratingCount: integer('rating_count').notNull().default(0),
   metadata: jsonb('metadata').$type<{
     notes?: string;
     constraints?: any;
@@ -176,6 +196,27 @@ export const schedules = pgTable('schedules', {
   statusIdx: index('schedules_status_idx').on(table.status),
   deletedFlagIdx: index('schedules_deleted_flag_idx').on(table.deletedFlag),
   versionIdx: index('schedules_version_idx').on(table.version),
+}));
+
+// Schedule ratings - per-user, per-schedule ratings (anonymous at product level)
+export const scheduleRatings = pgTable('schedule_ratings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }).notNull(),
+  scheduleId: uuid('schedule_id').references(() => schedules.id, { onDelete: 'cascade' }).notNull(),
+  raterUserId: uuid('rater_user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  role: text('role').notNull(), // Snapshot of user role at rating time (admin, manager, member, ...)
+  rating: integer('rating').notNull(), // 1-5 stars
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
+}, (table) => ({
+  tenantIdx: index('schedule_ratings_tenant_id_idx').on(table.tenantId),
+  scheduleIdx: index('schedule_ratings_schedule_id_idx').on(table.scheduleId),
+  // Ensure one rating per user per schedule within a tenant
+  uniqueUserScheduleIdx: uniqueIndex('schedule_ratings_unique_user_schedule_idx').on(
+    table.tenantId,
+    table.scheduleId,
+    table.raterUserId,
+  ),
 }));
 
 // Relations
@@ -272,6 +313,29 @@ export const notifications = pgTable('notifications', {
   createdAtIdx: index('notifications_created_at_idx').on(table.createdAt),
 }));
 
+// Staff wall posts - simple per-employee wall/blog
+export const staffWallPosts = pgTable('staff_wall_posts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id')
+    .references(() => tenants.id, { onDelete: 'cascade' })
+    .notNull(),
+  targetUserId: uuid('target_user_id')
+    .references(() => users.id, { onDelete: 'cascade' })
+    .notNull(),
+  authorUserId: uuid('author_user_id')
+    .references(() => users.id, { onDelete: 'cascade' })
+    .notNull(),
+  content: text('content').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().$onUpdate(() => new Date()).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+}, (table) => ({
+  tenantIdx: index('staff_wall_posts_tenant_id_idx').on(table.tenantId),
+  targetUserIdx: index('staff_wall_posts_target_user_id_idx').on(table.targetUserId),
+  authorUserIdx: index('staff_wall_posts_author_user_id_idx').on(table.authorUserId),
+  createdAtIdx: index('staff_wall_posts_created_at_idx').on(table.createdAt),
+}));
+
 // Swap requests table
 export const swapRequests = pgTable('swap_requests', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -310,7 +374,11 @@ export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Schedule = typeof schedules.$inferSelect;
 export type NewSchedule = typeof schedules.$inferInsert;
+export type ScheduleRating = typeof scheduleRatings.$inferSelect;
+export type NewScheduleRating = typeof scheduleRatings.$inferInsert;
 export type Notification = typeof notifications.$inferSelect;
 export type NewNotification = typeof notifications.$inferInsert;
 export type SwapRequest = typeof swapRequests.$inferSelect;
 export type NewSwapRequest = typeof swapRequests.$inferInsert;
+export type StaffWallPost = typeof staffWallPosts.$inferSelect;
+export type NewStaffWallPost = typeof staffWallPosts.$inferInsert;
