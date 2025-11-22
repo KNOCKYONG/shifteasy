@@ -5,29 +5,6 @@ import { useTranslation } from 'react-i18next';
 import { useInView } from 'react-intersection-observer';
 import { Users, ShieldCheck, Globe, Clock } from 'lucide-react';
 
-const features = [
-  {
-    icon: Clock,
-    key: 'feature1',
-    gradient: 'from-[#2563EB] to-[#1D4ED8]',
-  },
-  {
-    icon: Users,
-    key: 'feature2',
-    gradient: 'from-[#F97316] to-[#FB923C]',
-  },
-  {
-    icon: ShieldCheck,
-    key: 'feature3',
-    gradient: 'from-[#1D4ED8] to-[#2563EB]',
-  },
-  {
-    icon: Globe,
-    key: 'feature4',
-    gradient: 'from-[#FB923C] to-[#F97316]',
-  },
-];
-
 export default function FeaturesSection() {
   const { t } = useTranslation('landing');
   const [ref, inView] = useInView({
