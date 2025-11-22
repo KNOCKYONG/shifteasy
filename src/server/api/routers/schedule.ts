@@ -321,6 +321,24 @@ const DEFAULT_REMOTE_MILP_BACKEND_URL =
   process.env.MILP_SCHEDULER_DEFAULT_URL ??
   (process.env.NODE_ENV === 'production' ? 'https://shifteasy-milp-worker.fly.dev' : undefined);
 
+const normalizeSchedulerAdvanced = (
+  advanced: z.infer<typeof schedulerAdvancedSchema> | undefined,
+  employees: ScheduleGenerationInput['employees']
+): z.infer<typeof schedulerAdvancedSchema> | undefined => {
+  if (!advanced) return advanced;
+  const cloned: z.infer<typeof schedulerAdvancedSchema> = { ...advanced };
+  const hasWeekdayOnly = employees.some((emp) => (emp.workPatternType ?? 'three-shift') === 'weekday-only');
+  if (hasWeekdayOnly) {
+    const csp = { ...(cloned.cspSettings ?? {}) };
+    const current = typeof csp.maxSameShift === 'number' ? csp.maxSameShift : 0;
+    if (current < 5) {
+      csp.maxSameShift = 5;
+    }
+    cloned.cspSettings = csp;
+  }
+  return cloned;
+};
+
 async function persistSchedulerPayload(tenantId: string, departmentId: string, payload: SchedulerBackendPayload) {
   try {
     await db
@@ -730,7 +748,7 @@ export const scheduleRouter = createTRPCRouter({
         guaranteedOffDays: emp.guaranteedOffDays ?? previousGuaranteedOffDays[emp.id],
       }));
 
-      const schedulerAdvanced = input.schedulerAdvanced;
+      const schedulerAdvanced = normalizeSchedulerAdvanced(input.schedulerAdvanced, employeesWithGuarantees);
       const patternConstraints = schedulerAdvanced?.patternConstraints;
       const maxConsecutiveThreeShift =
         patternConstraints?.maxConsecutiveDaysThreeShift ?? DEFAULT_MAX_CONSECUTIVE_DAYS_THREE_SHIFT;
@@ -2555,7 +2573,7 @@ export const scheduleRouter = createTRPCRouter({
           guaranteedOffDays: emp.guaranteedOffDays ?? previousGuaranteedOffDays[emp.id],
         }));
 
-        const schedulerAdvanced = payload.schedulerAdvanced;
+        const schedulerAdvanced = normalizeSchedulerAdvanced(payload.schedulerAdvanced, employeesWithGuarantees);
         const patternConstraints = schedulerAdvanced?.patternConstraints;
         const maxConsecutiveThreeShift =
           patternConstraints?.maxConsecutiveDaysThreeShift ?? DEFAULT_MAX_CONSECUTIVE_DAYS_THREE_SHIFT;

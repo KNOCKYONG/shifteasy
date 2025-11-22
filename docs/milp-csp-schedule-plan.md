@@ -187,6 +187,15 @@ MILP 해가 존재하더라도 아래 조정이 필요할 수 있다:
 
 샘플 입력/검증 규칙은 `tests/milp-csp/*.json`, 자동 하네스는 `tests/milp-csp/evaluate.ts`에서 확인할 수 있다.
 
+### 저장된 scheduler payload 재현/테스트
+- 부서별 마지막 스케줄 생성 요청은 `configs` 테이블의 `config_key='scheduler_payload'`에 저장된다(tenant+department 단위).
+- 로컬에서 부서 ID로 직접 돌려보려면:
+  ```
+  npx tsx tests/milp-csp/run-config-payload.ts <departmentId> [pythonBin]
+  ```
+  - `DATABASE_URL`(.env.local) 필요.
+  - 저장된 payload에 `milpInput`가 포함되어 있어야 하며, solver 출력은 임시 디렉터리에 assignments.json으로 남는다.
+
 ## 8. 구현 단계 로드맵
 1. **데이터 계층**  
  - Career group/연차 로딩 로직 모듈화 (`src/server/api/utils/milp-data-loader.ts`).
