@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { Check, Shield, CreditCard, Loader2 } from 'lucide-react';
+import { AppSurface } from '@/components/layout/AppSurface';
 import ContactModal from '@/components/landing/ContactModal';
 // Migration feature temporarily disabled (Clerk removed)
 // import MigrationProposalModal from '@/components/migration/MigrationProposalModal';
@@ -326,12 +327,16 @@ function BillingPageContent() {
 
 export default function BillingPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-      </div>
-    }>
-      <BillingPageContent />
-    </Suspense>
+    <AppSurface>
+      <Suspense fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        </div>
+      }>
+        <div className="relative z-10">
+          <BillingPageContent />
+        </div>
+      </Suspense>
+    </AppSurface>
   );
 }
