@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight, Sparkles, LogIn, Zap, Clock, Users } from 'lucide-react';
 import Link from 'next/link';
@@ -10,9 +10,6 @@ import ConsultingRequestModal from './ConsultingRequestModal';
 export default function HeroSection() {
   const { t } = useTranslation('landing');
   const [isConsultingModalOpen, setIsConsultingModalOpen] = useState(false);
-  const { scrollY } = useScroll();
-  const y1 = useTransform(scrollY, [0, 500], [0, 150]);
-  const opacity = useTransform(scrollY, [0, 300], [1, 0]);
 
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-white">
@@ -119,7 +116,10 @@ export default function HeroSection() {
 
         {/* Stats Preview Card */}
         <motion.div
-          style={{ y: y1, opacity }}
+          initial={{ opacity: 0, y: 60 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           className="mt-12 w-full max-w-6xl mx-auto"
         >
           <div className="relative rounded-2xl border border-gray-200 bg-white/80 backdrop-blur-sm p-2 sm:p-4 shadow-2xl shadow-gray-200/50">
