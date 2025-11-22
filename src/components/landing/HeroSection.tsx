@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight, Sparkles, LogIn, Zap, Clock, Users } from 'lucide-react';
@@ -10,6 +10,28 @@ import ConsultingRequestModal from './ConsultingRequestModal';
 export default function HeroSection() {
   const { t } = useTranslation('landing');
   const [isConsultingModalOpen, setIsConsultingModalOpen] = useState(false);
+
+  // Countdown timer for urgency
+  const [timeLeft, setTimeLeft] = useState(15 * 60); // 15 minutes in seconds
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 0) {
+          return 15 * 60; // Reset to 15 minutes
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-white">
@@ -103,10 +125,17 @@ export default function HeroSection() {
 
           <button
             onClick={() => setIsConsultingModalOpen(true)}
-            className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-gray-700 bg-white border border-gray-300 rounded-full transition-all duration-300 hover:bg-gray-50 hover:border-gray-400 hover:shadow-lg"
+            className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-full transition-all duration-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-lg overflow-hidden"
           >
-            <span className="absolute -top-2 -right-2 px-2.5 py-0.5 text-xs font-bold text-white bg-gradient-to-r from-green-500 to-emerald-500 rounded-full shadow-lg animate-pulse">무료</span>
-            <Sparkles className="w-5 h-5 mr-2 text-blue-600 group-hover:text-blue-700 transition-colors" />
+            <div className="absolute -top-3 -right-3 flex flex-col items-center">
+              <span className="px-3 py-1 text-xs font-bold text-white bg-gradient-to-r from-green-500 to-emerald-500 rounded-full shadow-lg animate-pulse">
+                무료
+              </span>
+              <span className="mt-1 px-2 py-0.5 text-[10px] font-semibold text-white bg-red-500 rounded-full shadow-md animate-pulse">
+                마감 {formatTime(timeLeft)}
+              </span>
+            </div>
+            <Sparkles className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400 group-hover:text-blue-700 dark:group-hover:text-blue-300 transition-colors" />
             {t('hero.ctaSecondary')}
           </button>
         </motion.div>
